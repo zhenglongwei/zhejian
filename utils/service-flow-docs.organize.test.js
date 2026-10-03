@@ -49,6 +49,32 @@ test('organize does not overwrite filled inspection fields', () => {
   assert.equal(findings[0].advice, '店员已写')
 })
 
+test('groups without matching keys still get leftover photos', () => {
+  const { findings, pendingImages } = applyOrganizeGroups({
+    pendingImages: [a, b],
+    findings: [],
+    groups: [
+      { partName: '侧裙', result: '需关注', advice: '擦伤', imageKeys: ['wrong-key'] },
+      { partName: '滤芯', result: '状态良好', advice: '干净', imageKeys: [] },
+    ],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 2)
+  assert.equal(findings[0].images.length, 1)
+  assert.equal(findings[1].images.length, 1)
+  assert.equal(pendingImages.length, 0)
+})
+
+test('does not create photo-less findings', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [],
+    findings: [],
+    groups: [{ partName: '侧裙', result: '需关注', imageKeys: [] }],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 0)
+})
+
 test('unmatched photos stay pending', () => {
   const { findings, pendingImages } = applyOrganizeGroups({
     pendingImages: [a, c],

@@ -351,6 +351,7 @@ Page({
     libraryBusy: false,
     libraryItems: [],
     canUseLibrary: false,
+    organizedOnce: false,
     walkaround: [],
     walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
     isInspectionPhotoStep: false,
@@ -378,6 +379,7 @@ Page({
     proxyProofImages: [],
     captionHint: '',
     autoSaveLabel: '',
+    showAutoSave: false,
     findings: [],
     chiefComplaint: '',
     mileageKm: '',
@@ -434,6 +436,41 @@ Page({
 
   onUnload() {
     this.stopAiReviewPoll()
+    this.clearFlowTimers()
+  },
+
+  clearFlowTimers() {
+    if (this._autoSaveHideTimer) {
+      clearTimeout(this._autoSaveHideTimer)
+      this._autoSaveHideTimer = null
+    }
+    if (this._photoSaveTimer) {
+      clearTimeout(this._photoSaveTimer)
+      this._photoSaveTimer = null
+    }
+    if (this._draftSaveTimer) {
+      clearTimeout(this._draftSaveTimer)
+      this._draftSaveTimer = null
+    }
+  },
+
+  setAutoSaveLabel(label) {
+    const text = String(label || '')
+    if (this._autoSaveHideTimer) {
+      clearTimeout(this._autoSaveHideTimer)
+      this._autoSaveHideTimer = null
+    }
+    this.setData({
+      autoSaveLabel: text,
+      showAutoSave: Boolean(text) && text !== '保存中…',
+    })
+    if (text !== '已自动保存') return
+    this._autoSaveHideTimer = setTimeout(() => {
+      if (this.data.autoSaveLabel === '已自动保存') {
+        this.setData({ autoSaveLabel: '', showAutoSave: false })
+      }
+      this._autoSaveHideTimer = null
+    }, 2200)
   },
 
   async bootstrap() {
@@ -1369,6 +1406,10 @@ Page({
         intakeImagePool: [],
         isAppearanceService: ['body_paint', 'accident'].indexOf(placeholders.category) >= 0,
         canUseLibrary: Boolean(isInspectionPhotoStep || isWorkPhotoStep),
+        organizedOnce: Boolean(
+          (isInspectionPhotoStep || isWorkPhotoStep) &&
+            sections.some((row) => row && row.findingMode && (row.findings || []).length),
+        ),
         showLibrary: false,
         libraryBusy: false,
         libraryItems: [],
@@ -1415,6 +1456,7 @@ Page({
         lockedHint: progress.lockedHint || '完成当前步骤后，将自动出现下一步',
         captionHint: '',
         autoSaveLabel: '',
+        showAutoSave: false,
         allDone: Boolean(progress.allDone),
         needManualComplete: Boolean(
           progress.allDone &&
@@ -2056,7 +2098,7 @@ Page({
     const pending = normalizePendingImages(this.data.pendingImages)
     const remain = Math.max(0, 12 - pending.length)
     if (remain < 1) {
-      wx.showToast({ title: '待整理最多 12 张', icon: 'none' })
+      wx.showToast({ title: '一次最多 12 张', icon: 'none' })
       return
     }
     pickLocalImages({
@@ -2200,7 +2242,7 @@ Page({
       const leftover = applied.pendingImages
       this.setSectionsWithFindings(
         sections,
-        { pendingImages: leftover, autoSaveLabel: '保存中…' },
+        { pendingImages: leftover, autoSaveLabel: '保存中…', organizedOnce: true },
         this.findFirstIncompleteFindingKey(sections) || '',
       )
       this.scheduleAutoSavePhotos()
@@ -2230,11 +2272,9 @@ Page({
       if (this.data.readOnly) return
       try {
         await this.persistPhotoDraft()
-        this.setData({ autoSaveLabel: '已自动保存' })
+        this.setAutoSaveLabel('已自动保存')
       } catch (e) {
-        this.setData({
-          autoSaveLabel: (e && e.message) || '自动保存失败，请检查网络',
-        })
+        this.setAutoSaveLabel((e && e.message) || '自动保存失败，请检查网络')
       }
     }, 700)
   },
@@ -2251,11 +2291,9 @@ Page({
       await this.persistPhotos()
       this.resyncSectionsAfterPersist(keepExpandKey)
       await this.persistPhotoDraft()
-      this.setData({ autoSaveLabel: '已自动保存' })
+      this.setAutoSaveLabel('已自动保存')
     } catch (e) {
-      this.setData({
-        autoSaveLabel: (e && e.message) || '自动保存失败，请检查网络',
-      })
+      this.setAutoSaveLabel((e && e.message) || '自动保存失败，请检查网络')
     } finally {
       this._photoSaving = false
       if (this._photoSaveAgain) {
@@ -2415,7 +2453,7 @@ Page({
     const extra = picked.slice(0, room).filter((item) => !pendingKeys.has(mediaKey(item.url)))
     if (!extra.length) {
       this.setData({ showLibrary: false })
-      if (picked.length && room === 0) wx.showToast({ title: '待整理已满', icon: 'none' })
+      if (picked.length && room === 0) wx.showToast({ title: '一次最多 12 张', icon: 'none' })
       return
     }
     this.setData({
@@ -2468,7 +2506,8 @@ Page({
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
-          this.setData({ odometerOcrBusy: false, autoSaveLabel: '已自动保存' })
+          this.setData({ odometerOcrBusy: false })
+          this.setAutoSaveLabel('已自动保存')
           wx.hideLoading()
         }
       },
@@ -3485,7 +3524,7 @@ Page({
       (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
-      wx.showToast({ title: '还有未整理的照片，先点整理或删掉', icon: 'none' })
+      wx.showToast({ title: '先点整理', icon: 'none' })
       return
     }
 

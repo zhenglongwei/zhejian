@@ -93,7 +93,7 @@ async function collectMaskedPending(albumId, pending = []) {
     if (masked) {
       urls.push({
         url: masked,
-        label: `待整理${index} ${mediaKey(raw)}`,
+        label: mediaKey(raw) || `图${index + 1}`,
         imageKey: mediaKey(raw),
         rawUrl: raw,
       })
@@ -106,7 +106,7 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
   const categories = INTAKE_RECORD_CATEGORIES.map((row) => ({ id: row.id, label: row.label }))
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
-    'imageKeys 必须用每张图说明里的文件名（uploads 之后那一段）。同一类目的多张图放进同一组。',
+    'imageKeys 必须填每张图说明里的那个文件名，不要写待整理、序号或部位名。同一部位的多张图放进同一组。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
   ].filter(Boolean)
@@ -328,20 +328,21 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     cached = []
     uncachedMasked = masked.urls
   }
-  const cachedGroups = groupsFromCache(cached, pending)
+  const cachedGroups = mode === 'intake' ? groupsFromCache(cached, pending) : []
   const cachedNotes = cached
     .map((row) => {
       const json = row.resultJson || {}
-      return `${row.imageKey}:${json.category || ''} ${json.reading || ''} ${json.observation || ''}`
+      return `${row.imageKey}:${json.category || json.partName || ''} ${json.reading || ''} ${json.observation || ''}`
     })
     .join('；')
     .slice(0, 2000)
 
+  const visionUrls = mode === 'intake' ? uncachedMasked : masked.urls
   let parsed = { groups: cachedGroups }
-  if (uncachedMasked.length) {
+  if (visionUrls.length) {
     const instruction = buildInstruction({ mode, existingParts, cachedNotes })
     try {
-      const fresh = (await runOrganizeVision({ instruction, maskedUrls: uncachedMasked })) || {}
+      const fresh = (await runOrganizeVision({ instruction, maskedUrls: visionUrls })) || {}
       parsed = {
         groups: cachedGroups.concat(normalizeGroups(fresh.groups, pending)),
       }

@@ -458,10 +458,17 @@ function normalizePendingImages(list = []) {
 }
 
 function matchPendingImage(pending, byKey, rawKey) {
+  const raw = String(rawKey || '').trim()
+  if (!raw) return null
+  const indexHit = raw.match(/待整理\s*(\d+)/i) || raw.match(/^图\s*(\d+)$/i) || raw.match(/^(\d+)$/)
+  if (indexHit) {
+    const at = Number(indexHit[1])
+    if (Number.isFinite(at) && pending[at]) return pending[at]
+  }
   const candidates = []
-  const key = mediaKey(rawKey)
+  const key = mediaKey(raw)
   if (key) candidates.push(key)
-  const tail = String(rawKey || '').split(/[\\/]/).filter(Boolean).pop()
+  const tail = raw.split(/[\\/]/).filter(Boolean).pop()
   if (tail) {
     candidates.push(tail)
     const tailKey = mediaKey(tail)
@@ -473,7 +480,7 @@ function matchPendingImage(pending, byKey, rawKey) {
   return (
     pending.find((row) => {
       const m = mediaKey(row.url)
-      return Boolean(m && candidates.some((c) => c === m || String(rawKey || '').endsWith(m)))
+      return Boolean(m && candidates.some((c) => c === m || raw.endsWith(m) || m.endsWith(c)))
     }) || null
   )
 }
@@ -494,7 +501,7 @@ function applyOrganizeGroups({
   const nextFindings = (findings || []).map((row) =>
     mode === 'work' ? normalizeWorkFinding(row) : normalizeItemFinding(row),
   )
-  ;(groups || []).forEach((group) => {
+  const prepared = (groups || []).map((group) => {
     const partName = String((group && group.partName) || '').trim()
     const keys = Array.isArray(group && group.imageKeys) ? group.imageKeys : []
     const shots = []
@@ -506,7 +513,18 @@ function applyOrganizeGroups({
       used.add(imgKey)
       shots.push(img)
     })
-    if (!shots.length && !partName) return
+    return { group, partName, shots }
+  })
+  const unused = pending.filter((img) => !used.has(mediaKey(img.url)))
+  prepared.forEach((row) => {
+    if (row.shots.length || !row.partName) return
+    const take = unused.shift()
+    if (!take) return
+    used.add(mediaKey(take.url))
+    row.shots.push(take)
+  })
+  prepared.forEach(({ group, partName, shots }) => {
+    if (!shots.length) return
     const hostIdx = partName
       ? nextFindings.findIndex((row) => String(row.partName || '').trim() === partName)
       : -1

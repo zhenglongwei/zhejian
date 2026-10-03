@@ -469,8 +469,26 @@
 
 .merchant-flow-page__auto-save {
   display: block;
-  margin-bottom: var(--space-sm);
   text-align: center;
+}
+
+.merchant-flow-page__step-foot {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__step-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__step-action {
+  flex: 1;
+  min-width: 0;
 }
 
 .merchant-flow-page__hint {
@@ -720,8 +738,9 @@
 
 .merchant-flow-page__finding-summary-title {
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .merchant-flow-page__finding-hints {
