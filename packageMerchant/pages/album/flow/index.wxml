@@ -243,21 +243,6 @@
                 <block wx:if="{{section.findingMode}}">
                   <text class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
-                  <view wx:if="{{isInspectionPhotoStep && intakeImagePool.length}}" class="merchant-flow-page__intake-pool">
-                    <text class="text-caption {{isAppearanceService ? 'text-danger' : 'text-secondary'}}">{{isAppearanceService ? '进场外观已拍，点选进检测' : '接车已拍，可点选进检测'}}</text>
-                    <view class="merchant-flow-page__work-thumbs">
-                      <view
-                        wx:for="{{intakeImagePool}}"
-                        wx:for-item="shot"
-                        wx:key="url"
-                        class="merchant-flow-page__work-thumb"
-                        data-url="{{shot.url}}"
-                        bindtap="onPickIntakePhoto"
-                      >
-                        <image class="merchant-flow-page__work-thumb-img image-placeholder" src="{{shot.url}}" mode="aspectFill" />
-                      </view>
-                    </view>
-                  </view>
                   <view wx:if="{{!readOnly || pendingImages.length}}" class="merchant-flow-page__pending">
                     <text class="text-caption text-secondary merchant-flow-page__pending-label">待整理</text>
                     <view class="merchant-flow-page__work-thumbs">
@@ -290,6 +275,15 @@
                         <text class="text-caption text-secondary">+</text>
                       </view>
                     </view>
+                    <text
+                      wx:if="{{!readOnly && canUseLibrary}}"
+                      class="text-caption merchant-flow-page__library-entry"
+                      bindtap="onOpenLibrary"
+                    >从图库选择</text>
+                    <text
+                      wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
+                      class="text-caption text-secondary"
+                    >进场外观在图库</text>
                     <ui-button
                       wx:if="{{!readOnly && pendingImages.length}}"
                       type="ghost"
@@ -1181,6 +1175,35 @@
         </view>
       </view>
   </block>
+
+  <view wx:if="{{showLibrary}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseLibrary">
+    <view class="merchant-flow-page__library" catchtap="onLibraryPanelTap">
+      <view class="merchant-flow-page__library-head">
+        <text class="text-h3">本单图库</text>
+        <text class="text-caption text-secondary" catchtap="onCloseLibrary">关闭</text>
+      </view>
+      <scroll-view scroll-y class="merchant-flow-page__library-list">
+        <view wx:if="{{libraryBusy}}" class="text-caption text-secondary merchant-flow-page__library-empty">加载中</view>
+        <view wx:elif="{{!libraryItems.length}}" class="text-caption text-secondary merchant-flow-page__library-empty">这本相册还没有图</view>
+        <view
+          wx:for="{{libraryItems}}"
+          wx:for-item="shot"
+          wx:key="url"
+          class="merchant-flow-page__library-row {{shot.picked ? 'is-picked' : ''}} {{shot.inPending ? 'is-used' : ''}}"
+          data-url="{{shot.url}}"
+          bindtap="onToggleLibraryItem"
+        >
+          <image class="merchant-flow-page__library-thumb image-placeholder" src="{{shot.url}}" mode="aspectFill" />
+          <view class="merchant-flow-page__library-meta">
+            <text class="text-caption">{{shot.metaLine}}</text>
+            <text wx:if="{{shot.note}}" class="text-caption text-secondary merchant-flow-page__library-note">{{shot.note}}</text>
+            <text wx:if="{{shot.inPending}}" class="text-caption text-secondary">已在待整理</text>
+          </view>
+        </view>
+      </scroll-view>
+      <ui-button type="primary" block="{{true}}" bind:btntap="onConfirmLibrary">加入待整理</ui-button>
+    </view>
+  </view>
 
   <view wx:if="{{showCancelAddonModal}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
     <view class="merchant-flow-page__modal">

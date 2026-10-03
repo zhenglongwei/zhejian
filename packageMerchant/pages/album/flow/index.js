@@ -6,6 +6,7 @@ const {
   completeMerchantFlowNode,
   fetchMerchantFlowNodeAiReview,
   organizeMerchantFlowNodePhotos,
+  fetchMerchantAlbumMediaLibrary,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   deliverMerchantFlowNode,
@@ -289,7 +290,7 @@ const STAGE_LABELS = {
   },
   stage_2: {
     title: '检测照片',
-    tips: '连拍后点整理，按部位归组；漏的再补进该项',
+    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点整理',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
@@ -346,6 +347,10 @@ Page({
     fuelReading: '',
     intakeImagePool: [],
     isAppearanceService: false,
+    showLibrary: false,
+    libraryBusy: false,
+    libraryItems: [],
+    canUseLibrary: false,
     walkaround: [],
     walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
     isInspectionPhotoStep: false,
@@ -680,7 +685,7 @@ Page({
         {
           stageId: 'stage_2',
           title: meta.title,
-          tips: meta.tips,
+          tips: '',
           captionPlaceholder: meta.captionPlaceholder,
           findingMode: true,
           findingKind: 'inspection',
@@ -713,7 +718,7 @@ Page({
         {
           stageId: 'stage_2',
           title: meta.title,
-          tips: meta.tips,
+          tips: '',
           captionPlaceholder: meta.captionPlaceholder,
           findingMode: true,
           findingKind: 'inspection',
@@ -1289,7 +1294,10 @@ Page({
       const rawSummary = showCombinedPlan
         ? ''
         : (active && (active.photoTips || active.summary)) || ''
-      const activeSummary = rawSummary === '草稿' ? '' : rawSummary
+      let activeSummary = rawSummary === '草稿' ? '' : rawSummary
+      if (isInspectionPhotoStep && placeholders.inspectionTips) {
+        activeSummary = placeholders.inspectionTips
+      }
       const activeTitleRaw = showCombinedPlan
         ? '核对报告与方案'
         : isAddonQuote
@@ -1358,10 +1366,12 @@ Page({
           ? photoDraft.intakeResults.map((row) => normalizeIntakeResult(row))
           : [],
         fuelReading: String(photoDraft.fuelReading || '').trim(),
-        intakeImagePool: isInspectionPhotoStep
-          ? this.collectIntakeImagePool(album, flowNodes)
-          : [],
+        intakeImagePool: [],
         isAppearanceService: ['body_paint', 'accident'].indexOf(placeholders.category) >= 0,
+        canUseLibrary: Boolean(isInspectionPhotoStep || isWorkPhotoStep),
+        showLibrary: false,
+        libraryBusy: false,
+        libraryItems: [],
         walkaround,
         walkaroundParts: WALKAROUND_PARTS.map((row) => ({
           ...row,
@@ -2101,30 +2111,6 @@ Page({
     wx.previewImage({ current: url || urls[0], urls })
   },
 
-  collectIntakeImagePool(album = {}, flowNodes = []) {
-    const used = new Set()
-    const out = []
-    const push = (img) => {
-      const url = typeof img === 'string' ? img : (img && img.url) || ''
-      const key = mediaKey(url)
-      if (!url || !key || used.has(key)) return
-      used.add(key)
-      out.push({
-        url,
-        imageId: (img && (img.imageId || img.id)) || '',
-      })
-    }
-    const intake = (flowNodes || []).find((node) => node && node.kind === 'intake')
-    const draft = (intake && intake.photoDraft) || {}
-    ;(draft.intakeResults || []).forEach((row) => {
-      if (!row || row.category === 'odometer' || row.category === 'fuel') return
-      ;(row.images || []).forEach(push)
-    })
-    const stage = ((album && album.nodes) || []).find((node) => node && node.id === 'stage_1')
-    ;((stage && stage.images) || []).forEach(push)
-    return out
-  },
-
   collectPendingForOrganize(kind) {
     if (kind === 'intake') {
       const section = (this.data.sections || []).find((row) => row && !row.findingMode) || this.data.sections[0]
@@ -2380,18 +2366,63 @@ Page({
     this.setData(patch, () => this.scheduleAutoSaveDraftOnly())
   },
 
-  onPickIntakePhoto(e) {
+  onOpenLibrary() {
     if (this.data.readOnly) return
+    this.setData({ showLibrary: true, libraryBusy: true, libraryItems: [] })
+    fetchMerchantAlbumMediaLibrary(this.data.albumId)
+      .then((res) => {
+        const pendingKeys = new Set(
+          normalizePendingImages(this.data.pendingImages).map((img) => mediaKey(img.url)),
+        )
+        const items = ((res && res.items) || []).map((item) => {
+          const inPending = pendingKeys.has(mediaKey(item.url))
+          return {
+            ...item,
+            metaLine: [item.timeLabel, item.stageTitle].filter(Boolean).join(' · '),
+            inPending,
+            picked: inPending,
+          }
+        })
+        this.setData({ libraryBusy: false, libraryItems: items })
+      })
+      .catch(() => {
+        this.setData({ libraryBusy: false, libraryItems: [] })
+        wx.showToast({ title: '图库加载失败', icon: 'none' })
+      })
+  },
+
+  onLibraryPanelTap() {},
+
+  onCloseLibrary() {
+    this.setData({ showLibrary: false, libraryBusy: false })
+  },
+
+  onToggleLibraryItem(e) {
     const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
     if (!url) return
+    const items = (this.data.libraryItems || []).map((item) => {
+      if (mediaKey(item.url) !== mediaKey(url) || item.inPending) return item
+      return { ...item, picked: !item.picked }
+    })
+    this.setData({ libraryItems: items })
+  },
+
+  onConfirmLibrary() {
     const pending = normalizePendingImages(this.data.pendingImages)
-    if (pending.some((img) => mediaKey(img.url) === mediaKey(url))) {
-      wx.showToast({ title: '已在待整理', icon: 'none' })
+    const pendingKeys = new Set(pending.map((img) => mediaKey(img.url)))
+    const picked = (this.data.libraryItems || []).filter((item) => item.picked && !item.inPending)
+    const room = Math.max(0, 12 - pending.length)
+    const extra = picked.slice(0, room).filter((item) => !pendingKeys.has(mediaKey(item.url)))
+    if (!extra.length) {
+      this.setData({ showLibrary: false })
+      if (picked.length && room === 0) wx.showToast({ title: '待整理已满', icon: 'none' })
       return
     }
-    const shot = (this.data.intakeImagePool || []).find((img) => mediaKey(img.url) === mediaKey(url))
     this.setData({
-      pendingImages: pending.concat([{ url, imageId: (shot && shot.imageId) || '' }]),
+      showLibrary: false,
+      pendingImages: pending.concat(
+        extra.map((item) => ({ url: item.url, imageId: item.imageId || '' })),
+      ),
       autoSaveLabel: '保存中…',
     })
     this.scheduleAutoSavePhotos()

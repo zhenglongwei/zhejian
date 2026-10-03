@@ -18,6 +18,11 @@ test('battery template keeps battery complaint example', () => {
   assert.match(row.chiefComplaint, /亏电|打不着/)
 })
 
+test('inspection tips follow category basics', () => {
+  assert.match(getFlowPlaceholders('maintenance', '小保养').inspectionTips, /油液/)
+  assert.match(getFlowPlaceholders('paint', '钣喷修复').inspectionTips, /进场外观/)
+})
+
 test('quote lines are not prefills from findings', () => {
   const lines = buildQuoteLinesFromFindings([
     { partName: '右前门', result: '需处理', advice: '中度划痕，漆膜已破', url: 'https://example.com/a.jpg' },

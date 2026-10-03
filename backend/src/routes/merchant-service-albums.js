@@ -1015,6 +1015,25 @@ router.get(
   },
 )
 
+router.get(
+  '/service-albums/:albumId/media-library',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { listAlbumMediaLibrary } = require('../services/album-media-library.service')
+      const data = await listAlbumMediaLibrary(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post(
   '/service-albums/:albumId/flow/nodes/:nodeId/organize-photos',
   requireAuth(['merchant']),

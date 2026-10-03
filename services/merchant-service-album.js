@@ -389,6 +389,13 @@ async function fetchMerchantFlowNodeAiReview(albumId, nodeId) {
   )
 }
 
+async function fetchMerchantAlbumMediaLibrary(albumId) {
+  if (ENV.mode === 'mock') {
+    return { items: [] }
+  }
+  return get(`/merchant/service-albums/${albumId}/media-library`, withStore())
+}
+
 async function organizeMerchantFlowNodePhotos(albumId, nodeId, payload = {}) {
   if (ENV.mode === 'mock') {
     return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true }
@@ -473,6 +480,7 @@ module.exports = {
   completeMerchantFlowNode,
   fetchMerchantFlowNodeAiReview,
   organizeMerchantFlowNodePhotos,
+  fetchMerchantAlbumMediaLibrary,
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,
