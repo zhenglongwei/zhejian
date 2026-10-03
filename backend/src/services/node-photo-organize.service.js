@@ -1,12 +1,18 @@
 /**
  * 接车 / 检测 / 工单：待整理照片归组填草稿
- * 真源：docs/04_维修过程相册/26_ 上传后整理
+ * 真源：docs/04_维修过程相册/26_ 上传后整理 · 按图只识一次
  */
+const { randomUUID, createHash } = require('crypto')
 const { config } = require('../config')
+const { prisma } = require('../lib/prisma')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { resolveShared } = require('../utils/resolve-shared')
 const { mediaKey } = resolveShared('utils/service-flow-docs.js')
-const { WALKAROUND_PARTS } = require('../../vendor/shared/constants/service-flow-nodes')
+const {
+  INTAKE_RECORD_CATEGORIES,
+} = require('../../vendor/shared/constants/service-flow-nodes')
+
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v1'
 
 function text(value) {
   return String(value || '').trim()
@@ -25,28 +31,40 @@ function parseJsonObject(raw) {
   }
 }
 
+function fingerprintMasked(maskedUrl = '') {
+  return createHash('sha256').update(stripUrlQuery(String(maskedUrl || '').trim())).digest('hex').slice(0, 40)
+}
+
+function resolveImageKeys(rawKeys, allowed) {
+  return (Array.isArray(rawKeys) ? rawKeys : [])
+    .map((value) => {
+      const key = mediaKey(value)
+      if (key && allowed.has(key)) return key
+      const tail = String(value || '').split(/[\\/]/).filter(Boolean).pop()
+      if (tail && allowed.has(tail)) return tail
+      const found = [...allowed].find((id) => id && String(value || '').endsWith(id))
+      return found || ''
+    })
+    .filter((key) => key && allowed.has(key))
+}
+
 function normalizeGroups(rawGroups, pending) {
   const allowed = new Set((pending || []).map((img) => mediaKey(img && img.url)).filter(Boolean))
   const list = Array.isArray(rawGroups) ? rawGroups : []
   return list
     .map((row) => {
-      const partName = text(row && (row.partName || row.part))
-      const imageKeys = (Array.isArray(row && row.imageKeys) ? row.imageKeys : [])
-        .map((value) => {
-          const key = mediaKey(value)
-          if (key && allowed.has(key)) return key
-          const tail = String(value || '').split(/[\\/]/).filter(Boolean).pop()
-          if (tail && allowed.has(tail)) return tail
-          const found = [...allowed].find((id) => id && String(value || '').endsWith(id))
-          return found || ''
-        })
-        .filter((key) => key && allowed.has(key))
-      if (!partName && !imageKeys.length) return null
+      const partName = text(row && (row.partName || row.part || row.label))
+      const imageKeys = resolveImageKeys(row && row.imageKeys, allowed)
+      const category = text(row && row.category)
+      if (!partName && !category && !imageKeys.length) return null
       return {
-        partName,
+        partName: partName || category,
+        category,
+        reading: text(row && row.reading),
         result: text(row && row.result),
         advice: text(row && row.advice),
         caption: text(row && row.caption),
+        observation: text(row && row.observation),
         imageKeys,
       }
     })
@@ -77,34 +95,40 @@ async function collectMaskedPending(albumId, pending = []) {
         url: masked,
         label: `待整理${index} ${mediaKey(raw)}`,
         imageKey: mediaKey(raw),
+        rawUrl: raw,
       })
     }
   })
   return { ready: true, urls }
 }
 
-function buildInstruction({ mode, existingParts, walkaroundLabels }) {
+function buildInstruction({ mode, existingParts, cachedNotes }) {
+  const categories = INTAKE_RECORD_CATEGORIES.map((row) => ({ id: row.id, label: row.label }))
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
-    '输出 JSON：{"groups":[{"partName","imageKeys","result","advice","caption"}],"walkaroundIds":[],"odometerImageKey":""}',
-    'imageKeys 必须用每张图说明里的文件名（uploads 之后那一段）。同一部位的多张图放进同一组。',
-    '对得上已有名称的，partName 必须与已有名称完全一致。',
+    'imageKeys 必须用每张图说明里的文件名（uploads 之后那一段）。同一类目的多张图放进同一组。',
     `已有项：${JSON.stringify(existingParts)}`,
-  ]
+    cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
+  ].filter(Boolean)
   if (mode === 'intake') {
     return common.concat([
-      '这是接车留证，只认环车部位、仪表、油液。不要写检查结果，不要写需处理。',
-      `环车清单 id：${JSON.stringify(walkaroundLabels)}`,
-      'walkaroundIds 填认得出的清单 id。仪表图的 imageKey 填到 odometerImageKey。',
+      '这是接车留证。按类目归组，抽出读数。不要写需处理，不要给每块板贴正常或有破损。',
+      `类目 id：${JSON.stringify(categories)}`,
+      '输出 JSON：{"groups":[{"category","imageKeys","reading","observation"}]}',
+      'category 必须是类目 id。里程读数填纯数字到 reading；油量把表上能读到的写进 reading。observation 写你看见什么，给后台缓存，不要当检查结果。',
+      '仪表和油量可以在同一张图：这张图同时进 odometer 和 fuel 两组。',
     ]).join('\n')
   }
   if (mode === 'work') {
     return common.concat([
       '这是施工过程。按「做了哪一项」归组。partName 写项目名，caption 写做了什么、用了什么件。不要写检查结果。',
+      '输出 JSON：{"groups":[{"partName","imageKeys","caption","observation"}]}',
     ]).join('\n')
   }
   return common.concat([
     '这是检测。按检查点/部位归组。result 只能是：状态良好、需关注、需处理、仅记录。advice 写看见什么，不要写成更换方案。',
+    '输出 JSON：{"groups":[{"partName","imageKeys","result","advice","observation"}]}',
+    '已识过的图若有观察记录，优先用来填 advice，不要再编。',
   ]).join('\n')
 }
 
@@ -112,6 +136,7 @@ async function runOrganizeVision({ instruction, maskedUrls }) {
   const vision = config.geoVision || {}
   const llm = config.geoLlm || {}
   if (!vision.apiKey && !llm.apiKey) return null
+  if (!maskedUrls || !maskedUrls.length) return {}
   const { chatCompletion } = require('../lib/dashscope-chat')
   const labeled = (maskedUrls || []).slice(0, 9)
   const userContent = [{ type: 'text', text: instruction }].concat(
@@ -138,6 +163,132 @@ async function runOrganizeVision({ instruction, maskedUrls }) {
   return parseJsonObject(result && result.text)
 }
 
+function groupsFromCache(cachedRows, pending) {
+  const byCat = {}
+  cachedRows.forEach((row) => {
+    const json = (row && row.resultJson) || {}
+    const category = text(json.category)
+    const imageKey = text(json.imageKey || row.imageKey)
+    if (!category && !imageKey) return
+    const key = category || 'paint'
+    const meta = INTAKE_RECORD_CATEGORIES.find((row) => row.id === key)
+    if (!byCat[key]) {
+      byCat[key] = {
+        category: key,
+        partName: (meta && meta.label) || key,
+        reading: text(json.reading),
+        observation: text(json.observation),
+        imageKeys: [],
+      }
+    }
+    if (imageKey) byCat[key].imageKeys.push(imageKey)
+    if (!byCat[key].reading && json.reading) byCat[key].reading = text(json.reading)
+  })
+  return normalizeGroups(Object.values(byCat), pending)
+}
+
+async function loadFlowVisionCaches(album, pending, maskedUrls) {
+  const images = Array.isArray(album.images) ? album.images : []
+  const byMedia = {}
+  images.forEach((img) => {
+    const key = mediaKey(img && img.rawUrl)
+    if (key) byMedia[key] = img
+  })
+  const maskedByKey = {}
+  ;(maskedUrls || []).forEach((row) => {
+    if (row && row.imageKey) maskedByKey[row.imageKey] = row
+  })
+  const cached = []
+  const uncachedMasked = []
+  for (let i = 0; i < (pending || []).length; i += 1) {
+    const key = mediaKey(pending[i] && pending[i].url)
+    const imageRow = byMedia[key]
+    const masked = maskedByKey[key]
+    if (!imageRow || !masked) {
+      if (masked) uncachedMasked.push(masked)
+      continue
+    }
+    const fp = fingerprintMasked(masked.url)
+    const hit = await prisma.albumImageVisionCache.findUnique({
+      where: {
+        albumImageId_promptVersion: {
+          albumImageId: imageRow.id,
+          promptVersion: FLOW_ORGANIZE_PROMPT_VERSION,
+        },
+      },
+    })
+    if (hit && hit.contentFingerprint === fp) {
+      await prisma.albumImageVisionCache.update({
+        where: { id: hit.id },
+        data: { hitCount: { increment: 1 }, lastHitAt: new Date() },
+      })
+      cached.push({ ...hit, imageKey: key, resultJson: hit.resultJson || {} })
+    } else {
+      uncachedMasked.push({ ...masked, albumImageId: imageRow.id, albumId: imageRow.albumId })
+    }
+  }
+  return { cached, uncachedMasked }
+}
+
+async function saveFlowVisionCaches(parsedGroups, uncachedMasked, album) {
+  const vision = config.geoVision || {}
+  const llm = config.geoLlm || {}
+  const model = text(vision.model || llm.model)
+  const images = Array.isArray(album.images) ? album.images : []
+  const byMedia = {}
+  images.forEach((img) => {
+    const key = mediaKey(img && img.rawUrl)
+    if (key) byMedia[key] = img
+  })
+  const byKey = {}
+  ;(parsedGroups || []).forEach((group) => {
+    ;(group.imageKeys || []).forEach((key) => {
+      if (!byKey[key]) {
+        byKey[key] = {
+          category: text(group.category || group.partName),
+          reading: text(group.reading),
+          observation: text(group.observation || group.advice || group.caption),
+          imageKey: key,
+        }
+      }
+    })
+  })
+  for (let i = 0; i < (uncachedMasked || []).length; i += 1) {
+    const row = uncachedMasked[i]
+    const imageRow = byMedia[row.imageKey] || (row.albumImageId
+      ? { id: row.albumImageId, albumId: row.albumId || album.id }
+      : null)
+    if (!imageRow || !imageRow.id) continue
+    const payload = byKey[row.imageKey] || { imageKey: row.imageKey, observation: '' }
+    const fp = fingerprintMasked(row.url)
+    await prisma.albumImageVisionCache.upsert({
+      where: {
+        albumImageId_promptVersion: {
+          albumImageId: imageRow.id,
+          promptVersion: FLOW_ORGANIZE_PROMPT_VERSION,
+        },
+      },
+      create: {
+        id: randomUUID(),
+        albumImageId: imageRow.id,
+        albumId: imageRow.albumId || album.id,
+        contentFingerprint: fp,
+        promptVersion: FLOW_ORGANIZE_PROMPT_VERSION,
+        model,
+        resultJson: payload,
+        hitCount: 0,
+        lastHitAt: new Date(),
+      },
+      update: {
+        contentFingerprint: fp,
+        model,
+        resultJson: payload,
+        lastHitAt: new Date(),
+      },
+    })
+  }
+}
+
 async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable } = require('./service-album.service')
   const album = await loadAlbum(albumId)
@@ -155,38 +306,71 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
 
   const pending = Array.isArray(payload.pendingImages) ? payload.pendingImages : []
   if (!pending.length) {
-    return { groups: [], walkaroundIds: [], odometerImageKey: '' }
+    return { groups: [], walkaroundIds: [], odometerImageKey: '', cacheHits: 0 }
   }
 
   const existingParts = (Array.isArray(payload.findings) ? payload.findings : [])
     .map((row) => text(row && row.partName))
     .filter(Boolean)
-  const walkaroundLabels = WALKAROUND_PARTS.map((row) => ({ id: row.id, label: row.label }))
 
   const masked = await collectMaskedPending(albumId, pending)
   if (!masked.ready || !masked.urls.length) {
-    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true }
+    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true, cacheHits: 0 }
   }
 
-  const instruction = buildInstruction({ mode, existingParts, walkaroundLabels })
-  let parsed = {}
+  let cached = []
+  let uncachedMasked = masked.urls
   try {
-    parsed = (await runOrganizeVision({ instruction, maskedUrls: masked.urls })) || {}
+    const loaded = await loadFlowVisionCaches(album, pending, masked.urls)
+    cached = loaded.cached
+    uncachedMasked = loaded.uncachedMasked
   } catch (_) {
-    parsed = {}
+    cached = []
+    uncachedMasked = masked.urls
+  }
+  const cachedGroups = groupsFromCache(cached, pending)
+  const cachedNotes = cached
+    .map((row) => {
+      const json = row.resultJson || {}
+      return `${row.imageKey}:${json.category || ''} ${json.reading || ''} ${json.observation || ''}`
+    })
+    .join('；')
+    .slice(0, 2000)
+
+  let parsed = { groups: cachedGroups }
+  if (uncachedMasked.length) {
+    const instruction = buildInstruction({ mode, existingParts, cachedNotes })
+    try {
+      const fresh = (await runOrganizeVision({ instruction, maskedUrls: uncachedMasked })) || {}
+      parsed = {
+        groups: cachedGroups.concat(normalizeGroups(fresh.groups, pending)),
+      }
+      try {
+        await saveFlowVisionCaches(parsed.groups, uncachedMasked, album)
+      } catch (_) {
+        /* 缓存失败不影响整理结果 */
+      }
+    } catch (_) {
+      parsed = { groups: cachedGroups }
+    }
   }
 
   const groups = normalizeGroups(parsed.groups, pending)
-  const allowedWalk = new Set(WALKAROUND_PARTS.map((row) => row.id))
-  const walkaroundIds = (Array.isArray(parsed.walkaroundIds) ? parsed.walkaroundIds : [])
-    .map((id) => text(id))
-    .filter((id) => allowedWalk.has(id))
-  const odometerImageKey = mediaKey(parsed.odometerImageKey)
+  const odoGroup = groups.find((row) => row.category === 'odometer' || row.partName === '里程')
+  const odometerImageKey = odoGroup && odoGroup.imageKeys && odoGroup.imageKeys[0]
+    ? odoGroup.imageKeys[0]
+    : ''
 
-  return { groups, walkaroundIds, odometerImageKey }
+  return {
+    groups,
+    walkaroundIds: [],
+    odometerImageKey,
+    cacheHits: cached.length,
+  }
 }
 
 module.exports = {
   organizeFlowNodePhotos,
   normalizeGroups,
+  FLOW_ORGANIZE_PROMPT_VERSION,
 }

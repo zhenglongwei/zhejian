@@ -55,7 +55,7 @@
           <view slot="active" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
-                <text class="text-body merchant-flow-page__label">进店主诉</text>
+                <text class="text-body merchant-flow-page__label">问诊登记</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   style="height: 160rpx;"
@@ -67,51 +67,7 @@
                   bindinput="onChiefComplaintInput"
                 />
                 <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
-                <text class="text-body merchant-flow-page__label">当前里程</text>
-                <view
-                    wx:if="{{odometerUrl}}"
-                    class="merchant-flow-page__mileage-shot"
-                    bindtap="onPreviewOdometer"
-                  >
-                    <image
-                      class="merchant-flow-page__mileage-shot-img image-placeholder"
-                      src="{{odometerUrl}}"
-                      mode="aspectFill"
-                    />
-                    <text
-                      wx:if="{{!readOnly}}"
-                      class="merchant-flow-page__mileage-shot-remove"
-                      catchtap="onRemoveOdometer"
-                    >×</text>
-                  </view>
-                  <view
-                    wx:elif="{{!readOnly}}"
-                    class="merchant-flow-page__mileage-shot merchant-flow-page__mileage-shot--add"
-                    hover-class="none"
-                    bindtap="onAddOdometerPhoto"
-                  >
-                    <text class="merchant-flow-page__mileage-shot-plus">+</text>
-                    <text class="text-caption merchant-flow-page__mileage-shot-label">仪表</text>
-                  </view>
-                <view class="merchant-flow-page__mileage-row">
-                  <view class="merchant-flow-page__mileage-field">
-                    <view class="merchant-flow-page__mileage-input-wrap">
-                      <input
-                        class="merchant-flow-page__mileage-input"
-                        type="number"
-                        value="{{mileageKm}}"
-                        maxlength="7"
-                        placeholder="例：86500"
-                        disabled="{{readOnly}}"
-                        bindinput="onMileageInput"
-                      />
-                    </view>
-                    <text class="text-caption text-secondary merchant-flow-page__mileage-unit">km</text>
-                  </view>
-                  
-                </view>
-                <template is="aiFieldHint" data="{{hint: odometerHint}}" />
-                <text class="text-body merchant-flow-page__label">对外车型</text>
+                <text class="text-body merchant-flow-page__label">品牌车型</text>
                 <view class="merchant-flow-page__vehicle-row">
                   <input
                     class="merchant-flow-page__input merchant-flow-page__input--third"
@@ -140,20 +96,6 @@
                     bindinput="onVehicleFieldInput"
                     data-field="vehicleYear"
                   />
-                </view>
-                <text class="text-body merchant-flow-page__label">环车清单</text>
-                <text class="text-caption text-secondary merchant-flow-page__finding-tips">拍到就勾上，留证车辆进场时的初始状态</text>
-                <view class="merchant-flow-page__walkaround">
-                  <view
-                    wx:for="{{walkaroundParts}}"
-                    wx:key="id"
-                    class="merchant-flow-page__walkaround-item{{item.checked ? ' merchant-flow-page__walkaround-item--on' : ''}}"
-                    hover-class="none"
-                    bindtap="onToggleWalkaround"
-                    data-id="{{item.id}}"
-                  >
-                    <text class="text-caption merchant-flow-page__walkaround-label">{{item.label}}</text>
-                  </view>
                 </view>
               </view>
 
@@ -301,6 +243,21 @@
                 <block wx:if="{{section.findingMode}}">
                   <text class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
+                  <view wx:if="{{isInspectionPhotoStep && intakeImagePool.length}}" class="merchant-flow-page__intake-pool">
+                    <text class="text-caption {{isAppearanceService ? 'text-danger' : 'text-secondary'}}">{{isAppearanceService ? '进场外观已拍，点选进检测' : '接车已拍，可点选进检测'}}</text>
+                    <view class="merchant-flow-page__work-thumbs">
+                      <view
+                        wx:for="{{intakeImagePool}}"
+                        wx:for-item="shot"
+                        wx:key="url"
+                        class="merchant-flow-page__work-thumb"
+                        data-url="{{shot.url}}"
+                        bindtap="onPickIntakePhoto"
+                      >
+                        <image class="merchant-flow-page__work-thumb-img image-placeholder" src="{{shot.url}}" mode="aspectFill" />
+                      </view>
+                    </view>
+                  </view>
                   <view wx:if="{{!readOnly || pendingImages.length}}" class="merchant-flow-page__pending">
                     <text class="text-caption text-secondary merchant-flow-page__pending-label">待整理</text>
                     <view class="merchant-flow-page__work-thumbs">
@@ -630,6 +587,47 @@
                   disabled="{{organizingPhotos}}"
                   bind:btntap="onOrganizePhotos"
                 >整理</ui-button>
+                <view wx:if="{{isIntakePhotoStep && intakeResults.length}}" class="merchant-flow-page__intake-results">
+                  <text class="text-body merchant-flow-page__label">接车结果</text>
+                  <view
+                    wx:for="{{intakeResults}}"
+                    wx:for-item="row"
+                    wx:key="category"
+                    class="merchant-flow-page__intake-result {{row.needsVerify ? 'merchant-flow-page__intake-result--verify' : ''}}"
+                  >
+                    <text class="text-caption merchant-flow-page__intake-result-label">{{row.label}}{{row.needsVerify ? ' · 请核对' : ''}}</text>
+                    <view wx:if="{{row.needsVerify}}" class="merchant-flow-page__mileage-row">
+                      <view class="merchant-flow-page__mileage-field">
+                        <view class="merchant-flow-page__mileage-input-wrap">
+                          <input
+                            class="merchant-flow-page__mileage-input"
+                            value="{{row.reading}}"
+                            maxlength="16"
+                            placeholder="{{row.category === 'odometer' ? '例：86500' : '例：1/4'}}"
+                            disabled="{{readOnly}}"
+                            data-category="{{row.category}}"
+                            bindinput="onIntakeReadingInput"
+                          />
+                        </view>
+                        <text wx:if="{{row.unit}}" class="text-caption text-secondary merchant-flow-page__mileage-unit">{{row.unit}}</text>
+                      </view>
+                    </view>
+                    <view class="merchant-flow-page__work-thumbs">
+                      <view
+                        wx:for="{{row.images}}"
+                        wx:for-item="shot"
+                        wx:key="url"
+                        class="merchant-flow-page__work-thumb"
+                      >
+                        <image
+                          class="merchant-flow-page__work-thumb-img image-placeholder"
+                          src="{{shot.url}}"
+                          mode="aspectFill"
+                        />
+                      </view>
+                    </view>
+                  </view>
+                </view>
                 <template is="aiFieldHint" data="{{hint: section.photoHint}}" />
               </view>
 

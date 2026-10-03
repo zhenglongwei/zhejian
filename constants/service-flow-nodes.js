@@ -30,9 +30,8 @@ const FINDING_RESULT_OPTIONS = [
 const FINDING_ADVICE_NONE = '无需处理'
 
 /**
- * 接车 · 环车清单（固定部位勾选，确保不漏拍）
- * 只作「拍没拍到」的留证勾选，**不做故障判定**（判定属于检测节点的 findings）
- * 真源：docs/04_维修过程相册/26_ 商家端事件节点与单据节点链流程.md §4.1
+ * 接车 · 环车清单（存量只读兼容）
+ * 新单不再作为拍前勾选，改用 INTAKE_RECORD_CATEGORIES。
  */
 const WALKAROUND_PARTS = [
   { id: 'front_bumper', label: '前保险杠' },
@@ -49,6 +48,17 @@ const WALKAROUND_PARTS = [
   { id: 'right_front_fender', label: '右前翼子板' },
   { id: 'roof', label: '车顶' },
   { id: 'odometer', label: '仪表（里程）' },
+]
+
+/** 接车结果类目：整理后摊图 / 读数核对。不做正常/破损判定。 */
+const INTAKE_RECORD_CATEGORIES = [
+  { id: 'odometer', label: '里程', needsVerify: true, unit: 'km' },
+  { id: 'fuel', label: '油量', needsVerify: true, unit: '' },
+  { id: 'paint', label: '漆面', needsVerify: false, unit: '' },
+  { id: 'glass', label: '玻璃', needsVerify: false, unit: '' },
+  { id: 'tire', label: '轮胎', needsVerify: false, unit: '' },
+  { id: 'light', label: '灯光', needsVerify: false, unit: '' },
+  { id: 'belongings', label: '随车物品', needsVerify: false, unit: '' },
 ]
 
 /** 方案确认 · 车主确认固定文案（协议句，商家不可改） */
@@ -80,7 +90,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车',
     legacyStageIds: ['stage_1'],
-    photoTips: '拍环车、仪表、油液：留证车辆进场时什么样',
+    photoTips: '连拍进场外观，把里程表拍进去',
     captionPlaceholder: '本图说明（选填）',
     description: '',
   },
@@ -195,19 +205,22 @@ function emptyPhotoDraft() {
 
 /**
  * 接车步草稿工厂
- * 接车只承载留证：主诉 / 里程 / 对外车型 / 环车清单勾选。
+ * 接车只承载留证：问诊登记 / 品牌车型 / 连拍 / 接车结果读数。
  * **不承载 findings**（部位与故障判定属于检测节点）
  */
 function emptyIntakeDraft() {
   return {
     chiefComplaint: '',
     mileageKm: '',
+    fuelReading: '',
     odometerUrl: '',
     odometerImageId: '',
     vehicleBrand: '',
     vehicleSeries: '',
     vehicleYear: '',
     walkaround: [],
+    intakeResults: [],
+    pendingImages: [],
   }
 }
 
@@ -288,6 +301,7 @@ module.exports = {
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
   WALKAROUND_PARTS,
+  INTAKE_RECORD_CATEGORIES,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
   isValidFindingResult,

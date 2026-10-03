@@ -7,6 +7,7 @@ const {
   FINDING_RESULT,
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
+  INTAKE_RECORD_CATEGORIES,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../constants/service-flow-nodes')
@@ -559,6 +560,88 @@ function applyOrganizeGroups({
   }
 }
 
+function resolveIntakeCategory(raw = {}) {
+  const id = String((raw && (raw.category || raw.id)) || '').trim()
+  const part = String((raw && (raw.partName || raw.label || raw.caption)) || '').trim()
+  return (
+    INTAKE_RECORD_CATEGORIES.find((row) => row.id === id) ||
+    INTAKE_RECORD_CATEGORIES.find((row) => row.label === part) ||
+    null
+  )
+}
+
+function normalizeIntakeResult(raw = {}) {
+  const meta = resolveIntakeCategory(raw)
+  const category = meta || INTAKE_RECORD_CATEGORIES[2]
+  return {
+    category: category.id,
+    label: category.label,
+    needsVerify: Boolean(category.needsVerify),
+    unit: category.unit || '',
+    reading: String((raw && raw.reading) || '').trim(),
+    images: normalizePendingImages((raw && raw.images) || (raw && raw.shots) || []),
+  }
+}
+
+function applyIntakeOrganizeGroups({
+  pendingImages = [],
+  groups = [],
+  prevResults = [],
+} = {}) {
+  const pending = normalizePendingImages(pendingImages)
+  const byKey = {}
+  pending.forEach((img) => {
+    byKey[mediaKey(img.url)] = img
+  })
+  const used = new Set()
+  const byCat = {}
+  INTAKE_RECORD_CATEGORIES.forEach((meta) => {
+    const prev = (prevResults || []).find((row) => row && row.category === meta.id) || {}
+    byCat[meta.id] = normalizeIntakeResult({
+      category: meta.id,
+      reading: prev.reading,
+      images: prev.images,
+    })
+  })
+  ;(groups || []).forEach((group) => {
+    const meta = resolveIntakeCategory(group)
+    if (!meta) return
+    const shots = []
+    const keys = Array.isArray(group.imageKeys) ? group.imageKeys : []
+    keys.forEach((rawKey) => {
+      const img = matchPendingImage(pending, byKey, rawKey)
+      if (!img) return
+      const imgKey = mediaKey(img.url)
+      if (!imgKey || used.has(imgKey)) return
+      used.add(imgKey)
+      shots.push(img)
+    })
+    const host = byCat[meta.id]
+    byCat[meta.id] = normalizeIntakeResult({
+      category: meta.id,
+      reading: host.needsVerify
+        ? host.reading || String((group && group.reading) || '').trim()
+        : '',
+      images: (host.images || []).concat(shots),
+    })
+  })
+  const leftover = pending.filter((img) => !used.has(mediaKey(img.url)))
+  const intakeResults = INTAKE_RECORD_CATEGORIES.map((meta) => byCat[meta.id]).filter(
+    (row) => (row.images && row.images.length) || row.reading,
+  )
+  const odo = byCat.odometer || {}
+  const fuel = byCat.fuel || {}
+  const odoShot = (odo.images && odo.images[0]) || null
+  return {
+    intakeResults,
+    pendingImages: leftover,
+    mileageKm: parseMileageKm(odo.reading),
+    fuelReading: String(fuel.reading || '').trim(),
+    odometerUrl: odoShot ? odoShot.url : '',
+    odometerImageId: odoShot ? odoShot.imageId || '' : '',
+  }
+}
+
 /** 检测发现项以草稿里的一项为准。相册散图只补尚未挂上的照片，不重拼、不丢掉已有结果。 */
 function mapFindingRows(images = [], draftFindings = [], options = {}) {
   if (options && options.mode === 'work') {
@@ -616,7 +699,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
 function collectInspectionReportGaps(payload = {}) {
   const gaps = []
   if (!String(payload.chiefComplaint || '').trim()) {
-    gaps.push('请填写进店主诉')
+    gaps.push('请填写问诊登记')
   }
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   if (!findings.length) {
@@ -953,6 +1036,10 @@ function normalizePhotoDraft(raw = {}) {
           .filter(Boolean)
       : [],
     pendingImages: normalizePendingImages(raw.pendingImages),
+    fuelReading: String(raw.fuelReading || '').trim(),
+    intakeResults: Array.isArray(raw.intakeResults)
+      ? raw.intakeResults.map((row) => normalizeIntakeResult(row)).filter((row) => row.images.length || row.reading)
+      : [],
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
     warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
@@ -982,6 +1069,10 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   }
   if (patch.pendingImages != null) {
     next.pendingImages = normalizePendingImages(patch.pendingImages)
+  }
+  if (patch.fuelReading != null) next.fuelReading = String(patch.fuelReading || '').trim()
+  if (patch.intakeResults != null) {
+    next.intakeResults = normalizePhotoDraft({ intakeResults: patch.intakeResults }).intakeResults
   }
   if (patch.warrantyPeriod != null) {
     next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
@@ -1041,6 +1132,8 @@ module.exports = {
   mergePhotoDraft,
   normalizePendingImages,
   applyOrganizeGroups,
+  applyIntakeOrganizeGroups,
+  normalizeIntakeResult,
   parseAmount,
   stripFindingResultFromLineName,
   remapLegacyQuoteLineLayout,

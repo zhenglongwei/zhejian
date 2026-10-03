@@ -501,6 +501,35 @@
   display: block;
 }
 
+.merchant-flow-page__intake-pool {
+  margin-bottom: var(--space-md);
+}
+
+.merchant-flow-page__intake-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.merchant-flow-page__intake-result {
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+  background-color: var(--color-bg-card);
+}
+
+.merchant-flow-page__intake-result--verify {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.merchant-flow-page__intake-result-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-primary);
+}
+
 .merchant-flow-page__walkaround {
   display: flex;
   flex-direction: row;

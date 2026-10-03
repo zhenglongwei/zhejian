@@ -103,3 +103,21 @@ test('pending keys are not turned into new findings on load', () => {
   assert.equal(rows.length, 1)
   assert.equal(rows[0].partName, '液压位')
 })
+
+test('intake organize groups mileage reading and paint photos', () => {
+  const { applyIntakeOrganizeGroups } = require('./service-flow-docs')
+  const applied = applyIntakeOrganizeGroups({
+    pendingImages: [a, b],
+    groups: [
+      { category: 'odometer', reading: '86500', imageKeys: ['a.jpg'] },
+      { category: 'paint', imageKeys: ['b.jpg'] },
+    ],
+  })
+  assert.equal(applied.mileageKm, '86500')
+  const odo = applied.intakeResults.find((row) => row.category === 'odometer')
+  const paint = applied.intakeResults.find((row) => row.category === 'paint')
+  assert.equal(odo.needsVerify, true)
+  assert.equal(odo.reading, '86500')
+  assert.equal(paint.images.length, 1)
+  assert.equal(applied.pendingImages.length, 0)
+})

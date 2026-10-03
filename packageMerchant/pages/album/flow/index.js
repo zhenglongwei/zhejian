@@ -51,6 +51,8 @@ const {
   pickOdometerSlot,
   isOdometerFinding,
   applyOrganizeGroups,
+  applyIntakeOrganizeGroups,
+  normalizeIntakeResult,
   normalizePendingImages,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
@@ -280,7 +282,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
 const STAGE_LABELS = {
   stage_1: {
     title: '接车照片',
-    tips: '连拍环车、仪表、油液，再点整理勾清单',
+    tips: '连拍进场外观，把里程表拍进去',
     captionPlaceholder: '本图说明（选填）',
     findingMode: false,
     findingKind: '',
@@ -340,6 +342,10 @@ Page({
     sections: [],
     pendingImages: [],
     organizingPhotos: false,
+    intakeResults: [],
+    fuelReading: '',
+    intakeImagePool: [],
+    isAppearanceService: false,
     walkaround: [],
     walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
     isInspectionPhotoStep: false,
@@ -998,12 +1004,13 @@ Page({
       return {
         chiefComplaint: this.data.chiefComplaint,
         mileageKm: parseMileageKm(this.data.mileageKm),
+        fuelReading: String(this.data.fuelReading || '').trim(),
         vehicleBrand: String(this.data.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || '').trim(),
         vehicleYear: String(this.data.vehicleYear || '').trim(),
         odometerUrl: String(this.data.odometerUrl || '').trim(),
         odometerImageId: String(this.data.odometerImageId || '').trim(),
-        walkaround: Array.isArray(this.data.walkaround) ? this.data.walkaround : [],
+        intakeResults: (this.data.intakeResults || []).map((row) => normalizeIntakeResult(row)),
         pendingImages: normalizePendingImages(this.data.pendingImages),
       }
     }
@@ -1328,7 +1335,9 @@ Page({
         isDeliveryPhotoStep,
         isWorkPhotoStep,
         photoConfirmLabel: '确认并继续',
-        chiefComplaintPlaceholder: placeholders.chiefComplaint,
+        chiefComplaintPlaceholder: isIntakePhotoStep
+          ? '记录你要修的问题、故障出现时机等'
+          : placeholders.chiefComplaint,
         findingPartPlaceholder: placeholders.findingPart,
         findingAdvicePlaceholder: placeholders.findingAdvice,
         quoteJobPlaceholder: placeholders.quoteJob,
@@ -1345,6 +1354,14 @@ Page({
         aiReview: null,
         sections,
         pendingImages: normalizePendingImages(photoDraft.pendingImages),
+        intakeResults: Array.isArray(photoDraft.intakeResults)
+          ? photoDraft.intakeResults.map((row) => normalizeIntakeResult(row))
+          : [],
+        fuelReading: String(photoDraft.fuelReading || '').trim(),
+        intakeImagePool: isInspectionPhotoStep
+          ? this.collectIntakeImagePool(album, flowNodes)
+          : [],
+        isAppearanceService: ['body_paint', 'accident'].indexOf(placeholders.category) >= 0,
         walkaround,
         walkaroundParts: WALKAROUND_PARTS.map((row) => ({
           ...row,
@@ -2084,6 +2101,30 @@ Page({
     wx.previewImage({ current: url || urls[0], urls })
   },
 
+  collectIntakeImagePool(album = {}, flowNodes = []) {
+    const used = new Set()
+    const out = []
+    const push = (img) => {
+      const url = typeof img === 'string' ? img : (img && img.url) || ''
+      const key = mediaKey(url)
+      if (!url || !key || used.has(key)) return
+      used.add(key)
+      out.push({
+        url,
+        imageId: (img && (img.imageId || img.id)) || '',
+      })
+    }
+    const intake = (flowNodes || []).find((node) => node && node.kind === 'intake')
+    const draft = (intake && intake.photoDraft) || {}
+    ;(draft.intakeResults || []).forEach((row) => {
+      if (!row || row.category === 'odometer' || row.category === 'fuel') return
+      ;(row.images || []).forEach(push)
+    })
+    const stage = ((album && album.nodes) || []).find((node) => node && node.id === 'stage_1')
+    ;((stage && stage.images) || []).forEach(push)
+    return out
+  },
+
   collectPendingForOrganize(kind) {
     if (kind === 'intake') {
       const section = (this.data.sections || []).find((row) => row && !row.findingMode) || this.data.sections[0]
@@ -2093,33 +2134,19 @@ Page({
   },
 
   applyIntakeOrganize(res) {
-    const walkIds = Array.isArray(res && res.walkaroundIds) ? res.walkaroundIds : []
-    const merged = Array.from(new Set((this.data.walkaround || []).concat(walkIds)))
-    const odoKey = mediaKey(res && res.odometerImageKey)
-    let odometerUrl = String(this.data.odometerUrl || '').trim()
-    let odometerImageId = String(this.data.odometerImageId || '').trim()
-    const sections = (this.data.sections || []).map((section) => {
-      if (section.findingMode) return section
-      let images = section.images || []
-      if (odoKey) {
-        const hit = images.find((img) => mediaKey(img && img.url) === odoKey)
-        if (hit) {
-          odometerUrl = hit.url
-          odometerImageId = hit.imageId || hit.id || odometerImageId
-          images = images.filter((img) => mediaKey(img && img.url) !== odoKey)
-        }
-      }
-      return { ...section, images, odometerUrl, odometerImageId }
+    const pending = this.collectPendingForOrganize('intake')
+    const applied = applyIntakeOrganizeGroups({
+      pendingImages: pending,
+      groups: (res && res.groups) || [],
+      prevResults: this.data.intakeResults,
     })
     this.setData({
-      sections,
-      walkaround: merged,
-      walkaroundParts: WALKAROUND_PARTS.map((row) => ({
-        ...row,
-        checked: merged.indexOf(row.id) >= 0,
-      })),
-      odometerUrl,
-      odometerImageId,
+      intakeResults: applied.intakeResults,
+      pendingImages: applied.pendingImages,
+      mileageKm: applied.mileageKm || this.data.mileageKm,
+      fuelReading: applied.fuelReading || this.data.fuelReading,
+      odometerUrl: applied.odometerUrl || this.data.odometerUrl,
+      odometerImageId: applied.odometerImageId || this.data.odometerImageId,
       autoSaveLabel: '保存中…',
     })
     this.scheduleAutoSavePhotos()
@@ -2140,6 +2167,8 @@ Page({
     this.setData({ organizingPhotos: true })
     wx.showLoading({ title: '整理中' })
     try {
+      await this.persistPhotos()
+      await this.persistPhotoDraft()
       const findings = this.collectFindingsFromSections()
       const res = await organizeMerchantFlowNodePhotos(this.albumId, node.id, {
         kind,
@@ -2148,11 +2177,11 @@ Page({
       })
       if (kind === 'intake') {
         if (res && res.skipped) {
-          wx.showToast({ title: '这次没整理上，自己勾清单或稍后再试', icon: 'none' })
+          wx.showToast({ title: '这次没整理上，稍后再试', icon: 'none' })
           return
         }
         this.applyIntakeOrganize(res || {})
-        wx.showToast({ title: '已勾清单', icon: 'none' })
+        wx.showToast({ title: '核对里程和油量', icon: 'none' })
         return
       }
       const groups = (res && res.groups) || []
@@ -2338,10 +2367,34 @@ Page({
     this.setData({ chiefComplaint: e.detail.value })
   },
 
-  onMileageInput(e) {
-    this.setData({ mileageKm: e.detail.value, autoSaveLabel: '保存中…' }, () => {
-      this.scheduleAutoSaveDraftOnly()
+  onIntakeReadingInput(e) {
+    if (this.data.readOnly) return
+    const category = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.category) || '')
+    const value = String((e.detail && e.detail.value) || '').trim()
+    const intakeResults = (this.data.intakeResults || []).map((row) =>
+      row.category === category ? { ...row, reading: value } : row,
+    )
+    const patch = { intakeResults, autoSaveLabel: '保存中…' }
+    if (category === 'odometer') patch.mileageKm = parseMileageKm(value) || value
+    if (category === 'fuel') patch.fuelReading = value
+    this.setData(patch, () => this.scheduleAutoSaveDraftOnly())
+  },
+
+  onPickIntakePhoto(e) {
+    if (this.data.readOnly) return
+    const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    if (!url) return
+    const pending = normalizePendingImages(this.data.pendingImages)
+    if (pending.some((img) => mediaKey(img.url) === mediaKey(url))) {
+      wx.showToast({ title: '已在待整理', icon: 'none' })
+      return
+    }
+    const shot = (this.data.intakeImagePool || []).find((img) => mediaKey(img.url) === mediaKey(url))
+    this.setData({
+      pendingImages: pending.concat([{ url, imageId: (shot && shot.imageId) || '' }]),
+      autoSaveLabel: '保存中…',
     })
+    this.scheduleAutoSavePhotos()
   },
 
   onAddOdometerPhoto() {
