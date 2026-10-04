@@ -68,6 +68,17 @@ test('organize does not overwrite filled inspection fields', () => {
   assert.equal(findings[0].advice, '店员已写')
 })
 
+test('organize does not invent an unnamed item from photos', () => {
+  const { findings, pendingImages } = applyOrganizeGroups({
+    pendingImages: [a],
+    findings: [],
+    groups: [{ partName: '', result: '需处理', advice: '破损', imageSlots: ['图1'] }],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 0)
+  assert.equal(pendingImages.length, 1)
+})
+
 test('groups without matching keys stay unmatched, do not invent pairings', () => {
   const { findings, pendingImages } = applyOrganizeGroups({
     pendingImages: [a, b],

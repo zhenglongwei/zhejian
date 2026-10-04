@@ -243,7 +243,11 @@
                 <block wx:if="{{section.findingMode}}">
                   <text class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
-                  <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length)}}" class="merchant-flow-page__pending">
+                  <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending">
+                    <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
+                      <text class="text-body">归组中</text>
+                    </view>
+                    <block wx:else>
                     <text class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
                     <view class="merchant-flow-page__work-thumbs">
                       <view
@@ -284,8 +288,9 @@
                       wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
                       class="text-caption text-secondary"
                     >进场外观在图库</text>
+                    </block>
                   </view>
-                  <view wx:if="{{!section.findings.length && !pendingImages.length}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
+                  <view wx:if="{{!section.findings.length && !pendingImages.length && !organizingPhotos}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
                     点加号连拍
                   </view>
                   <view class="merchant-flow-page__finding-list">
@@ -552,7 +557,14 @@
                       </view>
                     </view>
                   </view>
-                  <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
+                  <view wx:if="{{organizeResultHint}}" class="merchant-flow-page__organize-result">
+                    <text class="text-body">{{organizeResultHint}}</text>
+                  </view>
+                  <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
+                    <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
+                      <text class="text-body">归组中</text>
+                    </view>
+                    <block wx:else>
                     <block wx:if="{{pendingImages.length}}">
                       <text class="text-caption text-secondary merchant-flow-page__pending-label">未归组</text>
                       <view
@@ -607,6 +619,7 @@
                       wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
                       class="text-caption text-secondary"
                     >进场外观在图库</text>
+                    </block>
                   </view>
                 </block>
                 <ui-album-node

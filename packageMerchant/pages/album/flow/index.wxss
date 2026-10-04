@@ -518,8 +518,18 @@
   background-color: var(--color-bg-card);
 }
 
-.merchant-flow-page__pending-label {
-  display: block;
+.merchant-flow-page__organize-wait {
+  padding: var(--space-lg) 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__organize-result {
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
 }
 
 .merchant-flow-page__library-entry {

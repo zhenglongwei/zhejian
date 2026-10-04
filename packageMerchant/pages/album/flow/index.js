@@ -343,6 +343,7 @@ Page({
     sections: [],
     pendingImages: [],
     organizingPhotos: false,
+    organizeResultHint: '',
     intakeResults: [],
     fuelReading: '',
     intakeImagePool: [],
@@ -897,7 +898,6 @@ Page({
           : normalizeFinding(item, index),
       )
       .filter((item) => {
-        if (String(item.id || '').indexOf('fid_new_') === 0) return true
         if (kind === 'work') return item.images.length || item.partName
         return item.url || item.partName || (item.images && item.images.length)
       })
@@ -1420,6 +1420,8 @@ Page({
         aiReview: null,
         sections,
         pendingImages: normalizePendingImages(photoDraft.pendingImages),
+        organizingPhotos: false,
+        organizeResultHint: '',
         intakeResults: Array.isArray(photoDraft.intakeResults)
           ? photoDraft.intakeResults.map((row) => normalizeIntakeResult(row))
           : [],
@@ -2148,9 +2150,9 @@ Page({
           }
           if (!uploadedList.length) throw new Error('上传失败')
           const pendingImages = normalizePendingImages(pending.concat(uploadedList))
+          wx.hideLoading()
           this.setData({
             pendingImages,
-            autoSaveLabel: '保存中…',
             ...this.findingChromePatch(this.data.sections, pendingImages),
           })
           await this.onOrganizePhotos()
@@ -2388,6 +2390,30 @@ Page({
     this.scheduleAutoSavePhotos()
   },
 
+  summarizeOrganizeResult(pending = [], findings = [], leftover = []) {
+    const names = []
+    const seen = new Set()
+    ;(pending || []).forEach((img) => {
+      const key = mediaKey(img && img.url)
+      if (!key) return
+      const host = (findings || []).find((row) =>
+        ((row && row.images) || []).some((shot) => mediaKey(shot && shot.url) === key),
+      )
+      if (!host) return
+      const name = String((host && host.partName) || '').trim() || '未填部位'
+      if (seen.has(name)) return
+      seen.add(name)
+      names.push(name)
+    })
+    const leftoverCount = (leftover || []).length
+    if (!names.length) {
+      return leftoverCount ? `没有写成项，还有 ${leftoverCount} 张请手工归` : ''
+    }
+    const shown = names.length > 3 ? `${names.slice(0, 3).join('、')} 等${names.length}项` : names.join('、')
+    const placed = `已归入：${shown}`
+    return leftoverCount ? `${placed}。还有 ${leftoverCount} 张请手工归` : placed
+  },
+
   async onOrganizePhotos() {
     if (this.data.readOnly || this.data.organizingPhotos) return
     const node = this.data.activeNode
@@ -2400,8 +2426,9 @@ Page({
       wx.showToast({ title: '先上传照片', icon: 'none' })
       return
     }
-    this.setData({ organizingPhotos: true })
-    wx.showLoading({ title: '归组中' })
+    const pageWait = kind !== 'intake'
+    this.setData({ organizingPhotos: true, organizeResultHint: '' })
+    if (!pageWait) wx.showLoading({ title: '归组中' })
     try {
       await this.persistPhotos()
       await this.persistPhotoDraft()
@@ -2422,9 +2449,10 @@ Page({
       }
       const groups = (res && res.groups) || []
       if (!groups.length) {
-        wx.showToast({
-          title: (res && res.skipped) ? '这次没归上，稍后再试或自己归' : '没写成项，自己归或改名后再试',
-          icon: 'none',
+        this.setData({
+          organizeResultHint: (res && res.skipped)
+            ? '这次没归上，稍后再传或自己归'
+            : '没写成项，请自己归或改部位名后再传',
         })
         return
       }
@@ -2448,21 +2476,29 @@ Page({
         }
       })
       const leftover = applied.pendingImages
+      const organizeResultHint = this.summarizeOrganizeResult(
+        pending,
+        applied.findings,
+        leftover,
+      )
       this.setSectionsWithFindings(
         sections,
-        { pendingImages: leftover, autoSaveLabel: '保存中…', organizedOnce: true },
+        {
+          pendingImages: leftover,
+          autoSaveLabel: '保存中…',
+          organizedOnce: true,
+          organizeResultHint,
+        },
         this.findFirstIncompleteFindingKey(sections) || '',
       )
       this.scheduleAutoSavePhotos()
-      wx.showToast({
-        title: leftover.length ? `已归组，还有 ${leftover.length} 张请手工归` : '已归组',
-        icon: 'none',
-      })
     } catch (err) {
-      wx.showToast({ title: (err && err.message) || '归组失败', icon: 'none' })
+      this.setData({
+        organizeResultHint: (err && err.message) || '归组失败',
+      })
     } finally {
       this.setData({ organizingPhotos: false })
-      wx.hideLoading()
+      if (!pageWait) wx.hideLoading()
     }
   },
 

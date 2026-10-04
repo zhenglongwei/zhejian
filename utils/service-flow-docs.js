@@ -531,13 +531,13 @@ function applyOrganizeGroups({
       if (!img) return
       const imgKey = mediaKey(img.url)
       if (!imgKey || used.has(imgKey)) return
-      used.add(imgKey)
       shots.push(img)
     })
     return { group, partName, shots }
   })
   prepared.forEach(({ group, partName, shots }) => {
-    if (!shots.length) return
+    if (!shots.length || !partName) return
+    shots.forEach((img) => used.add(mediaKey(img.url)))
     const hostIdx = partName
       ? nextFindings.findIndex((row) => String(row.partName || '').trim() === partName)
       : -1
@@ -706,6 +706,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
     const key = mediaKey(row.url)
     if (!key || owned.has(key) || pendingKeys.has(key)) return
     const part = String(row.caption || '').trim()
+    if (!part) return
     const shot = { url: row.url, imageId: row.imageId || '' }
     const host = part
       ? merged.find((item) => String(item.partName || '').trim() === part)
@@ -746,9 +747,10 @@ function collectInspectionReportGaps(payload = {}) {
     gaps.push('请至少上传 1 张检测照片并填写发现项')
     return gaps
   }
-  findings.forEach((raw, index) => {
+  findings.forEach((raw) => {
     const item = normalizeFinding(raw)
-    const label = item.partName || `第 ${index + 1} 项`
+    if (!item.partName && !item.images.length && !item.url) return
+    const label = item.partName || '未写部位'
     if (!item.partName) gaps.push(`「${label}」请填写检查部位`)
     if (!item.result || !isValidFindingResult(item.result)) {
       gaps.push(`「${label}」请选择检查结果`)
@@ -767,9 +769,9 @@ function collectWorkPhotoDraftGaps(payload = {}) {
   if (!withPhoto.length) {
     gaps.push('请至少上传 1 张施工照片并填写项目')
   }
-  withPhoto.forEach((raw, index) => {
+  withPhoto.forEach((raw) => {
     const item = normalizeWorkFinding(raw)
-    const label = item.partName || `第 ${index + 1} 项`
+    const label = item.partName || '未写项目'
     if (!item.partName) gaps.push(`「${label}」请填写项目`)
   })
   return gaps

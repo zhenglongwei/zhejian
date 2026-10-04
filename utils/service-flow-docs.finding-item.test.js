@@ -74,6 +74,23 @@ test('empty 加一项 draft with id survives remap after save', () => {
   assert.equal(rows[1].images.length, 0)
 })
 
+test('inspection gaps name unnamed rows without a list index', () => {
+  const gaps = collectInspectionReportGaps({
+    chiefComplaint: '漏油',
+    findings: [
+      hydraulic,
+      {
+        partName: '',
+        result: '',
+        advice: '',
+        images: [{ url: 'https://cdn.example/api/v1/media/files/uploads/c.jpg' }],
+      },
+    ],
+  })
+  assert.ok(gaps.some((row) => /未写部位/.test(row)))
+  assert.equal(gaps.some((row) => /第\s*\d+/.test(row)), false)
+})
+
 test('a photo that is not on any item and has another part becomes its own item', () => {
   const rows = mapFindingRows(
     [
