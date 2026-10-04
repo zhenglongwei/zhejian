@@ -290,14 +290,14 @@ const STAGE_LABELS = {
   },
   stage_2: {
     title: '检测照片',
-    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点生成检测项',
+    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点整理',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
   stage_5: {
     title: '施工过程',
-    tips: '连拍后点生成施工项；补图进该项或走补拍',
+    tips: '连拍后点整理；补图进该项或走补拍再重新整理',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
@@ -353,7 +353,7 @@ Page({
     canUseLibrary: false,
     organizedOnce: false,
     hasFindingItems: false,
-    organizeActionLabel: '生成检测项',
+    organizeActionLabel: '整理',
     showOrganizeAction: false,
     showAssignSheet: false,
     assignPendingIndex: -1,
@@ -1023,15 +1023,10 @@ Page({
     const findingSection = (sections || []).find((row) => row && row.findingMode)
     const findings = (findingSection && findingSection.findings) || []
     const hasFindingItems = findings.length > 0
-    const isWork = Boolean(findingSection && findingSection.findingKind === 'work')
     const pending = normalizePendingImages(pendingImages)
     return {
       hasFindingItems,
-      organizeActionLabel: hasFindingItems
-        ? '归到项里'
-        : isWork
-          ? '生成施工项'
-          : '生成检测项',
+      organizeActionLabel: hasFindingItems ? '重新整理' : '整理',
       showOrganizeAction: pending.length > 0,
     }
   },
@@ -3764,7 +3759,7 @@ Page({
       (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
-      wx.showToast({ title: '先归到项里或删掉未归组的图', icon: 'none' })
+      wx.showToast({ title: '先处理未归组的图', icon: 'none' })
       return
     }
 

@@ -513,6 +513,9 @@
   flex-direction: column;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
 }
 
 .merchant-flow-page__pending-label {
@@ -822,12 +825,36 @@
   gap: var(--space-sm);
 }
 
-.merchant-flow-page__unmatched-action {
-  color: var(--color-primary);
+.merchant-flow-page__pending--after {
+  margin-top: var(--space-md);
 }
 
-.merchant-flow-page__unmatched-action--muted {
-  color: var(--color-text-secondary);
+.merchant-flow-page__unmatched-actions {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__unmatched-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56rpx;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
+  background-color: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: var(--font-caption);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__unmatched-btn--primary {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
 }
 
 .merchant-flow-page__add-finding {
