@@ -101,6 +101,50 @@ function resolveDocumentStatusLabel(doc = {}) {
   return ''
 }
 
+function collectNodePhotoList(node, albumNodes = []) {
+  const seen = {}
+  const out = []
+  const push = (raw, caption = '') => {
+    const url = String(
+      typeof raw === 'object' && raw ? raw.url || raw.rawUrl || '' : raw || '',
+    ).trim()
+    if (!url) return
+    const key = url.replace(/[?#].*$/, '')
+    if (!key || seen[key]) return
+    seen[key] = true
+    out.push({
+      url,
+      caption: String(
+        (typeof raw === 'object' && raw && raw.caption) || caption || '',
+      ).trim(),
+    })
+  }
+  const draft = (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  push(draft.odometerUrl, '仪表')
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => push(img))
+  ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((item) => {
+    const shots =
+      Array.isArray(item && item.images) && item.images.length
+        ? item.images
+        : item && item.url
+          ? [item]
+          : []
+    shots.forEach((img) => push(img, item && item.partName))
+  })
+  ;(Array.isArray(draft.intakeResults) ? draft.intakeResults : []).forEach((item) => {
+    ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) =>
+      push(img, item && item.partName),
+    )
+  })
+  let stageIds = resolveLegacyStageIdsForFlowNode(node)
+  if (node && node.kind === 'intake_inspection') stageIds = ['stage_1', 'stage_2']
+  stageIds.forEach((stageId) => {
+    const stage = (albumNodes || []).find((n) => n && n.id === stageId)
+    ;(stage && Array.isArray(stage.images) ? stage.images : []).forEach((img) => push(img))
+  })
+  return out
+}
+
 function countPhotosForFlowNode(node, albumNodes = []) {
   // 完工照：整车外观/交车图以引用为主，不强制 stage_6 再存实体图
   if (node && node.kind === 'delivery_photos') {
@@ -111,36 +155,11 @@ function countPhotosForFlowNode(node, albumNodes = []) {
       : []
     if (extras.length) return extras.length
   }
-  let stageIds = resolveLegacyStageIdsForFlowNode(node)
-  // 接车与检测：计数含存量 stage_1（统一入口迁移前）
-  if (node && node.kind === 'intake_inspection') {
-    stageIds = ['stage_1', 'stage_2']
-  }
-  if (!stageIds.length) return 0
-  return stageIds.reduce((sum, stageId) => {
-    const stage = (albumNodes || []).find((n) => n.id === stageId)
-    const count = stage && Array.isArray(stage.images) ? stage.images.length : 0
-    return sum + count
-  }, 0)
+  return collectNodePhotoList(node, albumNodes).length
 }
 
-function collectPreviewImages(node, albumNodes = [], limit = 4) {
-  let stageIds = resolveLegacyStageIdsForFlowNode(node)
-  if (node && node.kind === 'intake_inspection') {
-    stageIds = ['stage_1', 'stage_2']
-  }
-  const out = []
-  stageIds.forEach((stageId) => {
-    const stage = (albumNodes || []).find((n) => n.id === stageId)
-    ;(stage && stage.images ? stage.images : []).forEach((img) => {
-      if (out.length >= limit) return
-      out.push({
-        url: typeof img === 'object' ? img.url || '' : img,
-        caption: typeof img === 'object' ? img.caption || '' : '',
-      })
-    })
-  })
-  return out.filter((row) => row.url)
+function collectPreviewImages(node, albumNodes = []) {
+  return collectNodePhotoList(node, albumNodes)
 }
 
 function mapFlowNodeForView(node, albumNodes = []) {

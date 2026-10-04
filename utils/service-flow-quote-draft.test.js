@@ -58,5 +58,37 @@ test('accident first stage is teardown plus visible action parts', () => {
   assert.match(confirmCopy, /拆检后/)
   assert.equal(lines[0].name, '拆检')
   assert.equal(lines[1].name, '更换右前保险杠')
+  assert.equal(lines[1].note, '')
+  assert.doesNotMatch(lines[0].note, /滤芯/)
   assert.equal(lines.every((row) => row.amount === ''), true)
+})
+
+test('accident draft does not paste inspection findings into quote notes', () => {
+  const { lines } = buildQuoteDraft({
+    templateId: 'accident',
+    findings: [
+      {
+        partName: '车身侧裙/底大边',
+        result: FINDING_RESULT.ACTION,
+        advice: '白色漆面下方有大面积不规则黑色修补痕迹',
+      },
+      {
+        partName: '机油滤芯',
+        result: FINDING_RESULT.ACTION,
+        advice: '左手持有的滤芯整体呈深黑色',
+      },
+    ],
+  })
+  assert.equal(lines[0].name, '拆检')
+  assert.match(lines[0].note, /侧裙/)
+  assert.doesNotMatch(lines[0].note, /机油滤芯/)
+  assert.equal(lines.some((row) => row.name === '更换机油滤芯'), true)
+  assert.equal(
+    lines.some((row) => /侧裙/.test(row.name) && /补漆|钣金|喷漆/.test(row.name)),
+    true,
+  )
+  assert.equal(
+    lines.every((row) => !/深黑|修补痕迹/.test(row.note)),
+    true,
+  )
 })

@@ -150,33 +150,47 @@ function acDraft(findings) {
 }
 
 function paintJobName(part, advice) {
-  if (/凹陷|钣金|变形/.test(advice)) return `${part}钣金喷漆`
-  if (/更换|破损|开裂/.test(advice)) return `${part}更换并喷漆`
+  if (/凹陷|钣金|变形|碰撞/.test(advice) || /凹陷|碰撞/.test(part)) return `${part}钣金喷漆`
+  if (/更换|破损|开裂|脱落|破碎/.test(advice)) return `${part}更换并喷漆`
   return `${part}补漆`
 }
 
 function bodyPaintDraft(findings) {
   return actionItems(findings).map((row) => {
     const part = partText(row)
-    return emptyLine(paintJobName(part, String(row.advice || '')), joinAdvice([row]))
+    return emptyLine(paintJobName(part, String(row.advice || '')), '')
   })
 }
 
 function visibleJobName(part, advice) {
-  if (/更换/.test(advice)) return `更换${part.replace(/^更换/, '')}`
-  if (/喷漆|补漆|钣金/.test(advice)) return paintJobName(part, advice)
+  const text = `${part} ${advice}`
+  if (/滤芯|机油|雨刮|电瓶/.test(part)) return `更换${part.replace(/^更换/, '')}`
+  if (/更换/.test(advice) && !/碰撞|凹陷|划痕|漆/.test(text)) {
+    return `更换${part.replace(/^更换/, '')}`
+  }
+  if (/喷漆|补漆|钣金|碰撞|凹陷|划痕|漆面|翼子|保险杠|侧裙|底大边/.test(text)) {
+    return paintJobName(part, advice)
+  }
   if (/清洗/.test(advice)) return `清洗${part}`
-  return `处理${part}`
+  return `${part}维修`
+}
+
+function isTeardownPart(name) {
+  return !/滤芯|机油|雨刮|空调格/.test(String(name || ''))
 }
 
 function openDraft(findings) {
   const items = actionItems(findings)
-  const parts = items.map((row) => partText(row)).filter(Boolean)
-  const teardownNote = parts.length ? `拆开查看：${parts.join('、')}` : '按损伤部位拆开查看'
+  const teardownParts = items
+    .map((row) => partText(row))
+    .filter((name) => name && isTeardownPart(name))
+  const teardownNote = teardownParts.length
+    ? `拆开查看：${teardownParts.join('、')}`
+    : '按损伤部位拆开查看'
   const lines = [emptyLine('拆检', teardownNote)]
   items.forEach((row) => {
     const part = partText(row)
-    lines.push(emptyLine(visibleJobName(part, String(row.advice || '')), joinAdvice([row])))
+    lines.push(emptyLine(visibleJobName(part, String(row.advice || '')), ''))
   })
   return lines
 }

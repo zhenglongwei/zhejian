@@ -311,7 +311,7 @@ async function fetchMerchantAlbumFlow(albumId) {
       return {
         ...node,
         photoCount: images.length,
-        previewImages: images.slice(0, 3).map((img) => ({
+        previewImages: images.map((img) => ({
           url: typeof img === 'string' ? img : img.url,
           caption: typeof img === 'object' ? img.caption || '' : '',
         })),

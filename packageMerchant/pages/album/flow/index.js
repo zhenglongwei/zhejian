@@ -1299,11 +1299,21 @@ Page({
             templateId: album.templateId,
             serviceName: album.serviceName,
           })
-          quoteLines = hasNamed
-            ? fromQuote
-            : quoteDraft.lines.length
-              ? quoteDraft.lines.map((line) => normalizeQuoteLine(line))
-              : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
+          const unpriced =
+            !fromQuote.some((row) => {
+              const n = Number(row.amount)
+              return Number.isFinite(n) && n > 0
+            })
+          const canRefreshOpenDraft =
+            unpriced &&
+            quoteDraft.mode === 'teardown' &&
+            (!hasNamed || String((fromQuote[0] && fromQuote[0].name) || '') === '拆检')
+          quoteLines =
+            hasNamed && !canRefreshOpenDraft
+              ? fromQuote
+              : quoteDraft.lines.length
+                ? quoteDraft.lines.map((line) => normalizeQuoteLine(line))
+                : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           if (!quoteLines.length) {
             quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           }

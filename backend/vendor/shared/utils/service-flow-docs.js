@@ -96,7 +96,7 @@ function collectFindingImages(raw = {}) {
   }
   if (Array.isArray(raw.images)) raw.images.forEach(push)
   push({ url: raw.url, imageId: raw.imageId || raw.id })
-  return list.slice(0, WORK_IMAGES_MAX)
+  return list.slice(0, FINDING_IMAGES_MAX)
 }
 
 /**
@@ -145,7 +145,7 @@ function normalizeItemFinding(raw = {}, index = -1) {
   let images = hasImagesField
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
     : collectFindingImages(raw)
-  images = images.slice(0, WORK_IMAGES_MAX)
+  images = images.slice(0, FINDING_IMAGES_MAX)
   const caption = String(raw.caption || '').trim()
   const result = normalizeFindingResult(raw.result)
   let advice = String(raw.advice || '').trim()
@@ -216,6 +216,7 @@ function pickOdometerSlot(photoDraft = {}, findings = []) {
 }
 
 const WORK_IMAGES_MAX = 6
+const FINDING_IMAGES_MAX = 24
 
 function normalizeWorkImage(raw = {}) {
   const url = String(typeof raw === 'string' ? raw : (raw && raw.url) || '').trim()
@@ -437,7 +438,7 @@ function mergeFindingsByPart(list) {
       seen.add(key)
       images.push(img)
     })
-    host.images = images.slice(0, WORK_IMAGES_MAX)
+    host.images = images.slice(0, FINDING_IMAGES_MAX)
     host.url = (host.images[0] && host.images[0].url) || ''
     host.imageId = (host.images[0] && host.images[0].imageId) || ''
     if (!host.result && item.result) host.result = item.result
@@ -548,7 +549,8 @@ function applyOrganizeGroups({
       : -1
     if (hostIdx >= 0) {
       const host = nextFindings[hostIdx]
-      const images = (host.images || []).concat(shots).slice(0, WORK_IMAGES_MAX)
+      const cap = mode === 'work' ? WORK_IMAGES_MAX : FINDING_IMAGES_MAX
+      const images = (host.images || []).concat(shots).slice(0, cap)
       if (mode === 'work') {
         nextFindings[hostIdx] = normalizeWorkFinding({
           ...host,
@@ -586,7 +588,7 @@ function applyOrganizeGroups({
           ? group.result
           : '',
         advice: (group && group.advice) || '',
-        images: shots.slice(0, WORK_IMAGES_MAX),
+        images: shots.slice(0, FINDING_IMAGES_MAX),
       }),
     )
   })
@@ -717,7 +719,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
       ? merged.find((item) => String(item.partName || '').trim() === part)
       : null
     if (host) {
-      const nextImages = host.images.concat([shot]).slice(0, WORK_IMAGES_MAX)
+      const nextImages = host.images.concat([shot]).slice(0, FINDING_IMAGES_MAX)
       Object.assign(
         host,
         normalizeItemFinding({
