@@ -55,6 +55,7 @@ const {
   applyIntakeOrganizeGroups,
   normalizeIntakeResult,
   normalizePendingImages,
+  buildQuoteDraft,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const {
@@ -366,6 +367,7 @@ Page({
     findingResultOptions: FINDING_RESULT_OPTIONS,
     docPayload: {},
     quoteLines: [],
+    quoteDraftHint: '',
     quoteEvidenceFindings: [],
     quoteTotalLabel: '合计 ¥0.00',
     quoteNodeId: '',
@@ -1187,6 +1189,7 @@ Page({
       let sections = []
       let walkaround = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
+      this._quoteDraftHint = ''
       let expandedFindingKey = ''
       let workImagePool = []
       let deliveryExteriorUrl = ''
@@ -1291,15 +1294,21 @@ Page({
             ? quotePayload.lines.map((line) => normalizeQuoteLine(line))
             : []
           const hasNamed = fromQuote.some((row) => String(row.name || '').trim())
+          const quoteDraft = buildQuoteDraft({
+            findings,
+            templateId: album.templateId,
+            serviceName: album.serviceName,
+          })
           quoteLines = hasNamed
             ? fromQuote
-            : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
+            : quoteDraft.lines.length
+              ? quoteDraft.lines.map((line) => normalizeQuoteLine(line))
+              : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           if (!quoteLines.length) {
             quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           }
-          confirmCopy =
-            quotePayload.confirmCopy ||
-            '本人同意按上述项目施工，费用以本单为准。'
+          confirmCopy = quotePayload.confirmCopy || quoteDraft.confirmCopy
+          this._quoteDraftHint = quoteDraft.merchantHint
           this._quoteNodeId = (quoteNode && quoteNode.id) || ''
         } else {
           this._quoteNodeId = active.kind === 'quote_confirm' ? (active.id || '') : ''
@@ -1346,8 +1355,28 @@ Page({
               report.document.payload.findings) ||
             []
           quoteEvidenceFindings = this.expandQuoteEvidence(reportFindings)
+          if (!(quoteLines || []).some((row) => String(row.name || '').trim())) {
+            const quoteDraft = buildQuoteDraft({
+              findings: reportFindings,
+              templateId: album.templateId,
+              serviceName: album.serviceName,
+            })
+            this._quoteDraftHint = quoteDraft.merchantHint
+            if (quoteDraft.lines.length) {
+              quoteLines = quoteDraft.lines.map((line) => normalizeQuoteLine(line))
+            }
+            if (!String(confirmCopy || '').trim()) confirmCopy = quoteDraft.confirmCopy
+          } else {
+            const quoteDraft = buildQuoteDraft({
+              findings: reportFindings,
+              templateId: album.templateId,
+              serviceName: album.serviceName,
+            })
+            this._quoteDraftHint = quoteDraft.merchantHint
+          }
         }
       }
+      const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
       quoteLines = this.decorateQuoteLines(quoteLines, quoteEvidenceFindings)
       const rawSummary = showCombinedPlan
         ? ''
@@ -1456,6 +1485,7 @@ Page({
         vehicleSeries,
         vehicleYear,
         quoteLines,
+        quoteDraftHint,
         quoteEvidenceFindings,
         quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
         quoteNodeId: this._quoteNodeId || '',
@@ -3939,7 +3969,7 @@ Page({
       const payload = {
         ...base,
         lines,
-        confirmCopy: QUOTE_CONFIRM_COPY,
+        confirmCopy: this.data.confirmCopy || QUOTE_CONFIRM_COPY,
       }
       if (this.data.isAddonQuote) {
         payload.discovery = {
@@ -3967,7 +3997,7 @@ Page({
       .filter((l) => String(l.name || '').trim())
     return {
       lines,
-      confirmCopy: QUOTE_CONFIRM_COPY,
+      confirmCopy: this.data.confirmCopy || QUOTE_CONFIRM_COPY,
     }
   },
 
@@ -4345,7 +4375,7 @@ Page({
     const kind = this.data.activeNode && this.data.activeNode.kind
     const payload = this.buildDocPayloadForSave()
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
-      payload.confirmCopy = QUOTE_CONFIRM_COPY
+      payload.confirmCopy = this.data.confirmCopy || QUOTE_CONFIRM_COPY
     }
     if (kind === 'repair_report') {
       payload.confirmCopy = REPAIR_CONFIRM_COPY

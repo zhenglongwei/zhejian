@@ -31,12 +31,33 @@ const {
   resolveWarrantyNotes,
   parseMileageKm,
   parseAmount,
+  resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
 )
 const { sanitizeAiReviewForView } = require('./node-ai-review.service')
+
+function albumQuoteOpts(album = {}) {
+  return {
+    templateId: album.templateId || '',
+    serviceName: album.serviceName || '',
+  }
+}
+
+function quoteLinesForAlbum(findings, album, existingLines = []) {
+  const named = (existingLines || []).some((row) => String((row && row.name) || '').trim())
+  if (named) return existingLines
+  const lines = buildQuoteLinesFromFindings(findings, albumQuoteOpts(album))
+  return lines.length ? lines : [{ name: '', amount: '', note: '' }]
+}
+
+function quoteCopyForAlbum(album, existingCopy = '') {
+  const prev = String(existingCopy || '').trim()
+  if (prev) return prev
+  return resolveQuoteConfirmCopy(albumQuoteOpts(album))
+}
 
 function readRawContentPackage(album) {
   if (!album || !album.contentPackageJson || typeof album.contentPackageJson !== 'object') {
@@ -371,7 +392,9 @@ async function ensureFlowPackage(albumId, album, albumNodes) {
   return prisma.album.findUnique({ where: { id: albumId } })
 }
 
-async function healQuotePrefillAfterReport(albumId) {
+async function healQuotePrefillAfterReport(albumId, album = null) {
+  const { loadAlbum } = require('./service-album.service')
+  const row = album || (await loadAlbum(albumId))
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     const reportIdx = nodes.findIndex((n) => n.kind === 'inspection_report')
@@ -393,7 +416,6 @@ async function healQuotePrefillAfterReport(albumId) {
       (report.status === 'in_progress' || report.status === 'pending') &&
       !hasNamedLine
     ) {
-      const lines = buildQuoteLinesFromFindings(findings)
       const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
       nodes[quoteIdx] = {
         ...quote,
@@ -402,10 +424,11 @@ async function healQuotePrefillAfterReport(albumId) {
           status: 'draft',
           payload: {
             ...(prevQuoteDoc.payload || {}),
-            lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
-            confirmCopy:
-              (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-              QUOTE_CONFIRM_COPY,
+            lines: quoteLinesForAlbum(findings, row, existingLines),
+            confirmCopy: quoteCopyForAlbum(
+              row,
+              prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
+            ),
             evidenceRef: report.id,
           },
         },
@@ -418,7 +441,6 @@ async function healQuotePrefillAfterReport(albumId) {
       (reportDoc.status === 'delivered' || report.status === 'completed') &&
       (quote.status === 'locked' || quote.status === 'pending')
     ) {
-      const lines = hasNamedLine ? existingLines : buildQuoteLinesFromFindings(findings)
       const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
       nodes[quoteIdx] = {
         ...quote,
@@ -428,10 +450,11 @@ async function healQuotePrefillAfterReport(albumId) {
           status: 'draft',
           payload: {
             ...(prevQuoteDoc.payload || {}),
-            lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
-            confirmCopy:
-              (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-              QUOTE_CONFIRM_COPY,
+            lines: quoteLinesForAlbum(findings, row, existingLines),
+            confirmCopy: quoteCopyForAlbum(
+              row,
+              prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
+            ),
             evidenceRef: report.id,
           },
         },
@@ -454,7 +477,7 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
     album = await ensureFlowPackage(albumId, album, nodes)
     nodes = mapNodesForView(album)
   }
-  await healQuotePrefillAfterReport(albumId)
+  await healQuotePrefillAfterReport(albumId, album)
   album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
   const {
@@ -786,8 +809,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           },
         }
         if (quoteIdx >= 0) {
-          const lines = buildQuoteLinesFromFindings(draft.findings)
           const prevQuoteDoc = list[quoteIdx].document || emptyDocument('quote_confirm')
+          const existingLines = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
           list[quoteIdx] = {
             ...list[quoteIdx],
             // 仍锁定：等「通知车主」与报告一并解锁给车主
@@ -796,10 +819,11 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
               status: 'draft',
               payload: {
                 ...(prevQuoteDoc.payload || {}),
-                lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
-                confirmCopy:
-                  (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-                  QUOTE_CONFIRM_COPY,
+                lines: quoteLinesForAlbum(draft.findings, album, existingLines),
+                confirmCopy: quoteCopyForAlbum(
+                  album,
+                  prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
+                ),
                 evidenceRef: reportId,
               },
             },
@@ -925,9 +949,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       : null
     if (!quoteLines || !quoteLines.length) {
       const existing = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
-      quoteLines = existing.length
-        ? existing
-        : buildQuoteLinesFromFindings(mergedPayload.findings)
+      quoteLines = quoteLinesForAlbum(mergedPayload.findings, album, existing)
     }
     const quotePayload = {
       ...(prevQuoteDoc.payload || {}),
@@ -937,8 +959,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
         (payload.quote &&
           payload.quote.payload &&
           payload.quote.payload.confirmCopy) ||
-        (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-        QUOTE_CONFIRM_COPY,
+        quoteCopyForAlbum(album, prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy),
       evidenceRef: id,
     }
     const quoteGaps = collectQuoteConfirmGaps(quotePayload)
@@ -984,9 +1005,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       : null
     if (!quoteLines || !quoteLines.length) {
       const existing = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
-      quoteLines = existing.length
-        ? existing
-        : buildQuoteLinesFromFindings(mergedPayload.findings)
+      quoteLines = quoteLinesForAlbum(mergedPayload.findings, album, existing)
     }
     const quotePayload = {
       ...(prevQuoteDoc.payload || {}),
@@ -996,8 +1015,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
         (payload.quote &&
           payload.quote.payload &&
           payload.quote.payload.confirmCopy) ||
-        (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-        QUOTE_CONFIRM_COPY,
+        quoteCopyForAlbum(album, prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy),
       evidenceRef: id,
     }
 

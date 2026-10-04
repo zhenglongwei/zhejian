@@ -29,6 +29,8 @@ const FILES = [
   'utils/desensitize-url.js',
   /** 服务流程文档/草稿读写：发现项归一化与节点读写真源 */
   'utils/service-flow-docs.js',
+  'utils/service-flow-placeholders.js',
+  'utils/service-flow-quote-draft.js',
 ]
 
 function ensureDir(dir) {

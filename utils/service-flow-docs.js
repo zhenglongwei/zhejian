@@ -11,6 +11,11 @@ const {
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../constants/service-flow-nodes')
+const {
+  buildQuoteDraft,
+  buildQuoteLinesFromFindings,
+  resolveQuoteConfirmCopy,
+} = require('./service-flow-quote-draft')
 
 function parseMileageKm(value) {
   const digits = String(value || '').replace(/[^\d]/g, '')
@@ -993,14 +998,6 @@ function sumQuoteAmounts(lines = []) {
   }, 0)
 }
 
-/** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
- * name = 部位；note 空（处理建议由商家另写，不复制检查发现）；检测结果不写进行名；品牌商家另填
- */
-function buildQuoteLinesFromFindings() {
-  // 检测图不再一对一预填方案行；方案按「要做的事」手填并挂证据
-  return []
-}
-
 function buildRepairReportPayload({
   chiefComplaint = '',
   workItems = [],
@@ -1163,6 +1160,8 @@ module.exports = {
   collectQuoteConfirmGaps,
   buildInspectionReportPayload,
   buildQuoteLinesFromFindings,
+  buildQuoteDraft,
+  resolveQuoteConfirmCopy,
   stableLineId,
   buildRepairReportPayload,
   normalizeQuoteLine,

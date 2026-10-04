@@ -63,6 +63,8 @@ const INTAKE_RECORD_CATEGORIES = [
 
 /** 方案确认 · 车主确认固定文案（协议句，商家不可改） */
 const QUOTE_CONFIRM_COPY = '本人同意按上述项目施工，费用以本单为准。'
+const QUOTE_CONFIRM_COPY_TEARDOWN =
+  '本人同意按上述项目施工（含约定拆检）。拆检后如有增减，须再确认。费用以各次确认单为准。'
 
 /** 完工确认 · 车主确认固定文案（协议句，商家不可改） */
 const REPAIR_CONFIRM_COPY = '本人确认上述施工与交车状态，并知悉质保条款。'
@@ -303,6 +305,7 @@ module.exports = {
   WALKAROUND_PARTS,
   INTAKE_RECORD_CATEGORIES,
   QUOTE_CONFIRM_COPY,
+  QUOTE_CONFIRM_COPY_TEARDOWN,
   REPAIR_CONFIRM_COPY,
   isValidFindingResult,
   findingAdviceRequired,

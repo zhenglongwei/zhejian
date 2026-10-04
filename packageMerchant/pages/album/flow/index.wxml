@@ -865,6 +865,7 @@
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
                     <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
                   </view>
+                  <text wx:if="{{quoteDraftHint}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
                     <view
                       wx:if="{{!readOnly}}"
@@ -1042,6 +1043,7 @@
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
                     <text class="text-body merchant-flow-page__sheet-title">{{isAddonQuote ? '项目与费用' : '方案与费用'}}</text>
                   </view>
+                  <text wx:if="{{quoteDraftHint && !isAddonQuote}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
                     <view
                       wx:if="{{!readOnly && !confirmAwaitingOwner}}"
