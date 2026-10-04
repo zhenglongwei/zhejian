@@ -100,7 +100,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '检测',
     legacyStageIds: ['stage_2'],
-    photoTips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点整理',
+    photoTips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍即可',
     captionPlaceholder: '检查部位',
     description: '',
   },

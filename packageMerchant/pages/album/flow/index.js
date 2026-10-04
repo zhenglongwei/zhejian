@@ -290,14 +290,14 @@ const STAGE_LABELS = {
   },
   stage_2: {
     title: '检测照片',
-    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点整理',
+    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍即可',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
   stage_5: {
     title: '施工过程',
-    tips: '连拍后点整理；补图进该项或走补拍再重新整理',
+    tips: '连拍即可；某一项里补图只进该项',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
@@ -1022,12 +1022,8 @@ Page({
   findingChromePatch(sections, pendingImages) {
     const findingSection = (sections || []).find((row) => row && row.findingMode)
     const findings = (findingSection && findingSection.findings) || []
-    const hasFindingItems = findings.length > 0
-    const pending = normalizePendingImages(pendingImages)
     return {
-      hasFindingItems,
-      organizeActionLabel: hasFindingItems ? '重新整理' : '整理',
-      showOrganizeAction: pending.length > 0,
+      hasFindingItems: findings.length > 0,
     }
   },
 
@@ -2157,7 +2153,7 @@ Page({
             autoSaveLabel: '保存中…',
             ...this.findingChromePatch(this.data.sections, pendingImages),
           })
-          this.scheduleAutoSavePhotos()
+          await this.onOrganizePhotos()
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -2229,7 +2225,7 @@ Page({
     const section = this.data.sections[si]
     const list = (section && section.findings) || []
     if (!list.length) {
-      wx.showToast({ title: '先加一项或单独成项', icon: 'none' })
+      wx.showToast({ title: '先单独成一项', icon: 'none' })
       return
     }
     this.setData({
@@ -2677,7 +2673,7 @@ Page({
       autoSaveLabel: '保存中…',
       ...this.findingChromePatch(this.data.sections, pendingImages),
     })
-    this.scheduleAutoSavePhotos()
+    this.onOrganizePhotos()
   },
 
   onAddOdometerPhoto() {

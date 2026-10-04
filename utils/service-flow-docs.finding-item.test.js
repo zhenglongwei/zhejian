@@ -60,6 +60,20 @@ test('submit keeps the item when album urls do not match its photos', () => {
   assert.deepEqual(collectInspectionReportGaps(report), [])
 })
 
+test('empty 加一项 draft with id survives remap after save', () => {
+  const rows = mapFindingRows(
+    [{ url: 'https://cdn.example/api/v1/media/files/uploads/a.jpg', caption: '液压位' }],
+    [
+      hydraulic,
+      { id: 'fid_new_1', partName: '', result: '', advice: '', images: [] },
+    ],
+  )
+  assert.equal(rows.length, 2)
+  assert.equal(rows[1].id, 'fid_new_1')
+  assert.equal(rows[1].partName, '')
+  assert.equal(rows[1].images.length, 0)
+})
+
 test('a photo that is not on any item and has another part becomes its own item', () => {
   const rows = mapFindingRows(
     [

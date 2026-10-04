@@ -284,7 +284,7 @@ function mapWorkFindingRows(images = [], draftFindings = [], options = {}) {
       })
     : images
   const draftList = (draftFindings || []).map((row, index) => normalizeWorkFinding(row, index))
-  if (draftList.some((row) => row.images.length || row.partName)) {
+  if (draftList.some((row) => row.images.length || row.partName || row.id)) {
     const persisted = mapPhotoRows(workImages)
     if (!persisted.length) return draftList
     const byKey = {}
@@ -690,7 +690,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
   const assigned = []
   ;(draftFindings || []).forEach((raw, index) => {
     const draft = normalizeItemFinding(raw, index)
-    if (!draft.partName && !draft.advice && !draft.result && !draft.images.length) return
+    if (!draft.partName && !draft.advice && !draft.result && !draft.images.length && !draft.id) return
     assigned.push(draft)
   })
   const merged = mergeFindingsByPart(assigned)
@@ -1071,7 +1071,9 @@ function normalizePhotoDraft(raw = {}) {
       ? raw.findings
           .map((item, index) => {
             const row = normalizeItemFinding(item, index)
-            return row.url || row.partName || row.advice || row.result || row.images.length ? row : null
+            return row.url || row.partName || row.advice || row.result || row.images.length || row.id
+              ? row
+              : null
           })
           .filter(Boolean)
       : [],

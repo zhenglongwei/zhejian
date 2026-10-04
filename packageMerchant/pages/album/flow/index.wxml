@@ -284,17 +284,9 @@
                       wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
                       class="text-caption text-secondary"
                     >进场外观在图库</text>
-                    <ui-button
-                      wx:if="{{!readOnly && showOrganizeAction}}"
-                      type="primary"
-                      block="{{true}}"
-                      loading="{{organizingPhotos}}"
-                      disabled="{{organizingPhotos}}"
-                      bind:btntap="onOrganizePhotos"
-                    >{{organizeActionLabel}}</ui-button>
                   </view>
                   <view wx:if="{{!section.findings.length && !pendingImages.length}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
-                    点加号连拍，再点{{organizeActionLabel}}
+                    点加号连拍
                   </view>
                   <view class="merchant-flow-page__finding-list">
                     <view
@@ -559,12 +551,6 @@
                         </block>
                       </view>
                     </view>
-                    <text
-                      wx:if="{{!readOnly}}"
-                      class="text-body merchant-flow-page__add-finding"
-                      data-section-index="{{sectionIndex}}"
-                      bindtap="onAddFindingItem"
-                    >加一项</text>
                   </view>
                   <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
                     <block wx:if="{{pendingImages.length}}">
@@ -605,7 +591,6 @@
                       </view>
                     </block>
                     <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
-                      <text class="text-caption text-secondary">补拍</text>
                       <view
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                         bindtap="onAddFindingPhotos"
@@ -622,14 +607,6 @@
                       wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
                       class="text-caption text-secondary"
                     >进场外观在图库</text>
-                    <ui-button
-                      wx:if="{{!readOnly && showOrganizeAction}}"
-                      type="secondary"
-                      block="{{true}}"
-                      loading="{{organizingPhotos}}"
-                      disabled="{{organizingPhotos}}"
-                      bind:btntap="onOrganizePhotos"
-                    >{{organizeActionLabel}}</ui-button>
                   </view>
                 </block>
                 <ui-album-node
