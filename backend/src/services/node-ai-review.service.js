@@ -366,7 +366,7 @@ async function collectMaskedUrlsForNode(albumId, node) {
   const urls = []
   collectNodeImageEntries(node).forEach((row) => {
     const masked = lookupMaskedUrl(lookup.byRawUrl, row.url)
-    if (masked) urls.push({ url: masked, label: row.label })
+    if (masked) urls.push({ url: masked, label: row.label, rawUrl: row.url })
   })
   return { ready: true, urls }
 }
@@ -405,6 +405,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       note: (line && line.note) || '',
       brand: (line && line.brand) || '',
     })),
+    photoObservations: Array.isArray(ctx.photoObservations) ? ctx.photoObservations : [],
     /** 工单项目：车主验收时与施工过程一并看到，须对得上 */
     orderItems: (ctx.orderItems || []).map((line) => ({
       name: (line && line.name) || '',
@@ -432,7 +433,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   }
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是发给车主确认前的核对。同时看检测发现和报价。除了让两边对得上，还要把每条报价行的施工方案写清楚：做什么工序、用什么件与规格、依据哪条发现，车主和之后看公开案例的人要能一眼看懂这一条做了什么。只能用本单已有的检测发现与当前行内容来组织句子，不许编造没拍到、没提到的工序或读数。不要改金额。'
+      ? '这是发给车主确认前的核对。同时看检测发现和报价。photoObservations 是整理时已经看过的图，不要再要这些图。施工方案只有含糊、缺工序/用料、或和检测打架才改句；已经能看懂的不要润色。只能用本单已有事实，不许编没拍到的工序或读数。不要改金额，不要编项目。'
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。同时看已经做过的施工、新发现和这次报价。可以建议改新发现的说明，或改报价的项目名和施工方案，使两边对得上。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
@@ -446,6 +447,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
     stepNote,
     '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}]}',
+    'text 只在原文看不懂、缺关键事实、或和照片/发现打架时才给 suggestedText。不要为了写得更好而改已经清楚的句子。没有可改的就返回空 suggestions。',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
     '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',
     'findingIndex 必须等于该条 findings 的 index。how 和 suggestedText 只描述这一个部位，不要把别的部位写进同一条。',
@@ -522,11 +524,46 @@ async function analyzeNode(album, node, capability) {
   if (collectNodeImageUrls(imageNode).length) {
     masked = await collectMaskedUrlsForNode(album.id, imageNode)
   }
+  let visionUrls = masked.urls || []
+  let photoObservations = []
+  if (visionUrls.length) {
+    const { classifyReviewVisionRows, FLOW_ORGANIZE_PROMPT_VERSION } = require('./node-photo-organize.service')
+    const { resolveShared } = require('../utils/resolve-shared')
+    const { mediaKey } = resolveShared('utils/service-flow-docs.js')
+    const images = Array.isArray(album.images) ? album.images : []
+    const byMedia = {}
+    const ids = []
+    images.forEach((img) => {
+      const key = mediaKey(img && img.rawUrl)
+      if (key) byMedia[key] = img
+      if (img && img.id) ids.push(img.id)
+    })
+    let byImageId = {}
+    if (ids.length) {
+      try {
+        const rows = await prisma.albumImageVisionCache.findMany({
+          where: {
+            albumImageId: { in: ids },
+            promptVersion: FLOW_ORGANIZE_PROMPT_VERSION,
+          },
+        })
+        rows.forEach((row) => {
+          if (row && row.albumImageId) byImageId[row.albumImageId] = row
+        })
+      } catch (_) {
+        byImageId = {}
+      }
+    }
+    const split = classifyReviewVisionRows(visionUrls, byMedia, byImageId)
+    visionUrls = split.visionUrls
+    photoObservations = split.cachedFacts
+  }
+  ctx.photoObservations = photoObservations
   let suggestions = fallback
   let source = 'rule'
   if (capability.llmEnabled) {
     try {
-      const fromModel = await runLlmSuggestions(ctx, masked.urls, capability)
+      const fromModel = await runLlmSuggestions(ctx, visionUrls, capability)
       if (fromModel && fromModel.suggestions && fromModel.suggestions.length) {
         suggestions = fromModel.suggestions
         source = fromModel.source || 'llm'

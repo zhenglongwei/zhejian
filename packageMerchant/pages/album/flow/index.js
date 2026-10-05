@@ -420,6 +420,8 @@ Page({
     notifyOwnerLabel: '通知车主',
     photoConfirmDisabled: false,
     notifyConfirmDisabled: false,
+    aiTextBatchCanApply: false,
+    aiTextBatchCanUndo: false,
     chiefComplaintPlaceholder: '例：到店检查异响',
     findingPartPlaceholder: '例：检查部位',
     findingAdvicePlaceholder: '例：该部位有可见磨损',
@@ -3252,10 +3254,14 @@ Page({
                   : '本步文字'
       const dismissed = this._dismissedAiSuggestionIds || new Set()
       const applied =
-        Boolean(item && item.applied) ||
-        prevApplied.has(item && item.id) ||
-        dismissed.has(item && item.id)
+        item && item.applied === false
+          ? false
+          : Boolean(item && item.applied) ||
+            prevApplied.has(item && item.id) ||
+            dismissed.has(item && item.id)
       const currentShown = applied && suggestedText ? suggestedText : currentText
+      const canApply =
+        type === 'text' && Boolean(suggestedText) && !applied && suggestedText !== currentText
       return {
         ...item,
         type,
@@ -3272,7 +3278,7 @@ Page({
         ),
         boundPart: bindSuggestionPart(findings, item),
         applied,
-        canApply: type === 'text' && Boolean(suggestedText) && !applied,
+        canApply,
         canGoPhoto: type === 'photo' && !applied,
         actionLabel: type === 'photo' ? '补拍' : applied ? '已应用' : '应用',
       }
@@ -3288,6 +3294,7 @@ Page({
       waitHint: raw.waitHint || '正在检查',
       waitDetail: '对照本步照片和说明',
       emptyHint: raw.emptyHint || '未发现可改之处',
+      canApplyAllText: suggestions.some((row) => row && row.canApply),
     }
   },
 
@@ -3532,6 +3539,12 @@ Page({
 
   applyInlineAiReview(review, action) {
     this._aiReviewAction = action || this._aiReviewAction || 'complete'
+    const fingerprint = String((review && review.fingerprint) || '')
+    if (fingerprint && fingerprint !== this._aiReviewFingerprint) {
+      this._aiTextBatchSnapshot = null
+      this._aiTextBatchAppliedIds = []
+      this._aiReviewFingerprint = fingerprint
+    }
     const decorated = this.decorateAiReview(review)
     const waiting = Boolean(decorated.isWaiting)
     const timedOut = waiting && this.data.aiReviewTimedOut
@@ -3539,6 +3552,8 @@ Page({
     const patch = {
       aiReview: decorated,
       aiReviewBusy: false,
+      aiTextBatchCanApply: Boolean(decorated.canApplyAllText) && !waiting,
+      aiTextBatchCanUndo: Boolean(this._aiTextBatchSnapshot),
     }
     if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
       patch.notifyOwnerLabel = '通知车主'
@@ -3657,7 +3672,9 @@ Page({
     this._aiReviewTimer = setTimeout(tick, 1600)
   },
 
-  async onApplyAiSuggestion(e) {
+  async onApplyAiSuggestion(e, options = {}) {
+    const skipPersist = Boolean(options && options.skipPersist)
+    const skipToast = Boolean(options && options.skipToast)
     const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     const review = this.data.aiReview
     const item = ((review && review.suggestions) || []).find((row) => row && row.id === id)
@@ -3788,27 +3805,156 @@ Page({
       row && row.id === id ? { ...row, applied: true } : row,
     )
     patch.aiReview = this.decorateAiReview({ ...review, suggestions })
+    patch.aiTextBatchCanApply = Boolean(patch.aiReview.canApplyAllText)
+    patch.aiTextBatchCanUndo = Boolean(this._aiTextBatchSnapshot)
     this.setData(patch)
+    if (skipPersist) return true
     try {
-      if (this.data.activeIsPhoto) await this.persistPhotoDraft()
-      else if (this.data.activeKind === 'inspection_report') {
-        await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-          document: { status: 'draft', payload: this.buildDocPayloadForSave() },
-        })
-        const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
-        if (quoteNodeId && (field === 'quoteLineName' || field === 'quoteLineNote')) {
-          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
-            document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
-          })
-        }
-      }
+      await this.persistAiReviewDraft(field)
       const partName =
         findingIndex >= 0
           ? String((findingsPool[findingIndex] && findingsPool[findingIndex].partName) || '').trim()
           : ''
-      wx.showToast({ title: partName ? `已写入${partName}` : '已应用', icon: 'none' })
+      if (!skipToast) {
+        wx.showToast({ title: partName ? `已写入${partName}` : '已应用', icon: 'none' })
+      }
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '未写入', icon: 'none' })
+    }
+  },
+
+  captureAiTextSnapshot() {
+    return {
+      chiefComplaint: this.data.chiefComplaint,
+      warrantyPeriod: this.data.warrantyPeriod,
+      findings: (this.data.findings || []).map((row) => ({
+        advice: row.advice,
+        caption: row.caption,
+      })),
+      quoteLines: (this.data.quoteLines || []).map((row) => ({
+        name: row.name,
+        note: row.note,
+      })),
+      sections: (this.data.sections || []).map((section) => ({
+        findings: (section.findings || []).map((row) => ({
+          advice: row.advice,
+          caption: row.caption,
+        })),
+      })),
+    }
+  },
+
+  restoreAiTextSnapshot(snap) {
+    if (!snap) return {}
+    const findings = (this.data.findings || []).map((row, index) => ({
+      ...row,
+      advice: snap.findings && snap.findings[index] ? snap.findings[index].advice : row.advice,
+      caption: snap.findings && snap.findings[index] ? snap.findings[index].caption : row.caption,
+    }))
+    const quoteLines = (this.data.quoteLines || []).map((row, index) => ({
+      ...row,
+      name: snap.quoteLines && snap.quoteLines[index] ? snap.quoteLines[index].name : row.name,
+      note: snap.quoteLines && snap.quoteLines[index] ? snap.quoteLines[index].note : row.note,
+    }))
+    const sections = (this.data.sections || []).map((section, si) => ({
+      ...section,
+      findings: (section.findings || []).map((row, fi) => {
+        const saved = snap.sections && snap.sections[si] && snap.sections[si].findings
+          ? snap.sections[si].findings[fi]
+          : null
+        return saved ? { ...row, advice: saved.advice, caption: saved.caption } : row
+      }),
+    }))
+    return {
+      chiefComplaint: snap.chiefComplaint,
+      warrantyPeriod: snap.warrantyPeriod,
+      findings,
+      quoteLines: this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource()),
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+      sections: this.decorateSections(sections),
+    }
+  },
+
+  async persistAiReviewDraft(field) {
+    if (this.data.activeIsPhoto) {
+      await this.persistPhotoDraft()
+      return
+    }
+    const kind = this.data.activeKind
+    if (kind === 'inspection_report') {
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: { status: 'draft', payload: this.buildDocPayloadForSave() },
+      })
+      const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
+      if (quoteNodeId && (!field || field === 'quoteLineName' || field === 'quoteLineNote')) {
+        await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+          document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+        })
+      }
+      return
+    }
+    if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+      })
+      return
+    }
+    if (kind === 'repair_report') {
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: { status: 'draft', payload: this.buildDocPayloadForSave() },
+      })
+    }
+  },
+
+  async onApplyAllAiText() {
+    const review = this.data.aiReview
+    const items = ((review && review.suggestions) || []).filter((row) => row && row.canApply)
+    if (!items.length) return
+    if (!this._aiTextBatchSnapshot) this._aiTextBatchSnapshot = this.captureAiTextSnapshot()
+    this._aiTextBatchAppliedIds = items.map((row) => row.id)
+    for (let i = 0; i < items.length; i += 1) {
+      await this.onApplyAiSuggestion(
+        { currentTarget: { dataset: { id: items[i].id } } },
+        { skipPersist: true, skipToast: true },
+      )
+    }
+    try {
+      await this.persistAiReviewDraft()
+      this.setData({
+        aiTextBatchCanApply: false,
+        aiTextBatchCanUndo: true,
+      })
+      wx.showToast({ title: '已写入', icon: 'none' })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '未写入', icon: 'none' })
+    }
+  },
+
+  async onUndoAiTextBatch() {
+    const snap = this._aiTextBatchSnapshot
+    if (!snap) return
+    const review = this.data.aiReview
+    const ids = new Set(this._aiTextBatchAppliedIds || [])
+    const suggestions = ((review && review.suggestions) || []).map((row) =>
+      row && ids.has(row.id) ? { ...row, applied: false } : row,
+    )
+    this._aiTextBatchSnapshot = null
+    this._aiTextBatchAppliedIds = []
+    const restored = this.restoreAiTextSnapshot(snap)
+    const decorated = this.decorateAiReview({ ...(review || {}), suggestions })
+    const hintPatch = this.computeInlineHintPatch(decorated)
+    this.setData({
+      ...restored,
+      ...hintPatch,
+      aiReview: decorated,
+      aiTextBatchCanApply: Boolean(decorated.canApplyAllText),
+      aiTextBatchCanUndo: false,
+    })
+    try {
+      await this.persistAiReviewDraft()
+      wx.showToast({ title: '已撤回', icon: 'none' })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '未撤回', icon: 'none' })
     }
   },
 

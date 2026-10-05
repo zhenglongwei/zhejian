@@ -161,20 +161,23 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
       '这是接车留证。按类目归组，抽出读数。不要写需处理，不要给每块板贴正常或有破损。',
       `类目 id：${JSON.stringify(categories)}`,
       '输出 JSON：{"groups":[{"category","imageSlots","reading","observation"}]}',
-      'category 必须是类目 id。里程读数填纯数字到 reading；油量把表上能读到的写进 reading。observation 写你看见什么，给后台缓存，不要当检查结果。',
+      'category 必须是类目 id。里程读数填纯数字到 reading；油量把表上能读到的写进 reading。observation 写看见什么：读数、污渍、损伤位置。给之后检测和报价用，不要当检查结果，不要编没看到的规格。',
       '仪表和油量可以在同一张图：这张图同时进 odometer 和 fuel 两组。',
     ]).join('\n')
   }
   if (mode === 'work') {
     return common.concat([
       '这是施工过程。按「做了哪一项」归组。partName 写项目名，caption 写做了什么、用了什么件。不要写检查结果。',
+      'observation 写看见的用料规格、安装位置，给之后核对用。不要编没入镜的规格。',
       '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation"}]}',
     ]).join('\n')
   }
   return common.concat([
-    '这是检测。按检查点/部位归组。result 只能是：状态良好、需关注、需处理、仅记录。advice 写看见什么，不要写成更换方案。',
+    '这是检测。按检查点/部位归组。result 只能是：状态良好、需关注、需处理、仅记录。',
+    'advice 写看见什么：损伤形态、读数（厚度/电压/液位）、颜色杂质、左右位置。不要写成更换方案。',
+    'observation 写给之后报价用的完整观察（可见配件、损伤范围、读数）。不要编没看到的规格。',
     '输出 JSON：{"groups":[{"partName","imageSlots","result","advice","observation"}]}',
-    '已识过的图若有观察记录，优先用来填 advice，不要再编。',
+    '已识过的图若有观察记录，优先用来填 advice，不要再编、不要再看这些图。',
   ]).join('\n')
 }
 
@@ -207,6 +210,83 @@ async function runOrganizeVision({ instruction, maskedUrls }) {
     timeoutMs: Math.min(Number(llm.timeoutMs || 60000), 60000),
   })
   return parseJsonObject(result && result.text)
+}
+
+function groupsFromFindingCache(cachedRows, pending) {
+  const byPart = {}
+  ;(cachedRows || []).forEach((row) => {
+    const json = (row && row.resultJson) || {}
+    const imageKey = text(json.imageKey || row.imageKey)
+    const partName = text(json.partName || json.category)
+    if (!partName && !imageKey) return
+    const key = partName || '未归组'
+    if (!byPart[key]) {
+      byPart[key] = {
+        partName: key,
+        result: text(json.result),
+        advice: text(json.advice || json.observation),
+        caption: text(json.caption),
+        observation: text(json.observation || json.advice || json.caption),
+        imageKeys: [],
+      }
+    }
+    if (imageKey) byPart[key].imageKeys.push(imageKey)
+    if (!byPart[key].result && json.result) byPart[key].result = text(json.result)
+    if (!byPart[key].advice && (json.advice || json.observation)) {
+      byPart[key].advice = text(json.advice || json.observation)
+    }
+    if (!byPart[key].caption && json.caption) byPart[key].caption = text(json.caption)
+    if (!byPart[key].observation && json.observation) {
+      byPart[key].observation = text(json.observation)
+    }
+  })
+  return normalizeGroups(Object.values(byPart), pending)
+}
+
+function mergeGroupsByPart(rawGroups, pending) {
+  const byPart = {}
+  normalizeGroups(rawGroups, pending).forEach((group) => {
+    const key = text(group.partName || group.category) || '_'
+    if (!byPart[key]) {
+      byPart[key] = { ...group, imageKeys: [...(group.imageKeys || [])] }
+      return
+    }
+    ;(group.imageKeys || []).forEach((imageKey) => {
+      if (imageKey && !byPart[key].imageKeys.includes(imageKey)) {
+        byPart[key].imageKeys.push(imageKey)
+      }
+    })
+    ;['result', 'advice', 'caption', 'observation', 'reading'].forEach((field) => {
+      if (!byPart[key][field] && group[field]) byPart[key][field] = group[field]
+    })
+  })
+  return Object.values(byPart)
+}
+
+function classifyReviewVisionRows(labeledUrls, imageByMediaKey, cacheByAlbumImageId) {
+  const visionUrls = []
+  const cachedFacts = []
+  ;(labeledUrls || []).forEach((row) => {
+    const url = typeof row === 'string' ? row : row && row.url
+    const label = typeof row === 'string' ? '' : text(row && row.label)
+    const rawUrl = typeof row === 'string' ? '' : text(row && row.rawUrl)
+    const key = mediaKey(rawUrl)
+    const imageRow = key ? imageByMediaKey && imageByMediaKey[key] : null
+    const hit = imageRow && cacheByAlbumImageId ? cacheByAlbumImageId[imageRow.id] : null
+    if (hit && hit.resultJson) {
+      const json = hit.resultJson || {}
+      cachedFacts.push({
+        label,
+        partName: text(json.partName || json.category),
+        reading: text(json.reading),
+        result: text(json.result),
+        observation: text(json.observation || json.advice || json.caption),
+      })
+      return
+    }
+    visionUrls.push(typeof row === 'string' ? { url, label, rawUrl } : row)
+  })
+  return { visionUrls, cachedFacts }
 }
 
 function groupsFromCache(cachedRows, pending) {
@@ -292,7 +372,11 @@ async function saveFlowVisionCaches(parsedGroups, uncachedMasked, album) {
       if (!byKey[key]) {
         byKey[key] = {
           category: text(group.category || group.partName),
+          partName: text(group.partName || group.category),
           reading: text(group.reading),
+          result: text(group.result),
+          advice: text(group.advice),
+          caption: text(group.caption),
           observation: text(group.observation || group.advice || group.caption),
           imageKey: key,
         }
@@ -374,18 +458,19 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     cached = []
     uncachedMasked = masked.urls
   }
-  const cachedGroups = mode === 'intake' ? groupsFromCache(cached, pending) : []
+  const cachedGroups =
+    mode === 'intake' ? groupsFromCache(cached, pending) : groupsFromFindingCache(cached, pending)
   const cachedNotes = cached
     .map((row) => {
       const json = row.resultJson || {}
       const at = pending.findIndex((img) => mediaKey(img && img.url) === row.imageKey)
       const slot = at >= 0 ? `图${at + 1}` : '图'
-      return `${slot}:${json.category || json.partName || ''} ${json.reading || ''} ${json.observation || ''}`
+      return `${slot}:${json.category || json.partName || ''} ${json.reading || ''} ${json.observation || json.advice || ''}`
     })
     .join('；')
     .slice(0, 2000)
 
-  const visionUrls = mode === 'intake' ? uncachedMasked : masked.urls
+  const visionUrls = uncachedMasked
   let parsed = { groups: cachedGroups }
   if (visionUrls.length) {
     const instruction = buildInstruction({ mode, existingParts, cachedNotes })
@@ -404,7 +489,10 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     }
   }
 
-  const groups = normalizeGroups(parsed.groups, pending)
+  const groups =
+    mode === 'intake'
+      ? normalizeGroups(parsed.groups, pending)
+      : mergeGroupsByPart(parsed.groups, pending)
   const odoGroup = groups.find((row) => row.category === 'odometer' || row.partName === '里程')
   const odometerImageKey = odoGroup && odoGroup.imageKeys && odoGroup.imageKeys[0]
     ? odoGroup.imageKeys[0]
@@ -421,5 +509,8 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
 module.exports = {
   organizeFlowNodePhotos,
   normalizeGroups,
+  groupsFromFindingCache,
+  mergeGroupsByPart,
+  classifyReviewVisionRows,
   FLOW_ORGANIZE_PROMPT_VERSION,
 }
