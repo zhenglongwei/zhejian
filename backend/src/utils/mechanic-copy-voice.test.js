@@ -15,6 +15,10 @@ test('rejects caption-like and vague spec copy', () => {
     violatesMechanicVoice('安装全新适配型号机油滤芯并复位。'),
     true,
   )
+  assert.equal(
+    violatesMechanicVoice('技师正在安装新机滤。'),
+    true,
+  )
 })
 
 test('allows mechanic judgment and teardown hedge', () => {

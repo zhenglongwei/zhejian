@@ -14,7 +14,7 @@ const {
 
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v2'
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v3'
 
 function text(value) {
   return String(value || '').trim()
@@ -170,8 +170,10 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
   }
   if (mode === 'work') {
     return common.concat([
-      '这是施工过程。按「做了哪一项」归组。partName 写项目名，caption 写做了什么、用了什么件。不要写检查结果。',
-      'observation 写看见的用料规格、安装位置，给之后核对用。包装上没有的规格不要编。caption 只写做了什么，不要写适配型号。',
+      '这是工单留证。按「换成了哪一项」归组。图主要是拆下的旧件、新件包装或标签、新旧同框。不要当成干活录像来写。',
+      'partName 写项目名。caption 写换了什么、图上能看见的规格。不要写检查结果，不要写正在拆、正在安装、技师操作。',
+      '钣喷打磨、事故拆解如果拍了工序，可以挂在对应项；没拍到的工序不要编。',
+      'observation 只写包装或铭牌上的规格、旧件能看清的状态。没有就不写。禁止适配型号。',
       '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation"}]}',
     ]).join('\n')
   }

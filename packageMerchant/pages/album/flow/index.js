@@ -1401,7 +1401,9 @@ Page({
       let activeSummary = rawSummary === '草稿' ? '' : rawSummary
       if (isInspectionPhotoStep && placeholders.inspectionTips) {
         activeSummary = placeholders.inspectionTips
-      } else if (isIntakePhotoStep || isWorkPhotoStep || isDeliveryPhotoStep) {
+      } else if (isWorkPhotoStep) {
+        activeSummary = placeholders.workTips || '旧件、新件包装即可'
+      } else if (isIntakePhotoStep || isDeliveryPhotoStep) {
         activeSummary = ''
       }
       const activeTitleRaw = showCombinedPlan

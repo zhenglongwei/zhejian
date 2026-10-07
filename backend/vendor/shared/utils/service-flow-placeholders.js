@@ -145,6 +145,7 @@ function getFlowPlaceholders(templateId, serviceName) {
     quoteJob: row.quoteJob || '例：按检测结果施工',
     quoteNote: row.quoteNote,
     workCaption: row.workCaption,
+    workTips: '旧件、新件包装即可',
     inspectionTips: INSPECTION_TIPS[category] || INSPECTION_TIPS.generic,
   }
 }

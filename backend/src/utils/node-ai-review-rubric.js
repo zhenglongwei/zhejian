@@ -85,7 +85,7 @@ const RUBRICS = {
         photo('oil_level_confirm', '加注后油尺/窗', '液位在标尺正常区间', ['油尺', '液位', 'oil_level']),
       ],
       texts: [
-        textHint('caption', '写清规格、品牌、机滤是否一并更换'),
+        textHint('caption', '写清图上能见的规格、品牌；机滤是否一并更换。不要写正在安装'),
       ],
     },
     delivery: {
