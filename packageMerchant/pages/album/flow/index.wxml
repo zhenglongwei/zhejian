@@ -241,14 +241,14 @@
                 class="merchant-flow-page__section"
               >
                 <block wx:if="{{section.findingMode}}">
-                  <text class="text-body merchant-flow-page__label">{{section.title}}</text>
+                  <text wx:if="{{section.title}}" class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
                   <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending">
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>
                     </view>
                     <block wx:else>
-                    <text class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
+                    <text wx:if="{{pendingImages.length}}" class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
                     <view class="merchant-flow-page__work-thumbs">
                       <view
                         wx:for="{{pendingImages}}"
@@ -289,9 +289,6 @@
                       class="text-caption text-secondary"
                     >进场外观在图库</text>
                     </block>
-                  </view>
-                  <view wx:if="{{!section.findings.length && !pendingImages.length && !organizingPhotos}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
-                    点加号连拍
                   </view>
                   <view class="merchant-flow-page__finding-list">
                     <view
@@ -714,17 +711,11 @@
 
               <view class="merchant-flow-page__step-foot">
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
-                <ui-button
-                  wx:if="{{!readOnly && isWorkPhotoStep}}"
-                  type="ghost"
-                  block="{{true}}"
-                  loading="{{confirming}}"
-                  bind:btntap="onAddAddonPlan"
-                >发现新的待处理项目</ui-button>
                 <text
                   wx:if="{{!readOnly && isWorkPhotoStep}}"
-                  class="text-caption text-secondary merchant-flow-page__finding-tips"
-                >下一页拍故障、写看见什么</text>
+                  class="text-caption merchant-flow-page__addon-link"
+                  bindtap="onAddAddonPlan"
+                >施工中新发现</text>
                 <view
                   wx:if="{{aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"

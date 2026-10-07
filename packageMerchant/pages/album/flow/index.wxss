@@ -541,6 +541,12 @@
   padding: var(--space-xs) 0;
 }
 
+.merchant-flow-page__addon-link {
+  color: var(--color-primary);
+  text-align: center;
+  padding: var(--space-xs) 0;
+}
+
 .merchant-flow-page__library-mask {
   position: fixed;
   left: 0;

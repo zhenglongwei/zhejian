@@ -298,10 +298,10 @@
 | completedSteps | Array | `[]` | `{ id, title, summary?, status: 'done', detailKind?, …预览字段 }[]`；`detailKind` 为 `doc_sheet` / `photos` 时组件内渲染只读详情，其余值走 `completed-detail` 兜底插槽 |
 | activeTitle | String | `''` | 当前步标题 |
 | activeSummary | String | `''` | 当前步摘要 |
-| activeCategory | String | `''` | `拍照` / `单据` |
+| activeCategory | String | `''` | 可选弱标签。商家 DOC-FLOW 进度页**不传**（步名已含接车/检测/工单；工单对外是单据、对内仍连拍，贴「拍照/单据」会打架） |
 | progressLabel | String | `''` | 可选顶部说明；商家 DOC-FLOW 进度页**不传**（步号写在各步 `title` / `activeTitle`，形如「第1步 · 接车」，勿用「第 n / 总步数」） |
 | showActive | Boolean | true | 是否展示当前步外壳 |
-| lockedHint | String | `''` | 未解锁提示 |
+| lockedHint | String | `''` | 未解锁提示。商家 DOC-FLOW 进度页**不传**（未到步不渲染；勿在当前卡下写「完成当前步骤后将自动出现下一步」） |
 | expandedCompletedId | String | `''` | 当前展开的已完成步骤 id |
 
 | 事件 | 说明 |

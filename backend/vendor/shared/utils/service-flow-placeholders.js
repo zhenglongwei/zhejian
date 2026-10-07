@@ -111,16 +111,16 @@ const PLACEHOLDERS = {
 }
 
 const INSPECTION_TIPS = {
-  maintenance: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍即可',
-  major_maintenance: '基础查：油液、空滤、故障灯、底盘。连拍即可',
-  brake: '查片厚、盘面、制动液。连拍即可',
-  battery: '查电压、桩头、故障灯。连拍即可',
-  tire: '查花纹、鼓包、胎压、螺丝。连拍即可',
-  ac: '查滤芯、出风口、管路。连拍即可',
+  maintenance: '基础查：油液、故障灯、底盘、刹车、轮胎',
+  major_maintenance: '基础查：油液、空滤、故障灯、底盘',
+  brake: '查片厚、盘面、制动液',
+  battery: '查电压、桩头、故障灯',
+  tire: '查花纹、鼓包、胎压、螺丝',
+  ac: '查滤芯、出风口、管路',
   body_paint: '对照进场外观查划痕、凹陷、缝隙。缺的再补拍',
   accident: '对照进场外观查碰撞部位、灯光、缝隙。缺的再补拍',
-  chassis_noise: '查胶套、球头、减震，可路试复现。连拍即可',
-  generic: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍即可',
+  chassis_noise: '查胶套、球头、减震，可路试复现',
+  generic: '基础查：油液、故障灯、底盘、刹车、轮胎',
 }
 
 function resolveFlowCategory(templateId, serviceName) {

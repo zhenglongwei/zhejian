@@ -291,15 +291,15 @@ const STAGE_LABELS = {
     findingKind: '',
   },
   stage_2: {
-    title: '检测照片',
-    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍即可',
+    title: '',
+    tips: '',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
   stage_5: {
-    title: '施工过程',
-    tips: '连拍即可；某一项里补图只进该项',
+    title: '',
+    tips: '',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
@@ -1401,6 +1401,8 @@ Page({
       let activeSummary = rawSummary === '草稿' ? '' : rawSummary
       if (isInspectionPhotoStep && placeholders.inspectionTips) {
         activeSummary = placeholders.inspectionTips
+      } else if (isIntakePhotoStep || isWorkPhotoStep || isDeliveryPhotoStep) {
+        activeSummary = ''
       }
       const activeTitleRaw = showCombinedPlan
         ? '核对报告与方案'
@@ -1437,7 +1439,7 @@ Page({
         activeNode: active,
         activeTitle,
         activeSummary,
-        activeCategory: activeIsPhoto ? '拍照' : active ? '单据' : '',
+        activeCategory: '',
         activeKind: (active && active.kind) || '',
         showActive: Boolean(active),
         activeIsPhoto,
@@ -1524,7 +1526,7 @@ Page({
           (url) => ({ url }),
         ),
         progressLabel: '',
-        lockedHint: progress.lockedHint || '完成当前步骤后，将自动出现下一步',
+        lockedHint: '',
         captionHint: '',
         autoSaveLabel: '',
         showAutoSave: false,

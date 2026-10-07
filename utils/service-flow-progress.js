@@ -73,9 +73,7 @@ function buildFlowProgressView(nodes = []) {
       status: 'done',
     })),
     activeNode: active,
-    lockedHint: active
-      ? '完成当前步骤后，将自动出现下一步'
-      : allDoneText(sorted.length),
+    lockedHint: active ? '' : allDoneText(sorted.length),
   }
 }
 
