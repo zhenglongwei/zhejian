@@ -398,11 +398,12 @@ async function fetchMerchantAlbumMediaLibrary(albumId) {
 
 async function organizeMerchantFlowNodePhotos(albumId, nodeId, payload = {}) {
   if (ENV.mode === 'mock') {
-    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true }
+    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: false }
   }
   return post(
     `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/organize-photos`,
     withStore(payload),
+    { timeout: 120000 },
   )
 }
 

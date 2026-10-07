@@ -125,6 +125,13 @@ function organizeFailHint(err) {
   return msg || '这次没归上'
 }
 
+function sleepMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+const ORGANIZE_FLOW_WAIT_MS = 180000
+const ORGANIZE_POLL_MS = 2000
+
 /** 已完成步骤「查看」：单据走 service-doc-sheet；拍照步仍用缩略图 */
 function buildSheetMetaLine(payload = {}, album = {}) {
   const parts = []
@@ -2532,6 +2539,25 @@ Page({
     return leftoverCount ? `${placed}。还有 ${leftoverCount} 张请手工归` : placed
   },
 
+  async waitForOrganizeResult(payload) {
+    const node = this.data.activeNode
+    const deadline = Date.now() + ORGANIZE_FLOW_WAIT_MS
+    let last = { skipped: true, groups: [] }
+    let lastErr = null
+    while (Date.now() < deadline) {
+      try {
+        last = await organizeMerchantFlowNodePhotos(this.albumId, node.id, payload)
+        lastErr = null
+        if (!last || !last.skipped) return last || {}
+      } catch (err) {
+        lastErr = err
+      }
+      await sleepMs(ORGANIZE_POLL_MS)
+    }
+    if (lastErr) throw lastErr
+    return last
+  },
+
   async onOrganizePhotos() {
     if (this.data.readOnly || this.data.organizingPhotos) return
     const node = this.data.activeNode
@@ -2551,7 +2577,7 @@ Page({
       await this.persistPhotos()
       await this.persistPhotoDraft()
       const findings = this.collectFindingsFromSections()
-      const res = await organizeMerchantFlowNodePhotos(this.albumId, node.id, {
+      const res = await this.waitForOrganizeResult({
         kind,
         pendingImages: pending,
         findings,
