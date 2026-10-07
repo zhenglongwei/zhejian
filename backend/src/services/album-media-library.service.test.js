@@ -22,7 +22,7 @@ test('library time is month-day hour:minute', () => {
 test('pickCache prefers flow organize prompt version', () => {
   const hit = pickCache([
     { promptVersion: 'album-vision-v2-2026-09-19', resultJson: { description: 'old' } },
-    { promptVersion: 'flow-organize-v3', resultJson: { observation: 'new' } },
+    { promptVersion: 'flow-organize-v4', resultJson: { observation: 'new' } },
   ])
   assert.equal(hit.resultJson.observation, 'new')
 })

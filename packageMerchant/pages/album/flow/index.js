@@ -1402,7 +1402,7 @@ Page({
       if (isInspectionPhotoStep && placeholders.inspectionTips) {
         activeSummary = placeholders.inspectionTips
       } else if (isWorkPhotoStep) {
-        activeSummary = placeholders.workTips || '旧件、新件包装即可'
+        activeSummary = placeholders.workTips || '新旧配件、关键工序'
       } else if (isIntakePhotoStep || isDeliveryPhotoStep) {
         activeSummary = ''
       }

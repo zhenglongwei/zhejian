@@ -23,9 +23,11 @@ test('inspection tips follow category basics', () => {
   assert.match(getFlowPlaceholders('paint', '钣喷修复').inspectionTips, /进场外观/)
 })
 
-test('work tips ask for old and new parts not process footage', () => {
-  assert.match(getFlowPlaceholders('maintenance', '小保养').workTips, /旧件/)
-  assert.match(getFlowPlaceholders('maintenance', '小保养').workTips, /新件/)
+test('work tips name typical evidence without packing-only wording', () => {
+  const tips = getFlowPlaceholders('maintenance', '小保养').workTips
+  assert.match(tips, /新旧配件/)
+  assert.match(tips, /关键工序/)
+  assert.doesNotMatch(tips, /即可|不强制|包装即可/)
 })
 
 test('quote lines are not prefills from findings', () => {
