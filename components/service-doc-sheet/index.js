@@ -34,25 +34,32 @@ Component({
       type: String,
       value: 'preview',
     },
+    /** 车主检测报告用来判断「需要处理的项目」 */
+    quoteLines: {
+      type: Array,
+      value: [],
+    },
   },
 
   data: {
     findingGroups: [],
-    quoteLines: [],
+    quoteLineRows: [],
     totalAmountText: '',
     expandedAdvice: {},
     expandedNotes: {},
   },
 
   observers: {
-    'doc, mode': function syncSheet(doc, mode) {
+    'doc, mode, quoteLines': function syncSheet(doc, mode, quoteLines) {
       const nextId = doc && doc.id
       const keepExpand = nextId && nextId === this._sheetDocId
       this._sheetDocId = nextId || ''
-      const groupByResult = mode === 'owner'
       this.setData({
-        findingGroups: buildFindingGroups((doc && doc.findings) || [], { groupByResult }),
-        quoteLines: buildQuoteLinesView((doc && doc.lines) || []),
+        findingGroups: buildFindingGroups((doc && doc.findings) || [], {
+          groupForOwner: mode === 'owner',
+          quoteLines: quoteLines || [],
+        }),
+        quoteLineRows: buildQuoteLinesView((doc && doc.lines) || []),
         totalAmountText: stripTotalPrefix((doc && doc.totalAmountLabel) || ''),
         expandedAdvice: keepExpand ? this.data.expandedAdvice : {},
         expandedNotes: keepExpand ? this.data.expandedNotes : {},

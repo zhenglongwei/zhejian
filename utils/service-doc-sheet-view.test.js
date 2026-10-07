@@ -1,34 +1,67 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
-  findingResultBucket,
+  ownerFindingBucket,
   buildFindingGroups,
+  collectPrimaryQuoteLines,
   buildQuoteLinesView,
   stripTotalPrefix,
   formatLineAmount,
 } = require('./service-doc-sheet-view')
 
-test('owner findings group attention first', () => {
+const quoteLines = [
+  { name: '车身侧裙/底大边更换并喷漆', amount: 200 },
+  { name: '更换机油滤芯', amount: 150 },
+  { name: '车身前部事故损伤修复', amount: 200 },
+]
+
+test('owner groups by quote, watch, then normal', () => {
   const groups = buildFindingGroups(
     [
       { partName: '雨刮', result: '状态良好', advice: '完好', url: 'https://a.jpg' },
       {
-        partName: '侧裙',
+        partName: '车身侧裙/底大边',
         result: '需处理',
         advice: '漆面破损需更换',
         images: [{ url: 'https://b.jpg' }, { url: 'https://c.jpg' }],
       },
-      { partName: '原理图', result: '已留证', url: 'https://d.jpg' },
+      { partName: '底盘悬挂系统', result: '需关注', url: 'https://d.jpg' },
+      { partName: '机油滤芯原理图', result: '已留证', url: 'https://e.jpg' },
+      { partName: '机油滤芯', result: '需处理', url: 'https://f.jpg' },
     ],
-    { groupByResult: true },
+    { groupForOwner: true, quoteLines },
   )
   assert.deepEqual(
     groups.map((row) => row.title),
-    ['需要留意', '状态正常', '已留证'],
+    ['需要处理的项目', '需要持续关注的项目', '正常项目'],
   )
-  assert.equal(groups[0].items[0].partName, '侧裙')
-  assert.equal(groups[0].items[0].images.length, 2)
-  assert.equal(groups[0].items[0].resultVariant, 'danger')
+  assert.deepEqual(
+    groups[0].items.map((row) => row.partName),
+    ['车身侧裙/底大边', '机油滤芯'],
+  )
+  assert.equal(groups[1].items[0].partName, '底盘悬挂系统')
+  assert.deepEqual(
+    groups[2].items.map((row) => row.partName),
+    ['雨刮', '机油滤芯原理图'],
+  )
+})
+
+test('record/ok never enter 需要处理 even if name overlaps quote', () => {
+  assert.equal(
+    ownerFindingBucket({ partName: '机油滤芯原理图', result: '已留证' }, quoteLines),
+    'ok',
+  )
+  assert.equal(
+    ownerFindingBucket({ partName: '机油滤芯', result: '状态良好' }, quoteLines),
+    'ok',
+  )
+})
+
+test('unmatched 需处理 stays in 需要处理 when there is no quote yet', () => {
+  assert.equal(
+    ownerFindingBucket({ partName: '侧裙', result: '需处理' }, []),
+    'action',
+  )
 })
 
 test('merchant preview keeps original order without group titles', () => {
@@ -37,7 +70,7 @@ test('merchant preview keeps original order without group titles', () => {
       { partName: '雨刮', result: '状态良好' },
       { partName: '侧裙', result: '需处理' },
     ],
-    { groupByResult: false },
+    { groupForOwner: false },
   )
   assert.equal(groups.length, 1)
   assert.equal(groups[0].title, '')
@@ -47,10 +80,26 @@ test('merchant preview keeps original order without group titles', () => {
   )
 })
 
-test('bucket maps 仅记录 to record', () => {
-  assert.equal(findingResultBucket('仅记录'), 'record')
-  assert.equal(findingResultBucket('已留证'), 'record')
-  assert.equal(findingResultBucket('需关注'), 'attention')
+test('collectPrimaryQuoteLines skips addon and cancelled', () => {
+  const lines = collectPrimaryQuoteLines([
+    { kind: 'inspection_report' },
+    {
+      kind: 'quote_confirm',
+      cancelled: true,
+      lines: [{ name: '旧单' }],
+    },
+    {
+      kind: 'quote_confirm',
+      isAddon: false,
+      lines: [{ name: '更换机油滤芯' }],
+    },
+    {
+      kind: 'addon_quote_confirm',
+      isAddon: true,
+      lines: [{ name: '增项' }],
+    },
+  ])
+  assert.equal(lines[0].name, '更换机油滤芯')
 })
 
 test('quote amount and total labels', () => {

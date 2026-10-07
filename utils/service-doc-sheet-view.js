@@ -1,21 +1,12 @@
 const COLLAPSE_CHARS = 40
 
-const ATTENTION_RESULTS = new Set(['需处理', '需关注', '待处理'])
-const RECORD_RESULTS = new Set(['已留证', '仅记录'])
+const WATCH_RESULTS = new Set(['需关注', '需留意'])
+const OK_OR_RECORD_RESULTS = new Set(['状态良好', '已留证', '仅记录', '正常'])
 
-function findingResultBucket(result) {
-  const text = String(result || '').trim()
-  if (ATTENTION_RESULTS.has(text)) return 'attention'
-  if (RECORD_RESULTS.has(text)) return 'record'
-  return 'ok'
-}
-
-function findingResultVariant(result) {
-  const text = String(result || '').trim()
-  if (text === '需处理' || text === '待处理') return 'danger'
-  if (text === '需关注') return 'warning'
-  if (text === '状态良好') return 'success'
-  return 'default'
+function compactText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
 }
 
 function mediaUrl(entry) {
@@ -34,15 +25,66 @@ function normalizeFindingImages(finding = {}) {
   return single ? [{ url: single }] : []
 }
 
-function buildFindingView(finding = {}, index = 0) {
+function quoteLineUrls(line = {}) {
+  const list = Array.isArray(line.evidenceUrls) ? line.evidenceUrls : []
+  const urls = list.concat(line.evidenceUrl || line.url || []).map(mediaUrl).filter(Boolean)
+  return urls
+}
+
+function partTokens(partName = '') {
+  return String(partName || '')
+    .split(/[\/／、,，;；]+/)
+    .map((part) => compactText(part))
+    .filter((part) => part.length >= 2)
+}
+
+function findingInQuote(finding = {}, quoteLines = []) {
+  const lines = Array.isArray(quoteLines) ? quoteLines : []
+  if (!lines.length) return false
+  const urls = new Set(normalizeFindingImages(finding).map((row) => row.url))
+  const tokens = partTokens(finding.partName)
+  return lines.some((line) => {
+    const lineUrls = quoteLineUrls(line)
+    if (lineUrls.some((url) => urls.has(url))) return true
+    const hay = compactText(line.name) + compactText(line.note)
+    if (!hay) return false
+    return tokens.some((token) => hay.indexOf(token) >= 0)
+  })
+}
+
+function ownerFindingBucket(finding = {}, quoteLines = []) {
+  const result = String(finding.result || '').trim()
+  const isWatch = WATCH_RESULTS.has(result)
+  const isOkOrRecord = OK_OR_RECORD_RESULTS.has(result)
+  const lines = Array.isArray(quoteLines) ? quoteLines : []
+  const quoted = !isOkOrRecord && findingInQuote(finding, lines)
+  if (quoted) return 'action'
+  if (isWatch) return 'watch'
+  if (isOkOrRecord) return 'ok'
+  if (!lines.length) return 'action'
+  return 'watch'
+}
+
+function collectPrimaryQuoteLines(docs = []) {
+  const list = Array.isArray(docs) ? docs : []
+  const usable = list.filter(
+    (doc) =>
+      doc &&
+      (doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm') &&
+      !doc.cancelled,
+  )
+  const primary =
+    usable.find((doc) => doc.kind === 'quote_confirm' && !doc.isAddon) || usable[0]
+  return Array.isArray(primary && primary.lines) ? primary.lines : []
+}
+
+function buildFindingView(finding = {}, index = 0, { includeResult = false } = {}) {
   const images = normalizeFindingImages(finding)
   const advice = String(finding.advice || '').trim()
-  const result = String(finding.result || '').trim()
   return {
     key: `f-${index}`,
     partName: String(finding.partName || '').trim(),
-    result,
-    resultVariant: findingResultVariant(result),
+    result: includeResult ? String(finding.result || '').trim() : '',
     advice,
     adviceCollapsible: advice.length > COLLAPSE_CHARS,
     images,
@@ -50,22 +92,22 @@ function buildFindingView(finding = {}, index = 0) {
   }
 }
 
-function buildFindingGroups(findings = [], { groupByResult = false } = {}) {
-  const items = (Array.isArray(findings) ? findings : []).map((row, index) =>
-    buildFindingView(row, index),
-  )
-  if (!groupByResult) {
+function buildFindingGroups(findings = {}, options = {}) {
+  const list = Array.isArray(findings) ? findings : []
+  const includeResult = !options.groupForOwner
+  const items = list.map((row, index) => buildFindingView(row, index, { includeResult }))
+  if (!options.groupForOwner) {
     return items.length ? [{ key: 'all', title: '', items }] : []
   }
+  const quoteLines = options.quoteLines || []
   const groups = [
-    { key: 'attention', title: '需要留意', items: [] },
-    { key: 'ok', title: '状态正常', items: [] },
-    { key: 'record', title: '已留证', items: [] },
+    { key: 'action', title: '需要处理的项目', items: [] },
+    { key: 'watch', title: '需要持续关注的项目', items: [] },
+    { key: 'ok', title: '正常项目', items: [] },
   ]
   items.forEach((item, index) => {
-    const source = findings[index] || {}
-    const bucket = findingResultBucket(source.result || item.result)
-    const target = groups.find((group) => group.key === bucket) || groups[1]
+    const bucket = ownerFindingBucket(list[index] || {}, quoteLines)
+    const target = groups.find((group) => group.key === bucket) || groups[2]
     target.items.push(item)
   })
   return groups.filter((group) => group.items.length)
@@ -109,8 +151,9 @@ function buildQuoteLinesView(lines = []) {
 
 module.exports = {
   COLLAPSE_CHARS,
-  findingResultBucket,
-  findingResultVariant,
+  ownerFindingBucket,
+  findingInQuote,
+  collectPrimaryQuoteLines,
   buildFindingGroups,
   buildQuoteLinesView,
   stripTotalPrefix,

@@ -58,7 +58,7 @@
 }
 
 .service-doc-sheet__group-title {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 

@@ -23,6 +23,7 @@
         wx:else
         doc="{{item}}"
         mode="owner"
+        quote-lines="{{quoteLines}}"
         imageTapMode="{{imageTapMode}}"
         storePhone="{{storePhone}}"
         confirming="{{confirmingId === item.id}}"

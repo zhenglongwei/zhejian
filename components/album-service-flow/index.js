@@ -1,3 +1,5 @@
+const { collectPrimaryQuoteLines } = require('../../utils/service-doc-sheet-view')
+
 Component({
   properties: {
     docs: {
@@ -16,6 +18,18 @@ Component({
     imageTapMode: {
       type: String,
       value: 'preview',
+    },
+  },
+
+  data: {
+    quoteLines: [],
+  },
+
+  observers: {
+    docs(docs) {
+      this.setData({
+        quoteLines: collectPrimaryQuoteLines(docs),
+      })
     },
   },
 

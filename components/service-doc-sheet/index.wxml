@@ -14,14 +14,14 @@
       <text class="text-body">{{doc.chiefComplaint}}</text>
     </view>
     <view wx:if="{{findingGroups.length}}" class="service-doc-sheet__block">
-      <text class="text-body service-doc-sheet__section">本次检测项目</text>
+      <text wx:if="{{mode !== 'owner'}}" class="text-body service-doc-sheet__section">本次检测项目</text>
       <view
         wx:for="{{findingGroups}}"
         wx:for-item="group"
         wx:key="key"
         class="service-doc-sheet__group"
       >
-        <text wx:if="{{group.title}}" class="text-caption service-doc-sheet__group-title">{{group.title}}</text>
+        <text wx:if="{{group.title}}" class="text-body service-doc-sheet__group-title">{{group.title}}</text>
         <view
           wx:for="{{group.items}}"
           wx:for-item="finding"
@@ -30,7 +30,7 @@
         >
           <view class="service-doc-sheet__finding-head">
             <text class="text-body service-doc-sheet__finding-name">{{finding.partName}}</text>
-            <ui-tag wx:if="{{finding.result}}" variant="{{finding.resultVariant}}" text="{{finding.result}}" />
+            <text wx:if="{{finding.result}}" class="text-caption text-secondary">{{finding.result}}</text>
           </view>
           <view wx:if="{{finding.images.length}}" class="service-doc-sheet__finding-photos">
             <image
@@ -85,7 +85,7 @@
         <text class="text-caption text-secondary">项目</text>
         <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
       </view>
-      <view wx:for="{{quoteLines}}" wx:for-item="line" wx:key="key" class="service-doc-sheet__table-row">
+      <view wx:for="{{quoteLineRows}}" wx:for-item="line" wx:key="key" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
           <view class="service-doc-sheet__table-main-left">
             <view
