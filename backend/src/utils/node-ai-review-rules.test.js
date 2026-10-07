@@ -51,17 +51,44 @@ test('battery work without spec photo suggests spec_match', () => {
   assert.ok(list.some((row) => row.itemKey === 'spec_match'))
 })
 
-test('quote check flags job label in line name and ignores amounts', () => {
+test('quote check only fills empty notes and ignores amounts', () => {
   const rubric = getReviewRubric('brake', 'inspection_report')
-  const list = buildRuleSuggestions({
+  const withJobLabel = buildRuleSuggestions({
     rubric,
     chiefComplaint: '刹车异响',
-    quoteLines: [{ name: '前刹车片 · 需处理', amount: '380' }],
+    quoteLines: [{ name: '前刹车片 · 需处理', note: '更换前片', amount: '380' }],
   })
-  const renamed = list.find((row) => row.field === 'quoteLineName')
-  assert.ok(renamed)
-  assert.equal(renamed.suggestedText, '前刹车片')
-  assert.ok(list.every((row) => !/380|¥/.test(String(row.suggestedText || ''))))
+  assert.equal(withJobLabel.some((row) => row.field === 'quoteLineName'), false)
+  assert.ok(withJobLabel.every((row) => !/380|¥/.test(String(row.suggestedText || ''))))
+
+  const emptyNote = buildRuleSuggestions({
+    rubric,
+    chiefComplaint: '刹车异响',
+    quoteLines: [{ name: '更换前刹车片', note: '', amount: '380' }],
+  })
+  const note = emptyNote.find((row) => row.field === 'quoteLineNote')
+  assert.ok(note)
+  assert.equal(note.suggestedText, '写清做法和范围')
+})
+
+test('keepCompletenessSuggestions drops rewrites of filled fields', () => {
+  const { keepCompletenessSuggestions } = require('./node-ai-review-rules')
+  const kept = keepCompletenessSuggestions(
+    [
+      { type: 'text', field: 'quoteLineNote', lineIndex: 0, suggestedText: '更规范的做法' },
+      { type: 'text', field: 'quoteLineNote', lineIndex: 1, suggestedText: '写清做法和范围' },
+      { type: 'photo', how: '补拍近景' },
+    ],
+    {
+      quoteLines: [
+        { name: '补漆', note: '全车补漆' },
+        { name: '拆检', note: '' },
+      ],
+    },
+  )
+  assert.equal(kept.length, 2)
+  assert.equal(kept[0].lineIndex, 1)
+  assert.equal(kept[1].type, 'photo')
 })
 
 test('model payload drops amount fields', () => {

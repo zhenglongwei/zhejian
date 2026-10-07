@@ -17,7 +17,8 @@ const {
   resolveRunReviewStep,
   planNodeReview,
 } = require('../utils/node-ai-review-rubric')
-const { buildRuleSuggestions, parseModelSuggestions } = require('../utils/node-ai-review-rules')
+const { buildRuleSuggestions, parseModelSuggestions, keepCompletenessSuggestions } = require('../utils/node-ai-review-rules')
+const { isAckStale, canReuseReviewThisRound } = require('../utils/node-ai-review-ack')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 
 const jobsInFlight = new Set()
@@ -136,28 +137,6 @@ async function resolveCapabilityForMerchant(merchantId) {
 
 function wantsSkip(payload = {}) {
   return Boolean(payload.aiReviewAck || payload.skipAiReview)
-}
-
-/** 「看过了，放行」只对同一份内容生效：
- *  没查过、或内容已经改过，都不能凭上一次的确认放行，必须重新查。 */
-function isAckStale(node, extra = {}) {
-  const current = (node && node.aiReview) || {}
-  // 车主拒绝过，且手上的结论是「拒绝之前」那次查出来的 → 结论已作废，重新查。
-  // 早先的单据拒绝时还没清结论，光比指纹会误判成「看过了、内容没变」而直接放行。
-  // 反过来，结论比拒绝时间新，说明是拒绝之后刚查过的，看完就能发，不然会一直拦着发不出去
-  const rejectedAt = String(
-    extra.rejectedAt || (node && node.document && node.document.ownerRejectedAt) || '',
-  )
-  if (rejectedAt && (!current.updatedAt || String(current.updatedAt) < rejectedAt)) return true
-  if (current.status !== 'ready' && current.status !== 'failed') return true
-  const doc = (node && node.document && node.document.payload) || {}
-  const quoteLines = Array.isArray(extra.quoteLines)
-    ? extra.quoteLines
-    : Array.isArray(doc.lines)
-      ? doc.lines
-      : []
-  const fingerprint = buildReviewFingerprint(node, { ...extra, quoteLines })
-  return !current.fingerprint || current.fingerprint !== fingerprint
 }
 
 async function patchFlowNode(albumId, nodeId, mutator) {
@@ -433,21 +412,21 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   }
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是发给车主确认前的核对。同时看检测发现和报价。photoObservations 是整理时已经看过的图，不要再要这些图。施工方案只有含糊、缺工序/用料、或和检测打架才改句；已经能看懂的不要润色。只能用本单已有事实，不许编没拍到的工序或读数。不要改金额，不要编项目。'
+      ? '这是发给车主确认前的核对。只查关键项有没有写：主诉、项目名、施工方案、该填的检查发现、该有的图。栏里已经有字，不要给 suggestedText，不要改句式。空栏才给一句可直接填的。photoObservations 是已看过的图。不要改金额，不要编项目。'
       : ctx.rubric.step === 'addon_check'
-        ? '这是通知车主前的核对。同时看已经做过的施工、新发现和这次报价。可以建议改新发现的说明，或改报价的项目名和施工方案，使两边对得上。不要改金额。不要改已经确认过的首次检测和首次报价。'
+        ? '这是通知车主前的核对。只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
-          ? '这是完工通知车主验收前的一次核对。车主这次会一起看到：施工过程、工单项目、完工照和这份完工报告。要做三件事：一、施工过程（findings）与工单项目（orderItems）要对得上：每一项做了什么，是否都有对应的工单项；对不上或写得含糊，就建议改这条施工的**说明**（field 用 findingCaption 或 findingAdvice），把做的项目写清楚。工单与完工报告施工项（workItems）都源自已确认的报价，**不是本次的修改对象**，发现不一致只改施工侧。二、完工报告整体要能和前期已确定的检测结论、报价项目对得上——那些已确定的内容只用来判断这里写得准不准，不提修改意见。三、交车照与质保两行要写清。confirmedReference 是前期已经润色过的检测与报价，只作参考，不要对它提修改意见，也不要改金额。'
+          ? '这是完工通知车主验收前的一次核对。只查空缺：施工说明空了、质保空了、该有的交车照没有。已经写了的字不要改、不要润色。工单与完工报告施工项不是本次修改对象。不要改金额。'
           : ctx.rubric.step === 'work'
-            ? '只看本步施工。confirmedReference 是已确认的检测结论与报价项目，只能用来把本步施工的项目名和说明写准写具体；不要对它提修改意见，也不要改金额。'
+            ? '只看本步施工是否缺说明、缺图。已经写了的字不要改。不要对已确认检测和报价提修改意见，也不要改金额。'
               : ctx.rubric.step === 'notify_check'
-                ? '这是发给车主查看前的一次核对。只能根据本单已有的检测发现与当前单据内容组织句子，不许编造没拍到、没提到的工序或读数。不要改金额。'
+                ? '这是发给车主查看前的一次核对。只查空缺，不要改已经写了的句子。不要改金额。'
                 : ''
   const instruction = [
-    '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
+    '你是汽修店员的核对助手。只根据本单已有事实查缺项，不要百科，不要编造没拍到的读数。',
     stepNote,
     '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}]}',
-    'text 只在原文看不懂、缺关键事实、或和照片/发现打架时才给 suggestedText。不要为了写得更好而改已经清楚的句子。没有可改的就返回空 suggestions。',
+    'text 只在对应字段为空时才给 suggestedText。栏里已经有字，一律不要出改句，保留店员原文。没有空缺就返回空 suggestions。',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
     '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',
     'findingIndex 必须等于该条 findings 的 index。how 和 suggestedText 只描述这一个部位，不要把别的部位写进同一条。',
@@ -498,7 +477,10 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
       })
       called = true
-      const suggestions = parseModelSuggestions(result && result.text, [])
+      const suggestions = keepCompletenessSuggestions(
+        parseModelSuggestions(result && result.text, []),
+        ctx,
+      )
       if (suggestions.length) return { suggestions, source: 'llm', engine: engine.id }
     } catch (error) {
       failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
@@ -519,7 +501,7 @@ async function analyzeNode(album, node, capability) {
       findings: ctx.findings || [],
     },
   }
-  const fallback = buildRuleSuggestions(ctx)
+  const fallback = keepCompletenessSuggestions(buildRuleSuggestions(ctx), ctx)
   let masked = { ready: true, urls: [] }
   if (collectNodeImageUrls(imageNode).length) {
     masked = await collectMaskedUrlsForNode(album.id, imageNode)
@@ -688,11 +670,8 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
   const fingerprint = buildReviewFingerprint(merged, extra)
   const reviewStep = text(extra.step || (node.aiReview && node.aiReview.reviewStep))
   const existing = node.aiReview || {}
-  if (
-    existing.fingerprint === fingerprint &&
-    (existing.status === 'queued' || existing.status === 'running' || existing.status === 'ready')
-  ) {
-    console.info('[node-ai-review] 复用已有结论', {
+  if (canReuseReviewThisRound(merged, extra)) {
+    console.info('[node-ai-review] 复用本轮结论', {
       nodeId: node.id,
       step: reviewStep,
       status: existing.status,
@@ -749,7 +728,7 @@ async function maybeHoldWorkSheetForReview({
     : []
   if (!findings.length) return null
   const mergedNode = { ...node, photoDraft: incomingDraft || node.photoDraft || {} }
-  // 门店看过同一份工单的结论且内容没变，就不用再等一次
+  // 本轮已出过工单检查结论，改字后确认不再重查
   if (wantsSkip(payload) && !isAckStale(mergedNode, {})) {
     await patchFlowNode(album.id, node.id, (item) => ({
       ...item,
@@ -865,7 +844,7 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
   const doc = (node.document && node.document.payload) || {}
   const quoteLines = kind === 'quote_confirm' && Array.isArray(doc.lines) ? doc.lines : []
   if (wantsSkip(payload) && !isAckStale(node, { quoteLines })) {
-    console.info('[node-ai-review] 放行：门店已看过同一份内容的检查结论', { kind, nodeId: node.id })
+    console.info('[node-ai-review] 放行：本轮已看过检查结论', { kind, nodeId: node.id })
     await patchFlowNode(album.id, node.id, (item) => ({
       ...item,
       aiReview: {

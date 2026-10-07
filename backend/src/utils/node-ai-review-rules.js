@@ -5,7 +5,6 @@ const { isVagueWarrantyPeriod, parseMileageKm } = require('../../vendor/shared/u
 
 const VAGUE_COMPLAINT =
   /^(定时)?保养$|^常规保养$|^例行保养$|^到店保养$|^年审$|^检查$|^维修$|^保养一下$|^大保养$|^小保养$/
-const JOB_LABEL_IN_NAME = /需处理|需关注|待处理/
 const QR_HINT = /二维码|微信码|加微信|名片/
 
 function text(value) {
@@ -87,7 +86,7 @@ function buildRuleSuggestions(ctx = {}) {
     })
   }
 
-  if (step === 'intake' || step === 'quote_check') {
+  if (step === 'intake') {
     if (isVagueChiefComplaint(ctx.chiefComplaint)) {
       const suggested = fillExample(rubric.complaintExample, ctx) || '写清车主为什么来，例如电瓶亏电打不着'
       pushSuggestion(suggestions, {
@@ -100,6 +99,19 @@ function buildRuleSuggestions(ctx = {}) {
         suggestedText: suggested,
       })
     }
+  }
+
+  if (step === 'quote_check' && !text(ctx.chiefComplaint)) {
+    const suggested = fillExample(rubric.complaintExample, ctx) || '写清车主为什么来'
+    pushSuggestion(suggestions, {
+      id: 'text:chiefComplaint',
+      type: 'text',
+      itemKey: 'complaint',
+      title: '补主诉',
+      how: '',
+      field: 'chiefComplaint',
+      suggestedText: suggested,
+    })
   }
 
   findings.forEach((row, index) => {
@@ -172,38 +184,33 @@ function buildRuleSuggestions(ctx = {}) {
     const lines = Array.isArray(ctx.quoteLines) ? ctx.quoteLines : []
     lines.forEach((line, index) => {
       const name = text(line && line.name)
-      if (!name) return
-      if (JOB_LABEL_IN_NAME.test(name)) {
-        const cleaned = name.replace(/[·•]\s*(需处理|需关注|待处理).*$/, '').trim() || name
+      const note = text(line && line.note)
+      if (!name) {
         pushSuggestion(suggestions, {
           id: `text:quoteLineName:${index}`,
           type: 'text',
           itemKey: '',
-          title: '改方案行名',
+          title: '补项目名',
           how: '',
           field: 'quoteLineName',
           lineIndex: index,
-          suggestedText: cleaned,
+          suggestedText: '写清要做什么，例如更换前刹车片',
+        })
+        return
+      }
+      if (!note) {
+        pushSuggestion(suggestions, {
+          id: `text:quoteLineNote:${index}`,
+          type: 'text',
+          itemKey: '',
+          title: '补施工方案',
+          how: '',
+          field: 'quoteLineNote',
+          lineIndex: index,
+          suggestedText: '写清做法和范围',
         })
       }
     })
-    const complaint = text(ctx.chiefComplaint)
-    const firstName = text(lines[0] && lines[0].name)
-    if (complaint && firstName) {
-      const batt = /电瓶|亏电|打不着/.test(complaint)
-      const oil = /机油|保养/.test(firstName)
-      if (batt && oil) {
-        pushSuggestion(suggestions, {
-          id: 'text:chiefComplaint-align',
-          type: 'text',
-          itemKey: 'complaint',
-          title: '主诉与方案对不上',
-          how: '',
-          field: 'chiefComplaint',
-          suggestedText: complaint,
-        })
-      }
-    }
   }
 
   return suggestions.filter((row) => {
@@ -213,12 +220,39 @@ function buildRuleSuggestions(ctx = {}) {
   }).slice(0, 7)
 }
 
+function currentTextForSuggestion(ctx, item) {
+  const field = inferSuggestionField(item) || text(item && item.field)
+  if (field === 'chiefComplaint') return text(ctx.chiefComplaint)
+  if (field === 'warrantyPeriod') return text(ctx.warrantyPeriod)
+  if (field === 'findingAdvice' || field === 'findingCaption') {
+    const idx = Number(item && item.findingIndex)
+    const row = (ctx.findings || [])[idx]
+    if (!row) return ''
+    return text(field === 'findingAdvice' ? row.advice : row.caption)
+  }
+  if (field === 'quoteLineName' || field === 'quoteLineNote') {
+    const idx = Number(item && item.lineIndex)
+    const line = (ctx.quoteLines || [])[idx]
+    if (!line) return ''
+    return text(field === 'quoteLineNote' ? line.note : line.name)
+  }
+  return ''
+}
+
+function keepCompletenessSuggestions(suggestions, ctx = {}) {
+  return (Array.isArray(suggestions) ? suggestions : []).filter((item) => {
+    if (!item) return false
+    if (item.type === 'photo') return true
+    return !currentTextForSuggestion(ctx, item)
+  })
+}
 function inferSuggestionField(item = {}) {
   const field = text(item.field)
   if (field) return field
   const blob = `${item.title || ''} ${item.itemKey || ''} ${item.how || ''}`
   if (/主诉/.test(blob) || item.itemKey === 'complaint') return 'chiefComplaint'
   if (/图注|施工说明/.test(blob)) return 'findingCaption'
+  if (/施工方案/.test(blob)) return 'quoteLineNote'
   if (/方案/.test(blob)) return 'quoteLineName'
   if (/质保/.test(blob)) return 'warrantyPeriod'
   if (/建议|处理/.test(blob)) return 'findingAdvice'
@@ -286,4 +320,5 @@ module.exports = {
   inferSuggestionField,
   buildRuleSuggestions,
   parseModelSuggestions,
+  keepCompletenessSuggestions,
 }
