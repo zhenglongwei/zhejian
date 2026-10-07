@@ -3931,7 +3931,17 @@ Page({
     }
   },
 
+  currentDocAlreadySent() {
+    const status = String(
+      (this.data.activeNode && this.data.activeNode.document && this.data.activeNode.document.status) ||
+        this.data.docStatus ||
+        '',
+    )
+    return status === 'pending_confirm' || status === 'confirmed' || status === 'cancelled' || status === 'delivered'
+  },
+
   async persistAiReviewDraft(field) {
+    if (this.data.readOnly || this.currentDocAlreadySent()) return
     if (this.data.activeIsPhoto) {
       await this.persistPhotoDraft()
       return
@@ -3943,18 +3953,13 @@ Page({
       })
       const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
-        await updateMerchantFlowNode(this.albumId, quoteNodeId, {
-          document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
-        })
-      }
-      const inspectionNode = (this._flowNodes || []).find((n) => n && n.kind === 'inspection')
-      if (inspectionNode) {
-        await updateMerchantFlowNode(this.albumId, inspectionNode.id, {
-          photoDraft: {
-            ...(inspectionNode.photoDraft || {}),
-            findings: (this.data.findings || []).map((row) => normalizeFinding(row)),
-          },
-        })
+        const quoteNode = (this._flowNodes || []).find((n) => n && n.id === quoteNodeId)
+        const quoteStatus = String((quoteNode && quoteNode.document && quoteNode.document.status) || '')
+        if (quoteStatus !== 'pending_confirm' && quoteStatus !== 'confirmed' && quoteStatus !== 'cancelled') {
+          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+            document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+          })
+        }
       }
       return
     }
