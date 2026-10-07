@@ -40,6 +40,7 @@ const {
   normalizeWorkFinding,
   workFindingHasPhoto,
   WORK_IMAGES_MAX,
+  FINDING_IMAGES_MAX,
   normalizeQuoteLine,
   mapFindingRows,
   mediaKey,
@@ -869,10 +870,14 @@ Page({
 
   setQuoteLines(lines) {
     const quoteLines = this.decorateQuoteLines(lines, this.quoteEvidenceSource())
-    this.setData({
-      quoteLines,
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
-    })
+    this.setData(
+      {
+        quoteLines,
+        quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+        autoSaveLabel: '保存中…',
+      },
+      () => this.scheduleAutoSaveDoc(),
+    )
   },
 
   syncQuoteEvidenceFromFindings() {
@@ -1870,6 +1875,64 @@ Page({
     })
   },
 
+  onAttachReportFindingPhoto(e) {
+    if (this.data.readOnly) return
+    const fi = Number((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.index))
+    if (!Number.isFinite(fi)) return
+    const currentItem = (this.data.findings || [])[fi]
+    if (!currentItem) return
+    const current = normalizeFinding(currentItem)
+    const remain = Math.max(0, FINDING_IMAGES_MAX - (current.images || []).length)
+    if (remain < 1) {
+      wx.showToast({ title: `每项最多 ${FINDING_IMAGES_MAX} 张`, icon: 'none' })
+      return
+    }
+    pickLocalImages({
+      count: Math.min(remain, 6),
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const files = res.tempFiles || []
+        if (!files.length) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploadedList = []
+          for (let i = 0; i < files.length; i += 1) {
+            const uploaded = await uploadImage(files[i].tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (url) uploadedList.push({ url, imageId: '' })
+          }
+          if (!uploadedList.length) throw new Error('上传失败')
+          const findings = (this.data.findings || []).map((row, idx) => {
+            if (idx !== fi) return row
+            const base = normalizeFinding(row)
+            const images = (base.images || []).concat(uploadedList).slice(0, FINDING_IMAGES_MAX)
+            const first = images[0] || {}
+            return {
+              ...row,
+              ...base,
+              images,
+              url: first.url || '',
+              imageId: first.imageId || '',
+              photoHint: row.photoHint ? { ...row.photoHint, applied: true } : null,
+            }
+          })
+          const appliedId = currentItem.aiSuggestionId || (currentItem.photoHint && currentItem.photoHint.id)
+          this.setData({
+            findings,
+            autoSaveLabel: '保存中…',
+            aiReview: this.markAiSuggestionApplied(appliedId) || this.data.aiReview,
+          })
+          this.scheduleAutoSaveDoc()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
   onRemoveFindingImage(e) {
     if (this.data.readOnly) return
     const si = Number(e.currentTarget.dataset.sectionIndex)
@@ -2565,6 +2628,29 @@ Page({
     }, 700)
   },
 
+  scheduleAutoSaveDoc() {
+    if (this.data.readOnly) return
+    if (this._draftSaveTimer) clearTimeout(this._draftSaveTimer)
+    this._draftSaveTimer = setTimeout(async () => {
+      if (this.data.readOnly) return
+      try {
+        await this.persistAiReviewDraft()
+        this.setAutoSaveLabel('已自动保存')
+      } catch (e) {
+        this.setAutoSaveLabel((e && e.message) || '自动保存失败，请检查网络')
+      }
+    }, 700)
+  },
+
+  async flushDocDraftSave() {
+    if (this._draftSaveTimer) {
+      clearTimeout(this._draftSaveTimer)
+      this._draftSaveTimer = null
+    }
+    if (this.data.readOnly || this.data.activeIsPhoto) return
+    await this.persistAiReviewDraft()
+  },
+
   async runAutoSavePhotos() {
     if (this.data.readOnly) return
     if (this._photoSaving) {
@@ -2674,7 +2760,9 @@ Page({
       })
       return
     }
-    this.setData({ chiefComplaint: e.detail.value })
+    this.setData({ chiefComplaint: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDoc()
+    })
   },
 
   onIntakeReadingInput(e) {
@@ -2923,7 +3011,10 @@ Page({
       if (field === 'partName') next.caption = e.detail.value
       return next
     })
-    this.setData({ findings }, () => this.syncQuoteEvidenceFromFindings())
+    this.setData({ findings, autoSaveLabel: '保存中…' }, () => {
+      this.syncQuoteEvidenceFromFindings()
+      this.scheduleAutoSaveDoc()
+    })
   },
 
   onSelectReportFindingResult(e) {
@@ -2962,7 +3053,10 @@ Page({
         : ''
       return next
     })
-    this.setData({ findings }, () => this.syncQuoteEvidenceFromFindings())
+    this.setData({ findings, autoSaveLabel: '保存中…' }, () => {
+      this.syncQuoteEvidenceFromFindings()
+      this.scheduleAutoSaveDoc()
+    })
   },
 
   onConclusionInput(e) {
@@ -2994,7 +3088,9 @@ Page({
       })
       return
     }
-    this.setData({ [field]: e.detail.value })
+    this.setData({ [field]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDoc()
+    })
   },
 
   onQuoteLineInput(e) {
@@ -3552,8 +3648,6 @@ Page({
     const patch = {
       aiReview: decorated,
       aiReviewBusy: false,
-      aiTextBatchCanApply: Boolean(decorated.canApplyAllText) && !waiting,
-      aiTextBatchCanUndo: Boolean(this._aiTextBatchSnapshot),
     }
     if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
       patch.notifyOwnerLabel = '通知车主'
@@ -3688,6 +3782,22 @@ Page({
         this.captureDeliveryExtraPhoto(id)
         return
       }
+      if (this.data.activeKind === 'inspection_report') {
+        let fi = (this.data.findings || []).findIndex(
+          (row) => (row.aiSuggestionId || (row.photoHint && row.photoHint.id)) === id,
+        )
+        if (fi < 0) {
+          fi = this.matchFindingIndex(this.data.findings || [], item, new Set(), 'photo')
+        }
+        if (fi < 0) {
+          wx.showToast({ title: '对不上部位', icon: 'none' })
+          return
+        }
+        this.onAttachReportFindingPhoto({
+          currentTarget: { dataset: { index: fi } },
+        })
+        return
+      }
       const si = (this.data.sections || []).findIndex((section) =>
         (section.findings || []).some(
           (row) => (row.aiSuggestionId || (row.photoHint && row.photoHint.id)) === id,
@@ -3805,8 +3915,6 @@ Page({
       row && row.id === id ? { ...row, applied: true } : row,
     )
     patch.aiReview = this.decorateAiReview({ ...review, suggestions })
-    patch.aiTextBatchCanApply = Boolean(patch.aiReview.canApplyAllText)
-    patch.aiTextBatchCanUndo = Boolean(this._aiTextBatchSnapshot)
     this.setData(patch)
     if (skipPersist) return true
     try {
@@ -3823,58 +3931,6 @@ Page({
     }
   },
 
-  captureAiTextSnapshot() {
-    return {
-      chiefComplaint: this.data.chiefComplaint,
-      warrantyPeriod: this.data.warrantyPeriod,
-      findings: (this.data.findings || []).map((row) => ({
-        advice: row.advice,
-        caption: row.caption,
-      })),
-      quoteLines: (this.data.quoteLines || []).map((row) => ({
-        name: row.name,
-        note: row.note,
-      })),
-      sections: (this.data.sections || []).map((section) => ({
-        findings: (section.findings || []).map((row) => ({
-          advice: row.advice,
-          caption: row.caption,
-        })),
-      })),
-    }
-  },
-
-  restoreAiTextSnapshot(snap) {
-    if (!snap) return {}
-    const findings = (this.data.findings || []).map((row, index) => ({
-      ...row,
-      advice: snap.findings && snap.findings[index] ? snap.findings[index].advice : row.advice,
-      caption: snap.findings && snap.findings[index] ? snap.findings[index].caption : row.caption,
-    }))
-    const quoteLines = (this.data.quoteLines || []).map((row, index) => ({
-      ...row,
-      name: snap.quoteLines && snap.quoteLines[index] ? snap.quoteLines[index].name : row.name,
-      note: snap.quoteLines && snap.quoteLines[index] ? snap.quoteLines[index].note : row.note,
-    }))
-    const sections = (this.data.sections || []).map((section, si) => ({
-      ...section,
-      findings: (section.findings || []).map((row, fi) => {
-        const saved = snap.sections && snap.sections[si] && snap.sections[si].findings
-          ? snap.sections[si].findings[fi]
-          : null
-        return saved ? { ...row, advice: saved.advice, caption: saved.caption } : row
-      }),
-    }))
-    return {
-      chiefComplaint: snap.chiefComplaint,
-      warrantyPeriod: snap.warrantyPeriod,
-      findings,
-      quoteLines: this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource()),
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
-      sections: this.decorateSections(sections),
-    }
-  },
-
   async persistAiReviewDraft(field) {
     if (this.data.activeIsPhoto) {
       await this.persistPhotoDraft()
@@ -3886,9 +3942,18 @@ Page({
         document: { status: 'draft', payload: this.buildDocPayloadForSave() },
       })
       const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
-      if (quoteNodeId && (!field || field === 'quoteLineName' || field === 'quoteLineNote')) {
+      if (quoteNodeId) {
         await updateMerchantFlowNode(this.albumId, quoteNodeId, {
           document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+        })
+      }
+      const inspectionNode = (this._flowNodes || []).find((n) => n && n.kind === 'inspection')
+      if (inspectionNode) {
+        await updateMerchantFlowNode(this.albumId, inspectionNode.id, {
+          photoDraft: {
+            ...(inspectionNode.photoDraft || {}),
+            findings: (this.data.findings || []).map((row) => normalizeFinding(row)),
+          },
         })
       }
       return
@@ -3903,58 +3968,6 @@ Page({
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: { status: 'draft', payload: this.buildDocPayloadForSave() },
       })
-    }
-  },
-
-  async onApplyAllAiText() {
-    const review = this.data.aiReview
-    const items = ((review && review.suggestions) || []).filter((row) => row && row.canApply)
-    if (!items.length) return
-    if (!this._aiTextBatchSnapshot) this._aiTextBatchSnapshot = this.captureAiTextSnapshot()
-    this._aiTextBatchAppliedIds = items.map((row) => row.id)
-    for (let i = 0; i < items.length; i += 1) {
-      await this.onApplyAiSuggestion(
-        { currentTarget: { dataset: { id: items[i].id } } },
-        { skipPersist: true, skipToast: true },
-      )
-    }
-    try {
-      await this.persistAiReviewDraft()
-      this.setData({
-        aiTextBatchCanApply: false,
-        aiTextBatchCanUndo: true,
-      })
-      wx.showToast({ title: '已写入', icon: 'none' })
-    } catch (err) {
-      wx.showToast({ title: (err && err.message) || '未写入', icon: 'none' })
-    }
-  },
-
-  async onUndoAiTextBatch() {
-    const snap = this._aiTextBatchSnapshot
-    if (!snap) return
-    const review = this.data.aiReview
-    const ids = new Set(this._aiTextBatchAppliedIds || [])
-    const suggestions = ((review && review.suggestions) || []).map((row) =>
-      row && ids.has(row.id) ? { ...row, applied: false } : row,
-    )
-    this._aiTextBatchSnapshot = null
-    this._aiTextBatchAppliedIds = []
-    const restored = this.restoreAiTextSnapshot(snap)
-    const decorated = this.decorateAiReview({ ...(review || {}), suggestions })
-    const hintPatch = this.computeInlineHintPatch(decorated)
-    this.setData({
-      ...restored,
-      ...hintPatch,
-      aiReview: decorated,
-      aiTextBatchCanApply: Boolean(decorated.canApplyAllText),
-      aiTextBatchCanUndo: false,
-    })
-    try {
-      await this.persistAiReviewDraft()
-      wx.showToast({ title: '已撤回', icon: 'none' })
-    } catch (err) {
-      wx.showToast({ title: (err && err.message) || '未撤回', icon: 'none' })
     }
   },
 
@@ -4159,6 +4172,12 @@ Page({
 
   async onNotifyOwnerPlan() {
     if (this.data.readOnly || this.data.confirming || this.data.notifyConfirmDisabled) return
+    try {
+      await this.flushDocDraftSave()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '请先保存当前修改', icon: 'none' })
+      return
+    }
     const reportPayload = this.buildDocPayloadForSave()
     const quotePayload = this.buildQuotePayloadForSave()
     const reportGaps = collectInspectionReportGaps(reportPayload)
@@ -4413,6 +4432,12 @@ Page({
 
   async onSendForOwnerConfirm() {
     if (this.data.readOnly || this.data.confirming) return
+    try {
+      await this.flushDocDraftSave()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '请先保存当前修改', icon: 'none' })
+      return
+    }
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave(), {
@@ -4563,35 +4588,6 @@ Page({
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
-    }
-  },
-
-  async onSaveDocDraft() {
-    if (this.data.readOnly || this.data.saving) return
-    this.setData({ saving: true })
-    try {
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: {
-          status: (this.data.activeNode.document && this.data.activeNode.document.status) || 'draft',
-          payload: this.buildDocPayloadForSave(),
-        },
-      })
-      if (this.data.showCombinedPlan) {
-        const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
-        if (quoteNodeId) {
-          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
-            document: {
-              status: 'draft',
-              payload: this.buildQuotePayloadForSave(),
-            },
-          })
-        }
-      }
-      wx.showToast({ title: '已保存', icon: 'success' })
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
-    } finally {
-      this.setData({ saving: false })
     }
   },
 

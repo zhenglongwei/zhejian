@@ -1156,6 +1156,7 @@ module.exports = {
   normalizeWorkImage,
   workFindingHasPhoto,
   WORK_IMAGES_MAX,
+  FINDING_IMAGES_MAX,
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
   collectWorkPhotoDraftGaps,

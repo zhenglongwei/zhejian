@@ -18,20 +18,6 @@
     >补拍</text>
   </view>
 </template>
-<template name="aiTextBatchBar">
-  <view wx:if="{{aiTextBatchCanApply || aiTextBatchCanUndo}}" class="merchant-flow-page__ai-batch">
-    <text
-      wx:if="{{aiTextBatchCanApply}}"
-      class="merchant-flow-page__ai-batch-action"
-      catchtap="onApplyAllAiText"
-    >采用改法</text>
-    <text
-      wx:if="{{aiTextBatchCanUndo}}"
-      class="merchant-flow-page__ai-batch-undo"
-      catchtap="onUndoAiTextBatch"
-    >撤回</text>
-  </view>
-</template>
 <view class="page merchant-flow-page">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content merchant-flow-page__pad">
@@ -746,12 +732,11 @@
                   <view class="merchant-flow-page__ai-status-spin"></view>
                   <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
                 </view>
-                <template is="aiTextBatchBar" data="{{aiTextBatchCanApply, aiTextBatchCanUndo}}" />
                 <view wx:for="{{orphanPhotoHints}}" wx:key="id" class="merchant-flow-page__orphan-hint">
                   <template is="aiFieldHint" data="{{hint: item}}" />
                 </view>
                 <view class="merchant-flow-page__step-actions">
-                  <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action">
+                  <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action merchant-flow-page__step-action--primary">
                     <ui-button
                       type="primary"
                       block="{{true}}"
@@ -824,6 +809,14 @@
                             src="{{item.url}}"
                             mode="aspectFill"
                           />
+                        </view>
+                        <view
+                          wx:if="{{!readOnly && (item.images.length || 0) < 24}}"
+                          class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                          data-index="{{index}}"
+                          catchtap="onAttachReportFindingPhoto"
+                        >
+                          <text class="merchant-flow-page__work-thumb-plus">+</text>
                         </view>
                       </view>
                       <template is="aiFieldHint" data="{{hint: item.photoHint}}" />
@@ -940,20 +933,20 @@
                     />
                     <template is="aiFieldHint" data="{{hint: item.noteHint}}" />
                   </view>
-                  <view class="merchant-flow-page__plan-total-bar">
-                    <text class="text-h3">{{quoteTotalLabel}}</text>
-                  </view>
                   <view
                     wx:if="{{!readOnly}}"
                     class="merchant-flow-page__plan-add"
                     bindtap="onAddQuoteLine"
                   >
-                    <text class="text-caption text-link">+ 添加一行</text>
+                    <text class="text-caption text-link">+ 新增项目</text>
+                  </view>
+                  <view class="merchant-flow-page__plan-total-bar">
+                    <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
                 </view>
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
-                <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
+                <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
                 <view
                   wx:if="{{aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"
@@ -961,7 +954,6 @@
                   <view class="merchant-flow-page__ai-status-spin"></view>
                   <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
                 </view>
-                <template is="aiTextBatchBar" data="{{aiTextBatchCanApply, aiTextBatchCanUndo}}" />
                 <ui-button
                   wx:if="{{!notifyConfirmDisabled}}"
                   type="primary"
@@ -1119,15 +1111,15 @@
                     />
                     <template is="aiFieldHint" data="{{hint: item.noteHint}}" />
                   </view>
-                  <view class="merchant-flow-page__plan-total-bar">
-                    <text class="text-h3">{{quoteTotalLabel}}</text>
-                  </view>
                   <view
                     wx:if="{{!readOnly && !confirmAwaitingOwner}}"
                     class="merchant-flow-page__plan-add"
                     bindtap="onAddQuoteLine"
                   >
-                    <text class="text-caption text-link">+ 添加一行</text>
+                    <text class="text-caption text-link">+ 新增项目</text>
+                  </view>
+                  <view class="merchant-flow-page__plan-total-bar">
+                    <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
                 </view>
               </view>
@@ -1135,6 +1127,7 @@
                 wx:if="{{!readOnly && (!isAddonQuote || addonDiscoveryReady || confirmAwaitingOwner)}}"
                 class="merchant-flow-page__doc-actions"
               >
+                <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
                 <view
                   wx:if="{{aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"
@@ -1142,7 +1135,6 @@
                   <view class="merchant-flow-page__ai-status-spin"></view>
                   <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
                 </view>
-                <template is="aiTextBatchBar" data="{{aiTextBatchCanApply, aiTextBatchCanUndo}}" />
                 <block wx:if="{{!confirmAwaitingOwner}}">
                   <ui-button
                     type="primary"
@@ -1219,7 +1211,6 @@
                   <view class="merchant-flow-page__ai-status-spin"></view>
                   <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
                 </view>
-                <template is="aiTextBatchBar" data="{{aiTextBatchCanApply, aiTextBatchCanUndo}}" />
                 <block wx:if="{{!confirmAwaitingOwner}}">
                   <ui-button
                     type="primary"

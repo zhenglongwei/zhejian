@@ -491,6 +491,10 @@
   min-width: 0;
 }
 
+.merchant-flow-page__step-action--primary {
+  flex: 2;
+}
+
 .merchant-flow-page__hint {
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
@@ -1314,7 +1318,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-top: var(--space-lg);
+  margin-top: var(--space-md);
 }
 
 .merchant-flow-page__ai-hint {
@@ -1380,28 +1384,6 @@
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
   color: var(--color-warning);
-}
-
-.merchant-flow-page__ai-batch {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-md);
-  margin-bottom: var(--space-sm);
-}
-
-.merchant-flow-page__ai-batch-action {
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-primary);
-}
-
-.merchant-flow-page__ai-batch-undo {
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
 }
 
 @keyframes merchant-flow-spin {
