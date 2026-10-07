@@ -101,9 +101,9 @@ function buildFindingGroups(findings = {}, options = {}) {
   }
   const quoteLines = options.quoteLines || []
   const groups = [
-    { key: 'action', title: '需要处理的项目', items: [] },
-    { key: 'watch', title: '需要持续关注的项目', items: [] },
-    { key: 'ok', title: '正常项目', items: [] },
+    { key: 'action', title: '需要处理', items: [] },
+    { key: 'watch', title: '建议关注', items: [] },
+    { key: 'ok', title: '正常', items: [] },
   ]
   items.forEach((item, index) => {
     const bucket = ownerFindingBucket(list[index] || {}, quoteLines)

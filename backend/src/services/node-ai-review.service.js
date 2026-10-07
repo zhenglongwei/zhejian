@@ -20,6 +20,7 @@ const {
 const { buildRuleSuggestions, parseModelSuggestions, keepCompletenessSuggestions } = require('../utils/node-ai-review-rules')
 const { isAckStale, canReuseReviewThisRound } = require('../utils/node-ai-review-ack')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
+const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
 const jobsInFlight = new Set()
 
@@ -412,7 +413,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   }
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是发给车主确认前的核对。只查关键项有没有写：主诉、项目名、施工方案、该填的检查发现、该有的图。栏里已经有字，不要给 suggestedText，不要改句式。空栏才给一句可直接填的。photoObservations 是已看过的图。不要改金额，不要编项目。'
+      ? '这是发给车主确认前的核对。只查关键项有没有写：主诉、项目名、施工方案、该填的检查发现、该有的图。栏里已经有字，不要给 suggestedText，不要改句式。空栏才给一句可直接填的，口吻必须像师傅看完实车写的判断。photoObservations 是已看过的图。不要改金额，不要编项目。'
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
@@ -424,6 +425,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
                 : ''
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实查缺项，不要百科，不要编造没拍到的读数。',
+    MECHANIC_VOICE_RULES,
     stepNote,
     '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}]}',
     'text 只在对应字段为空时才给 suggestedText。栏里已经有字，一律不要出改句，保留店员原文。没有空缺就返回空 suggestions。',

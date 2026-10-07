@@ -33,7 +33,7 @@ test('owner groups by quote, watch, then normal', () => {
   )
   assert.deepEqual(
     groups.map((row) => row.title),
-    ['需要处理的项目', '需要持续关注的项目', '正常项目'],
+    ['需要处理', '建议关注', '正常'],
   )
   assert.deepEqual(
     groups[0].items.map((row) => row.partName),

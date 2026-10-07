@@ -49,6 +49,11 @@ function textHint(field, hint) {
   return { field, hint }
 }
 
+const MECHANIC_VOICE_HINT = textHint(
+  'voice',
+  '检查发现和施工方案用师傅看完实车后的口吻。外观看清就写有或没有，禁止疑似；看不清整句不写。规格只写图上字样或店员已填的品牌/型号/数量，禁止适配型号；没有就不写规格。严重碰撞可写内部可能受损、需进一步拆检。不要写画面、技师正在擦拭。',
+)
+
 const COMMON_INTAKE_PHOTOS = [
   photo('odo', '仪表里程', '表盘入镜，不要导航轨迹', ['仪表', '里程', 'odo']),
   photo('walkaround', '整车/相关方位外观', '拍车身，不要微信码、名片', ['环车', '外观', 'walkaround']),
@@ -94,7 +99,7 @@ const RUBRICS = {
       texts: [
         textHint('chiefComplaint', '主诉与方案主项应是同一件事'),
         textHint('quoteLineName', '方案行名用部位名，如机油/机滤；巡检正常的不要预填报价行'),
-        textHint('quoteLineNote', '施工方案写清做什么、用什么：机油规格与用量、机滤是否一并更换、含不含工时与保养灯复位。依据只取检测发现里已有的内容，不要加没做的项'),
+        textHint('quoteLineNote', '施工方案写清做什么。机油规格、用量、品牌只写检测或包装上已经出现的；没有就不写规格，不要写适配型号。机滤是否一并更换、含不含工时与保养灯复位以本单已有内容为准'),
       ],
     },
   },
@@ -131,7 +136,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '增量项与检测建议一致；未做项不要出现在方案里'),
-        textHint('quoteLineNote', '施工方案按项写清本次做什么、用什么件与规格；基础保养与增量项分开写，增量对应检测发现的那一条'),
+        textHint('quoteLineNote', '施工方案按项写清本次做什么。用什么件与规格只抄本单已有字样，没有就不写。基础保养与增量项分开写，增量对应检测发现的那一条'),
       ],
     },
   },
@@ -197,7 +202,7 @@ const RUBRICS = {
         photo('install_secure', '压板与桩头极性', '固定与接线入镜', ['压板', '桩头', '极性']),
       ],
       texts: [
-        textHint('caption', '写清型号、容量；本车需要/不需要匹配'),
+        textHint('caption', '型号、容量照抄标签；标签没有就不写。不要写适配型号'),
       ],
     },
     delivery: {
@@ -211,7 +216,7 @@ const RUBRICS = {
       texts: [
         textHint('chiefComplaint', '不要把「打不着火」直接写成一定是电瓶'),
         textHint('quoteLineName', '方案就是电瓶更换；充电系统待复查写在建议里'),
-        textHint('quoteLineNote', '施工方案写清电瓶型号与容量、含不含桩头清理与装车后检测复核、旧件如何处理；待复查项写进建议，不要混进这一行'),
+        textHint('quoteLineNote', '施工方案写清做什么。电瓶型号与容量只写标签或店员已填的，没有就不编。含不含桩头清理与装车后复核、旧件如何处理以本单已有内容为准；待复查项写进建议，不要混进这一行'),
       ],
     },
   },
@@ -294,7 +299,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写清哪块板、什么伤'),
-        textHint('findingAdvice', '写清哪块板、伤到什么程度、漆膜读数；不要保证无色差'),
+        textHint('findingAdvice', '写清哪块板、伤到什么程度、漆膜读数。凹陷、开裂、锈蚀看清就直接写，禁止疑似；看不清整句不写。不要保证无色差'),
       ],
       complaintExample: '右前门划痕，到店钣喷',
     },
@@ -331,7 +336,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写清碰撞方位与主要损伤'),
-        textHint('findingAdvice', '损伤部位名称级清单；气囊灯等客观状态，不要金额'),
+        textHint('findingAdvice', '损伤部位名称级清单；气囊灯等客观状态。外观能看清的直接写有或没有，禁止疑似。未拆内部不要写成已损坏，碰撞严重可写内部可能受损、需进一步拆检。不要金额'),
       ],
       complaintExample: '右前方碰撞，到店维修',
     },
@@ -419,7 +424,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '方案行与发现一致'),
-        textHint('quoteLineNote', '施工方案写清这一行具体做什么、用什么件，并对应检测发现的那一条；不要写通用套话'),
+        textHint('quoteLineNote', '施工方案写清这一行具体做什么。用什么件只写本单已出现的品牌/型号/数量，没有就不写。对应检测发现的那一条；不要写通用套话或适配型号'),
       ],
     },
   },
@@ -435,7 +440,7 @@ const RUBRICS = {
  * 检测报告与报价都不可改，发现问题只能改工单文案。
  */
 const WORK_SHEET_TEXT_HINTS = [
-  textHint('findingCaption', '每项写清做了什么、换了什么件（用料/品牌/数量一并写明）'),
+  textHint('findingCaption', '每项写清做了什么。换了什么件时，用料/品牌/数量只写包装或店员已填的，没有就不编'),
   textHint('findingAdvice', '检测报告已提而这里没做的项、或做了报价之外的项，补一句缘由'),
 ]
 
@@ -514,7 +519,7 @@ function getReviewRubric(templateId, kind, serviceName, stepOverride) {
     category,
     step,
     photos: Array.isArray(stepRubric.photos) ? stepRubric.photos : [],
-    texts: Array.isArray(stepRubric.texts) ? stepRubric.texts : [],
+    texts: (Array.isArray(stepRubric.texts) ? stepRubric.texts : []).concat([MECHANIC_VOICE_HINT]),
     complaintExample: stepRubric.complaintExample || pack.intake && pack.intake.complaintExample || '',
   }
 }

@@ -34,7 +34,7 @@ Component({
       type: String,
       value: 'preview',
     },
-    /** 车主检测报告用来判断「需要处理的项目」 */
+    /** 车主检测报告用来判断「需要处理」分段 */
     quoteLines: {
       type: Array,
       value: [],

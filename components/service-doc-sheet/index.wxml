@@ -4,24 +4,27 @@
       <text class="text-h3 service-doc-sheet__title">{{doc.title}}</text>
       <ui-tag wx:if="{{doc.statusLabel}}" variant="{{doc.needsConfirm ? 'warning' : 'default'}}" text="{{doc.statusLabel}}" />
     </view>
-    <text wx:if="{{doc.storeName}}" class="text-caption text-secondary service-doc-sheet__store">{{doc.storeName}}</text>
-    <text wx:if="{{doc.metaLine}}" class="text-caption text-secondary service-doc-sheet__meta">{{doc.metaLine}}</text>
+    <text wx:if="{{doc.storeName}}" class="text-caption service-doc-sheet__store">{{doc.storeName}}</text>
+    <text wx:if="{{doc.metaLine}}" class="text-caption service-doc-sheet__meta">{{doc.metaLine}}</text>
   </view>
 
   <block wx:if="{{doc.kind === 'inspection_report'}}">
     <view wx:if="{{doc.chiefComplaint}}" class="service-doc-sheet__block">
-      <text class="text-caption text-secondary service-doc-sheet__label">进店主诉</text>
-      <text class="text-body">{{doc.chiefComplaint}}</text>
+      <text class="text-caption service-doc-sheet__label">进店主诉</text>
+      <text class="text-body service-doc-sheet__complaint">{{doc.chiefComplaint}}</text>
     </view>
     <view wx:if="{{findingGroups.length}}" class="service-doc-sheet__block">
-      <text wx:if="{{mode !== 'owner'}}" class="text-body service-doc-sheet__section">本次检测项目</text>
+      <text wx:if="{{mode !== 'owner'}}" class="service-doc-sheet__section">本次检测项目</text>
       <view
         wx:for="{{findingGroups}}"
         wx:for-item="group"
         wx:key="key"
-        class="service-doc-sheet__group"
+        class="service-doc-sheet__group service-doc-sheet__group--{{group.key}}"
       >
-        <text wx:if="{{group.title}}" class="text-body service-doc-sheet__group-title">{{group.title}}</text>
+        <view wx:if="{{group.title}}" class="service-doc-sheet__group-head">
+          <view class="service-doc-sheet__group-dot"></view>
+          <text class="service-doc-sheet__group-title">{{group.title}}</text>
+        </view>
         <view
           wx:for="{{group.items}}"
           wx:for-item="finding"
@@ -29,8 +32,8 @@
           class="service-doc-sheet__finding-card"
         >
           <view class="service-doc-sheet__finding-head">
-            <text class="text-body service-doc-sheet__finding-name">{{finding.partName}}</text>
-            <text wx:if="{{finding.result}}" class="text-caption text-secondary">{{finding.result}}</text>
+            <text class="service-doc-sheet__finding-name">{{finding.partName}}</text>
+            <text wx:if="{{finding.result}}" class="text-caption service-doc-sheet__prose">{{finding.result}}</text>
           </view>
           <view wx:if="{{finding.images.length}}" class="service-doc-sheet__finding-photos">
             <image
@@ -47,7 +50,7 @@
           </view>
           <view wx:if="{{finding.advice}}" class="service-doc-sheet__finding-advice">
             <view class="{{expandedAdvice[finding.key] ? '' : 'service-doc-sheet__clamp'}}">
-              <text class="text-caption text-secondary">{{finding.advice}}</text>
+              <text class="service-doc-sheet__prose">{{finding.advice}}</text>
             </view>
             <text
               wx:if="{{finding.adviceCollapsible}}"
@@ -59,13 +62,13 @@
         </view>
       </view>
     </view>
-    <text wx:if="{{doc.conclusion}}" class="text-body service-doc-sheet__block">结论：{{doc.conclusion}}</text>
+    <text wx:if="{{doc.conclusion}}" class="text-body service-doc-sheet__complaint service-doc-sheet__block">结论：{{doc.conclusion}}</text>
   </block>
 
   <block wx:elif="{{doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm'}}">
     <view wx:if="{{doc.isAddon && (doc.discoveryNote || doc.discoveryImages.length)}}" class="service-doc-sheet__block">
-      <text class="text-body service-doc-sheet__section">新发现</text>
-      <text wx:if="{{doc.discoveryNote}}" class="text-body">{{doc.discoveryNote}}</text>
+      <text class="service-doc-sheet__section">新发现</text>
+      <text wx:if="{{doc.discoveryNote}}" class="text-body service-doc-sheet__complaint">{{doc.discoveryNote}}</text>
       <view wx:if="{{doc.discoveryImages.length}}" class="service-doc-sheet__line-thumbs">
         <image
           wx:for="{{doc.discoveryImages}}"
@@ -80,10 +83,10 @@
       </view>
     </view>
     <view class="service-doc-sheet__block">
-      <text class="text-body service-doc-sheet__section">费用明细</text>
+      <text class="service-doc-sheet__section">费用明细</text>
       <view class="service-doc-sheet__table-head">
-        <text class="text-caption text-secondary">项目</text>
-        <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
+        <text class="text-caption service-doc-sheet__label">项目</text>
+        <text class="text-caption service-doc-sheet__label service-doc-sheet__col-amount">金额</text>
       </view>
       <view wx:for="{{quoteLineRows}}" wx:for-item="line" wx:key="key" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
@@ -104,14 +107,14 @@
                 bindtap="onPreviewImage"
               />
             </view>
-            <text class="text-body">{{line.name}}</text>
+            <text class="service-doc-sheet__line-name">{{line.name}}</text>
           </view>
-          <text wx:if="{{line.amountText}}" class="service-doc-sheet__col-amount">{{line.amountText}}</text>
+          <text wx:if="{{line.amountText}}" class="service-doc-sheet__col-amount service-doc-sheet__amount">{{line.amountText}}</text>
         </view>
-        <text wx:if="{{line.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{line.brand}}</text>
+        <text wx:if="{{line.brand}}" class="service-doc-sheet__note">品牌：{{line.brand}}</text>
         <view wx:if="{{line.note}}" class="service-doc-sheet__finding-advice">
           <view class="{{expandedNotes[line.key] ? '' : 'service-doc-sheet__clamp'}}">
-            <text class="text-caption text-secondary">{{line.note}}</text>
+            <text class="service-doc-sheet__prose">{{line.note}}</text>
           </view>
           <text
             wx:if="{{line.noteCollapsible}}"
@@ -122,7 +125,7 @@
         </view>
       </view>
       <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
-        <text class="text-body">合计</text>
+        <text class="service-doc-sheet__total-label">合计</text>
         <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
@@ -130,23 +133,23 @@
 
   <block wx:elif="{{doc.kind === 'work'}}">
     <view class="service-doc-sheet__block">
-      <text class="text-body service-doc-sheet__section">工单内容</text>
+      <text class="service-doc-sheet__section">工单内容</text>
       <view class="service-doc-sheet__table-head">
-        <text class="text-caption text-secondary">项目</text>
-        <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
+        <text class="text-caption service-doc-sheet__label">项目</text>
+        <text class="text-caption service-doc-sheet__label service-doc-sheet__col-amount">金额</text>
       </view>
       <view wx:for="{{doc.items}}" wx:for-item="row" wx:key="index" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
-          <text class="text-body">{{row.name}}</text>
-          <text wx:if="{{row.amount}}" class="text-body service-doc-sheet__col-amount">¥{{row.amount}}</text>
+          <text class="service-doc-sheet__line-name">{{row.name}}</text>
+          <text wx:if="{{row.amount}}" class="service-doc-sheet__col-amount service-doc-sheet__amount">¥{{row.amount}}</text>
         </view>
-        <text wx:if="{{row.material}}" class="text-caption text-secondary service-doc-sheet__note">用料：{{row.material}}</text>
-        <text wx:if="{{row.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{row.brand}}</text>
-        <text wx:if="{{row.qty}}" class="text-caption text-secondary service-doc-sheet__note">数量：{{row.qty}}</text>
-        <text wx:if="{{row.note}}" class="text-caption text-secondary service-doc-sheet__note">{{row.note}}</text>
+        <text wx:if="{{row.material}}" class="service-doc-sheet__note">用料：{{row.material}}</text>
+        <text wx:if="{{row.brand}}" class="service-doc-sheet__note">品牌：{{row.brand}}</text>
+        <text wx:if="{{row.qty}}" class="service-doc-sheet__note">数量：{{row.qty}}</text>
+        <text wx:if="{{row.note}}" class="service-doc-sheet__note">{{row.note}}</text>
       </view>
       <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
-        <text class="text-body">合计</text>
+        <text class="service-doc-sheet__total-label">合计</text>
         <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
@@ -154,28 +157,28 @@
 
   <block wx:elif="{{doc.kind === 'repair_report'}}">
     <view class="service-doc-sheet__block">
-      <text class="text-body service-doc-sheet__section">已施工项目</text>
+      <text class="service-doc-sheet__section">已施工项目</text>
       <view class="service-doc-sheet__table-head">
-        <text class="text-caption text-secondary">项目</text>
-        <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
+        <text class="text-caption service-doc-sheet__label">项目</text>
+        <text class="text-caption service-doc-sheet__label service-doc-sheet__col-amount">金额</text>
       </view>
       <view wx:for="{{doc.workItems}}" wx:for-item="row" wx:key="index" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
-          <text class="text-body">{{row.name}}</text>
-          <text wx:if="{{row.amount}}" class="text-body service-doc-sheet__col-amount">¥{{row.amount}}</text>
+          <text class="service-doc-sheet__line-name">{{row.name}}</text>
+          <text wx:if="{{row.amount}}" class="service-doc-sheet__col-amount service-doc-sheet__amount">¥{{row.amount}}</text>
         </view>
-        <text wx:if="{{row.material}}" class="text-caption text-secondary service-doc-sheet__note">用料：{{row.material}}</text>
-        <text wx:if="{{row.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{row.brand}}</text>
-        <text wx:if="{{row.qty}}" class="text-caption text-secondary service-doc-sheet__note">数量：{{row.qty}}</text>
-        <text wx:if="{{row.note}}" class="text-caption text-secondary service-doc-sheet__note">{{row.note}}</text>
+        <text wx:if="{{row.material}}" class="service-doc-sheet__note">用料：{{row.material}}</text>
+        <text wx:if="{{row.brand}}" class="service-doc-sheet__note">品牌：{{row.brand}}</text>
+        <text wx:if="{{row.qty}}" class="service-doc-sheet__note">数量：{{row.qty}}</text>
+        <text wx:if="{{row.note}}" class="service-doc-sheet__note">{{row.note}}</text>
       </view>
       <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
-        <text class="text-body">合计</text>
+        <text class="service-doc-sheet__total-label">合计</text>
         <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
     <view wx:if="{{doc.deliveryPhotos && doc.deliveryPhotos.length}}" class="service-doc-sheet__block">
-      <text class="text-body service-doc-sheet__section">交车照片</text>
+      <text class="service-doc-sheet__section">交车照片</text>
       <view class="service-doc-sheet__photos">
         <image
           wx:for="{{doc.deliveryPhotos}}"
@@ -194,12 +197,12 @@
       wx:if="{{doc.warrantyPeriod || doc.warrantyNotes || doc.warrantyScope || doc.warrantyExclusions}}"
       class="service-doc-sheet__block"
     >
-      <text class="text-body service-doc-sheet__section">质保说明</text>
-      <text wx:if="{{doc.warrantyPeriod}}" class="text-caption">期限：{{doc.warrantyPeriod}}</text>
-      <text wx:if="{{doc.warrantyNotes}}" class="text-caption text-secondary">注意事项：{{doc.warrantyNotes}}</text>
+      <text class="service-doc-sheet__section">质保说明</text>
+      <text wx:if="{{doc.warrantyPeriod}}" class="service-doc-sheet__note">期限：{{doc.warrantyPeriod}}</text>
+      <text wx:if="{{doc.warrantyNotes}}" class="service-doc-sheet__note">注意事项：{{doc.warrantyNotes}}</text>
       <block wx:elif="{{doc.warrantyScope || doc.warrantyExclusions}}">
-        <text wx:if="{{doc.warrantyScope}}" class="text-caption">范围：{{doc.warrantyScope}}</text>
-        <text wx:if="{{doc.warrantyExclusions}}" class="text-caption text-secondary">除外：{{doc.warrantyExclusions}}</text>
+        <text wx:if="{{doc.warrantyScope}}" class="service-doc-sheet__note">范围：{{doc.warrantyScope}}</text>
+        <text wx:if="{{doc.warrantyExclusions}}" class="service-doc-sheet__note">除外：{{doc.warrantyExclusions}}</text>
       </block>
     </view>
   </block>
@@ -208,7 +211,7 @@
     wx:if="{{doc.ownerRejectReason && !doc.cancelled}}"
     class="service-doc-sheet__block"
   >
-    <text class="text-caption text-secondary service-doc-sheet__label">车主未同意</text>
+    <text class="text-caption service-doc-sheet__label">车主未同意</text>
     <text class="text-body">{{doc.ownerRejectReason}}</text>
   </view>
 
@@ -216,7 +219,7 @@
     wx:if="{{doc.cancelReason}}"
     class="service-doc-sheet__block"
   >
-    <text class="text-caption text-secondary service-doc-sheet__label">说明</text>
+    <text class="text-caption service-doc-sheet__label">说明</text>
     <text class="text-body">{{doc.cancelReason}}</text>
   </view>
 
@@ -224,7 +227,7 @@
     wx:if="{{doc.confirmCopy && !doc.cancelled && (doc.needsConfirm || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
     class="service-doc-sheet__protocol"
   >
-    <text class="text-caption">{{doc.confirmCopy}}</text>
+    <text class="service-doc-sheet__protocol-text">{{doc.confirmCopy}}</text>
   </view>
 
   <ui-button

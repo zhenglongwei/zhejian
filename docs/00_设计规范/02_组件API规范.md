@@ -325,7 +325,7 @@
 | confirming | Boolean | false | 确认按钮 loading |
 | storePhone | String | `''` | 有则展示「电话联系门店」 |
 | imageTapMode | String | `preview` | `preview` 预览图；`edit` 点图抛 `imageedit` |
-| quoteLines | Array | `[]` | 车主检测报告用来判断「需要处理的项目」；取本次方案行（不含增项） |
+| quoteLines | Array | `[]` | 车主检测报告用来判断「需要处理」分段；取本次方案行（不含增项） |
 
 | 事件 | 说明 |
 |---|---|
@@ -333,7 +333,7 @@
 | reject | `{ nodeId, isAddon }` 车主不同意 |
 | imageedit | `{ url, urls }` 仅 `imageTapMode=edit` |
 
-车主检测项：无结果 Tag；分段为需要处理的项目 / 需要持续关注的项目 / 正常项目。每项部位 → 三列方图 → 说明两行可展开。方案行：左项目右金额；合计左侧「合计」、右侧仅金额。
+车主检测项：无结果 Tag；分段标题为 **需要处理 / 建议关注 / 正常**，色点浅底条（红 / 橙 / 蓝）。每项部位 → 三列方图 → 说明两行可展开。方案行：左项目右金额；合计左侧「合计」、右侧仅金额。
 
 #### Timeline（`components/timeline`）
 
@@ -1091,4 +1091,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V2.1 | **UI-ALB-A-08**：`AlbumCard` 加高横向卡 + 分享/授权；新增 `ToolImmersiveNav`/`AlbumPhotoFrame`/`AlbumFrameViewer`/`AlbumEndPage`/`AlbumInfoSheet`/`AlbumBottomToolbar`/`AlbumPageFooter`；`AlbumFlipBook` 标废弃 |
 | V2.2 | 车主端 AlbumCard：标题统一车牌；五行信息（类目 / 服务商 / 品牌车型 / 进度）；评价按钮右上 |
 | V2.3 | `ServiceDocSheet`：车主检测项竖排卡+分段；方案金额与合计去重、长说明可展开 |
-| V2.4 | 车主检测项去掉结果 Tag；三类改为需要处理 / 持续关注 / 正常（按本次报价归属） |
+| V2.4 | 车主检测项去掉结果 Tag；三类改为需要处理 / 建议关注 / 正常（按本次方案归属，标题用 h3） |

@@ -40,6 +40,10 @@ test('quote check has no required photos', () => {
   const rubric = getReviewRubric('maintenance', 'inspection_report')
   assert.equal(rubric.step, 'quote_check')
   assert.equal(rubric.photos.length, 0)
+  const voice = rubric.texts.find((row) => row.field === 'voice')
+  assert.ok(voice)
+  assert.match(String(voice.hint), /禁止疑似/)
+  assert.match(String(voice.hint), /适配型号/)
 })
 
 test('run step never comes back empty when queued without one', () => {

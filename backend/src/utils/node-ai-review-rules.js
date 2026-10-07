@@ -2,6 +2,7 @@
  * 节点确认前检查 · 规则提纲兜底（不调模型也能出补图/改句）
  */
 const { isVagueWarrantyPeriod, parseMileageKm } = require('../../vendor/shared/utils/service-flow-docs')
+const { violatesMechanicVoice } = require('./mechanic-copy-voice')
 
 const VAGUE_COMPLAINT =
   /^(定时)?保养$|^常规保养$|^例行保养$|^到店保养$|^年审$|^检查$|^维修$|^保养一下$|^大保养$|^小保养$/
@@ -243,6 +244,7 @@ function keepCompletenessSuggestions(suggestions, ctx = {}) {
   return (Array.isArray(suggestions) ? suggestions : []).filter((item) => {
     if (!item) return false
     if (item.type === 'photo') return true
+    if (violatesMechanicVoice(item.suggestedText)) return false
     return !currentTextForSuggestion(ctx, item)
   })
 }
@@ -284,6 +286,7 @@ function parseModelSuggestions(raw, fallback = []) {
     if (!type) return
     const suggestedText = type === 'text' ? text(item.suggestedText || item.text) : ''
     if (type === 'text' && /¥|金额|报价/.test(suggestedText)) return
+    if (type === 'text' && violatesMechanicVoice(suggestedText)) return
     const field = inferSuggestionField({ ...item, type })
     if (/amount|price|fee|金额/.test(field)) return
     const title = type === 'photo'

@@ -91,6 +91,23 @@ test('keepCompletenessSuggestions drops rewrites of filled fields', () => {
   assert.equal(kept[1].type, 'photo')
 })
 
+test('keepCompletenessSuggestions drops caption-like empty fill', () => {
+  const { keepCompletenessSuggestions } = require('./node-ai-review-rules')
+  const kept = keepCompletenessSuggestions(
+    [
+      { type: 'text', field: 'findingAdvice', findingIndex: 0, suggestedText: '白色漆面伴有疑似锈点' },
+      { type: 'text', field: 'quoteLineNote', lineIndex: 0, suggestedText: '安装全新适配型号机油滤芯' },
+      { type: 'text', field: 'quoteLineNote', lineIndex: 1, suggestedText: '更换机油滤芯，放出旧油' },
+    ],
+    {
+      findings: [{ advice: '' }],
+      quoteLines: [{ name: '机滤', note: '' }, { name: '机油', note: '' }],
+    },
+  )
+  assert.equal(kept.length, 1)
+  assert.equal(kept[0].lineIndex, 1)
+})
+
 test('model payload drops amount fields', () => {
   const list = parseModelSuggestions({
     suggestions: [
@@ -132,4 +149,15 @@ test('model payload keeps part so advice is not applied by index alone', () => {
   assert.equal(list[0].part, '滤芯')
   assert.equal(list[0].findingIndex, 0)
   assert.equal(list[0].suggestedText, '滤芯表面有油污附着，建议更换')
+})
+
+test('model payload drops mechanic-voice violations', () => {
+  const list = parseModelSuggestions({
+    suggestions: [
+      { type: 'text', field: 'findingAdvice', suggestedText: '技师正在使用纸巾擦拭检查' },
+      { type: 'text', field: 'findingAdvice', suggestedText: '右前翼子板凹陷，漆面开裂' },
+    ],
+  })
+  assert.equal(list.length, 1)
+  assert.match(list[0].suggestedText, /翼子板凹陷/)
 })

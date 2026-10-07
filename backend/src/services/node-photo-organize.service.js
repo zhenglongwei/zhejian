@@ -12,7 +12,9 @@ const {
   INTAKE_RECORD_CATEGORIES,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v1'
+const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
+
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v2'
 
 function text(value) {
   return String(value || '').trim()
@@ -152,6 +154,7 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
   const categories = INTAKE_RECORD_CATEGORIES.map((row) => ({ id: row.id, label: row.label }))
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
+    MECHANIC_VOICE_RULES,
     '每张图的说明是「图1」「图2」。返回 imageSlots 填这些编号，例如 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
@@ -161,21 +164,21 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
       '这是接车留证。按类目归组，抽出读数。不要写需处理，不要给每块板贴正常或有破损。',
       `类目 id：${JSON.stringify(categories)}`,
       '输出 JSON：{"groups":[{"category","imageSlots","reading","observation"}]}',
-      'category 必须是类目 id。里程读数填纯数字到 reading；油量把表上能读到的写进 reading。observation 写看见什么：读数、污渍、损伤位置。给之后检测和报价用，不要当检查结果，不要编没看到的规格。',
+      'category 必须是类目 id。里程读数填纯数字到 reading；油量把表上能读到的写进 reading。observation 写车上的读数、污渍、损伤位置。给之后检测和报价用，不要当检查结果，不要描写拍照动作，不要编没看到的规格。',
       '仪表和油量可以在同一张图：这张图同时进 odometer 和 fuel 两组。',
     ]).join('\n')
   }
   if (mode === 'work') {
     return common.concat([
       '这是施工过程。按「做了哪一项」归组。partName 写项目名，caption 写做了什么、用了什么件。不要写检查结果。',
-      'observation 写看见的用料规格、安装位置，给之后核对用。不要编没入镜的规格。',
+      'observation 写看见的用料规格、安装位置，给之后核对用。包装上没有的规格不要编。caption 只写做了什么，不要写适配型号。',
       '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation"}]}',
     ]).join('\n')
   }
   return common.concat([
     '这是检测。按检查点/部位归组。result 只能是：状态良好、需关注、需处理、仅记录。',
-    'advice 写看见什么：损伤形态、读数（厚度/电压/液位）、颜色杂质、左右位置。不要写成更换方案。',
-    'observation 写给之后报价用的完整观察（可见配件、损伤范围、读数）。不要编没看到的规格。',
+    'advice 写部位上的事实：损伤形态、读数（厚度/电压/液位）、颜色杂质、左右位置。不要写成更换方案，不要描写谁在拍照、图上有什么字。',
+    'observation 写给之后报价用的完整观察（可见配件、损伤范围、读数）。包装或铭牌上看不见的规格不要编。',
     '输出 JSON：{"groups":[{"partName","imageSlots","result","advice","observation"}]}',
     '已识过的图若有观察记录，优先用来填 advice，不要再编、不要再看这些图。',
   ]).join('\n')
