@@ -119,6 +119,10 @@ function normalizeGroups(rawGroups, pending) {
     .filter(Boolean)
 }
 
+/** 整理只短等打码；超时则 skipped，避免拖死商家端 60s 请求。 */
+const ORGANIZE_PREMASK_WAIT_MS = 8000
+const ORGANIZE_PREMASK_POLL_MS = 1000
+
 async function collectMaskedPending(albumId, pending = []) {
   const { buildPreMaskUrlLookup, scheduleAlbumPreMask, getAlbumPreMaskReadiness } =
     require('./desensitize.service')
@@ -126,8 +130,8 @@ async function collectMaskedPending(albumId, pending = []) {
     scheduleAlbumPreMask(albumId, { trigger: 'photo_organize' })
     const started = Date.now()
     let readiness = await getAlbumPreMaskReadiness(albumId)
-    while (readiness.state === 'pending' && Date.now() - started < 60000) {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+    while (readiness.state === 'pending' && Date.now() - started < ORGANIZE_PREMASK_WAIT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, ORGANIZE_PREMASK_POLL_MS))
       readiness = await getAlbumPreMaskReadiness(albumId)
     }
   }
@@ -518,4 +522,5 @@ module.exports = {
   mergeGroupsByPart,
   classifyReviewVisionRows,
   FLOW_ORGANIZE_PROMPT_VERSION,
+  ORGANIZE_PREMASK_WAIT_MS,
 }

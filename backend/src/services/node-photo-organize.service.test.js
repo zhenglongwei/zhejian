@@ -92,3 +92,9 @@ test('classifyReviewVisionRows skips organized images and keeps item uploads', (
   assert.equal(split.visionUrls.length, 1)
   assert.equal(split.visionUrls[0].rawUrl.includes('b.jpg'), true)
 })
+
+test('organize waits briefly for pre-mask, not a full client timeout', () => {
+  const { ORGANIZE_PREMASK_WAIT_MS } = require('./node-photo-organize.service')
+  assert.equal(ORGANIZE_PREMASK_WAIT_MS, 8000)
+  assert.ok(ORGANIZE_PREMASK_WAIT_MS < 60000)
+})

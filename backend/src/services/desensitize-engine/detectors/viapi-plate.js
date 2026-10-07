@@ -54,6 +54,18 @@ function boxFromNormalizedPoints(points, type, source, imageWidth, imageHeight) 
   return boxFromPoints(coords, type, source)
 }
 
+/** 录像角标 REC、单独数字等不是车牌 */
+function looksLikeLicensePlate(raw) {
+  const s = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s·•.\-]/g, '')
+  if (s.length < 5 || s.length > 10) return false
+  if (/^(REC|LIVE|HD|FHD|UHD|4K|AI|VIP|NEW|OK)$/.test(s)) return false
+  if (/^\d+$/.test(s)) return false
+  return /[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领A-Z]/.test(s) && /[A-Z0-9]{4,}/.test(s)
+}
+
 function pickBestPlate(plates) {
   if (!plates.length) return null
   let best = plates[0]
@@ -83,7 +95,9 @@ function boxFromRoi(roi, imageWidth, imageHeight) {
 }
 
 function parseViapiPlateBoxes(data, imageWidth = 0, imageHeight = 0) {
-  const plates = data?.plates || data?.Plates || []
+  const plates = (data?.plates || data?.Plates || []).filter((p) =>
+    looksLikeLicensePlate(p.plateNumber || p.PlateNumber),
+  )
   const plateNumbers = plates
     .map((p) => String(p.plateNumber || p.PlateNumber || '').trim())
     .filter(Boolean)
@@ -127,7 +141,7 @@ function parseViapiPlateBoxes(data, imageWidth = 0, imageHeight = 0) {
 
 function hasViapiPlateText(data) {
   const plates = data?.plates || data?.Plates || []
-  return plates.some((p) => String(p.plateNumber || p.PlateNumber || '').trim())
+  return plates.some((p) => looksLikeLicensePlate(p.plateNumber || p.PlateNumber))
 }
 
 /**
@@ -141,19 +155,21 @@ async function detectPlateViaViapi(imagePath, imageWidth = 0, imageHeight = 0) {
   const resp = await client.recognizeLicensePlateAdvance(request, runtime)
   const data = resp?.body?.data || resp?.body?.Data
   const parsed = parseViapiPlateBoxes(data, imageWidth, imageHeight)
-  console.info('[desensitize-engine] viapi plate ok', {
-    endpoint: viapiOcrEndpoint(),
-    count: parsed.boxes.length,
-    plateNumbers: parsed.plateNumbers.slice(0, 3),
-    candidates: parsed.debug,
-    picked: parsed.boxes.map((b) => ({
-      source: b.source,
-      left: b.left,
-      top: b.top,
-      width: b.width,
-      height: b.height,
-    })),
-  })
+  if (parsed.boxes.length) {
+    console.info('[desensitize-engine] viapi plate ok', {
+      endpoint: viapiOcrEndpoint(),
+      count: parsed.boxes.length,
+      plateNumbers: parsed.plateNumbers.slice(0, 3),
+      candidates: parsed.debug,
+      picked: parsed.boxes.map((b) => ({
+        source: b.source,
+        left: b.left,
+        top: b.top,
+        width: b.width,
+        height: b.height,
+      })),
+    })
+  }
   return {
     boxes: parsed.boxes,
     plateNumbers: parsed.plateNumbers,
@@ -166,4 +182,5 @@ async function detectPlateViaViapi(imagePath, imageWidth = 0, imageHeight = 0) {
 module.exports = {
   detectPlateViaViapi,
   parseViapiPlateBoxes,
+  looksLikeLicensePlate,
 }

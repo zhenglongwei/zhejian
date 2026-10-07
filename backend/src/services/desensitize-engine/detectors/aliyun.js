@@ -22,6 +22,9 @@ const {
 
 const { DetectFaceAdvanceRequest } = Facebody
 
+let ocrApiUnreachable = false
+let ocrApiUnreachableLogged = false
+
 function isAuthError(err) {
   const code = String(err?.code || err?.data?.Code || '').toLowerCase()
   const msg = String(err?.message || '').toLowerCase()
@@ -150,6 +153,12 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
     attempts.push('url')
   }
 
+  if (ocrApiUnreachable) {
+    const err = new Error('ocr-api skipped after ENOTFOUND')
+    err.code = 'ENOTFOUND'
+    throw err
+  }
+
   let lastError = null
   for (const mode of attempts) {
     try {
@@ -177,6 +186,18 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
     } catch (err) {
       lastError = err
       if (isAuthError(err)) throw err
+      if (isNetworkError(err)) {
+        ocrApiUnreachable = true
+        if (!ocrApiUnreachableLogged) {
+          ocrApiUnreachableLogged = true
+          console.warn('[desensitize-engine] ocr-api unreachable, skip further ocr-api calls', {
+            endpoint: ocrApiEndpoint(),
+            code: err.code || '',
+          })
+        }
+        throw err
+      }
+      if (isBenignDetectError(err)) continue
       console.warn(
         `[desensitize-engine] ocr ${method} ${mode} failed:`,
         err.code || '',
@@ -229,6 +250,17 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
           plateMaskMiss: true,
           orgWidth: 0,
           orgHeight: 0,
+          ocrNetworkFailed: false,
+        }
+      }
+      if (isBenignDetectError(viapiErr)) {
+        return {
+          boxes: [],
+          authFailed: false,
+          error: '',
+          plateMaskMiss: false,
+          orgWidth: imageWidth,
+          orgHeight: imageHeight,
           ocrNetworkFailed: false,
         }
       }
@@ -307,6 +339,17 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
         plateMaskMiss: true,
         orgWidth: 0,
         orgHeight: 0,
+        ocrNetworkFailed: false,
+      }
+    }
+    if (isBenignDetectError(viapiErr)) {
+      return {
+        boxes: [],
+        authFailed: false,
+        error: '',
+        plateMaskMiss: false,
+        orgWidth: imageWidth,
+        orgHeight: imageHeight,
         ocrNetworkFailed: false,
       }
     }

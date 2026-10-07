@@ -1,3 +1,43 @@
+<template name="pendingUnmatched">
+  <block wx:if="{{images.length}}">
+    <text class="text-caption text-secondary merchant-flow-page__pending-label">{{label}}</text>
+    <view
+      wx:for="{{images}}"
+      wx:for-item="shot"
+      wx:for-index="pendingIndex"
+      wx:key="url"
+      class="merchant-flow-page__unmatched"
+    >
+      <view class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--skip">
+        <image
+          class="merchant-flow-page__work-thumb-img image-placeholder"
+          src="{{shot.url}}"
+          mode="aspectFill"
+          data-url="{{shot.url}}"
+          bindtap="onPreviewPendingPhoto"
+        />
+      </view>
+      <view wx:if="{{!readOnly}}" class="merchant-flow-page__unmatched-actions">
+        <view
+          wx:if="{{canAssign}}"
+          class="merchant-flow-page__unmatched-btn merchant-flow-page__unmatched-btn--primary"
+          data-pending-index="{{pendingIndex}}"
+          catchtap="onOpenAssignPending"
+        >归入已有项</view>
+        <view
+          class="merchant-flow-page__unmatched-btn {{canAssign ? '' : 'merchant-flow-page__unmatched-btn--primary'}}"
+          data-pending-index="{{pendingIndex}}"
+          catchtap="onPromotePendingToFinding"
+        >单独成一项</view>
+        <view
+          class="merchant-flow-page__unmatched-btn"
+          data-pending-index="{{pendingIndex}}"
+          catchtap="onRemovePendingPhoto"
+        >删除</view>
+      </view>
+    </view>
+  </block>
+</template>
 <template name="aiFieldHint">
   <view wx:if="{{hint && !hint.applied}}" class="merchant-flow-page__ai-hint">
     <view class="merchant-flow-page__ai-hint-body">
@@ -248,31 +288,12 @@
                       <text class="text-body">归组中</text>
                     </view>
                     <block wx:else>
-                    <text wx:if="{{pendingImages.length}}" class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
-                    <view class="merchant-flow-page__work-thumbs">
+                    <template
+                      is="pendingUnmatched"
+                      data="{{images: pendingImages, label: '本次照片', canAssign: hasFindingItems, readOnly: readOnly}}"
+                    />
+                    <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
-                        wx:for="{{pendingImages}}"
-                        wx:for-item="shot"
-                        wx:for-index="pendingIndex"
-                        wx:key="url"
-                        class="merchant-flow-page__work-thumb"
-                      >
-                        <image
-                          class="merchant-flow-page__work-thumb-img image-placeholder"
-                          src="{{shot.url}}"
-                          mode="aspectFill"
-                          data-url="{{shot.url}}"
-                          bindtap="onPreviewPendingPhoto"
-                        />
-                        <text
-                          wx:if="{{!readOnly}}"
-                          class="merchant-flow-page__work-thumb-remove"
-                          data-pending-index="{{pendingIndex}}"
-                          catchtap="onRemovePendingPhoto"
-                        >×</text>
-                      </view>
-                      <view
-                        wx:if="{{!readOnly && pendingImages.length < 12}}"
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                         bindtap="onAddFindingPhotos"
                       >
@@ -562,43 +583,10 @@
                       <text class="text-body">归组中</text>
                     </view>
                     <block wx:else>
-                    <block wx:if="{{pendingImages.length}}">
-                      <text class="text-caption text-secondary merchant-flow-page__pending-label">未归组</text>
-                      <view
-                        wx:for="{{pendingImages}}"
-                        wx:for-item="shot"
-                        wx:for-index="pendingIndex"
-                        wx:key="url"
-                        class="merchant-flow-page__unmatched"
-                      >
-                        <view class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--skip">
-                          <image
-                            class="merchant-flow-page__work-thumb-img image-placeholder"
-                            src="{{shot.url}}"
-                            mode="aspectFill"
-                            data-url="{{shot.url}}"
-                            bindtap="onPreviewPendingPhoto"
-                          />
-                        </view>
-                        <view class="merchant-flow-page__unmatched-actions">
-                          <view
-                            class="merchant-flow-page__unmatched-btn merchant-flow-page__unmatched-btn--primary"
-                            data-pending-index="{{pendingIndex}}"
-                            catchtap="onOpenAssignPending"
-                          >归入已有项</view>
-                          <view
-                            class="merchant-flow-page__unmatched-btn"
-                            data-pending-index="{{pendingIndex}}"
-                            catchtap="onPromotePendingToFinding"
-                          >单独成一项</view>
-                          <view
-                            class="merchant-flow-page__unmatched-btn"
-                            data-pending-index="{{pendingIndex}}"
-                            catchtap="onRemovePendingPhoto"
-                          >删除</view>
-                        </view>
-                      </view>
-                    </block>
+                    <template
+                      is="pendingUnmatched"
+                      data="{{images: pendingImages, label: '未归组', canAssign: hasFindingItems, readOnly: readOnly}}"
+                    />
                     <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"

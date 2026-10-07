@@ -190,7 +190,7 @@ const config = {
     /** ocr-api 在部分 ECS 不可达，默认 viapi（ocr.cn-shanghai） */
     plateProvider: process.env.DESENSITIZE_PLATE_PROVIDER || 'viapi',
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
-    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v7',
+    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v8',
   },
   /** PV-REFORM · PublicView 读侧（H5/Feed 优先 snapshot.publicView） */
   publicViewV2: envBool('PUBLIC_VIEW_V2', true),

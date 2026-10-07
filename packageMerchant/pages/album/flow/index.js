@@ -116,6 +116,15 @@ function pickLocalImages(options = {}) {
   onFail({ errMsg: 'chooseImage:fail not support' })
 }
 
+function organizeFailHint(err) {
+  const code = err && err.code
+  const msg = String((err && err.message) || '')
+  if (code === 'NETWORK_ERROR' || /网络/.test(msg)) {
+    return '照片已保存，这次没归上，请自己归'
+  }
+  return msg || '这次没归上'
+}
+
 /** 已完成步骤「查看」：单据走 service-doc-sheet；拍照步仍用缩略图 */
 function buildSheetMetaLine(payload = {}, album = {}) {
   const parts = []
@@ -2259,17 +2268,17 @@ Page({
           }
           if (!uploadedList.length) throw new Error('上传失败')
           const pendingImages = normalizePendingImages(pending.concat(uploadedList))
-          wx.hideLoading()
           this.setData({
             pendingImages,
             ...this.findingChromePatch(this.data.sections, pendingImages),
           })
-          await this.onOrganizePhotos()
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+          return
         } finally {
           wx.hideLoading()
         }
+        await this.onOrganizePhotos()
       },
     })
   },
@@ -2560,7 +2569,7 @@ Page({
       if (!groups.length) {
         this.setData({
           organizeResultHint: (res && res.skipped)
-            ? '这次没归上，稍后再传或自己归'
+            ? '照片已保存，这次没归上，请自己归'
             : '没写成项，请自己归或改部位名后再传',
         })
         return
@@ -2603,8 +2612,9 @@ Page({
       this.scheduleAutoSavePhotos()
     } catch (err) {
       this.setData({
-        organizeResultHint: (err && err.message) || '归组失败',
+        organizeResultHint: organizeFailHint(err),
       })
+      this.scheduleAutoSavePhotos()
     } finally {
       this.setData({ organizingPhotos: false })
       if (!pageWait) wx.hideLoading()
