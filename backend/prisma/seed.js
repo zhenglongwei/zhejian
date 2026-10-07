@@ -68,6 +68,7 @@ async function seedServiceAlbum(albumId, options = {}) {
       vehicleJson: {
         brand: '大众',
         series: '朗逸',
+        plate: '浙A88888',
         plateDisplay: '浙A****8',
       },
       priceMode: 'range',
@@ -379,7 +380,12 @@ async function main() {
       storeName: '辙见演示门店',
       serviceName: '刹车片更换',
       userPhone: USER_PHONE,
-      vehicleJson: { brand: '大众', series: '帕萨特', plateDisplay: '浙A·DEMO1' },
+      vehicleJson: {
+        brand: '大众',
+        series: '帕萨特',
+        plate: '浙A88881',
+        plateDisplay: '浙A****1',
+      },
       partsJson: [],
       pendingConfirmsJson: [],
       status: 'completed',

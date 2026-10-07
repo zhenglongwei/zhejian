@@ -313,6 +313,27 @@
 | active | 当前步展开区（上传/表单） |
 | completed-detail | 可选：`detailKind` 未知时的兜底插槽 |
 
+#### ServiceDocSheet（`components/service-doc-sheet` · DOC-FLOW）
+
+车主进度与商家已完成预览共用的只读单据壳。检测报告偏证据卡，方案/完工偏费用表。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| doc | Object | `{}` | 单据展示对象（`kind` / `findings` / `lines` 等，与车主进度 `ownerFlow.docs` 对齐） |
+| mode | String | `owner` | `owner` / `merchant`；车主检测项按结果分段，商家只读预览保持原顺序 |
+| showHeader | Boolean | true | 是否展示单头 |
+| confirming | Boolean | false | 确认按钮 loading |
+| storePhone | String | `''` | 有则展示「电话联系门店」 |
+| imageTapMode | String | `preview` | `preview` 预览图；`edit` 点图抛 `imageedit` |
+
+| 事件 | 说明 |
+|---|---|
+| confirm | `{ nodeId }` 车主确认 |
+| reject | `{ nodeId, isAddon }` 车主不同意 |
+| imageedit | `{ url, urls }` 仅 `imageTapMode=edit` |
+
+检测项卡：部位 + 结果 Tag → 三列方图 → 说明两行可展开。方案行：左项目右金额；合计左侧「合计」、右侧仅金额。
+
 #### Timeline（`components/timeline`）
 
 
@@ -402,7 +423,7 @@
 
 | 行 | 展示 | 来源 |
 |---|---|---|
-| 1 | **车牌号**（脱敏，如 `浙A****8`） | `listTitle` ← `vehicle.plateDisplay`；无牌则「未登记车牌」 |
+| 1 | **车牌号**（「我的相册」完整号，如 `浙A12345`；公开 Feed 仍脱敏如 `浙A****8`） | `listTitle` ← `vehicle.plateDisplay`；无牌则「未登记车牌」 |
 | 2 | 服务类目 | `serviceName` |
 | 3 | 服务商 | `storeName` |
 | 4 | 品牌车型 | `vehicleModelLine`（品牌 + 车系） |
@@ -1068,3 +1089,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V2.0 | 新增 `AlbumCard`、`AuthorizationCard`、`AlbumAuthorizeSection`；`ComplianceNotice` 增 `partRisk`；`.note-block` 工具类；`PendingConfirmList`（**Phase 2**，Phase 1 新页勿引）；R6 增 `LeadCard`/`LeadStatusBadge`/`LeadDetailBody`/`ListPageShell`/`BottomSheet` 文档与实现 |
 | V2.1 | **UI-ALB-A-08**：`AlbumCard` 加高横向卡 + 分享/授权；新增 `ToolImmersiveNav`/`AlbumPhotoFrame`/`AlbumFrameViewer`/`AlbumEndPage`/`AlbumInfoSheet`/`AlbumBottomToolbar`/`AlbumPageFooter`；`AlbumFlipBook` 标废弃 |
 | V2.2 | 车主端 AlbumCard：标题统一车牌；五行信息（类目 / 服务商 / 品牌车型 / 进度）；评价按钮右上 |
+| V2.3 | `ServiceDocSheet`：车主检测项竖排卡+分段；方案金额与合计去重、长说明可展开 |

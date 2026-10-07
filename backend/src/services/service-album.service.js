@@ -58,7 +58,7 @@ const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
 const { albumMatchesUserVehicle } = require('../utils/album-vehicle-match')
 const { detectAlbumSaveChanges } = require('../utils/album-save-notify')
-const { maskPlate } = require('../utils/plate-mask')
+const { maskPlate, ownerVisiblePlate } = require('../utils/plate-mask')
 const { normalizePlate, normalizeVin } = require('./vehicle-intake-ocr.service')
 const { assessGeoEvidence } = require('../utils/case-geo-quality')
 const {
@@ -138,10 +138,14 @@ function normalizeVehicleJson(vehicle = {}) {
   return out
 }
 
-/** 用户端不返回完整车牌/VIN，仅脱敏展示字段 */
-function sanitizeUserVehicle(vehicleJson = {}) {
+/** 用户端不返回 VIN；关联车主相册读侧展示完整车牌，公开/分享仍走脱敏字段 */
+function sanitizeUserVehicle(vehicleJson = {}, { revealPlate = false } = {}) {
   const normalized = normalizeVehicleJson(vehicleJson)
   const out = { ...normalized }
+  if (revealPlate) {
+    const full = ownerVisiblePlate({ ...vehicleJson, ...normalized })
+    if (full) out.plateDisplay = full
+  }
   delete out.plate
   delete out.vin
   return out
@@ -475,7 +479,7 @@ function buildAlbumView(album) {
   const nodes = mapNodesForView(album)
   const imageCount = album.imageCount || countImages(nodes)
   const store = buildStoreBlock(album)
-  const vehicle = sanitizeUserVehicle(album.vehicleJson || {})
+  const vehicle = sanitizeUserVehicle(album.vehicleJson || {}, { revealPlate: true })
   const vehicleDisplay = formatVehicle(vehicle)
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const privatePrice = buildPrivateAlbumPrice(album)
@@ -1093,13 +1097,19 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
   return albums.map((album) => {
     const vehicle = album.vehicleJson || {}
     const publicCaseStatus = resolvePublicCaseStatus(album)
+    const plateDisplay = ownerVisiblePlate(vehicle)
     return {
       id: album.id,
       albumId: album.id,
       serviceName: album.serviceName || '—',
       storeName: album.storeName || '',
       storeId: album.storeId || '',
-      vehicleDisplay: formatVehicle(vehicle),
+      vehicleDisplay: formatVehicle({ ...vehicle, plateDisplay }),
+      vehicle: {
+        brand: String(vehicle.brand || ''),
+        series: String(vehicle.series || ''),
+        plateDisplay,
+      },
       status: album.status,
       imageCount: album.imageCount || 0,
       pendingCount: Array.isArray(album.pendingConfirmsJson)

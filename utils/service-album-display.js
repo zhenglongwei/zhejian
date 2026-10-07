@@ -281,7 +281,7 @@ function extractModelFromVehicleDisplay(vehicleDisplay = '') {
   return text.slice(0, slash).trim()
 }
 
-/** 车主列表第一行：脱敏车牌；无牌则「未登记车牌」 */
+/** 车主列表第一行：本人相册完整车牌（接口下发）；无牌则「未登记车牌」 */
 function resolveUserAlbumListTitle(item = {}) {
   const vehicle = item.vehicle || {}
   const plateDisplay = String(vehicle.plateDisplay || '').trim()

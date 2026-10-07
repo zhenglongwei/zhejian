@@ -38,6 +38,7 @@ const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolve
   'utils/service-flow-progress.js',
 )
 const { sanitizeAiReviewForView } = require('./node-ai-review.service')
+const { ownerVisiblePlate } = require('../utils/plate-mask')
 
 function albumQuoteOpts(album = {}) {
   return {
@@ -1624,9 +1625,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   const reportDate = String(
     payload.reportDate || doc.confirmedAt || doc.deliveredAt || '',
   ).trim()
-  const plateDisplay = String(
-    vehicle.plateDisplay || vehicle.plate || (album && album.vehicleDisplay) || '',
-  ).trim()
+  const plateDisplay = ownerVisiblePlate(vehicle)
   const vehicleDisplay = String((album && album.vehicleDisplay) || '').trim()
   const displayItems = items.length ? items : workItems
   const isAddonQuote =

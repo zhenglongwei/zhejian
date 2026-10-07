@@ -1,3 +1,9 @@
+const {
+  buildFindingGroups,
+  buildQuoteLinesView,
+  stripTotalPrefix,
+} = require('../../utils/service-doc-sheet-view')
+
 Component({
   properties: {
     /** 单据展示对象（与 ownerFlow doc / completedStep 对齐） */
@@ -30,7 +36,47 @@ Component({
     },
   },
 
+  data: {
+    findingGroups: [],
+    quoteLines: [],
+    totalAmountText: '',
+    expandedAdvice: {},
+    expandedNotes: {},
+  },
+
+  observers: {
+    'doc, mode': function syncSheet(doc, mode) {
+      const nextId = doc && doc.id
+      const keepExpand = nextId && nextId === this._sheetDocId
+      this._sheetDocId = nextId || ''
+      const groupByResult = mode === 'owner'
+      this.setData({
+        findingGroups: buildFindingGroups((doc && doc.findings) || [], { groupByResult }),
+        quoteLines: buildQuoteLinesView((doc && doc.lines) || []),
+        totalAmountText: stripTotalPrefix((doc && doc.totalAmountLabel) || ''),
+        expandedAdvice: keepExpand ? this.data.expandedAdvice : {},
+        expandedNotes: keepExpand ? this.data.expandedNotes : {},
+      })
+    },
+  },
+
   methods: {
+    onToggleAdvice(e) {
+      const key = e.currentTarget.dataset.key
+      if (!key) return
+      this.setData({
+        [`expandedAdvice.${key}`]: !this.data.expandedAdvice[key],
+      })
+    },
+
+    onToggleNote(e) {
+      const key = e.currentTarget.dataset.key
+      if (!key) return
+      this.setData({
+        [`expandedNotes.${key}`]: !this.data.expandedNotes[key],
+      })
+    },
+
     onConfirmTap() {
       const doc = this.data.doc || {}
       if (!doc.needsConfirm || !doc.id) return

@@ -13,34 +13,49 @@
       <text class="text-caption text-secondary service-doc-sheet__label">进店主诉</text>
       <text class="text-body">{{doc.chiefComplaint}}</text>
     </view>
-    <view wx:if="{{doc.findings && doc.findings.length}}" class="service-doc-sheet__block">
+    <view wx:if="{{findingGroups.length}}" class="service-doc-sheet__block">
       <text class="text-body service-doc-sheet__section">本次检测项目</text>
-      <view wx:for="{{doc.findings}}" wx:for-item="finding" wx:for-index="findingIndex" wx:key="findingIndex" class="service-doc-sheet__finding">
-        <view wx:if="{{finding.images.length > 1}}" class="service-doc-sheet__finding-photos">
-          <image
-            wx:for="{{finding.images}}"
-            wx:for-item="shot"
-            wx:key="url"
-            class="service-doc-sheet__finding-img image-placeholder"
-            src="{{shot.url}}"
-            mode="aspectFill"
-            data-url="{{shot.url}}"
-            bindtap="onPreviewImage"
-          />
-        </view>
-        <image
-          wx:elif="{{finding.url}}"
-          class="service-doc-sheet__finding-img image-placeholder"
-          src="{{finding.url}}"
-          mode="aspectFill"
-          data-url="{{finding.url}}"
-          data-urls="{{doc.findings}}"
-          bindtap="onPreviewImage"
-        />
-        <view class="service-doc-sheet__finding-body">
-          <text class="text-body">{{finding.partName}}</text>
-          <text class="text-caption text-secondary">{{finding.result}}</text>
-          <text wx:if="{{finding.advice}}" class="text-caption text-secondary">{{finding.advice}}</text>
+      <view
+        wx:for="{{findingGroups}}"
+        wx:for-item="group"
+        wx:key="key"
+        class="service-doc-sheet__group"
+      >
+        <text wx:if="{{group.title}}" class="text-caption service-doc-sheet__group-title">{{group.title}}</text>
+        <view
+          wx:for="{{group.items}}"
+          wx:for-item="finding"
+          wx:key="key"
+          class="service-doc-sheet__finding-card"
+        >
+          <view class="service-doc-sheet__finding-head">
+            <text class="text-body service-doc-sheet__finding-name">{{finding.partName}}</text>
+            <ui-tag wx:if="{{finding.result}}" variant="{{finding.resultVariant}}" text="{{finding.result}}" />
+          </view>
+          <view wx:if="{{finding.images.length}}" class="service-doc-sheet__finding-photos">
+            <image
+              wx:for="{{finding.images}}"
+              wx:for-item="shot"
+              wx:key="url"
+              class="service-doc-sheet__finding-img image-placeholder"
+              src="{{shot.url}}"
+              mode="aspectFill"
+              data-url="{{shot.url}}"
+              data-urls="{{finding.previewUrls}}"
+              bindtap="onPreviewImage"
+            />
+          </view>
+          <view wx:if="{{finding.advice}}" class="service-doc-sheet__finding-advice">
+            <view class="{{expandedAdvice[finding.key] ? '' : 'service-doc-sheet__clamp'}}">
+              <text class="text-caption text-secondary">{{finding.advice}}</text>
+            </view>
+            <text
+              wx:if="{{finding.adviceCollapsible}}"
+              class="text-caption text-link"
+              data-key="{{finding.key}}"
+              catchtap="onToggleAdvice"
+            >{{expandedAdvice[finding.key] ? '收起' : '展开'}}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -70,11 +85,11 @@
         <text class="text-caption text-secondary">项目</text>
         <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
       </view>
-      <view wx:for="{{doc.lines}}" wx:for-item="line" wx:key="name" class="service-doc-sheet__table-row">
+      <view wx:for="{{quoteLines}}" wx:for-item="line" wx:key="key" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
           <view class="service-doc-sheet__table-main-left">
             <view
-              wx:if="{{doc.isAddon && line.evidenceUrls && line.evidenceUrls.length}}"
+              wx:if="{{doc.isAddon && line.evidenceUrls.length}}"
               class="service-doc-sheet__line-thumbs"
             >
               <image
@@ -89,25 +104,26 @@
                 bindtap="onPreviewImage"
               />
             </view>
-            <image
-              wx:elif="{{doc.isAddon && line.evidenceUrl}}"
-              class="service-doc-sheet__line-thumb image-placeholder"
-              src="{{line.evidenceUrl}}"
-              mode="aspectFill"
-              data-url="{{line.evidenceUrl}}"
-              data-urls="{{doc.lines}}"
-              bindtap="onPreviewImage"
-            />
             <text class="text-body">{{line.name}}</text>
           </view>
-          <text class="text-body service-doc-sheet__col-amount">¥{{line.amount}}</text>
+          <text wx:if="{{line.amountText}}" class="service-doc-sheet__col-amount">{{line.amountText}}</text>
         </view>
         <text wx:if="{{line.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{line.brand}}</text>
-        <text wx:if="{{line.note}}" class="text-caption text-secondary service-doc-sheet__note">{{line.note}}</text>
+        <view wx:if="{{line.note}}" class="service-doc-sheet__finding-advice">
+          <view class="{{expandedNotes[line.key] ? '' : 'service-doc-sheet__clamp'}}">
+            <text class="text-caption text-secondary">{{line.note}}</text>
+          </view>
+          <text
+            wx:if="{{line.noteCollapsible}}"
+            class="text-caption text-link"
+            data-key="{{line.key}}"
+            catchtap="onToggleNote"
+          >{{expandedNotes[line.key] ? '收起' : '展开'}}</text>
+        </view>
       </view>
-      <view class="service-doc-sheet__total">
+      <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
         <text class="text-body">合计</text>
-        <text class="text-body service-doc-sheet__total-amount">{{doc.totalAmountLabel}}</text>
+        <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
   </block>
@@ -129,9 +145,9 @@
         <text wx:if="{{row.qty}}" class="text-caption text-secondary service-doc-sheet__note">数量：{{row.qty}}</text>
         <text wx:if="{{row.note}}" class="text-caption text-secondary service-doc-sheet__note">{{row.note}}</text>
       </view>
-      <view wx:if="{{doc.totalAmountLabel}}" class="service-doc-sheet__total">
+      <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
         <text class="text-body">合计</text>
-        <text class="text-body service-doc-sheet__total-amount">{{doc.totalAmountLabel}}</text>
+        <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
   </block>
@@ -153,9 +169,9 @@
         <text wx:if="{{row.qty}}" class="text-caption text-secondary service-doc-sheet__note">数量：{{row.qty}}</text>
         <text wx:if="{{row.note}}" class="text-caption text-secondary service-doc-sheet__note">{{row.note}}</text>
       </view>
-      <view class="service-doc-sheet__total">
+      <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
         <text class="text-body">合计</text>
-        <text class="text-body service-doc-sheet__total-amount">{{doc.totalAmountLabel}}</text>
+        <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
     <view wx:if="{{doc.deliveryPhotos && doc.deliveryPhotos.length}}" class="service-doc-sheet__block">

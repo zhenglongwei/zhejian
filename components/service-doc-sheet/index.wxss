@@ -40,7 +40,7 @@
 .service-doc-sheet__block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .service-doc-sheet__label {
@@ -49,48 +49,73 @@
 
 .service-doc-sheet__section {
   font-weight: 600;
-  margin-bottom: var(--space-xs);
 }
 
-.service-doc-sheet__finding {
+.service-doc-sheet__group {
   display: flex;
+  flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1rpx solid var(--color-border);
+}
+
+.service-doc-sheet__group-title {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.service-doc-sheet__finding-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.service-doc-sheet__finding-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.service-doc-sheet__finding-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
 }
 
 .service-doc-sheet__finding-photos {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-xs);
-  flex-shrink: 0;
 }
 
 .service-doc-sheet__finding-img {
-  width: 160rpx;
-  height: 160rpx;
+  width: 100%;
+  height: 196rpx;
   border-radius: var(--radius-md);
-  flex-shrink: 0;
 }
 
-.service-doc-sheet__finding-photos .service-doc-sheet__finding-img {
-  width: 112rpx;
-  height: 112rpx;
-}
-
-.service-doc-sheet__finding-body {
+.service-doc-sheet__finding-advice {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-xs);
-  flex: 1;
-  min-width: 0;
+}
+
+.service-doc-sheet__clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .service-doc-sheet__table-head,
 .service-doc-sheet__table-main,
 .service-doc-sheet__total {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
 }
@@ -136,6 +161,10 @@
   flex-shrink: 0;
   text-align: right;
   min-width: 140rpx;
+  font-size: var(--font-price-sm);
+  line-height: var(--font-price-sm-lh);
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .service-doc-sheet__note {
@@ -145,12 +174,15 @@
 }
 
 .service-doc-sheet__total {
+  align-items: center;
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 2rpx solid var(--color-text-primary);
 }
 
 .service-doc-sheet__total-amount {
+  font-size: var(--font-price);
+  line-height: var(--font-price-lh);
   font-weight: 600;
 }
 
