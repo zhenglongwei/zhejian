@@ -4,7 +4,7 @@ const { config } = require('../../../config')
 const { getViapiOcrClient, openImageReadable, viapiOcrEndpoint } = require('../../../lib/aliyun-clients')
 const { boxFromLtwh, boxFromPoints } = require('../bbox')
 
-const { RecognizeLicensePlateAdvanceRequest, RecognizeLicensePlateRequest } = ViapiOcr
+const { RecognizeLicensePlateAdvanceRequest } = ViapiOcr
 
 function runtimeOptions() {
   return new RuntimeOptions({
@@ -144,30 +144,7 @@ function hasViapiPlateText(data) {
   return plates.some((p) => looksLikeLicensePlate(p.plateNumber || p.PlateNumber))
 }
 
-function stripUrlQuery(url) {
-  const raw = String(url || '').trim()
-  const cut = raw.indexOf('?')
-  return cut >= 0 ? raw.slice(0, cut) : raw
-}
-
-/** 阿里云需能公网 GET；内网/本机地址不可用。 */
-function isAliyunFetchableImageUrl(url) {
-  const raw = String(url || '').trim()
-  if (!/^https?:\/\//i.test(raw)) return false
-  try {
-    const host = new URL(raw).hostname.toLowerCase()
-    if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') return false
-    if (host.endsWith('.local')) return false
-    if (/^(10|127|192\.168)\./.test(host)) return false
-    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return false
-    if (host.includes('-internal.aliyuncs.com')) return false
-    return true
-  } catch (_) {
-    return false
-  }
-}
-
-function parseViapiResponse(resp, imageWidth, imageHeight) {
+function parseViapiResponse(resp, imageWidth, imageHeight, ocrSize = {}) {
   const data = resp?.body?.data || resp?.body?.Data
   const parsed = parseViapiPlateBoxes(data, imageWidth, imageHeight)
   if (parsed.boxes.length) {
@@ -189,15 +166,9 @@ function parseViapiResponse(resp, imageWidth, imageHeight) {
     boxes: parsed.boxes,
     plateNumbers: parsed.plateNumbers,
     plateTextFound: hasViapiPlateText(data),
-    orgWidth: 0,
-    orgHeight: 0,
+    orgWidth: Number(ocrSize.width) || 0,
+    orgHeight: Number(ocrSize.height) || 0,
   }
-}
-
-async function recognizePlateByUrl(client, runtime, imageURL) {
-  const request = new RecognizeLicensePlateRequest()
-  request.imageURL = imageURL
-  return client.recognizeLicensePlate(request, runtime)
 }
 
 async function recognizePlateByUpload(client, runtime, imagePath) {
@@ -206,35 +177,81 @@ async function recognizePlateByUpload(client, runtime, imagePath) {
   return client.recognizeLicensePlateAdvance(request, runtime)
 }
 
-/**
- * VIAPI 车牌识别（ocr.cn-shanghai.aliyuncs.com），需 AliyunVIAPIFullAccess。
- * 优先让阿里云按公网地址拉图，避免本机再把原图传到上海。
- */
-async function detectPlateViaViapi(imagePath, imageWidth = 0, imageHeight = 0, options = {}) {
-  const client = getViapiOcrClient()
-  const runtime = runtimeOptions()
-  const imageURL = String((options && (options.imageURL || options.publicUrl)) || '').trim()
-  if (isAliyunFetchableImageUrl(imageURL)) {
-    try {
-      const resp = await recognizePlateByUrl(client, runtime, imageURL)
-      console.info('[desensitize-engine] viapi plate via url', stripUrlQuery(imageURL))
-      return parseViapiResponse(resp, imageWidth, imageHeight)
-    } catch (err) {
-      console.warn(
-        '[desensitize-engine] viapi plate url failed, upload file:',
-        err.code || '',
-        String(err.message || '').slice(0, 120),
-      )
-    }
+function viapiErrorText(err) {
+  return `${err && err.code ? err.code : ''} ${err && err.message ? err.message : ''}`
+}
+
+function isViapiThrottling(err) {
+  const text = viapiErrorText(err)
+  return /Throttling/i.test(text) || text.includes('限流')
+}
+
+function isNoPlateContent(err) {
+  const text = viapiErrorText(err)
+  return /InvalidImage\.Content/i.test(text) || text.includes('图片内容不合法')
+}
+
+function emptyPlateResult(ocrSize = {}) {
+  return {
+    boxes: [],
+    plateNumbers: [],
+    plateTextFound: false,
+    orgWidth: Number(ocrSize.width) || 0,
+    orgHeight: Number(ocrSize.height) || 0,
   }
-  const resp = await recognizePlateByUpload(client, runtime, imagePath)
-  console.info('[desensitize-engine] viapi plate via upload')
-  return parseViapiResponse(resp, imageWidth, imageHeight)
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+let plateDetectChain = Promise.resolve()
+
+function runPlateDetectExclusive(fn) {
+  const run = plateDetectChain.then(fn, fn)
+  plateDetectChain = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+/**
+ * 只上传缩小 JPEG（调用方已准备好）。禁止杭州桶 ImageURL。禁止上传相册原图。
+ */
+async function detectPlateViaViapi(imagePath, imageWidth = 0, imageHeight = 0) {
+  return runPlateDetectExclusive(async () => {
+    if (!imagePath) return emptyPlateResult()
+    const ocrSize = { width: imageWidth, height: imageHeight }
+    const client = getViapiOcrClient()
+    const runtime = runtimeOptions()
+    let lastErr = null
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const resp = await recognizePlateByUpload(client, runtime, imagePath)
+        console.info('[desensitize-engine] viapi plate via jpeg', {
+          width: imageWidth,
+          height: imageHeight,
+        })
+        return parseViapiResponse(resp, imageWidth, imageHeight, ocrSize)
+      } catch (err) {
+        lastErr = err
+        if (isNoPlateContent(err)) {
+          return emptyPlateResult(ocrSize)
+        }
+        if (isViapiThrottling(err) && attempt < 2) {
+          await sleep(400 * (attempt + 1))
+          continue
+        }
+        break
+      }
+    }
+    throw lastErr
+  })
 }
 
 module.exports = {
   detectPlateViaViapi,
   parseViapiPlateBoxes,
   looksLikeLicensePlate,
-  isAliyunFetchableImageUrl,
 }

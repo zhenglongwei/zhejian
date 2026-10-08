@@ -16,7 +16,6 @@ const {
   materializeMediaFile,
   writeMediaBuffer,
   objectKeyFromPublicUrl,
-  signReadableUrlForObjectKey,
 } = require('../lib/media-blob')
 const { contentTypeForKey } = require('../lib/oss-client')
 const { ROLES } = require('../lib/jwt')
@@ -269,16 +268,7 @@ async function runMediaDesensitize(mediaId, context = {}) {
   )
 
   try {
-    let fetchUrl = media.url || buildPublicMediaUrl(media.objectKey)
-    try {
-      const signed = await signReadableUrlForObjectKey(media.objectKey)
-      if (signed) fetchUrl = signed
-    } catch (_) {
-      /* 无 OSS 签名时仍把现有地址交给识别，识别侧会再判断能否公网拉取 */
-    }
-    const engineResult = await processImage(sourcePath, destTmp, {
-      publicUrl: fetchUrl,
-    })
+    const engineResult = await processImage(sourcePath, destTmp, {})
     if (fs.existsSync(destTmp)) {
       const outBuf = await fs.promises.readFile(destTmp)
       await writeMediaBuffer(desensitizedKey, outBuf, {

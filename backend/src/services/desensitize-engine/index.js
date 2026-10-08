@@ -75,12 +75,15 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
       imageHeight: height,
     })
 
-    const filteredBoxes = filterBogusFaceBoxes(detection.boxes, width, height)
-    const mergedBoxes = mergeBoxes(
-      scaleBoxes(filteredBoxes, detection.ocrWidth, detection.ocrHeight, width, height),
+    const scaledBoxes = scaleBoxes(
+      detection.boxes,
+      detection.ocrWidth,
+      detection.ocrHeight,
       width,
-      height
+      height,
     )
+    const filteredBoxes = filterBogusFaceBoxes(scaledBoxes, width, height)
+    const mergedBoxes = mergeBoxes(filteredBoxes, width, height)
     const riskTags = riskTagsFromBoxes(mergedBoxes)
     let maskError = false
     let needManual = false

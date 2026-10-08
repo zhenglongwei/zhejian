@@ -5,6 +5,7 @@ const { config } = require('../../../config')
 const { buildPublicMediaUrl } = require('../../../lib/media-storage')
 const { getOcrClient, getFaceClient, openImageReadable, ocrApiEndpoint } = require('../../../lib/aliyun-clients')
 const { detectPlateViaViapi } = require('./viapi-plate')
+const { writePrivacyDetectJpeg } = require('../oriented')
 const { boxesFromFaceRectangles } = require('../bbox')
 const {
   parsePlateResult,
@@ -134,7 +135,7 @@ async function detectFaces(imagePath) {
   return boxesFromFaceRectangles(rectangles, 'face')
 }
 
-async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
+async function ocrRecognize(RequestClass, method, imagePath) {
   const client = getOcrClient()
   const runtime = runtimeOptions()
   const withOptionsMethod = `${method}WithOptions`
@@ -147,10 +148,6 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
   const attempts = []
   if (imagePath) {
     attempts.push('body')
-  }
-  const imageUrl = resolvePublicImageUrl(imagePath, publicUrl)
-  if (imageUrl) {
-    attempts.push('url')
   }
 
   if (ocrApiUnreachable) {
@@ -167,7 +164,9 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
         request = new RequestClass()
         request.body = openImageReadable(imagePath)
       } else {
-        request = new RequestClass({ url: imageUrl })
+        const err = new Error('ocr-api url mode disabled')
+        err.code = 'OCR_URL_DISABLED'
+        throw err
       }
 
       const resp = await client[withOptionsMethod](request, runtime)
@@ -177,11 +176,7 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
         err.code = rawBody.code
         throw err
       }
-      if (mode === 'url') {
-        console.info('[desensitize-engine] ocr ok via url', method, imageUrl)
-      } else {
-        console.info('[desensitize-engine] ocr ok via body', method)
-      }
+      console.info('[desensitize-engine] ocr ok via body', method)
       return rawBody?.data || ''
     } catch (err) {
       lastError = err
@@ -238,15 +233,13 @@ function plateResultFromViapi(viapi, imageWidth, imageHeight, extras = {}) {
   }
 }
 
-async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
+async function detectPlateRegion(imagePath, detectOptions = {}) {
   const { imageWidth = 0, imageHeight = 0 } = detectOptions
   const useViapiFirst = config.desensitize.plateProvider === 'viapi'
 
   if (useViapiFirst) {
     try {
-      const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight, {
-        imageURL: publicUrl,
-      })
+      const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
       return plateResultFromViapi(viapi, imageWidth, imageHeight)
     } catch (viapiErr) {
       if (isAuthError(viapiErr)) {
@@ -285,7 +278,6 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
       RecognizeCarNumberRequest,
       'recognizeCarNumber',
       imagePath,
-      publicUrl
     )
     const plate = parsePlateResult(data)
     if (plate.boxes.length) {
@@ -324,9 +316,7 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
   }
 
   try {
-    const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight, {
-      imageURL: publicUrl,
-    })
+    const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
     return plateResultFromViapi(viapi, imageWidth, imageHeight, {
       ocrNetworkFailed: Boolean(ocrApiError && isNetworkError({ message: ocrApiError })),
     })
@@ -370,47 +360,49 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
   }
 }
 
-async function detectVin(imagePath, publicUrl) {
+async function detectVin(imagePath) {
   if (ocrApiUnreachable) return []
   const data = await ocrRecognize(
-    RecognizeCarVinCodeRequest,
-    'recognizeCarVinCode',
-    imagePath,
-    publicUrl
-  )
+      RecognizeCarVinCodeRequest,
+      'recognizeCarVinCode',
+      imagePath,
+    )
   return parseVinBoxes(data)
 }
 
-async function detectGeneralText(imagePath, publicUrl) {
+async function detectGeneralText(imagePath) {
   if (ocrApiUnreachable) return []
   const data = await ocrRecognize(
-    RecognizeGeneralRequest,
-    'recognizeGeneral',
-    imagePath,
-    publicUrl
-  )
+      RecognizeGeneralRequest,
+      'recognizeGeneral',
+      imagePath,
+    )
   return parseGeneralSensitiveBoxes(data)
 }
 
 /**
- * @param {string} imagePath
- * @param {{ publicUrl?: string }} [options]
+ * 阿里云只看缩小 JPEG；框再映回原图。禁止把杭州桶地址交给识别。
  */
 async function detectSensitiveRegions(imagePath, options = {}) {
-  const publicUrl = options.publicUrl || ''
-  const imageWidth = options.imageWidth || 0
-  const imageHeight = options.imageHeight || 0
+  const jpeg = await writePrivacyDetectJpeg(imagePath)
+  const imageWidth = jpeg.width || 0
+  const imageHeight = jpeg.height || 0
+  console.info('[desensitize-engine] privacy jpeg', { width: imageWidth, height: imageHeight })
 
-  const facePromise = config.desensitize.detectFace
-    ? runDetector('face', () => detectFaces(imagePath))
-    : Promise.resolve({ boxes: [], authFailed: false, error: '' })
-
-  const [faceResult, plateResult, vinResult, textResult] = await Promise.all([
-    facePromise,
-    detectPlateRegion(imagePath, publicUrl, { imageWidth, imageHeight }),
-    runDetector('vin', () => detectVin(imagePath, publicUrl)),
-    runDetector('text', () => detectGeneralText(imagePath, publicUrl)),
-  ])
+  let faceResult
+  let plateResult
+  let vinResult
+  let textResult
+  try {
+    plateResult = await detectPlateRegion(jpeg.path, { imageWidth, imageHeight })
+    faceResult = config.desensitize.detectFace
+      ? await runDetector('face', () => detectFaces(jpeg.path))
+      : { boxes: [], authFailed: false, error: '' }
+    vinResult = await runDetector('vin', () => detectVin(jpeg.path))
+    textResult = await runDetector('text', () => detectGeneralText(jpeg.path))
+  } finally {
+    jpeg.cleanup()
+  }
 
   const results = [
     { name: 'face', ...faceResult },
@@ -425,8 +417,8 @@ async function detectSensitiveRegions(imagePath, options = {}) {
   let ocrAuthFailed = false
   let plateMaskMiss = Boolean(plateResult.plateMaskMiss)
   const ocrNetworkFailed = Boolean(plateResult.ocrNetworkFailed)
-  let ocrWidth = plateResult.orgWidth || 0
-  let ocrHeight = plateResult.orgHeight || 0
+  const ocrWidth = imageWidth
+  const ocrHeight = imageHeight
 
   results.forEach((result) => {
     const name = result.name

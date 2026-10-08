@@ -33,6 +33,24 @@ const {
   parseRawReviewImages,
 } = require('./album-review-image.service')
 
+const MASK_JOB_LIMIT = 1
+
+async function mapLimit(list, limit, mapper) {
+  const items = Array.isArray(list) ? list : []
+  const out = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next
+      next += 1
+      out[index] = await mapper(items[index], index)
+    }
+  }
+  const n = Math.max(1, Math.min(Number(limit) || 1, items.length || 1))
+  await Promise.all(Array.from({ length: items.length ? n : 0 }, () => worker()))
+  return out
+}
+
 function buildReviewAssetInputsFromRow(row) {
   const rawUrls = parseRawReviewImages(row?.imagesJson)
   if (!rawUrls.length) return []
@@ -529,8 +547,7 @@ async function resolveMaskedUrlForRaw(rawUrl, lookup = { byRawUrl: new Map() }) 
 async function collectMaskedUrlsForRawList(albumId, entries = [], options = {}) {
   const requireAll = options.requireAll !== false
   const lookup = await buildPreMaskUrlLookup(albumId)
-  const packed = await Promise.all(
-    (entries || []).map(async (row, i) => {
+  const packed = await mapLimit(entries || [], MASK_JOB_LIMIT, async (row, i) => {
       const raw = String((row && row.url) || '').trim()
       if (!raw) return { skip: true, index: i }
       const masked = await resolveMaskedUrlForRaw(raw, lookup)
@@ -549,8 +566,7 @@ async function collectMaskedUrlsForRawList(albumId, entries = [], options = {}) 
           imageKey: (row && row.imageKey) || '',
         },
       }
-    }),
-  )
+  })
   if (requireAll && packed.some((row) => row && !row.skip && !row.masked)) {
     return { ready: false, urls: [] }
   }
@@ -609,8 +625,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   const currentAssets = collectAssetsFromAlbum({ nodes: nodeViews })
   let reuseCount = 0
   let maskCount = 0
-  const assetInputs = await Promise.all(
-    currentAssets.map(async (asset) => {
+  const assetInputs = await mapLimit(currentAssets, MASK_JOB_LIMIT, async (asset) => {
       const prev = lookupAssetByRawUrl(prevIndex, asset.rawUrl)
       const stub = isRawUrlInKeySet(stubKeys, asset.rawUrl)
       if (shouldReuseMaskedAsset(prev, { albumForce, stub })) {
@@ -653,8 +668,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : preMaskedUrl ? [] : [],
         riskLevel: masked.riskLevel || (preMaskedUrl ? 'low' : ''),
       }
-    }),
-  )
+  })
   console.info('[desensitize] incremental pre-mask', {
     albumId,
     reuse: reuseCount,

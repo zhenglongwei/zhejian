@@ -80,10 +80,11 @@ function resetOssEndpointOverride() {
 }
 
 async function withInternalFailover(label, run) {
+  const usedInternal = preferInternal()
   try {
     return await run()
   } catch (e) {
-    if (!isOssTimeoutError(e) || publicEndpointSticky || !preferInternal()) throw e
+    if (!isOssTimeoutError(e) || !usedInternal) throw e
     stickToPublicOssEndpoint(label)
     return run()
   }
