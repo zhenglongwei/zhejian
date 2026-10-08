@@ -154,6 +154,9 @@ nslookup facebody.cn-shanghai.aliyuncs.com
 |---|---|---|
 | `ocr-api ... ENOTFOUND` | 新 OCR API 域名在部分环境不可达 | 车牌默认只走 VIAPI；**无车牌也不得再打 ocr-api**。工单配件图无车牌属正常，不得写入 error.log |
 | `viapi plate ok` | VIAPI 通路正常 | 不必纠结 ocr-api |
+| `viapi plate via url` | 阿里云按对象存储地址拉图 | 预期路径；不应再刷 `viapi-customer-pop.oss-cn-shanghai` 上传超时 |
+| `viapi plate via upload` / `POST ... viapi-customer-pop` | 本机仍在上传原图 | 无公网签名地址，或按地址拉图失败后的回退 |
+| `Put ... 超时` 后出现 `内网超时，本进程改走外网` | 内网 endpoint 卡住已切换外网 | 同一进程后续回写应好转；要持久则 `.env` 设 `OSS_USE_INTERNAL_ENDPOINT=false` 后重启 |
 | VIN/通用 OCR 仍失败 | 同上，仅 ocr-api | Phase 1 可接受；车牌必须 viapi |
 
 #### 4.2 凭证

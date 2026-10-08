@@ -7,6 +7,10 @@ const {
   parseCredExpiryMs,
   clampUrlExpiresSec,
   isCachedCredUsable,
+  isOssTimeoutError,
+  stickToPublicOssEndpoint,
+  resetOssEndpointOverride,
+  preferInternal,
 } = require('./oss-client')
 
 function testParseExpiryIso() {
@@ -89,5 +93,20 @@ testPlentyRemainingKeepsDesiredTtl()
 testShortRemainingIsCapped()
 testAlmostExpiredKeepsFloor()
 testCachedCredUsable()
+function testOssTimeoutError() {
+  assert.strictEqual(isOssTimeoutError({ code: 'OSS_TIMEOUT', message: 'Put x 超时（30000ms）' }), true)
+  assert.strictEqual(isOssTimeoutError({ code: 'ETIMEDOUT' }), true)
+  assert.strictEqual(isOssTimeoutError({ code: 'NoSuchKey', message: 'not found' }), false)
+}
+
+function testStickyPublicEndpoint() {
+  resetOssEndpointOverride()
+  stickToPublicOssEndpoint('test')
+  assert.strictEqual(preferInternal(), false)
+  resetOssEndpointOverride()
+}
+
 testNearExpiryCredNotUsable()
+testOssTimeoutError()
+testStickyPublicEndpoint()
 console.log('oss-client.test.js OK')

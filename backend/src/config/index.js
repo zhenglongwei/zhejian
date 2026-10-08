@@ -338,7 +338,7 @@ const config = {
       ),
       /**
        * 生产默认走内网；若 ECS 访问 -internal 卡住，设 OSS_USE_INTERNAL_ENDPOINT=false
-       * 迁移脚本也读此开关。
+       * （运行中超时也会自动改走外网，重启后仍读此开关）。迁移脚本也读此开关。
        */
       useInternalEndpoint: (() => {
         if (

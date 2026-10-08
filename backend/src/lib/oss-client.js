@@ -39,10 +39,54 @@ function publicHost() {
   return `https://${bucket}.${endpoint}`
 }
 
+/** 本进程内网超时后钉死外网，避免每张图再空等 30 秒。重启后仍以环境变量为准。 */
+let publicEndpointSticky = false
+let publicEndpointLogged = false
+
 function preferInternal() {
+  if (publicEndpointSticky) return false
   const cfg = ossConfig()
   if (typeof cfg.useInternalEndpoint === 'boolean') return cfg.useInternalEndpoint
   return (config.nodeEnv || 'development') === 'production'
+}
+
+function isOssTimeoutError(err) {
+  const code = String((err && err.code) || '').toUpperCase()
+  const msg = String((err && err.message) || '')
+  return (
+    code === 'OSS_TIMEOUT' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    msg.includes('超时')
+  )
+}
+
+function stickToPublicOssEndpoint(reason) {
+  if (publicEndpointSticky) return
+  publicEndpointSticky = true
+  dropOssClient()
+  if (!publicEndpointLogged) {
+    publicEndpointLogged = true
+    console.warn(
+      '[oss] 内网超时，本进程改走外网。重启后若仍卡住请设 OSS_USE_INTERNAL_ENDPOINT=false',
+      reason || '',
+    )
+  }
+}
+
+function resetOssEndpointOverride() {
+  publicEndpointSticky = false
+  publicEndpointLogged = false
+}
+
+async function withInternalFailover(label, run) {
+  try {
+    return await run()
+  } catch (e) {
+    if (!isOssTimeoutError(e) || publicEndpointSticky || !preferInternal()) throw e
+    stickToPublicOssEndpoint(label)
+    return run()
+  }
 }
 
 function activeEndpointHost() {
@@ -204,30 +248,36 @@ function resetOssClient() {
 }
 
 async function headObject(objectKey) {
-  const client = await getOssClient()
-  return withTimeout(client.head(objectKey), client.options.timeout || 30000, `Head ${objectKey}`)
+  return withInternalFailover(`Head ${objectKey}`, async () => {
+    const client = await getOssClient()
+    return withTimeout(client.head(objectKey), client.options.timeout || 30000, `Head ${objectKey}`)
+  })
 }
 
 async function getObjectBuffer(objectKey) {
-  const client = await getOssClient()
-  const result = await withTimeout(
-    client.get(objectKey),
-    client.options.timeout || 30000,
-    `Get ${objectKey}`,
-  )
-  if (Buffer.isBuffer(result.content)) return result.content
-  return Buffer.from(result.content)
+  return withInternalFailover(`Get ${objectKey}`, async () => {
+    const client = await getOssClient()
+    const result = await withTimeout(
+      client.get(objectKey),
+      client.options.timeout || 30000,
+      `Get ${objectKey}`,
+    )
+    if (Buffer.isBuffer(result.content)) return result.content
+    return Buffer.from(result.content)
+  })
 }
 
 async function putObject(objectKey, body, options = {}) {
-  const client = await getOssClient()
-  const headers = {}
-  if (options.contentType) headers['Content-Type'] = options.contentType
-  return withTimeout(
-    client.put(objectKey, body, { headers }),
-    client.options.timeout || 30000,
-    `Put ${objectKey}`,
-  )
+  return withInternalFailover(`Put ${objectKey}`, async () => {
+    const client = await getOssClient()
+    const headers = {}
+    if (options.contentType) headers['Content-Type'] = options.contentType
+    return withTimeout(
+      client.put(objectKey, body, { headers }),
+      client.options.timeout || 30000,
+      `Put ${objectKey}`,
+    )
+  })
 }
 
 /** 连通性探测：列前缀（空前缀也行），用于迁移脚本启动自检 */
@@ -242,19 +292,23 @@ async function probeOssConnectivity() {
       ? 'env_access_key'
       : 'ecs_ram_role'
   try {
-    await withTimeout(
-      client.list({ 'max-keys': 1, prefix: 'uploads/' }),
-      20000,
-      `List uploads/ via ${endpointHost}`,
-    )
+    await withInternalFailover(`List uploads/ via ${endpointHost}`, async () => {
+      const live = await getOssClient()
+      const liveHost = activeEndpointHost()
+      await withTimeout(
+        live.list({ 'max-keys': 1, prefix: 'uploads/' }),
+        20000,
+        `List uploads/ via ${liveHost}`,
+      )
+    })
   } catch (e) {
     const msg = String((e && e.message) || e)
-    e.message = `${msg} | bucket=${client.options.bucket} endpoint=${endpointHost} cred=${credSource} ak=${akHint} sts=${Boolean(creds.securityToken)}`
+    e.message = `${msg} | bucket=${client.options.bucket} endpoint=${activeEndpointHost()} cred=${credSource} ak=${akHint} sts=${Boolean(creds.securityToken)}`
     throw e
   }
   return {
     bucket: client.options.bucket,
-    endpoint: endpointHost,
+    endpoint: activeEndpointHost(),
     internal: preferInternal(),
     credSource,
     accessKeyHint: akHint,
@@ -371,6 +425,9 @@ module.exports = {
   ossConfig,
   publicHost,
   preferInternal,
+  isOssTimeoutError,
+  stickToPublicOssEndpoint,
+  resetOssEndpointOverride,
   activeEndpointHost,
   resetOssClient,
   getOssClient,

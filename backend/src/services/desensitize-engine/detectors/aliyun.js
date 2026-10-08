@@ -244,7 +244,9 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
 
   if (useViapiFirst) {
     try {
-      const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
+      const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight, {
+        imageURL: publicUrl,
+      })
       return plateResultFromViapi(viapi, imageWidth, imageHeight)
     } catch (viapiErr) {
       if (isAuthError(viapiErr)) {
@@ -322,7 +324,9 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
   }
 
   try {
-    const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
+    const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight, {
+      imageURL: publicUrl,
+    })
     return plateResultFromViapi(viapi, imageWidth, imageHeight, {
       ocrNetworkFailed: Boolean(ocrApiError && isNetworkError({ message: ocrApiError })),
     })

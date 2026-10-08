@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { looksLikeLicensePlate, parseViapiPlateBoxes } = require('./viapi-plate')
+const { looksLikeLicensePlate, parseViapiPlateBoxes, isAliyunFetchableImageUrl } = require('./viapi-plate')
 
 test('rejects overlay and short tokens that are not plates', () => {
   assert.equal(looksLikeLicensePlate('REC'), false)
@@ -12,6 +12,18 @@ test('rejects overlay and short tokens that are not plates', () => {
 test('accepts mainland plate-like numbers', () => {
   assert.equal(looksLikeLicensePlate('浙ED099B'), true)
   assert.equal(looksLikeLicensePlate('京A12345'), true)
+})
+
+test('aliyun can fetch public https but not localhost or internal oss', () => {
+  assert.equal(isAliyunFetchableImageUrl('https://zhejianoss.oss-cn-hangzhou.aliyuncs.com/uploads/a.jpg'), true)
+  assert.equal(isAliyunFetchableImageUrl('https://example.com/a.jpg?Expires=1'), true)
+  assert.equal(isAliyunFetchableImageUrl('http://127.0.0.1:3000/a.jpg'), false)
+  assert.equal(isAliyunFetchableImageUrl('https://localhost/a.jpg'), false)
+  assert.equal(
+    isAliyunFetchableImageUrl('https://zhejianoss.oss-cn-hangzhou-internal.aliyuncs.com/a.jpg'),
+    false,
+  )
+  assert.equal(isAliyunFetchableImageUrl('/media/files/a.jpg'), false)
 })
 
 test('parseViapiPlateBoxes drops REC overlay as no plate', () => {
