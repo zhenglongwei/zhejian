@@ -806,14 +806,28 @@ function assertAlbumContentEditable(album) {
 }
 
 
+function uniqueSyncAlbumNodes(nodesPayload = []) {
+  const map = new Map()
+  ;(nodesPayload || []).forEach((node, i) => {
+    const nodeId = String((node && (node.id || node.nodeId)) || `stage_${i + 1}`).trim()
+      || `stage_${i + 1}`
+    map.set(nodeId, { ...node, id: nodeId })
+  })
+  return Array.from(map.values())
+}
+
 async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
-  const nodes = nodesPayload.length ? nodesPayload : DEFAULT_STAGE_NODES.map((n) => ({
-    id: n.nodeId,
-    title: n.title,
-    status: 'pending',
-    note: '',
-    images: [],
-  }))
+  const nodes = uniqueSyncAlbumNodes(
+    nodesPayload.length
+      ? nodesPayload
+      : DEFAULT_STAGE_NODES.map((n) => ({
+          id: n.nodeId,
+          title: n.title,
+          status: 'pending',
+          note: '',
+          images: [],
+        })),
+  )
   const albumContext = options.album || null
   const previousUrls = options.previousImageUrls || new Set()
   const gateCache = buildImageGateCache(options.existingImages || [])
@@ -823,28 +837,24 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
     ).map((url) => stripUrlQuery(url)),
   )
   const imageGateResults = []
-
-  await prisma.albumNode.deleteMany({ where: { albumId } })
-  await prisma.albumImage.deleteMany({ where: { albumId } })
-
+  const nodeRows = []
   const imageRows = []
+  const seenImageIds = new Set()
   let imageCount = 0
 
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i]
     const nodeId = node.id || node.nodeId || `stage_${i + 1}`
     const nodeTitle = node.title || ''
-    await prisma.albumNode.create({
-      data: {
-        albumId,
-        nodeId,
-        title: nodeTitle,
-        sortOrder: i,
-        status: node.status || 'pending',
-        note: node.note || '',
-        comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
-        updatedAt: node.updatedAt ? new Date(node.updatedAt) : null,
-      },
+    nodeRows.push({
+      albumId,
+      nodeId,
+      title: nodeTitle,
+      sortOrder: i,
+      status: node.status || 'pending',
+      note: node.note || '',
+      comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
+      updatedAt: node.updatedAt ? new Date(node.updatedAt) : null,
     })
     for (let idx = 0; idx < (node.images || []).length; idx += 1) {
       const entry = node.images[idx]
@@ -880,8 +890,11 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
           hint: gateFields.hint,
         })
       }
+      const id = `img_${albumId}_${nodeId}_${idx}`
+      if (seenImageIds.has(id)) continue
+      seenImageIds.add(id)
       imageRows.push({
-        id: `img_${albumId}_${nodeId}_${idx}`,
+        id,
         albumId,
         nodeId,
         idx,
@@ -897,8 +910,25 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
     }
   }
 
-  if (imageRows.length) {
-    await prisma.albumImage.createMany({ data: imageRows })
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM albums WHERE id = ${albumId} FOR UPDATE`
+      await tx.albumImage.deleteMany({ where: { albumId } })
+      await tx.albumNode.deleteMany({ where: { albumId } })
+      for (let i = 0; i < nodeRows.length; i += 1) {
+        await tx.albumNode.create({ data: nodeRows[i] })
+      }
+      if (imageRows.length) {
+        await tx.albumImage.createMany({ data: imageRows })
+      }
+    }, { timeout: 20000 })
+  } catch (e) {
+    if (e && e.code === 'P2002') {
+      const err = new Error('保存冲突，请再试一次')
+      err.status = 409
+      throw err
+    }
+    throw e
   }
 
   return { imageCount, imageGateResults }

@@ -134,6 +134,21 @@ function sleepMs(ms) {
 const ORGANIZE_FLOW_WAIT_MS = 180000
 const ORGANIZE_POLL_MS = 2000
 
+function flowDraftStorageKey(albumId, nodeId) {
+  return `zj_flow_draft_${String(albumId || '').trim()}_${String(nodeId || '').trim()}`
+}
+
+function readLocalFlowDraft(albumId, nodeId) {
+  if (!String(albumId || '').trim() || !String(nodeId || '').trim()) return null
+  try {
+    const raw = wx.getStorageSync(flowDraftStorageKey(albumId, nodeId))
+    if (raw && typeof raw === 'object' && raw.photoDraft) return raw
+  } catch (_) {
+    /* ignore */
+  }
+  return null
+}
+
 /** 已完成步骤「查看」：单据走 service-doc-sheet；拍照步仍用缩略图 */
 function buildSheetMetaLine(payload = {}, album = {}) {
   const parts = []
@@ -462,10 +477,12 @@ Page({
   },
 
   onHide() {
+    this.writeLocalFlowDraft()
     this.stopAiReviewPoll()
   },
 
   onUnload() {
+    this.writeLocalFlowDraft()
     this.stopAiReviewPoll()
     this.clearFlowTimers()
   },
@@ -1186,7 +1203,13 @@ Page({
       )
       const activeIsDoc = Boolean(active && active.document)
       const docPayload = (active && active.document && active.document.payload) || {}
-      const photoDraft = (active && active.photoDraft) || {}
+      let photoDraft = { ...((active && active.photoDraft) || {}) }
+      if (active && active.id) {
+        const local = readLocalFlowDraft(this.albumId, active.id)
+        if (local && local.photoDraft) {
+          photoDraft = { ...photoDraft, ...local.photoDraft }
+        }
+      }
       const isIntakePhotoStep = Boolean(
         activeIsPhoto &&
           active &&
@@ -2668,6 +2691,30 @@ Page({
     }
   },
 
+  writeLocalFlowDraft() {
+    if (this.data.readOnly || !this.data.activeIsPhoto) return
+    const node = this.data.activeNode
+    if (!this.albumId || !node || !node.id) return
+    try {
+      wx.setStorageSync(flowDraftStorageKey(this.albumId, node.id), {
+        savedAt: Date.now(),
+        photoDraft: this.buildPhotoDraftPayload(),
+      })
+    } catch (_) {
+      this.setAutoSaveLabel('本机记下失败')
+    }
+  },
+
+  clearLocalFlowDraft(nodeId) {
+    const id = String(nodeId || (this.data.activeNode && this.data.activeNode.id) || '').trim()
+    if (!this.albumId || !id) return
+    try {
+      wx.removeStorageSync(flowDraftStorageKey(this.albumId, id))
+    } catch (_) {
+      /* ignore */
+    }
+  },
+
   scheduleAutoSavePhotos() {
     if (this._photoSaveTimer) clearTimeout(this._photoSaveTimer)
     this._photoSaveTimer = setTimeout(() => {
@@ -2675,17 +2722,13 @@ Page({
     }, 700)
   },
 
-  /** 仅保存发现项文案草稿，避免上传回写打断输入 */
+  /** 改字只记本机，不写服务器 */
   scheduleAutoSaveDraftOnly() {
     if (this._draftSaveTimer) clearTimeout(this._draftSaveTimer)
-    this._draftSaveTimer = setTimeout(async () => {
+    this._draftSaveTimer = setTimeout(() => {
       if (this.data.readOnly) return
-      try {
-        await this.persistPhotoDraft()
-        this.setAutoSaveLabel('已自动保存')
-      } catch (e) {
-        this.setAutoSaveLabel((e && e.message) || '自动保存失败，请检查网络')
-      }
+      this.writeLocalFlowDraft()
+      this.setAutoSaveLabel('已自动保存')
     }, 700)
   },
 
@@ -2713,27 +2756,9 @@ Page({
   },
 
   async runAutoSavePhotos() {
-    if (this.data.readOnly) return
-    if (this._photoSaving) {
-      this._photoSaveAgain = true
-      return
-    }
-    this._photoSaving = true
-    const keepExpandKey = this.data.expandedFindingKey
-    try {
-      await this.persistPhotos()
-      this.resyncSectionsAfterPersist(keepExpandKey)
-      await this.persistPhotoDraft()
-      this.setAutoSaveLabel('已自动保存')
-    } catch (e) {
-      this.setAutoSaveLabel((e && e.message) || '自动保存失败，请检查网络')
-    } finally {
-      this._photoSaving = false
-      if (this._photoSaveAgain) {
-        this._photoSaveAgain = false
-        this.scheduleAutoSavePhotos()
-      }
-    }
+    if (this.data.readOnly || this.data.organizingPhotos) return
+    this.writeLocalFlowDraft()
+    this.setAutoSaveLabel('已自动保存')
   },
 
   /** 上传后用落库 URL 回写 sections/findings，避免草稿仍持本地临时路径 */
@@ -4158,6 +4183,7 @@ Page({
         await this.persistPhotos()
         this.resyncSectionsAfterPersist()
         await this.persistPhotoDraft()
+        this.clearLocalFlowDraft()
         const res = await completeMerchantFlowNode(
           this.albumId,
           this.data.activeNode.id,
