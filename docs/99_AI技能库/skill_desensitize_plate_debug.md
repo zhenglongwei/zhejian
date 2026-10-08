@@ -138,7 +138,7 @@ nslookup facebody.cn-shanghai.aliyuncs.com
 
 | 现象 | 原因 | 修复 |
 |---|---|---|
-| `ocr-api ... ENOTFOUND` | 新 OCR API 域名在部分环境不可达 | `DESENSITIZE_PLATE_PROVIDER=viapi`（默认） |
+| `ocr-api ... ENOTFOUND` | 新 OCR API 域名在部分环境不可达 | 车牌默认只走 VIAPI；**无车牌也不得再打 ocr-api**。工单配件图无车牌属正常，不得写入 error.log |
 | `viapi plate ok` | VIAPI 通路正常 | 不必纠结 ocr-api |
 | VIN/通用 OCR 仍失败 | 同上，仅 ocr-api | Phase 1 可接受；车牌必须 viapi |
 

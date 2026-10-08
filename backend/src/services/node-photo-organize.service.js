@@ -7,7 +7,7 @@ const { config } = require('../config')
 const { prisma } = require('../lib/prisma')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { resolveShared } = require('../utils/resolve-shared')
-const { mediaKey, collectConfirmedQuoteNames, stampWorkQuoteMatch } = resolveShared(
+const { mediaKey, collectConfirmedQuoteNames, stampWorkQuoteMatch, buildPriorOrganizeFacts } = resolveShared(
   'utils/service-flow-docs.js',
 )
 const {
@@ -16,7 +16,7 @@ const {
 
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v5'
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v6'
 
 function text(value) {
   return String(value || '').trim()
@@ -123,30 +123,19 @@ function normalizeGroups(rawGroups, pending) {
 }
 
 async function collectMaskedPending(albumId, pending = []) {
-  const { buildPreMaskUrlLookup, scheduleAlbumPreMask } =
-    require('./desensitize.service')
-  if ((pending || []).length) {
-    scheduleAlbumPreMask(albumId, { trigger: 'photo_organize' })
-  }
-  const lookup = await buildPreMaskUrlLookup(albumId)
-  const urls = []
-  for (let index = 0; index < (pending || []).length; index += 1) {
-    const img = pending[index]
-    const raw = text(img && img.url)
-    const masked =
-      lookup.byRawUrl.get(raw) || lookup.byRawUrl.get(stripUrlQuery(raw)) || ''
-    if (!masked) return { ready: false, urls: [] }
-    urls.push({
-      url: masked,
+  const { collectMaskedUrlsForRawList } = require('./desensitize.service')
+  const packed = await collectMaskedUrlsForRawList(
+    albumId,
+    (pending || []).map((img, index) => ({
+      url: text(img && img.url),
       label: `图${index + 1}`,
-      imageKey: mediaKey(raw),
-      rawUrl: raw,
-    })
-  }
-  return { ready: true, urls }
+      imageKey: mediaKey(img && img.url),
+    })),
+  )
+  return packed
 }
 
-function buildInstruction({ mode, existingParts, cachedNotes, quoteNames }) {
+function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorFacts }) {
   const categories = INTAKE_RECORD_CATEGORIES.map((row) => ({ id: row.id, label: row.label }))
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
@@ -154,6 +143,7 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames }) {
     '每张图的说明是「图1」「图2」。返回 imageSlots 填这些编号，例如 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
+    priorFacts ? `前面各步已经识过/写过的结果（只是文字，不要再看那些图）：${JSON.stringify(priorFacts)}` : '',
   ].filter(Boolean)
   if (mode === 'intake') {
     return common.concat([
@@ -167,6 +157,7 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames }) {
   if (mode === 'work') {
     return common.concat([
       '这是工单留证。按「换成了哪一项」归组。图常见新旧配件、包装或标签、关键工序，不限于包装。有什么归什么。',
+      '用前面的检测和方案文字对照本批新图：对得上方案的用方案原名；对不上的标新增。不要把接车/检测图再认一遍。',
       `已确认方案项目：${JSON.stringify(quoteNames || [])}`,
       'partName 能对上方案项目的，必须用方案里的原名，outsideQuote 填 false。',
       '对不上任何方案项目的，outsideQuote 填 true，partName 写图上实际做的事。不要丢掉这组图。',
@@ -451,13 +442,17 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     .filter(Boolean)
 
   let quoteNames = []
-  if (mode === 'work') {
-    try {
-      const { readFlowNodesRaw } = require('./service-flow.service')
-      quoteNames = collectConfirmedQuoteNames(readFlowNodesRaw(album))
-    } catch (_) {
-      quoteNames = []
+  let priorFacts = null
+  try {
+    const { readFlowNodesRaw } = require('./service-flow.service')
+    const flowNodes = readFlowNodesRaw(album)
+    if (mode === 'work') quoteNames = collectConfirmedQuoteNames(flowNodes)
+    if (mode === 'inspection' || mode === 'work') {
+      priorFacts = buildPriorOrganizeFacts(flowNodes, mode)
     }
+  } catch (_) {
+    quoteNames = []
+    priorFacts = null
   }
 
   const masked = await collectMaskedPending(albumId, pending)
@@ -490,7 +485,13 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
   const visionUrls = uncachedMasked
   let parsed = { groups: cachedGroups }
   if (visionUrls.length) {
-    const instruction = buildInstruction({ mode, existingParts, cachedNotes, quoteNames })
+    const instruction = buildInstruction({
+      mode,
+      existingParts,
+      cachedNotes,
+      quoteNames,
+      priorFacts,
+    })
     try {
       const fresh = (await runOrganizeVision({ instruction, maskedUrls: visionUrls })) || {}
       let freshGroups = normalizeGroups(fresh.groups, pending)

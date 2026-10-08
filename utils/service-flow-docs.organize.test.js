@@ -193,6 +193,55 @@ test('pending keys are not turned into new findings on load', () => {
   assert.equal(rows[0].partName, '液压位')
 })
 
+test('work prior facts carry intake inspection and confirmed quote as text', () => {
+  const { buildPriorOrganizeFacts } = require('./service-flow-docs')
+  const facts = buildPriorOrganizeFacts(
+    [
+      {
+        kind: 'intake',
+        photoDraft: { chiefComplaint: '漏油', mileageKm: '86500' },
+      },
+      {
+        kind: 'inspection',
+        photoDraft: {
+          findings: [{ partName: '机油', result: '需处理', advice: '油已乳化' }],
+        },
+      },
+      {
+        kind: 'quote_confirm',
+        document: {
+          status: 'confirmed',
+          payload: { lines: [{ name: '更换机油', note: '机油+机滤' }] },
+        },
+      },
+    ],
+    'work',
+  )
+  assert.equal(facts.intake.chiefComplaint, '漏油')
+  assert.equal(facts.inspection[0].part, '机油')
+  assert.equal(facts.quote[0].name, '更换机油')
+  assert.equal(facts.work.length, 0)
+})
+
+test('delivery prior facts also carry work items without re-reading photos', () => {
+  const { buildPriorOrganizeFacts } = require('./service-flow-docs')
+  const facts = buildPriorOrganizeFacts(
+    [
+      {
+        kind: 'quote_confirm',
+        document: { status: 'confirmed', payload: { lines: [{ name: '更换机油' }] } },
+      },
+      {
+        kind: 'work',
+        photoDraft: { findings: [{ partName: '更换机油', caption: '旧机油已放' }] },
+      },
+    ],
+    'delivery_photos',
+  )
+  assert.equal(facts.quote[0].name, '更换机油')
+  assert.equal(facts.work[0].caption, '旧机油已放')
+})
+
 test('intake organize groups mileage reading and paint photos', () => {
   const { applyIntakeOrganizeGroups } = require('./service-flow-docs')
   const applied = applyIntakeOrganizeGroups({

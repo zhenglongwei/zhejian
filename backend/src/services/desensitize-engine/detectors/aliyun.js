@@ -223,6 +223,21 @@ function isNetworkError(err) {
   )
 }
 
+function plateResultFromViapi(viapi, imageWidth, imageHeight, extras = {}) {
+  const boxes = (viapi && viapi.boxes) || []
+  const plateTextFound = Boolean(viapi && viapi.plateTextFound)
+  return {
+    boxes,
+    authFailed: false,
+    error: '',
+    plateMaskMiss: plateTextFound && !boxes.length,
+    orgWidth: (viapi && viapi.orgWidth) || imageWidth || 0,
+    orgHeight: (viapi && viapi.orgHeight) || imageHeight || 0,
+    ocrNetworkFailed: false,
+    ...extras,
+  }
+}
+
 async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
   const { imageWidth = 0, imageHeight = 0 } = detectOptions
   const useViapiFirst = config.desensitize.plateProvider === 'viapi'
@@ -230,17 +245,7 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
   if (useViapiFirst) {
     try {
       const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
-      if (viapi.boxes.length || viapi.plateTextFound) {
-        return {
-          boxes: viapi.boxes,
-          authFailed: false,
-          error: '',
-          plateMaskMiss: viapi.plateTextFound && !viapi.boxes.length,
-          orgWidth: imageWidth,
-          orgHeight: imageHeight,
-          ocrNetworkFailed: false,
-        }
-      }
+      return plateResultFromViapi(viapi, imageWidth, imageHeight)
     } catch (viapiErr) {
       if (isAuthError(viapiErr)) {
         return {
@@ -310,10 +315,7 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
       }
     }
     if (isNetworkError(err)) {
-      console.warn('[desensitize-engine] ocr-api unreachable, fallback viapi plate', {
-        endpoint: ocrApiEndpoint(),
-        message: ocrApiError.slice(0, 120),
-      })
+      /* 预发 ECS 常解析不了 ocr-api；已在 ocrRecognize 打过一次 skip，这里改走 viapi，不按错误刷屏 */
     } else if (!isBenignDetectError(err)) {
       console.warn('[desensitize-engine] plate ocr-api:', err.code || '', ocrApiError.slice(0, 120))
     }
@@ -321,15 +323,9 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
 
   try {
     const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
-    return {
-      boxes: viapi.boxes,
-      authFailed: false,
-      error: ocrApiError ? `plate:ocr-api-fallback-viapi` : '',
-      plateMaskMiss: viapi.plateTextFound && !viapi.boxes.length,
-      orgWidth: viapi.orgWidth,
-      orgHeight: viapi.orgHeight,
+    return plateResultFromViapi(viapi, imageWidth, imageHeight, {
       ocrNetworkFailed: Boolean(ocrApiError && isNetworkError({ message: ocrApiError })),
-    }
+    })
   } catch (viapiErr) {
     if (isAuthError(viapiErr)) {
       return {
@@ -371,6 +367,7 @@ async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
 }
 
 async function detectVin(imagePath, publicUrl) {
+  if (ocrApiUnreachable) return []
   const data = await ocrRecognize(
     RecognizeCarVinCodeRequest,
     'recognizeCarVinCode',
@@ -381,6 +378,7 @@ async function detectVin(imagePath, publicUrl) {
 }
 
 async function detectGeneralText(imagePath, publicUrl) {
+  if (ocrApiUnreachable) return []
   const data = await ocrRecognize(
     RecognizeGeneralRequest,
     'recognizeGeneral',
@@ -484,4 +482,5 @@ async function detectSensitiveRegions(imagePath, options = {}) {
 module.exports = {
   detectSensitiveRegions,
   resolvePublicImageUrl,
+  plateResultFromViapi,
 }

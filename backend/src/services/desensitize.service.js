@@ -514,6 +514,50 @@ async function buildPreMaskUrlLookup(albumId) {
   }
 }
 
+/** 认单张：先名单、再媒体成功标识，没有才打这一张。不等整本就绪。 */
+async function resolveMaskedUrlForRaw(rawUrl, lookup = { byRawUrl: new Map() }) {
+  const raw = String(rawUrl || '').trim()
+  if (!raw) return ''
+  const byRawUrl = lookup.byRawUrl || new Map()
+  const hit =
+    byRawUrl.get(raw) ||
+    byRawUrl.get(stripUrlQuery(raw)) ||
+    ''
+  if (hit) return hit
+  const media = await ensureMediaRecordFromUrl(raw)
+  if (media && media.desensitizeStatus === 'success' && media.desensitizedUrl) {
+    return String(media.desensitizedUrl).trim()
+  }
+  const masked = await resolveDesensitizedUrlForAsset(raw, { force: false })
+  return masked && masked.ok ? String(masked.maskedUrl || '').trim() : ''
+}
+
+async function collectMaskedUrlsForRawList(albumId, entries = [], options = {}) {
+  const requireAll = options.requireAll !== false
+  const lookup = await buildPreMaskUrlLookup(albumId)
+  const urls = []
+  for (let i = 0; i < (entries || []).length; i += 1) {
+    const row = entries[i] || {}
+    const raw = String(row.url || '').trim()
+    const masked = await resolveMaskedUrlForRaw(raw, lookup)
+    if (!masked) {
+      if (requireAll) return { ready: false, urls: [] }
+      continue
+    }
+    if (raw && masked) {
+      lookup.byRawUrl.set(raw, masked)
+      lookup.byRawUrl.set(stripUrlQuery(raw), masked)
+    }
+    urls.push({
+      url: masked,
+      label: row.label || `图${i + 1}`,
+      rawUrl: raw,
+      imageKey: row.imageKey || '',
+    })
+  }
+  return { ready: true, urls }
+}
+
 async function ensureOrderPreMaskTask(albumId, options = {}) {
   const album = await loadAlbumWithRelations(albumId)
   if (!album) {
@@ -1601,6 +1645,8 @@ module.exports = {
   scheduleAlbumPreMask,
   getAlbumPreMaskReadiness,
   buildPreMaskUrlLookup,
+  resolveMaskedUrlForRaw,
+  collectMaskedUrlsForRawList,
   createAlbumAuthorizeTaskFromPreMask,
   createOrderAuthorizeTaskFromPreMask,
   ensureHostMerchantMaskTask,

@@ -509,6 +509,123 @@ function matchPendingImage(pending, byKey, rawKey) {
   )
 }
 
+function draftOfFlowNode(node) {
+  return node && node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}
+}
+
+function compactPriorRow(row = {}) {
+  const out = {}
+  Object.keys(row || {}).forEach((key) => {
+    const value = String(row[key] || '').trim()
+    if (value) out[key] = value
+  })
+  return Object.keys(out).length ? out : null
+}
+
+function isDeliveryLikeKind(kind) {
+  return kind === 'delivery_photos' || kind === 'repair_report' || kind === 'delivery'
+}
+
+/**
+ * 后一步识图/核对用的前序文字事实：只带已有结果，不带图。
+ * currentKind=inspection 带接车；work 带接车+检测+已确认方案；完工/交车再带工单。
+ */
+function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
+  const current = String(currentKind || '')
+  const includeIntake = current !== 'intake' && current !== 'intake_inspection'
+  const includeInspection =
+    current === 'work' ||
+    current === 'quote_confirm' ||
+    isDeliveryLikeKind(current)
+  const includeQuote = current === 'work' || isDeliveryLikeKind(current)
+  const includeWork = isDeliveryLikeKind(current)
+  const facts = { intake: null, inspection: [], quote: [], work: [] }
+
+  ;(flowNodes || []).forEach((node) => {
+    const kind = String((node && node.kind) || '')
+    const draft = draftOfFlowNode(node)
+    const doc = (node && node.document && typeof node.document === 'object' && node.document) || {}
+    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
+
+    if (includeIntake && (kind === 'intake' || kind === 'intake_inspection')) {
+      const records = []
+      ;(Array.isArray(draft.intakeResults) ? draft.intakeResults : []).forEach((row) => {
+        const item = compactPriorRow({
+          part: row.partName || row.category,
+          reading: row.reading,
+          note: row.observation || row.advice,
+        })
+        if (item) records.push(item)
+      })
+      ;(Array.isArray(draft.findings) && kind === 'intake' ? draft.findings : []).forEach((row) => {
+        const item = compactPriorRow({
+          part: row.partName || row.category,
+          reading: row.reading,
+          note: row.observation || row.advice,
+        })
+        if (item) records.push(item)
+      })
+      facts.intake = compactPriorRow({
+        chiefComplaint: draft.chiefComplaint || payload.chiefComplaint,
+        mileageKm: draft.mileageKm || payload.mileageKm,
+        vehicleBrand: draft.vehicleBrand,
+      }) || { records: [] }
+      if (records.length) facts.intake.records = records
+    }
+
+    if (includeInspection && (kind === 'inspection' || kind === 'inspection_report')) {
+      const findings =
+        (Array.isArray(draft.findings) && draft.findings.length
+          ? draft.findings
+          : Array.isArray(payload.findings)
+            ? payload.findings
+            : []) || []
+      findings.forEach((row) => {
+        const item = compactPriorRow({
+          part: row.partName,
+          result: row.result,
+          advice: row.advice,
+          observation: row.observation,
+        })
+        if (item) facts.inspection.push(item)
+      })
+    }
+
+    if (
+      includeQuote &&
+      (kind === 'quote_confirm' || kind === 'addon_quote_confirm') &&
+      String(doc.status || payload.status || '') === 'confirmed'
+    ) {
+      const lines = Array.isArray(payload.lines) ? payload.lines : []
+      lines.forEach((line) => {
+        const item = compactPriorRow({
+          name: line.name,
+          note: line.note || line.plan,
+        })
+        if (item) facts.quote.push(item)
+      })
+    }
+
+    if (includeWork && kind === 'work') {
+      const findings = Array.isArray(draft.findings) ? draft.findings : []
+      findings.forEach((row) => {
+        const item = compactPriorRow({
+          part: row.partName,
+          caption: row.caption,
+          material: row.material,
+          extra: row.outsideQuote ? '不在方案里' : '',
+        })
+        if (item) facts.work.push(item)
+      })
+    }
+  })
+
+  if (facts.intake && !facts.intake.records && !facts.intake.chiefComplaint && !facts.intake.mileageKm) {
+    facts.intake = null
+  }
+  return facts
+}
+
 function collectConfirmedQuoteNames(flowNodes = []) {
   const names = []
   const seen = new Set()
@@ -1243,6 +1360,7 @@ module.exports = {
   normalizePendingImages,
   applyOrganizeGroups,
   collectConfirmedQuoteNames,
+  buildPriorOrganizeFacts,
   matchQuotePartName,
   stampWorkQuoteMatch,
   workOutsideQuoteOf,

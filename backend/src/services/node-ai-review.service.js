@@ -326,29 +326,33 @@ function buildReviewContext(album, node, extra = {}) {
     quoteLines,
     /** 只读参考，与上面的检查对象分离；模型不得对它提修改意见 */
     reference,
+    priorFacts: (() => {
+      try {
+        const { resolveShared } = require('../utils/resolve-shared')
+        const { buildPriorOrganizeFacts } = resolveShared('utils/service-flow-docs.js')
+        const kind =
+          reviewStep === 'delivery'
+            ? 'delivery_photos'
+            : reviewStep === 'work_sheet' || reviewStep === 'work'
+              ? 'work'
+              : reviewStep === 'quote_check'
+                ? 'quote_confirm'
+                : node.kind
+        return buildPriorOrganizeFacts(readFlowNodes(album), kind)
+      } catch (_) {
+        return null
+      }
+    })(),
   }
 }
 
-function lookupMaskedUrl(byRawUrl, rawUrl) {
-  if (!byRawUrl || !rawUrl) return ''
-  const raw = text(rawUrl)
-  return (
-    byRawUrl.get(raw) ||
-    byRawUrl.get(stripUrlQuery(raw)) ||
-    ''
-  )
-}
-
 async function collectMaskedUrlsForNode(albumId, node) {
-  const { buildPreMaskUrlLookup } = require('./desensitize.service')
-  const lookup = await buildPreMaskUrlLookup(albumId)
-  if (!lookup.ready) return { ready: false, urls: [] }
-  const urls = []
-  collectNodeImageEntries(node).forEach((row) => {
-    const masked = lookupMaskedUrl(lookup.byRawUrl, row.url)
-    if (masked) urls.push({ url: masked, label: row.label, rawUrl: row.url })
-  })
-  return { ready: true, urls }
+  const { collectMaskedUrlsForRawList } = require('./desensitize.service')
+  const entries = collectNodeImageEntries(node).map((row) => ({
+    url: row.url,
+    label: row.label,
+  }))
+  return collectMaskedUrlsForRawList(albumId, entries, { requireAll: false })
 }
 
 async function runLlmSuggestions(ctx, maskedUrls, capability) {
@@ -417,7 +421,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
-          ? '这是完工通知车主验收前的一次核对。只查空缺：施工说明空了、质保空了、该有的交车照没有。已经写了的字不要改、不要润色。工单与完工报告施工项不是本次修改对象。不要改金额。'
+          ? '这是完工通知车主验收前的一次核对。结合前面接车、检测、方案、工单已经写下的结果（文字），只查本步空缺：施工说明空了、质保空了、该有的交车照没有。已经写了的字不要改。前面的图不要再看。不要改金额。'
           : ctx.rubric.step === 'work'
             ? '只看本步是否缺说明、缺图。已经写了的字不要改。有新旧配件或关键工序就按项归；缺哪一类都不要当成必须补拍。不要对已确认检测和报价提修改意见，也不要改金额。'
               : ctx.rubric.step === 'notify_check'
@@ -437,9 +441,11 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
     'photo：how 写拍哪、怎么拍（距离、要入镜的读数、避码）；不要 suggestedText。',
     'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName / quoteLineNote 之一；suggestedText 必须是可直接填进该字段的整句。',
     '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。只用打码图。',
+    'priorFacts 是前面各步已经识过或写过的文字，不要再看那些图，不要改已经确认的检测和报价。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,
-  ].join('\n')
+    ctx.priorFacts ? `前面各步结果：${JSON.stringify(ctx.priorFacts)}` : '',
+  ].filter(Boolean).join('\n')
 
   const labeled = Array.isArray(maskedUrls) ? maskedUrls.slice(0, 6) : []
   const buildUserContent = () => {
@@ -589,17 +595,6 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
         updatedAt: new Date().toISOString(),
       },
     }))
-
-    if (reviewStep && collectNodeImageUrls(node).length) {
-      const { scheduleAlbumPreMask, getAlbumPreMaskReadiness } = require('./desensitize.service')
-      scheduleAlbumPreMask(albumId, { trigger: 'node_ai_review' })
-      const started = Date.now()
-      let readiness = await getAlbumPreMaskReadiness(albumId)
-      while (readiness.state === 'pending' && Date.now() - started < 90000) {
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        readiness = await getAlbumPreMaskReadiness(albumId)
-      }
-    }
 
     const fresh = await loadAlbum(albumId)
     const freshNode = readFlowNodes(fresh).find((item) => item && item.id === nodeId) || node
