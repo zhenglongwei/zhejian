@@ -497,20 +497,14 @@ async function getAlbumPreMaskReadiness(albumId) {
   return { state: 'ready', task: preMaskTask }
 }
 
-/** rawUrl / nodeId:idx → 脱敏图 URL，供 AI Vision 等复用；未整本就绪时仍返回已打码图。 */
+/** 已打码图索引。只读现有名单，不扫整本是否就绪（归组不得等整本）。 */
 async function buildPreMaskUrlLookup(albumId) {
-  const album = await loadAlbumWithRelations(albumId)
-  if (!album) {
-    return { ready: false, byRawUrl: new Map(), byNodeIdx: new Map() }
-  }
-  const { preMaskBizType } = resolveAlbumBizTypes(album)
-  const task = await findPreMaskTask(albumId, preMaskBizType)
+  const task = await findPreMaskTask(albumId)
   const maps = fillPreMaskLookupMaps(task)
-  const readiness = await getAlbumPreMaskReadiness(albumId)
   return {
-    ready: readiness.state === 'ready',
+    ready: maps.byRawUrl.size > 0,
     ...maps,
-    task: readiness.task || task,
+    task,
   }
 }
 
@@ -535,27 +529,35 @@ async function resolveMaskedUrlForRaw(rawUrl, lookup = { byRawUrl: new Map() }) 
 async function collectMaskedUrlsForRawList(albumId, entries = [], options = {}) {
   const requireAll = options.requireAll !== false
   const lookup = await buildPreMaskUrlLookup(albumId)
-  const urls = []
-  for (let i = 0; i < (entries || []).length; i += 1) {
-    const row = entries[i] || {}
-    const raw = String(row.url || '').trim()
-    const masked = await resolveMaskedUrlForRaw(raw, lookup)
-    if (!masked) {
-      if (requireAll) return { ready: false, urls: [] }
-      continue
-    }
-    if (raw && masked) {
+  const packed = await Promise.all(
+    (entries || []).map(async (row, i) => {
+      const raw = String((row && row.url) || '').trim()
+      if (!raw) return { skip: true, index: i }
+      const masked = await resolveMaskedUrlForRaw(raw, lookup)
+      if (!masked) return { skip: false, index: i, raw, masked: '' }
       lookup.byRawUrl.set(raw, masked)
       lookup.byRawUrl.set(stripUrlQuery(raw), masked)
-    }
-    urls.push({
-      url: masked,
-      label: row.label || `图${i + 1}`,
-      rawUrl: raw,
-      imageKey: row.imageKey || '',
-    })
+      return {
+        skip: false,
+        index: i,
+        raw,
+        masked,
+        item: {
+          url: masked,
+          label: (row && row.label) || `图${i + 1}`,
+          rawUrl: raw,
+          imageKey: (row && row.imageKey) || '',
+        },
+      }
+    }),
+  )
+  if (requireAll && packed.some((row) => row && !row.skip && !row.masked)) {
+    return { ready: false, urls: [] }
   }
-  return { ready: true, urls }
+  return {
+    ready: true,
+    urls: packed.map((row) => row && row.item).filter(Boolean),
+  }
 }
 
 async function ensureOrderPreMaskTask(albumId, options = {}) {

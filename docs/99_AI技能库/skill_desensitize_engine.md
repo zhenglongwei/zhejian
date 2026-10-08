@@ -28,6 +28,9 @@
 4. 单张失败 → `NEED_MANUAL` 或 `FAILED`，可重试；**不得** `maskingConfirmed`。
 5. 前端契约不变：工作台「一键脱敏」仍调现有 task/media 接口。
 6. 第三方密钥仅 `backend/.env`；日志不得打印原图 signed URL 全量。
+7. **已成功标识的图不得重打**（含引擎版本升级、案例预览、授权预览、后一节点归组）。没有成功标识才打这一张。
+8. **商家归组不得等整本预打码就绪**、不得为扫整本假打码挡住识图。整本名单后台补。进度页闸门见 `skill_merchant_flow_photo_pipeline.md`。
+9. 同一张图若已在打码，其它调用合并等待，禁止并行打第二遍。
 
 ## 输出格式（实现前）
 
@@ -67,6 +70,8 @@ pre-mask → desensitize → authorize preview → public case
 | 3 | 任务链 | pre-mask 产物 URL 可加载且为打码图 |
 | 4 | 公开 API | 案例/首页 cover 仍为 desensitized 路径 |
 | 5 | 落库 | B-MASK-04 OCR/风险可供运营台读取（或 stub 字段就绪） |
+| 6 | 不重打 | 已 SUCCESS 的图在工单/预览/引擎升级后仍复用 |
+| 7 | 不挡归组 | 整理只查本批成功标识，不调用整本就绪闸 |
 
 ## 约束
 

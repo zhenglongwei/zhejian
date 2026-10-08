@@ -347,39 +347,52 @@ async function runMediaDesensitize(mediaId, context = {}) {
   }
 }
 
+const maskJobsByMediaId = new Map()
+
 async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
   const media = await ensureMediaRecordFromUrl(rawUrl)
   if (!media) {
     return { mediaId: '', maskedUrl: '', ok: false, riskTags: [], riskLevel: '' }
   }
-  try {
-    const result = await runMediaDesensitize(media.id, {
-      ...context,
-      engineVersion: ENGINE_VERSION,
-    })
-    return {
-      mediaId: media.id,
-      maskedUrl: result.desensitizedUrl,
-      ok: Boolean(result.desensitizedUrl),
-      riskTags: result.riskTags || [],
-      riskLevel: result.riskLevel || '',
-    }
-  } catch (e) {
-    console.warn('[desensitize] asset failed', {
-      mediaId: media.id,
-      code: e.code || '',
-      status: e.status || '',
-      message: String(e.message || '').slice(0, 160),
-    })
-    return {
-      mediaId: media.id,
-      maskedUrl: '',
-      ok: false,
-      riskTags: e.riskTags || [],
-      riskLevel: e.riskLevel || '',
-      needManual: e.taskStatus === 'NEED_MANUAL',
+  const run = async () => {
+    try {
+      const result = await runMediaDesensitize(media.id, {
+        ...context,
+        engineVersion: ENGINE_VERSION,
+      })
+      return {
+        mediaId: media.id,
+        maskedUrl: result.desensitizedUrl,
+        ok: Boolean(result.desensitizedUrl),
+        riskTags: result.riskTags || [],
+        riskLevel: result.riskLevel || '',
+      }
+    } catch (e) {
+      console.warn('[desensitize] asset failed', {
+        mediaId: media.id,
+        code: e.code || '',
+        status: e.status || '',
+        message: String(e.message || '').slice(0, 160),
+      })
+      return {
+        mediaId: media.id,
+        maskedUrl: '',
+        ok: false,
+        riskTags: e.riskTags || [],
+        riskLevel: e.riskLevel || '',
+        needManual: e.taskStatus === 'NEED_MANUAL',
+      }
     }
   }
+  if (!context.force) {
+    const running = maskJobsByMediaId.get(media.id)
+    if (running) return running
+  }
+  const job = run().finally(() => {
+    if (maskJobsByMediaId.get(media.id) === job) maskJobsByMediaId.delete(media.id)
+  })
+  if (!context.force) maskJobsByMediaId.set(media.id, job)
+  return job
 }
 
 const MANUAL_REGION_MIN = 0.01
