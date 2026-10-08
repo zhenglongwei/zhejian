@@ -122,6 +122,40 @@ test('unmatched photos stay pending', () => {
   assert.match(pendingImages[0].url, /c\.jpg/)
 })
 
+test('work organize uses confirmed quote name and flags items outside quote', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [a, b],
+    findings: [],
+    groups: [
+      { partName: '机油', imageKeys: ['uploads/a.jpg'] },
+      { partName: '更换雨刮片', imageKeys: ['uploads/b.jpg'] },
+    ],
+    mode: 'work',
+    quoteNames: ['小保养机油', '机滤'],
+  })
+  const oil = findings.find((row) => /机油/.test(row.partName))
+  const wiper = findings.find((row) => /雨刮/.test(row.partName))
+  assert.equal(oil.partName, '小保养机油')
+  assert.equal(oil.outsideQuote, false)
+  assert.equal(wiper.outsideQuote, true)
+})
+
+test('collectConfirmedQuoteNames only keeps confirmed quote lines', () => {
+  const { collectConfirmedQuoteNames } = require('./service-flow-docs')
+  const names = collectConfirmedQuoteNames([
+    {
+      kind: 'quote_confirm',
+      document: { status: 'confirmed', payload: { lines: [{ name: '机油' }, { name: '机滤' }] } },
+    },
+    {
+      kind: 'quote_confirm',
+      insertedReason: 'addon',
+      document: { status: 'draft', payload: { lines: [{ name: '雨刮' }] } },
+    },
+  ])
+  assert.deepEqual(names, ['机油', '机滤'])
+})
+
 test('work organize groups by job name without result', () => {
   const { findings, pendingImages } = applyOrganizeGroups({
     pendingImages: [a, b],

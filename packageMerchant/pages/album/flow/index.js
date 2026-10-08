@@ -54,6 +54,8 @@ const {
   isOdometerFinding,
   applyOrganizeGroups,
   applyIntakeOrganizeGroups,
+  collectConfirmedQuoteNames,
+  workOutsideQuoteOf,
   normalizeIntakeResult,
   normalizePendingImages,
   buildQuoteDraft,
@@ -362,6 +364,7 @@ Page({
     pendingImages: [],
     organizingPhotos: false,
     organizeResultHint: '',
+    hasOutsideQuoteItems: false,
     intakeResults: [],
     fuelReading: '',
     intakeImagePool: [],
@@ -980,8 +983,11 @@ Page({
         completenessLabel: !hasPhoto
           ? '待拍照'
           : missing === 0
-            ? row.caption || `${row.images.length} 张`
+            ? row.outsideQuote
+              ? '不在方案里'
+              : row.caption || `${row.images.length} 张`
             : '缺项目',
+        labelToneDanger: !hasPhoto || missing > 0 || row.outsideQuote,
         adviceRequired: false,
         resultTone: '',
         resultToneClass: '',
@@ -1019,6 +1025,7 @@ Page({
         : missing === 0
           ? row.result || '已齐'
           : `缺 ${missing} 项`,
+      labelToneDanger: !hasPhoto || missing > 0,
       adviceRequired: findingAdviceRequired(row.result),
       resultTone,
       resultToneClass: resultTone
@@ -1049,6 +1056,7 @@ Page({
     const findings = (findingSection && findingSection.findings) || []
     return {
       hasFindingItems: findings.length > 0,
+      hasOutsideQuoteItems: findings.some((row) => row && row.outsideQuote),
     }
   },
 
@@ -2322,7 +2330,13 @@ Page({
     const id = `fid_new_${Date.now()}`
     const blank =
       section.findingKind === 'work'
-        ? normalizeWorkFinding({ id, partName: '', caption: '', images: [] })
+        ? normalizeWorkFinding({
+            id,
+            partName: '',
+            caption: '',
+            images: [],
+            outsideQuote: workOutsideQuoteOf('', collectConfirmedQuoteNames(this._flowNodes || [])),
+          })
         : normalizeFinding({ id, partName: '', result: '', advice: '', images: [] })
     const findings = (section.findings || []).concat([blank])
     const sections = this.data.sections.map((row, i) => {
@@ -2452,6 +2466,7 @@ Page({
             partName: '',
             caption: '',
             images: [{ url: shot.url, imageId: shot.imageId || '' }],
+            outsideQuote: workOutsideQuoteOf('', collectConfirmedQuoteNames(this._flowNodes || [])),
           })
         : normalizeFinding({
             id,
@@ -2606,6 +2621,7 @@ Page({
         findings,
         groups,
         mode,
+        quoteNames: collectConfirmedQuoteNames(this._flowNodes || []),
       })
       const sections = this.data.sections.map((row) => {
         if (!row.findingMode) return row
@@ -2620,11 +2636,16 @@ Page({
         }
       })
       const leftover = applied.pendingImages
-      const organizeResultHint = this.summarizeOrganizeResult(
+      let organizeResultHint = this.summarizeOrganizeResult(
         pending,
         applied.findings,
         leftover,
       )
+      if ((applied.findings || []).some((row) => row && row.outsideQuote)) {
+        organizeResultHint = organizeResultHint
+          ? `${organizeResultHint}。有项不在已确认方案里，走施工中新发现`
+          : '有项不在已确认方案里，走施工中新发现'
+      }
       this.setSectionsWithFindings(
         sections,
         {
@@ -2995,6 +3016,12 @@ Page({
     if (findingKind !== 'work' && field === 'partName') {
       nextRaw.caption = e.detail.value
     }
+    if (findingKind === 'work' && field === 'partName') {
+      nextRaw.outsideQuote = workOutsideQuoteOf(
+        e.detail.value,
+        collectConfirmedQuoteNames(this._flowNodes || []),
+      )
+    }
     const expandKey = `${sectionIndex}:${findingIndex}`
     const listKey = `idx-${sectionIndex}-${findingIndex}`
     const decorated = this.decorateFinding(nextRaw, true, listKey, findingKind)
@@ -3007,6 +3034,16 @@ Page({
       // 施工：部位/说明只写在项上，不按索引回写 images
     } else if (field === 'partName') {
       patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
+    }
+    if (findingKind === 'work' && field === 'partName') {
+      const nextSections = this.data.sections.map((row, i) => {
+        if (i !== sectionIndex) return row
+        const findings = (row.findings || []).map((item, idx) =>
+          idx === findingIndex ? decorated : item,
+        )
+        return { ...row, findings }
+      })
+      Object.assign(patch, this.findingChromePatch(nextSections))
     }
     this.setData(patch)
     this.scheduleAutoSaveDraftOnly()

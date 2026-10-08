@@ -328,7 +328,7 @@
                       >
                         <view class="merchant-flow-page__finding-summary-lead">
                           <text class="text-body merchant-flow-page__finding-summary-title">{{finding.summaryText}}</text>
-                          <text class="text-caption {{finding.complete ? 'text-secondary' : 'text-danger'}}">{{finding.completenessLabel}}</text>
+                          <text class="text-caption {{finding.labelToneDanger ? 'text-danger' : 'text-secondary'}}">{{finding.completenessLabel}}</text>
                         </view>
                         <view class="merchant-flow-page__finding-summary-shots">
                           <block wx:if="{{finding.images.length}}">
@@ -427,6 +427,7 @@
                               disabled="{{readOnly}}"
                               bindinput="onSectionFindingFieldInput"
                             />
+                            <text wx:if="{{finding.outsideQuote}}" class="text-caption text-danger">不在已确认方案里</text>
                           </view>
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">用料</text>
@@ -578,6 +579,11 @@
                   <view wx:if="{{organizeResultHint}}" class="merchant-flow-page__organize-result">
                     <text class="text-body">{{organizeResultHint}}</text>
                   </view>
+                  <text
+                    wx:if="{{hasOutsideQuoteItems && isWorkPhotoStep && !readOnly}}"
+                    class="text-body merchant-flow-page__quote-gap"
+                    bindtap="onAddAddonPlan"
+                  >有项不在已确认方案里，走施工中新发现</text>
                   <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>

@@ -7,14 +7,16 @@ const { config } = require('../config')
 const { prisma } = require('../lib/prisma')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { resolveShared } = require('../utils/resolve-shared')
-const { mediaKey } = resolveShared('utils/service-flow-docs.js')
+const { mediaKey, collectConfirmedQuoteNames, stampWorkQuoteMatch } = resolveShared(
+  'utils/service-flow-docs.js',
+)
 const {
   INTAKE_RECORD_CATEGORIES,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v4'
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v5'
 
 function text(value) {
   return String(value || '').trim()
@@ -113,6 +115,7 @@ function normalizeGroups(rawGroups, pending) {
         advice: text(row && row.advice),
         caption: text(row && row.caption),
         observation: text(row && row.observation),
+        outsideQuote: Boolean(row && row.outsideQuote),
         imageKeys,
       }
     })
@@ -144,7 +147,7 @@ async function collectMaskedPending(albumId, pending = []) {
   return { ready: true, urls }
 }
 
-function buildInstruction({ mode, existingParts, cachedNotes }) {
+function buildInstruction({ mode, existingParts, cachedNotes, quoteNames }) {
   const categories = INTAKE_RECORD_CATEGORIES.map((row) => ({ id: row.id, label: row.label }))
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
@@ -165,10 +168,13 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
   if (mode === 'work') {
     return common.concat([
       '这是工单留证。按「换成了哪一项」归组。图常见新旧配件、包装或标签、关键工序，不限于包装。有什么归什么。',
-      'partName 写项目名。caption 写换了什么、图上能看见的规格。不要写检查结果，不要写正在拆、正在安装、技师操作。',
+      `已确认方案项目：${JSON.stringify(quoteNames || [])}`,
+      'partName 能对上方案项目的，必须用方案里的原名，outsideQuote 填 false。',
+      '对不上任何方案项目的，outsideQuote 填 true，partName 写图上实际做的事。不要丢掉这组图。',
+      'caption 写换了什么、图上能看见的规格。不要写检查结果，不要写正在拆、正在安装、技师操作。',
       '拍了关键工序就挂在对应项；没拍到的工序不要编。',
       'observation 只写包装或铭牌上的规格、旧件能看清的状态。没有就不写。禁止适配型号。',
-      '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation"}]}',
+      '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation","outsideQuote"}]}',
     ]).join('\n')
   }
   return common.concat([
@@ -226,6 +232,7 @@ function groupsFromFindingCache(cachedRows, pending) {
         advice: text(json.advice || json.observation),
         caption: text(json.caption),
         observation: text(json.observation || json.advice || json.caption),
+        outsideQuote: Boolean(json.outsideQuote),
         imageKeys: [],
       }
     }
@@ -238,6 +245,7 @@ function groupsFromFindingCache(cachedRows, pending) {
     if (!byPart[key].observation && json.observation) {
       byPart[key].observation = text(json.observation)
     }
+    if (json.outsideQuote) byPart[key].outsideQuote = true
   })
   return normalizeGroups(Object.values(byPart), pending)
 }
@@ -377,6 +385,7 @@ async function saveFlowVisionCaches(parsedGroups, uncachedMasked, album) {
           advice: text(group.advice),
           caption: text(group.caption),
           observation: text(group.observation || group.advice || group.caption),
+          outsideQuote: Boolean(group.outsideQuote),
           imageKey: key,
         }
       }
@@ -442,6 +451,16 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     .map((row) => text(row && row.partName))
     .filter(Boolean)
 
+  let quoteNames = []
+  if (mode === 'work') {
+    try {
+      const { readFlowNodesRaw } = require('./service-flow.service')
+      quoteNames = collectConfirmedQuoteNames(readFlowNodesRaw(album))
+    } catch (_) {
+      quoteNames = []
+    }
+  }
+
   const masked = await collectMaskedPending(albumId, pending)
   if (!masked.ready || !masked.urls.length) {
     return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true, cacheHits: 0 }
@@ -472,11 +491,13 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
   const visionUrls = uncachedMasked
   let parsed = { groups: cachedGroups }
   if (visionUrls.length) {
-    const instruction = buildInstruction({ mode, existingParts, cachedNotes })
+    const instruction = buildInstruction({ mode, existingParts, cachedNotes, quoteNames })
     try {
       const fresh = (await runOrganizeVision({ instruction, maskedUrls: visionUrls })) || {}
+      let freshGroups = normalizeGroups(fresh.groups, pending)
+      if (mode === 'work') freshGroups = stampWorkQuoteMatch(freshGroups, quoteNames)
       parsed = {
-        groups: cachedGroups.concat(normalizeGroups(fresh.groups, pending)),
+        groups: cachedGroups.concat(freshGroups),
       }
       try {
         await saveFlowVisionCaches(parsed.groups, uncachedMasked, album)
@@ -488,10 +509,11 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     }
   }
 
-  const groups =
+  let groups =
     mode === 'intake'
       ? normalizeGroups(parsed.groups, pending)
       : mergeGroupsByPart(parsed.groups, pending)
+  if (mode === 'work') groups = stampWorkQuoteMatch(groups, quoteNames)
   const odoGroup = groups.find((row) => row.category === 'odometer' || row.partName === '里程')
   const odometerImageKey = odoGroup && odoGroup.imageKeys && odoGroup.imageKeys[0]
     ? odoGroup.imageKeys[0]

@@ -262,6 +262,7 @@ function normalizeWorkFinding(raw = {}, index = -1) {
     amount: parseAmount(raw.amount),
     // 关联的方案行 id；仅作排序/展示参考，不要求与报价勾连
     quoteLineId: String(raw.quoteLineId || '').trim(),
+    outsideQuote: Boolean(raw.outsideQuote),
     result: '',
     advice: '',
     images,
@@ -508,12 +509,71 @@ function matchPendingImage(pending, byKey, rawKey) {
   )
 }
 
+function collectConfirmedQuoteNames(flowNodes = []) {
+  const names = []
+  const seen = new Set()
+  ;(flowNodes || []).forEach((node) => {
+    const kind = String((node && node.kind) || '')
+    if (kind !== 'quote_confirm' && kind !== 'addon_quote_confirm') return
+    const doc = (node && node.document) || {}
+    if (String(doc.status || '') !== 'confirmed') return
+    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
+    const lines = Array.isArray(payload.lines) ? payload.lines : []
+    lines.forEach((line) => {
+      const name = String((line && line.name) || '').trim()
+      if (!name || seen.has(name)) return
+      seen.add(name)
+      names.push(name)
+    })
+  })
+  return names
+}
+
+function compactQuoteName(value = '') {
+  return String(value || '').replace(/\s+/g, '')
+}
+
+/** 工单项目名能否对上已确认方案行；对上则返回方案原名。 */
+function matchQuotePartName(partName, quoteNames = []) {
+  const raw = String(partName || '').trim()
+  const names = (quoteNames || []).map((n) => String(n || '').trim()).filter(Boolean)
+  if (!raw || !names.length) return ''
+  const exact = names.find((n) => n === raw)
+  if (exact) return exact
+  const compact = compactQuoteName(raw)
+  if (compact.length < 2) return ''
+  const loose = names.find((n) => {
+    const b = compactQuoteName(n)
+    if (b.length < 2) return false
+    return compact.includes(b) || b.includes(compact)
+  })
+  return loose || ''
+}
+
+function stampWorkQuoteMatch(groups = [], quoteNames = []) {
+  const names = Array.isArray(quoteNames) ? quoteNames : []
+  return (groups || []).map((group) => {
+    const partName = String((group && group.partName) || '').trim()
+    if (!names.length) return { ...group, partName, outsideQuote: false }
+    const hit = matchQuotePartName(partName, names)
+    if (hit) return { ...group, partName: hit, outsideQuote: false }
+    return { ...group, partName, outsideQuote: true }
+  })
+}
+
+function workOutsideQuoteOf(partName, quoteNames = []) {
+  const names = Array.isArray(quoteNames) ? quoteNames : []
+  if (!names.length) return false
+  return !matchQuotePartName(partName, names)
+}
+
 /** 整理结果并入已有项：对得上部位/项目则加图，空字段才填草稿，未用到的图留在待整理。 */
 function applyOrganizeGroups({
   pendingImages = [],
   findings = [],
   groups = [],
   mode = 'inspection',
+  quoteNames = [],
 } = {}) {
   const pending = normalizePendingImages(pendingImages)
   const byKey = {}
@@ -524,7 +584,9 @@ function applyOrganizeGroups({
   const nextFindings = (findings || []).map((row) =>
     mode === 'work' ? normalizeWorkFinding(row) : normalizeItemFinding(row),
   )
-  const prepared = (groups || []).map((group) => {
+  const stamped =
+    mode === 'work' ? stampWorkQuoteMatch(groups, quoteNames) : groups
+  const prepared = (stamped || []).map((group) => {
     const partName = String((group && group.partName) || '').trim()
     const keys = Array.isArray(group && group.imageSlots) && group.imageSlots.length
       ? group.imageSlots
@@ -557,6 +619,7 @@ function applyOrganizeGroups({
           images,
           partName: host.partName || partName,
           caption: host.caption || String((group && group.caption) || '').trim(),
+          outsideQuote: Boolean(group && group.outsideQuote),
         })
       } else {
         nextFindings[hostIdx] = normalizeItemFinding({
@@ -577,6 +640,7 @@ function applyOrganizeGroups({
           partName,
           caption: String((group && group.caption) || '').trim(),
           images: shots.slice(0, WORK_IMAGES_MAX),
+          outsideQuote: Boolean(group && group.outsideQuote),
         }),
       )
       return
@@ -1178,6 +1242,10 @@ module.exports = {
   mergePhotoDraft,
   normalizePendingImages,
   applyOrganizeGroups,
+  collectConfirmedQuoteNames,
+  matchQuotePartName,
+  stampWorkQuoteMatch,
+  workOutsideQuoteOf,
   applyIntakeOrganizeGroups,
   normalizeIntakeResult,
   parseAmount,

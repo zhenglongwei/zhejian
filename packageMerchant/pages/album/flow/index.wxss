@@ -547,6 +547,12 @@
   padding: var(--space-xs) 0;
 }
 
+.merchant-flow-page__quote-gap {
+  display: block;
+  margin-bottom: var(--space-md);
+  color: var(--color-danger);
+}
+
 .merchant-flow-page__library-mask {
   position: fixed;
   left: 0;
