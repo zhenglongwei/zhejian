@@ -309,6 +309,12 @@
                       wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
                       class="text-caption text-secondary"
                     >进场外观在图库</text>
+                    <text
+                      wx:if="{{!readOnly}}"
+                      class="text-caption text-link merchant-flow-page__add-finding"
+                      data-section-index="{{sectionIndex}}"
+                      bindtap="onAddFindingItem"
+                    >加一项</text>
                     </block>
                   </view>
                   <view class="merchant-flow-page__finding-list">
@@ -576,6 +582,12 @@
                       </view>
                     </view>
                   </view>
+                  <text
+                    wx:if="{{hasFindingItems && !readOnly && !organizingPhotos}}"
+                    class="text-caption text-link merchant-flow-page__add-finding"
+                    data-section-index="{{sectionIndex}}"
+                    bindtap="onAddFindingItem"
+                  >加一项</text>
                   <view wx:if="{{organizeResultHint}}" class="merchant-flow-page__organize-result">
                     <text class="text-body">{{organizeResultHint}}</text>
                   </view>

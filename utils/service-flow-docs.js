@@ -679,7 +679,8 @@ function stampWorkQuoteMatch(groups = [], quoteNames = []) {
     const partName = String((group && group.partName) || '').trim()
     if (!names.length) return { ...group, partName, outsideQuote: false }
     const hit = matchQuotePartName(partName, names)
-    if (hit) return { ...group, partName: hit, outsideQuote: false }
+    if (hit) return { ...group, partName, outsideQuote: false }
+    if (group && group.outsideQuote === false) return { ...group, partName, outsideQuote: false }
     return { ...group, partName, outsideQuote: true }
   })
 }
@@ -741,7 +742,12 @@ function applyOrganizeGroups({
           ...host,
           images,
           partName: host.partName || partName,
-          caption: host.caption || String((group && group.caption) || '').trim(),
+          material:
+            host.material ||
+            String((group && (group.material || group.caption)) || '').trim(),
+          caption:
+            host.caption ||
+            String((group && (group.observation || '')) || '').trim(),
           outsideQuote: Boolean(group && group.outsideQuote),
         })
       } else {
@@ -761,7 +767,8 @@ function applyOrganizeGroups({
       nextFindings.push(
         normalizeWorkFinding({
           partName,
-          caption: String((group && group.caption) || '').trim(),
+          material: String((group && (group.material || group.caption)) || '').trim(),
+          caption: String((group && (group.observation || '')) || '').trim(),
           images: shots.slice(0, WORK_IMAGES_MAX),
           outsideQuote: Boolean(group && group.outsideQuote),
         }),

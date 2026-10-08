@@ -541,6 +541,14 @@
   padding: var(--space-xs) 0;
 }
 
+.merchant-flow-page__add-finding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88rpx;
+  padding: var(--space-sm) 0;
+}
+
 .merchant-flow-page__addon-link {
   color: var(--color-primary);
   text-align: center;

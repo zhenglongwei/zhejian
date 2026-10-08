@@ -135,9 +135,31 @@ test('work organize uses confirmed quote name and flags items outside quote', ()
   })
   const oil = findings.find((row) => /机油/.test(row.partName))
   const wiper = findings.find((row) => /雨刮/.test(row.partName))
-  assert.equal(oil.partName, '小保养机油')
+  assert.equal(oil.partName, '机油')
   assert.equal(oil.outsideQuote, false)
+  assert.equal(wiper.partName, '更换雨刮片')
   assert.equal(wiper.outsideQuote, true)
+})
+
+test('work organize keeps specific part name and fills material', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [a],
+    findings: [],
+    groups: [{
+      partName: '下摆臂',
+      caption: '下摆臂',
+      observation: '旧件胶套可见磨损',
+      imageKeys: ['uploads/a.jpg'],
+      outsideQuote: false,
+    }],
+    mode: 'work',
+    quoteNames: ['车身前部事故损伤修复（含结构件校正/更换及外观件修复）'],
+  })
+  assert.equal(findings.length, 1)
+  assert.equal(findings[0].partName, '下摆臂')
+  assert.equal(findings[0].material, '下摆臂')
+  assert.equal(findings[0].caption, '旧件胶套可见磨损')
+  assert.equal(findings[0].outsideQuote, false)
 })
 
 test('collectConfirmedQuoteNames only keeps confirmed quote lines', () => {
@@ -169,7 +191,7 @@ test('work organize groups by job name without result', () => {
   })
   assert.equal(findings.length, 1)
   assert.equal(findings[0].partName, '更换机油')
-  assert.equal(findings[0].caption, '换了机油和滤芯')
+  assert.equal(findings[0].material, '换了机油和滤芯')
   assert.equal(findings[0].result, '')
   assert.equal(pendingImages.length, 0)
 })
