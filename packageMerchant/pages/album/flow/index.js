@@ -3404,7 +3404,12 @@ Page({
         updatedAt: node.updatedAt || new Date().toISOString(),
       })),
     )
-    await saveMerchantServiceAlbum(this.albumId, { nodes: persisted })
+    const nodePatches = persisted.filter((node) =>
+      Object.prototype.hasOwnProperty.call(sectionMap, node.id),
+    )
+    await saveMerchantServiceAlbum(this.albumId, {
+      nodePatches: nodePatches.length ? nodePatches : persisted,
+    })
     this._album = { ...album, nodes: persisted }
   },
 

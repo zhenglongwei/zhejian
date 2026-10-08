@@ -1,3 +1,4 @@
+const { createHash } = require('crypto')
 const { prisma } = require('../lib/prisma')
 const { newId, formatVehicle, maskPhone, toIso } = require('../lib/ids')
 const { albumToNodeView } = require('./desensitize.constants')
@@ -816,41 +817,57 @@ function uniqueSyncAlbumNodes(nodesPayload = []) {
   return Array.from(map.values())
 }
 
-async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
-  const nodes = uniqueSyncAlbumNodes(
-    nodesPayload.length
-      ? nodesPayload
-      : DEFAULT_STAGE_NODES.map((n) => ({
-          id: n.nodeId,
-          title: n.title,
-          status: 'pending',
-          note: '',
-          images: [],
-        })),
-  )
+/** 图的身份是文件本身，不是「第几张」。并发保存不会因为序号相同撞主键。 */
+function stableAlbumImageId(albumId, rawUrl) {
+  const digest = createHash('sha1').update(String(rawUrl || '')).digest('hex').slice(0, 24)
+  return `img_${albumId}_${digest}`
+}
+
+function existingAlbumImageIdByUrl(existingImages = []) {
+  const map = new Map()
+  ;(existingImages || []).forEach((img) => {
+    const raw = stripUrlQuery(String((img && (img.rawUrl || img.url)) || ''))
+    const id = String((img && img.id) || '')
+    if (raw && id && !map.has(raw)) map.set(raw, id)
+  })
+  return map
+}
+
+async function buildAlbumNodeImageRows(albumId, nodes, options = {}) {
   const albumContext = options.album || null
   const previousUrls = options.previousImageUrls || new Set()
-  const gateCache = buildImageGateCache(options.existingImages || [])
+  const existingImages = options.existingImages || []
+  const existingSort = {}
+  ;(albumContext && Array.isArray(albumContext.nodes) ? albumContext.nodes : []).forEach((row) => {
+    const id = String((row && (row.nodeId || row.id)) || '')
+    if (id && row.sortOrder != null) existingSort[id] = Number(row.sortOrder)
+  })
+  const gateCache = buildImageGateCache(existingImages)
   const warrantyUrlSet = new Set(
     normalizeImageList(
       (options.warrantyImageUrls || findWarrantyEvidenceItem(options.evidenceItems || [])?.images || []),
     ).map((url) => stripUrlQuery(url)),
   )
+  const idByUrl = existingAlbumImageIdByUrl(existingImages)
   const imageGateResults = []
   const nodeRows = []
   const imageRows = []
   const seenImageIds = new Set()
-  let imageCount = 0
+  const seenUrls = new Set()
+  let nextSort = Math.max(0, ...Object.values(existingSort).map((n) => Number(n) || 0)) + 1
 
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i]
     const nodeId = node.id || node.nodeId || `stage_${i + 1}`
     const nodeTitle = node.title || ''
+    const sortOrder = options.keepSort && existingSort[nodeId] != null
+      ? existingSort[nodeId]
+      : (options.keepSort ? nextSort++ : i)
     nodeRows.push({
       albumId,
       nodeId,
       title: nodeTitle,
-      sortOrder: i,
+      sortOrder,
       status: node.status || 'pending',
       note: node.note || '',
       comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
@@ -877,6 +894,8 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         })
       }
       rawUrl = stripUrlQuery(rawUrl)
+      if (!rawUrl || seenUrls.has(rawUrl)) continue
+      seenUrls.add(rawUrl)
       const gateFields = await resolveImagePublicFields(nodeId, rawUrl, gateCache, {
         ignoreDocumentTag: warrantyUrlSet.has(rawUrl),
       })
@@ -890,7 +909,7 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
           hint: gateFields.hint,
         })
       }
-      const id = `img_${albumId}_${nodeId}_${idx}`
+      const id = idByUrl.get(rawUrl) || stableAlbumImageId(albumId, rawUrl)
       if (seenImageIds.has(id)) continue
       seenImageIds.add(id)
       imageRows.push({
@@ -906,22 +925,78 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         publicGateReason: gateFields.publicGateReason,
         publicGateCheckedAt: gateFields.publicGateCheckedAt,
       })
-      imageCount += 1
     }
   }
+  return { nodeRows, imageRows, imageGateResults }
+}
 
+async function commitAlbumNodeImages(albumId, nodeRows, imageRows, options = {}) {
+  const replaceAll = Boolean(options.replaceAll)
+  const patchedNodeIds = Array.isArray(options.patchedNodeIds) ? options.patchedNodeIds : []
   try {
     await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM albums WHERE id = ${albumId} FOR UPDATE`
-      await tx.albumImage.deleteMany({ where: { albumId } })
-      await tx.albumNode.deleteMany({ where: { albumId } })
       for (let i = 0; i < nodeRows.length; i += 1) {
-        await tx.albumNode.create({ data: nodeRows[i] })
+        const row = nodeRows[i]
+        await tx.albumNode.upsert({
+          where: { albumId_nodeId: { albumId, nodeId: row.nodeId } },
+          create: row,
+          update: {
+            title: row.title,
+            sortOrder: row.sortOrder,
+            status: row.status,
+            note: row.note,
+            comparePairRows: row.comparePairRows,
+            updatedAt: row.updatedAt,
+          },
+        })
       }
-      if (imageRows.length) {
-        await tx.albumImage.createMany({ data: imageRows })
+      for (let i = 0; i < imageRows.length; i += 1) {
+        const row = imageRows[i]
+        await tx.albumImage.upsert({
+          where: { id: row.id },
+          create: row,
+          update: {
+            albumId: row.albumId,
+            nodeId: row.nodeId,
+            idx: row.idx,
+            rawUrl: row.rawUrl,
+            caption: row.caption,
+            checklistItemKey: row.checklistItemKey,
+            visibility: row.visibility,
+            publicGateStatus: row.publicGateStatus,
+            publicGateReason: row.publicGateReason,
+            publicGateCheckedAt: row.publicGateCheckedAt,
+          },
+        })
       }
-    }, { timeout: 20000 })
+      const keepImageIds = imageRows.map((row) => row.id)
+      if (replaceAll) {
+        if (keepImageIds.length) {
+          await tx.albumImage.deleteMany({
+            where: { albumId, id: { notIn: keepImageIds } },
+          })
+        } else {
+          await tx.albumImage.deleteMany({ where: { albumId } })
+        }
+        const keepNodeIds = nodeRows.map((row) => row.nodeId)
+        if (keepNodeIds.length) {
+          await tx.albumNode.deleteMany({
+            where: { albumId, nodeId: { notIn: keepNodeIds } },
+          })
+        } else {
+          await tx.albumNode.deleteMany({ where: { albumId } })
+        }
+      } else if (patchedNodeIds.length) {
+        await tx.albumImage.deleteMany({
+          where: {
+            albumId,
+            nodeId: { in: patchedNodeIds },
+            ...(keepImageIds.length ? { id: { notIn: keepImageIds } } : {}),
+          },
+        })
+      }
+    }, { timeout: 30000 })
   } catch (e) {
     if (e && e.code === 'P2002') {
       const err = new Error('保存冲突，请再试一次')
@@ -930,8 +1005,38 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
     }
     throw e
   }
+  const imageCount = await prisma.albumImage.count({ where: { albumId } })
+  return { imageCount }
+}
 
-  return { imageCount, imageGateResults }
+async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
+  const nodes = uniqueSyncAlbumNodes(
+    nodesPayload.length
+      ? nodesPayload
+      : DEFAULT_STAGE_NODES.map((n) => ({
+          id: n.nodeId,
+          title: n.title,
+          status: 'pending',
+          note: '',
+          images: [],
+        })),
+  )
+  const built = await buildAlbumNodeImageRows(albumId, nodes, options)
+  const committed = await commitAlbumNodeImages(albumId, built.nodeRows, built.imageRows, {
+    replaceAll: true,
+  })
+  return { imageCount: committed.imageCount, imageGateResults: built.imageGateResults }
+}
+
+async function patchAlbumNodes(albumId, nodesPayload = [], options = {}) {
+  const nodes = uniqueSyncAlbumNodes(nodesPayload)
+  const built = await buildAlbumNodeImageRows(albumId, nodes, { ...options, keepSort: true })
+  const patchedNodeIds = nodes.map((node) => node.id || node.nodeId).filter(Boolean)
+  const committed = await commitAlbumNodeImages(albumId, built.nodeRows, built.imageRows, {
+    replaceAll: false,
+    patchedNodeIds,
+  })
+  return { imageCount: committed.imageCount, imageGateResults: built.imageGateResults }
 }
 
 function buildUserAlbumWhere(userId, phone) {
@@ -2065,18 +2170,25 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       evidenceItemsJson,
     )
   }
-  if (payload.nodes) {
+  const nodePayload = Array.isArray(payload.nodePatches) && payload.nodePatches.length
+    ? payload.nodePatches
+    : payload.nodes
+  const patchOnly = Array.isArray(payload.nodePatches) && payload.nodePatches.length > 0
+  if (nodePayload) {
     const mergeItems = stripRetiredDocumentItems(evidenceItemsJson)
-    const mergedNodes = mergeEvidenceIntoNodes(payload.nodes, mergeItems)
+    const mergedNodes = mergeEvidenceIntoNodes(nodePayload, mergeItems)
     const previousImageUrls = new Set(
       (existing.images || []).map((img) => rewriteMediaUrlForCurrentBase(img.rawUrl))
     )
-    const syncResult = await syncAlbumNodes(albumId, mergedNodes, {
+    const syncOptions = {
       album: existing,
       previousImageUrls,
       existingImages: existing.images || [],
       evidenceItems: mergeItems,
-    })
+    }
+    const syncResult = patchOnly
+      ? await patchAlbumNodes(albumId, mergedNodes, syncOptions)
+      : await syncAlbumNodes(albumId, mergedNodes, syncOptions)
     imageCount = syncResult.imageCount
     payload._imageGateResults = syncResult.imageGateResults
     const { syncPlanQuoteImageIds } = require('./album-plan-parts.service')
