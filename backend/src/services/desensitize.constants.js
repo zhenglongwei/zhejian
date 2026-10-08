@@ -219,8 +219,10 @@ function buildReviewPreviewTaskId(reviewId) {
 }
 
 function albumToNodeView(album) {
+  const { excludeLibraryNodes, isLibraryNodeId } = require('../constants/album-media-library')
   const imagesByNode = {}
   ;(album.images || []).forEach((img) => {
+    if (isLibraryNodeId(img.nodeId)) return
     if (!imagesByNode[img.nodeId]) imagesByNode[img.nodeId] = []
     imagesByNode[img.nodeId].push({
       id: img.id,
@@ -229,7 +231,7 @@ function albumToNodeView(album) {
       checklistItemKey: String(img.checklistItemKey || ''),
     })
   })
-  return (album.nodes || []).map((node) => ({
+  return excludeLibraryNodes(album.nodes || []).map((node) => ({
     nodeId: node.nodeId,
     id: node.nodeId,
     title: node.title,

@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { libraryNote, formatLibraryTime, pickCache } = require('./album-media-library.service')
+const { FLOW_ORGANIZE_PROMPT_VERSION } = require('./node-photo-organize.service')
 
 test('library note prefers category, reading and observation', () => {
   const note = libraryNote(
@@ -22,7 +23,7 @@ test('library time is month-day hour:minute', () => {
 test('pickCache prefers flow organize prompt version', () => {
   const hit = pickCache([
     { promptVersion: 'album-vision-v2-2026-09-19', resultJson: { description: 'old' } },
-    { promptVersion: 'flow-organize-v4', resultJson: { observation: 'new' } },
+    { promptVersion: FLOW_ORGANIZE_PROMPT_VERSION, resultJson: { observation: 'new' } },
   ])
   assert.equal(hit.resultJson.observation, 'new')
 })

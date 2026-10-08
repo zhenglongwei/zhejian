@@ -174,6 +174,26 @@ test('work organize groups by job name without result', () => {
   assert.equal(pendingImages.length, 0)
 })
 
+test('strict work draft stays empty even if album still has photos', () => {
+  const { mapFindingRows } = require('./service-flow-docs')
+  const rows = mapFindingRows(
+    [a, b],
+    [],
+    { mode: 'work', strictFindings: true },
+  )
+  assert.equal(rows.length, 0)
+})
+
+test('strict inspection draft stays empty even if album still has captioned photos', () => {
+  const { mapFindingRows } = require('./service-flow-docs')
+  const rows = mapFindingRows(
+    [{ url: a.url, imageId: '1', caption: '机油' }],
+    [],
+    { strictFindings: true },
+  )
+  assert.equal(rows.length, 0)
+})
+
 test('work pending keys stay out of empty-draft remap', () => {
   const rows = mapFindingRows(
     [a, c],

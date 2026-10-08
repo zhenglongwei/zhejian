@@ -47,6 +47,11 @@ const {
 } = require('../lib/merchant-album-access')
 const { loadActiveStoreForMerchant } = require('./merchant-context.service')
 const {
+  LIBRARY_NODE_ID,
+  isLibraryNodeId,
+  listDetachedImageIds,
+} = require('../constants/album-media-library')
+const {
   ensureChecklistOnCreate,
   hydrateChecklistState,
   syncChecklistImageLinks,
@@ -812,9 +817,48 @@ function uniqueSyncAlbumNodes(nodesPayload = []) {
   ;(nodesPayload || []).forEach((node, i) => {
     const nodeId = String((node && (node.id || node.nodeId)) || `stage_${i + 1}`).trim()
       || `stage_${i + 1}`
+    if (isLibraryNodeId(nodeId)) return
     map.set(nodeId, { ...node, id: nodeId })
   })
   return Array.from(map.values())
+}
+
+async function ensureLibraryAlbumNode(tx, albumId) {
+  await tx.albumNode.upsert({
+    where: { albumId_nodeId: { albumId, nodeId: LIBRARY_NODE_ID } },
+    create: {
+      albumId,
+      nodeId: LIBRARY_NODE_ID,
+      title: '图库',
+      sortOrder: 99,
+      status: 'pending',
+      note: '',
+      comparePairRows: [],
+      updatedAt: new Date(),
+    },
+    update: {
+      title: '图库',
+    },
+  })
+}
+
+async function parkDetachedImagesToLibrary(tx, albumId, imageIds = []) {
+  const ids = (imageIds || []).filter(Boolean)
+  if (!ids.length) return
+  await ensureLibraryAlbumNode(tx, albumId)
+  const existingLib = await tx.albumImage.count({
+    where: { albumId, nodeId: LIBRARY_NODE_ID, id: { notIn: ids } },
+  })
+  for (let i = 0; i < ids.length; i += 1) {
+    await tx.albumImage.update({
+      where: { id: ids[i] },
+      data: {
+        nodeId: LIBRARY_NODE_ID,
+        idx: existingLib + i,
+        caption: '',
+      },
+    })
+  }
 }
 
 /** 图的身份是文件本身，不是「第几张」。并发保存不会因为序号相同撞主键。 */
@@ -859,6 +903,7 @@ async function buildAlbumNodeImageRows(albumId, nodes, options = {}) {
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i]
     const nodeId = node.id || node.nodeId || `stage_${i + 1}`
+    if (isLibraryNodeId(nodeId)) continue
     const nodeTitle = node.title || ''
     const sortOrder = options.keepSort && existingSort[nodeId] != null
       ? existingSort[nodeId]
@@ -971,29 +1016,21 @@ async function commitAlbumNodeImages(albumId, nodeRows, imageRows, options = {})
         })
       }
       const keepImageIds = imageRows.map((row) => row.id)
+      if (replaceAll || patchedNodeIds.length) {
+        const currentImages = await tx.albumImage.findMany({
+          where: { albumId },
+          select: { id: true, nodeId: true },
+        })
+        const detachedIds = listDetachedImageIds(currentImages, keepImageIds, {
+          replaceAll,
+          patchedNodeIds,
+        })
+        await parkDetachedImagesToLibrary(tx, albumId, detachedIds)
+      }
       if (replaceAll) {
-        if (keepImageIds.length) {
-          await tx.albumImage.deleteMany({
-            where: { albumId, id: { notIn: keepImageIds } },
-          })
-        } else {
-          await tx.albumImage.deleteMany({ where: { albumId } })
-        }
-        const keepNodeIds = nodeRows.map((row) => row.nodeId)
-        if (keepNodeIds.length) {
-          await tx.albumNode.deleteMany({
-            where: { albumId, nodeId: { notIn: keepNodeIds } },
-          })
-        } else {
-          await tx.albumNode.deleteMany({ where: { albumId } })
-        }
-      } else if (patchedNodeIds.length) {
-        await tx.albumImage.deleteMany({
-          where: {
-            albumId,
-            nodeId: { in: patchedNodeIds },
-            ...(keepImageIds.length ? { id: { notIn: keepImageIds } } : {}),
-          },
+        const keepNodeIds = nodeRows.map((row) => row.nodeId).concat([LIBRARY_NODE_ID])
+        await tx.albumNode.deleteMany({
+          where: { albumId, nodeId: { notIn: keepNodeIds } },
         })
       }
     }, { timeout: 30000 })

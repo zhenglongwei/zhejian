@@ -596,15 +596,17 @@ Page({
       })
       reindexRow(idx)
     }
+    if (Array.isArray(photoDraft && photoDraft.findings)) {
+      return (photoDraft.findings || []).map((raw, index) => normalizeWorkFinding(raw, index))
+    }
     const currentId = activeNode && activeNode.id
     ;(flowNodes || []).forEach((node) => {
       if (!node || node.kind !== 'work') return
       if (currentId && node.id === currentId) return
       ;((node.photoDraft && node.photoDraft.findings) || []).forEach((raw) => put(raw, false))
     })
-    const currentFindings = Array.isArray(photoDraft && photoDraft.findings)
-      ? photoDraft.findings
-      : ((activeNode && activeNode.photoDraft && activeNode.photoDraft.findings) || [])
+    const currentFindings =
+      (activeNode && activeNode.photoDraft && activeNode.photoDraft.findings) || []
     currentFindings.forEach((raw) => put(raw, true))
     return rows
   },
@@ -735,6 +737,7 @@ Page({
 
   buildSections(album, node, photoDraft = {}, flowNodes = []) {
     const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
+    const strictFindings = Object.prototype.hasOwnProperty.call(photoDraft, 'findings')
 
     // 接车＝留证：照片 + 主诉/里程/车型 + 环车清单勾选，**不做**故障判定
     if (node && node.kind === 'intake') {
@@ -777,6 +780,7 @@ Page({
           images,
           findings: mapFindingRows(images, draftFindings, {
             pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+            strictFindings,
           }),
           odometerUrl: '',
           odometerImageId: '',
@@ -791,6 +795,7 @@ Page({
       const mapped = mapFindingRows(images, draftFindings, {
         odometerUrl: photoDraft.odometerUrl,
         pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+        strictFindings,
       })
       const slot = pickOdometerSlot(photoDraft, mapped)
       const odoKey = mediaKey(slot.odometerUrl)
@@ -836,6 +841,7 @@ Page({
         findings = mapFindingRows(images, mergedDraft, {
           mode: findingKind === 'work' ? 'work' : 'inspection',
           pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+          strictFindings,
         })
       }
       return {
@@ -1742,6 +1748,7 @@ Page({
       expandKey,
     )
     this.scheduleAutoSavePhotos()
+    this.scheduleParkDetachedPhotos()
   },
 
   withFindingMeta(item, nextRaw, extra = {}) {
@@ -2030,6 +2037,7 @@ Page({
     })
     this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
     this.scheduleAutoSavePhotos()
+    this.scheduleParkDetachedPhotos()
   },
 
   packDeliveryPool(pool = [], exteriorUrl = '') {
@@ -2336,6 +2344,7 @@ Page({
       ...this.findingChromePatch(this.data.sections, pendingImages),
     })
     this.scheduleAutoSavePhotos()
+    this.scheduleParkDetachedPhotos()
   },
 
   findingSectionIndex(sections = this.data.sections) {
@@ -2720,6 +2729,16 @@ Page({
     this._photoSaveTimer = setTimeout(() => {
       this.runAutoSavePhotos()
     }, 700)
+  },
+
+  /** 从项上卸下的图立刻改挂到本单图库，不删文件 */
+  scheduleParkDetachedPhotos() {
+    if (this.data.readOnly) return
+    if (this._parkTimer) clearTimeout(this._parkTimer)
+    this._parkTimer = setTimeout(() => {
+      if (this.data.organizingPhotos) return
+      this.persistPhotos().catch(() => {})
+    }, 500)
   },
 
   /** 改字只记本机，不写服务器 */
@@ -3361,7 +3380,10 @@ Page({
         caption: img.caption || '',
       })
     })
-    let nodes = (album.nodes || []).map((node) => {
+    let nodes = (album.nodes || []).filter((node) => {
+      const id = String((node && (node.id || node.nodeId)) || '')
+      return id && id !== 'library'
+    }).map((node) => {
       const id = node.id || node.nodeId
       const fallback = (node.images && node.images.length)
         ? node.images

@@ -290,7 +290,13 @@ function mapWorkFindingRows(images = [], draftFindings = [], options = {}) {
         return Boolean(key && !pendingKeys.has(key))
       })
     : images
-  const draftList = (draftFindings || []).map((row, index) => normalizeWorkFinding(row, index))
+  const draftList = (Array.isArray(draftFindings) ? draftFindings : []).map((row, index) =>
+    normalizeWorkFinding(row, index),
+  )
+  const strictFindings = Boolean(options && options.strictFindings)
+  if (strictFindings && !draftList.some((row) => row.images.length || row.partName || row.id)) {
+    return []
+  }
   if (draftList.some((row) => row.images.length || row.partName || row.id)) {
     const persisted = mapPhotoRows(workImages)
     if (!persisted.length) return draftList
@@ -882,6 +888,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
     assigned.push(draft)
   })
   const merged = mergeFindingsByPart(assigned)
+  if (options && options.strictFindings) return merged
   const owned = new Set()
   merged.forEach((item) => {
     findingImageKeys(item).forEach((key) => owned.add(key))

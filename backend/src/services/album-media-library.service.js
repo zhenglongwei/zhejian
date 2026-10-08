@@ -10,6 +10,7 @@ const {
   INTAKE_RECORD_CATEGORIES,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 const { FLOW_ORGANIZE_PROMPT_VERSION } = require('./node-photo-organize.service')
+const { LIBRARY_NODE_ID } = require('../constants/album-media-library')
 
 const KIND_TITLE = {
   intake: '接车',
@@ -70,6 +71,7 @@ const STAGE_TITLE = {
   stage_2: '检测',
   stage_5: '工单',
   stage_6: '交车',
+  [LIBRARY_NODE_ID]: '图库',
 }
 
 function pickCache(rows = []) {
