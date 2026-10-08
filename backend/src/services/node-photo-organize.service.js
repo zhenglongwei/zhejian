@@ -129,21 +129,20 @@ async function collectMaskedPending(albumId, pending = []) {
     scheduleAlbumPreMask(albumId, { trigger: 'photo_organize' })
   }
   const lookup = await buildPreMaskUrlLookup(albumId)
-  if (!lookup.ready) return { ready: false, urls: [] }
   const urls = []
-  ;(pending || []).forEach((img, index) => {
+  for (let index = 0; index < (pending || []).length; index += 1) {
+    const img = pending[index]
     const raw = text(img && img.url)
     const masked =
       lookup.byRawUrl.get(raw) || lookup.byRawUrl.get(stripUrlQuery(raw)) || ''
-    if (masked) {
-      urls.push({
-        url: masked,
-        label: `图${index + 1}`,
-        imageKey: mediaKey(raw),
-        rawUrl: raw,
-      })
-    }
-  })
+    if (!masked) return { ready: false, urls: [] }
+    urls.push({
+      url: masked,
+      label: `图${index + 1}`,
+      imageKey: mediaKey(raw),
+      rawUrl: raw,
+    })
+  }
   return { ready: true, urls }
 }
 

@@ -5,6 +5,11 @@ const {
   PRE_MASK_STATUS,
   ASSET_STATUS,
   nodesFingerprint,
+  rawUrlLookupKeys,
+  indexAssetsByRawUrl,
+  lookupAssetByRawUrl,
+  shouldReuseMaskedAsset,
+  listUnmaskedAlbumAssets,
   collectAssetsFromAlbum,
   resolvePreMaskStatus,
   mapTaskRecord,
@@ -293,29 +298,63 @@ async function clearPendingAuthorizeTasks(albumId, authorizeBizType) {
   })
 }
 
-async function preMaskTaskHasStubArtifacts(preMaskTask) {
-  if (!preMaskTask?.assets?.length) return false
+async function collectStubRawUrlKeys(preMaskTask) {
+  const keys = new Set()
+  if (!preMaskTask?.assets?.length) return keys
   for (const asset of preMaskTask.assets) {
     const rawUrl = asset.rawUrl
     if (!rawUrl) continue
     const rawKey = parseObjectKeyFromPublicUrl(rawUrl)
     const maskedUrl = asset.maskedUrl || asset.preMaskedUrl
     const maskedKey = maskedUrl ? parseObjectKeyFromPublicUrl(maskedUrl) : ''
-    if (rawKey && maskedKey && isStubCopyArtifact(rawKey, maskedKey)) {
-      console.info('[desensitize] stub copy in pre-mask task asset', { rawKey, maskedKey })
-      return true
+    let stub = Boolean(rawKey && maskedKey && isStubCopyArtifact(rawKey, maskedKey))
+    if (!stub) {
+      const media = await ensureMediaRecordFromUrl(rawUrl)
+      stub = Boolean(
+        media?.desensitizedKey &&
+          media.desensitizeStatus === 'success' &&
+          isStubCopyArtifact(media.objectKey, media.desensitizedKey),
+      )
     }
-    const media = await ensureMediaRecordFromUrl(rawUrl)
-    if (
-      media?.desensitizedKey &&
-      media.desensitizeStatus === 'success' &&
-      isStubCopyArtifact(media.objectKey, media.desensitizedKey)
-    ) {
-      console.info('[desensitize] stub copy in media_assets', { objectKey: media.objectKey })
-      return true
-    }
+    if (!stub) continue
+    console.info('[desensitize] stub copy in pre-mask task asset', { rawUrl: rawKey || rawUrl })
+    rawUrlLookupKeys(rawUrl).forEach((key) => keys.add(key))
   }
-  return false
+  return keys
+}
+
+async function preMaskTaskHasStubArtifacts(preMaskTask) {
+  const keys = await collectStubRawUrlKeys(preMaskTask)
+  return keys.size > 0
+}
+
+function isRawUrlInKeySet(keySet, rawUrl) {
+  if (!keySet || !keySet.size) return false
+  return rawUrlLookupKeys(rawUrl).some((key) => keySet.has(key))
+}
+
+function fillPreMaskLookupMaps(task) {
+  const byRawUrl = new Map()
+  const byNodeIdx = new Map()
+  ;(task?.assets || []).forEach((asset) => {
+    const masked = String(asset.maskedUrl || asset.preMaskedUrl || '').trim()
+    if (!masked) return
+    const raw = String(asset.rawUrl || '').trim()
+    if (raw) {
+      byRawUrl.set(raw, masked)
+      byRawUrl.set(stripUrlQuery(raw), masked)
+      try {
+        byRawUrl.set(rewriteMediaUrlForCurrentBase(raw), masked)
+        byRawUrl.set(stripUrlQuery(rewriteMediaUrlForCurrentBase(raw)), masked)
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (asset.nodeId != null && asset.idx != null) {
+      byNodeIdx.set(`${asset.nodeId}:${Number(asset.idx)}`, masked)
+    }
+  })
+  return { byRawUrl, byNodeIdx }
 }
 
 function notifyPreMaskReadyForGeoLlm(albumId, preMaskStatus) {
@@ -412,7 +451,6 @@ async function getAlbumPreMaskReadiness(albumId) {
     return { state: 'failed', reason: '相册不存在' }
   }
   const { preMaskBizType } = resolveAlbumBizTypes(album)
-  const versionedFingerprint = buildVersionedFingerprint(album)
   const preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   if (!preMaskTask) {
     return { state: 'pending', reason: 'pre_mask_missing' }
@@ -433,46 +471,47 @@ async function getAlbumPreMaskReadiness(albumId) {
     return { state: 'pending', task: preMaskTask, reason: 'pre_mask_unknown' }
   }
 
-  const engineStale = preMaskTask.fingerprint !== versionedFingerprint
   const stubArtifacts = await preMaskTaskHasStubArtifacts(preMaskTask)
-  if (engineStale || stubArtifacts) {
+  if (stubArtifacts) {
     return {
       state: 'pending',
       task: preMaskTask,
-      reason: engineStale ? 'fingerprint_stale' : 'stub_artifacts',
-      needsForceRefresh: true,
+      reason: 'stub_artifacts',
+      needsForceRefresh: false,
+    }
+  }
+
+  const nodeViews = albumToNodeView(album)
+  const missing = listUnmaskedAlbumAssets(
+    collectAssetsFromAlbum({ nodes: nodeViews }),
+    preMaskTask.assets,
+  )
+  if (missing.length) {
+    return {
+      state: 'pending',
+      task: preMaskTask,
+      reason: 'assets_unmasked',
+      needsForceRefresh: false,
     }
   }
   return { state: 'ready', task: preMaskTask }
 }
 
-/** rawUrl / nodeId:idx → 脱敏图 URL，供 AI Vision 等复用 */
+/** rawUrl / nodeId:idx → 脱敏图 URL，供 AI Vision 等复用；未整本就绪时仍返回已打码图。 */
 async function buildPreMaskUrlLookup(albumId) {
-  const readiness = await getAlbumPreMaskReadiness(albumId)
-  if (readiness.state !== 'ready' || !readiness.task) {
+  const album = await loadAlbumWithRelations(albumId)
+  if (!album) {
     return { ready: false, byRawUrl: new Map(), byNodeIdx: new Map() }
   }
-  const byRawUrl = new Map()
-  const byNodeIdx = new Map()
-  ;(readiness.task.assets || []).forEach((asset) => {
-    const masked = String(asset.maskedUrl || asset.preMaskedUrl || '').trim()
-    if (!masked) return
-    const raw = String(asset.rawUrl || '').trim()
-    if (raw) {
-      byRawUrl.set(raw, masked)
-      byRawUrl.set(stripUrlQuery(raw), masked)
-      try {
-        byRawUrl.set(rewriteMediaUrlForCurrentBase(raw), masked)
-        byRawUrl.set(stripUrlQuery(rewriteMediaUrlForCurrentBase(raw)), masked)
-      } catch (_) {
-        /* ignore */
-      }
-    }
-    if (asset.nodeId != null && asset.idx != null) {
-      byNodeIdx.set(`${asset.nodeId}:${Number(asset.idx)}`, masked)
-    }
-  })
-  return { ready: true, byRawUrl, byNodeIdx, task: readiness.task }
+  const { preMaskBizType } = resolveAlbumBizTypes(album)
+  const task = await findPreMaskTask(albumId, preMaskBizType)
+  const maps = fillPreMaskLookupMaps(task)
+  const readiness = await getAlbumPreMaskReadiness(albumId)
+  return {
+    ready: readiness.state === 'ready',
+    ...maps,
+    task: readiness.task || task,
+  }
 }
 
 async function ensureOrderPreMaskTask(albumId, options = {}) {
@@ -501,33 +540,57 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   const fingerprint = nodesFingerprint(nodeViews)
   const versionedFingerprint = `${fingerprint}@${config.desensitize.cacheVersion}`
   const existing = await findPreMaskTask(albumId, preMaskBizType)
-  let force = Boolean(options.force)
+  let albumForce = Boolean(options.force)
+  const stubKeys = await collectStubRawUrlKeys(existing)
+
   if (
     existing &&
     existing.fingerprint === versionedFingerprint &&
     [PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(existing.preMaskStatus) &&
-    !force
+    !albumForce &&
+    !stubKeys.size
   ) {
-    const hasStub = await preMaskTaskHasStubArtifacts(existing)
-    if (!hasStub) return mapTaskRecord(existing)
-    console.info('[desensitize] force pre-mask rerun: stub copy artifacts', { albumId })
-    force = true
+    return mapTaskRecord(existing)
   }
 
   if (existing && existing.fingerprint !== versionedFingerprint) {
     await clearPendingAuthorizeTasks(albumId, authorizeBizType)
-    force = true
   }
 
   const taskId = buildPreMaskTaskId(albumId)
   const preMaskVersion = (existing?.preMaskVersion || 0) + 1
+  const prevIndex = indexAssetsByRawUrl(existing && existing.assets)
+  const currentAssets = collectAssetsFromAlbum({ nodes: nodeViews })
+  let reuseCount = 0
+  let maskCount = 0
   const assetInputs = await Promise.all(
-    collectAssetsFromAlbum({ nodes: nodeViews }).map(async (asset) => {
+    currentAssets.map(async (asset) => {
+      const prev = lookupAssetByRawUrl(prevIndex, asset.rawUrl)
+      const stub = isRawUrlInKeySet(stubKeys, asset.rawUrl)
+      if (shouldReuseMaskedAsset(prev, { albumForce, stub })) {
+        reuseCount += 1
+        const maskedUrl = String(prev.maskedUrl || prev.preMaskedUrl || '').trim()
+        return {
+          assetId: asset.assetId,
+          mediaId: prev.mediaId || '',
+          nodeId: asset.nodeId,
+          nodeTitle: asset.nodeTitle,
+          idx: asset.idx,
+          rawUrl: asset.rawUrl,
+          maskedUrl,
+          preMaskedUrl: maskedUrl,
+          status: prev.status || ASSET_STATUS.MASKED_READY,
+          previewed: false,
+          riskTags: prev.riskTags || [],
+          riskLevel: prev.riskLevel || 'low',
+        }
+      }
+      maskCount += 1
       const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
         albumId,
         nodeId: asset.nodeId,
         idx: asset.idx,
-        force,
+        force: albumForce || stub,
       })
       const preMaskedUrl = masked.ok ? masked.maskedUrl : ''
       return {
@@ -544,8 +607,14 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : preMaskedUrl ? [] : [],
         riskLevel: masked.riskLevel || (preMaskedUrl ? 'low' : ''),
       }
-    })
+    }),
   )
+  console.info('[desensitize] incremental pre-mask', {
+    albumId,
+    reuse: reuseCount,
+    mask: maskCount,
+    albumForce,
+  })
   const preMaskStatus = resolvePreMaskStatus(assetInputs)
   const now = new Date()
 
@@ -613,12 +682,10 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
   const readiness = await getAlbumPreMaskReadiness(albumId)
 
   if (readiness.state === 'pending') {
-    if (readiness.needsForceRefresh) {
-      scheduleAlbumPreMask(albumId, {
-        force: true,
-        auth: { roles: [ROLES.SYSTEM] },
-      })
-    }
+    scheduleAlbumPreMask(albumId, {
+      force: Boolean(readiness.needsForceRefresh),
+      auth: { roles: [ROLES.SYSTEM] },
+    })
     throwAuthorizePreMaskNotReady('配图脱敏处理中，完成后会通知你，请稍后再试')
   }
 
@@ -1293,13 +1360,18 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
   const versionedFingerprint = `${nodesFingerprint(nodeViews)}@${config.desensitize.cacheVersion}`
   let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
-  const engineStale = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
+  const missingAssets = listUnmaskedAlbumAssets(
+    collectAssetsFromAlbum({ nodes: nodeViews }),
+    preMaskTask?.assets,
+  )
+  const fingerprintChanged = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
   const preMaskAssetCount = (preMaskTask?.assets || []).length
   const preMaskFailedNeedsRetry =
     preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED && preMaskAssetCount > 0
   const needsPreMaskRefresh =
     !preMaskTask ||
-    engineStale ||
+    fingerprintChanged ||
+    missingAssets.length > 0 ||
     [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null].includes(
       preMaskTask?.preMaskStatus
     ) ||
@@ -1308,8 +1380,7 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
 
   if (needsPreMaskRefresh) {
     await ensureOrderPreMaskTask(albumId, {
-      force:
-        preMaskFailedNeedsRetry || stubArtifacts || engineStale,
+      force: false,
       preMaskBizType,
       authorizeBizType: BIZ_TYPE.SERVICE_AUTHORIZE,
     })
@@ -1437,7 +1508,7 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
 
   if (needsRefresh || !preMaskTask) {
     await ensureOrderPreMaskTask(albumId, {
-      force: Boolean(options.force) || Boolean(preMaskTask && preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED),
+      force: Boolean(options.force),
       auth: auth || { roles: [ROLES.SYSTEM] },
     })
     preMaskTask = await findPreMaskTask(albumId)

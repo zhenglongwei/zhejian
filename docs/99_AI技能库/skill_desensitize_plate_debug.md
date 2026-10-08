@@ -159,7 +159,7 @@ nslookup facebody.cn-shanghai.aliyuncs.com
 - `config.desensitize.cacheVersion`（如 `aliyun-v7`）
 - `desensitize-engine/index.js` → `ENGINE_VERSION`
 
-使旧 pre-mask READY 与 media 缓存失效。`fingerprint` 变更时 `ensureOrderPreMaskTask` 应 `force: true`。
+**已打码成功的图不因改引擎版本而重打。** `cacheVersion` / `ENGINE_VERSION` 只用于新图走哪套规则、以及排查日志对照，不得把旧图的成功标识作废。相册多了新图时只补打**没有成功标识**的图。生成案例预览禁止触发打码。
 
 ---
 
@@ -289,7 +289,7 @@ pm2 restart zhejian-api
 
 - [ ] 冒烟图车牌区域有实心灰块（或明显马赛克）
 - [ ] 日志 `picked.source` 为 `viapi_pos`（有 Positions 时）
-- [ ] `engineVersion` / `cacheVersion` 已递增，旧相册 complete 会重跑 pre-mask
+- [ ] `engineVersion` / `cacheVersion` 已递增时，**新图**走新规则；已成功打码的旧图不重跑
 - [ ] 新相册 authorize 预览脱敏图 URL 为 `uploads/desensitized/<albumId>/...`
 - [ ] 公开 API 仍只返回 desensitized 路径（联用 `privacy-desensitization-check`）
 

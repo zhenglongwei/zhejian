@@ -159,21 +159,6 @@ function shouldUseCachedDesensitize(media, context = {}) {
     })
     return false
   }
-  const { albumId = '', nodeId = 'node', idx = 0, engineVersion = '' } = context
-  if (engineVersion && engineVersion !== ENGINE_VERSION) {
-    return false
-  }
-  if (albumId) {
-    const ext = path.extname(String(media.objectKey || '')).toLowerCase() || '.jpg'
-    const expectedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
-    if (media.desensitizedKey !== expectedKey) {
-      console.info('[media] ignore cached desensitize: album key mismatch', {
-        cached: media.desensitizedKey,
-        expected: expectedKey,
-      })
-      return false
-    }
-  }
   return true
 }
 
@@ -247,22 +232,16 @@ async function runMediaDesensitize(mediaId, context = {}) {
 
   const cacheOk = shouldUseCachedDesensitize(media, context) && !context.force
   if (cacheOk) {
-    const rerunDetection = await shouldRerunDetection(media, context)
-    if (!rerunDetection) {
-      const summary = buildPrivacySummaryFromMedia(media)
-      return {
-        mediaId: media.id,
-        taskStatus: 'SUCCESS',
-        resultUrl: media.desensitizedUrl,
-        desensitizedUrl: media.desensitizedUrl,
-        riskLevel: summary.riskLevel || 'low',
-        riskTags: summary.riskTags || [],
-        engineVersion: summary.engineVersion || ENGINE_VERSION,
-      }
-    }
-    console.info('[media] cached desensitize but missing privacy records, rerun detection', {
+    const summary = buildPrivacySummaryFromMedia(media)
+    return {
       mediaId: media.id,
-    })
+      taskStatus: 'SUCCESS',
+      resultUrl: media.desensitizedUrl,
+      desensitizedUrl: media.desensitizedUrl,
+      riskLevel: summary.riskLevel || 'low',
+      riskTags: summary.riskTags || [],
+      engineVersion: summary.engineVersion || ENGINE_VERSION,
+    }
   }
 
   let materialized

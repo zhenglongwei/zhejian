@@ -51,6 +51,76 @@ function nodesFingerprint(nodes) {
   )
 }
 
+function fingerprintCacheVersion(fingerprint) {
+  const text = String(fingerprint || '')
+  const at = text.lastIndexOf('@')
+  return at >= 0 ? text.slice(at + 1) : ''
+}
+
+function rawUrlLookupKeys(url) {
+  const raw = String(url || '').trim()
+  if (!raw) return []
+  const keys = [raw, stripUrlQuery(raw)]
+  try {
+    const rewritten = rewriteMediaUrlForCurrentBase(raw)
+    if (rewritten) {
+      keys.push(rewritten, stripUrlQuery(rewritten))
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  return [...new Set(keys.filter(Boolean))]
+}
+
+function indexAssetsByRawUrl(assets = []) {
+  const map = new Map()
+  ;(assets || []).forEach((asset) => {
+    rawUrlLookupKeys(asset.rawUrl || asset.url).forEach((key) => {
+      map.set(key, asset)
+    })
+  })
+  return map
+}
+
+function lookupAssetByRawUrl(index, url) {
+  if (!index) return null
+  for (const key of rawUrlLookupKeys(url)) {
+    if (index.has(key)) return index.get(key)
+  }
+  return null
+}
+
+function hasReusableMask(asset) {
+  if (!asset) return false
+  const masked = String(asset.maskedUrl || asset.preMaskedUrl || '').trim()
+  if (!masked) return false
+  const status = asset.status
+  if (
+    status &&
+    ![ASSET_STATUS.MASKED_READY, ASSET_STATUS.MANUAL_MASKED, ASSET_STATUS.CONFIRMED].includes(
+      status,
+    )
+  ) {
+    return false
+  }
+  return true
+}
+
+/** 已打码成功的图默认复用；假打码或运营对失败图重试才再打。 */
+function shouldReuseMaskedAsset(prev, options = {}) {
+  if (!hasReusableMask(prev)) return false
+  if (options.albumForce) return false
+  if (options.stub) return false
+  return true
+}
+
+function listUnmaskedAlbumAssets(currentAssets, taskAssets) {
+  const index = indexAssetsByRawUrl(taskAssets)
+  return (currentAssets || []).filter(
+    (asset) => !hasReusableMask(lookupAssetByRawUrl(index, asset.rawUrl)),
+  )
+}
+
 function collectAssetsFromAlbum(album) {
   const assets = []
   ;(album.nodes || []).forEach((node) => {
@@ -179,6 +249,13 @@ module.exports = {
   ASSET_STATUS,
   buildDesensitizedUrl,
   nodesFingerprint,
+  fingerprintCacheVersion,
+  rawUrlLookupKeys,
+  indexAssetsByRawUrl,
+  lookupAssetByRawUrl,
+  hasReusableMask,
+  shouldReuseMaskedAsset,
+  listUnmaskedAlbumAssets,
   collectAssetsFromAlbum,
   resolvePreMaskStatus,
   mapTaskRecord,

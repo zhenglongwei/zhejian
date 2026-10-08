@@ -1006,6 +1006,12 @@ async function commitAlbumNodeImages(albumId, nodeRows, imageRows, options = {})
     throw e
   }
   const imageCount = await prisma.albumImage.count({ where: { albumId } })
+  try {
+    const { scheduleAlbumPreMask } = require('./desensitize.service')
+    scheduleAlbumPreMask(albumId, { trigger: 'album_images_commit' })
+  } catch (e) {
+    console.warn('[desensitize] schedule after album images commit failed', albumId, e && e.message)
+  }
   return { imageCount }
 }
 
@@ -1692,26 +1698,14 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
 }
 
 /** CASE-SRC-A08 · 生成预览打码就绪：pending / ready / failed，不暴露任务细节 */
-async function getMerchantCaseDraftMaskStatus(albumId, storeId, merchantId = '', options = {}) {
+async function getMerchantCaseDraftMaskStatus(albumId, storeId, merchantId = '') {
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   const imageCount = Number(album.imageCount || 0) || (album.images || []).length
   if (!imageCount) return { state: 'ready' }
 
-  const { getAlbumPreMaskReadiness, scheduleAlbumPreMask } = require('./desensitize.service')
-  const retry = Boolean(options.retry)
+  const { getAlbumPreMaskReadiness } = require('./desensitize.service')
   const readiness = await getAlbumPreMaskReadiness(albumId)
-
-  if (readiness.state === 'failed' && retry) {
-    scheduleAlbumPreMask(albumId, { trigger: 'case_draft_preview', force: true })
-    return { state: 'pending' }
-  }
-  if (readiness.state === 'pending') {
-    scheduleAlbumPreMask(albumId, {
-      trigger: 'case_draft_preview',
-      force: Boolean(readiness.needsForceRefresh),
-    })
-  }
   if (readiness.state === 'ready') return { state: 'ready' }
   if (readiness.state === 'failed') return { state: 'failed' }
   return { state: 'pending' }

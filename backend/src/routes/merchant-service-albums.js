@@ -263,12 +263,10 @@ router.post('/service-albums/:albumId/parts/label-ocr', requireAuth(['merchant']
 router.get('/service-albums/:albumId/case-draft/pre-mask', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)
-    const retry = ['1', 'true', 'yes'].includes(String((req.query && req.query.retry) || '').toLowerCase())
     const data = await getMerchantCaseDraftMaskStatus(
       req.params.albumId,
       storeId,
       req.auth.merchantId,
-      { retry },
     )
     return ok(res, data)
   } catch (e) {
