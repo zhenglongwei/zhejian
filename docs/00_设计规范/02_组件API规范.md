@@ -332,6 +332,29 @@
 | promote | `{ index }` 新开 |
 | remove | `{ index }` 删除（进本单图库，不删文件） |
 
+#### FlowFindingCard（`components/flow-finding-card` · 商家进度）
+
+检测 / 工单折叠项卡，版式对齐车主 `service-doc-sheet` 发现项：标题 → 三列方图 → 说明。展开编辑仍由页面自己做。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| title | String | `''` | 部位 / 项目名 |
+| body | String | `''` | 说明，最多两行 |
+| images | Array | `[]` | `{ url }[]`，最多展示 6 张 |
+| meta | String | `''` | 右侧短状态（待拍照 / 报价没有） |
+| metaDanger | Boolean | false | 状态用警示色 |
+| showRemove | Boolean | false | 右上角删除 |
+| showEmptyPhoto | Boolean | false | 无图时露出拍照格 |
+| sectionIndex | Number | `-1` | 所在步，事件回传 |
+| findingIndex | Number | `-1` | 所在项，事件回传 |
+
+| 事件 | 说明 |
+|---|---|
+| tap | 点卡片（展开） |
+| remove | 删除 |
+| emptyphoto | 点空拍照格 |
+| preview | `{ url }` 点图预览 |
+
 #### ServiceDocSheet（`components/service-doc-sheet` · DOC-FLOW）
 
 车主进度与商家已完成预览共用的只读单据壳。检测报告偏证据卡，方案/完工偏费用表。
@@ -1112,3 +1135,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V2.3 | `ServiceDocSheet`：车主检测项竖排卡+分段；方案金额与合计去重、长说明可展开 |
 | V2.4 | 车主检测项去掉结果 Tag；三类改为需要处理 / 建议关注 / 正常（按本次方案归属，标题用 h3） |
 | V2.5 | 新增 `FlowUnmatchedPhotos`：商家进度未归组上图下三钮，接车/检测/工单共用 |
+| V2.6 | 新增 `FlowFindingCard`：商家检测/工单折叠卡，对齐车主发现项上图下文 |

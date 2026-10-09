@@ -1,0 +1,35 @@
+<view class="flow-finding-card" bindtap="onTap">
+  <view class="flow-finding-card__head">
+    <text class="flow-finding-card__title">{{title}}</text>
+    <text
+      wx:if="{{meta}}"
+      class="text-caption {{metaDanger ? 'text-danger' : 'text-secondary'}}"
+    >{{meta}}</text>
+    <text
+      wx:if="{{showRemove}}"
+      class="flow-finding-card__remove"
+      catchtap="onRemove"
+    >×</text>
+  </view>
+  <view wx:if="{{images.length}}" class="flow-finding-card__photos">
+    <image
+      wx:for="{{images}}"
+      wx:for-item="shot"
+      wx:key="url"
+      wx:if="{{index < 6}}"
+      class="flow-finding-card__img image-placeholder"
+      src="{{shot.url}}"
+      mode="aspectFill"
+      data-url="{{shot.url}}"
+      catchtap="onPreview"
+    />
+  </view>
+  <view
+    wx:elif="{{showEmptyPhoto}}"
+    class="flow-finding-card__empty"
+    catchtap="onEmptyPhoto"
+  >
+    <text class="text-caption text-secondary">拍照</text>
+  </view>
+  <text wx:if="{{body}}" class="flow-finding-card__body">{{body}}</text>
+</view>

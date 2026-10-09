@@ -1006,13 +1006,14 @@ Page({
         expanded: Boolean(expanded),
         complete: hasPhoto && missing === 0,
         summaryText: row.partName || '待填写',
+        summaryBody: row.caption || '',
         completenessLabel: !hasPhoto
           ? '待拍照'
-          : missing === 0
-            ? row.outsideQuote
+          : missing > 0
+            ? '缺项目'
+            : row.outsideQuote
               ? '报价没有'
-              : row.caption || `${row.images.length} 张`
-            : '缺项目',
+              : '',
         labelToneDanger: !hasPhoto || missing > 0 || row.outsideQuote,
         adviceRequired: false,
         resultTone: '',
@@ -1046,11 +1047,12 @@ Page({
       expanded: Boolean(expanded),
       complete: missing === 0 && hasPhoto,
       summaryText: row.partName || '待填写',
+      summaryBody: row.advice || '',
       completenessLabel: !hasPhoto
         ? '待拍照'
-        : missing === 0
-          ? row.result || '已齐'
-          : `缺 ${missing} 项`,
+        : missing > 0
+          ? `缺 ${missing} 项`
+          : row.result || '',
       labelToneDanger: !hasPhoto || missing > 0,
       adviceRequired: findingAdviceRequired(row.result),
       resultTone,
@@ -1698,9 +1700,20 @@ Page({
     this.scheduleAutoSavePhotos()
   },
 
+  findingEventIndex(e) {
+    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
+    const detail = e.detail && typeof e.detail === 'object' ? e.detail : {}
+    const sectionIndex = Number(
+      ds.sectionIndex != null && ds.sectionIndex !== '' ? ds.sectionIndex : detail.sectionIndex,
+    )
+    const findingIndex = Number(
+      ds.findingIndex != null && ds.findingIndex !== '' ? ds.findingIndex : detail.findingIndex,
+    )
+    return { sectionIndex, findingIndex }
+  },
+
   onToggleFinding(e) {
-    const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
-    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
+    const { sectionIndex, findingIndex } = this.findingEventIndex(e)
     if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex)) return
     const key = `${sectionIndex}:${findingIndex}`
     const nextKey = this.data.expandedFindingKey === key ? '' : key
@@ -1709,8 +1722,7 @@ Page({
 
   onRemoveFinding(e) {
     if (this.data.readOnly) return
-    const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
-    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
+    const { sectionIndex, findingIndex } = this.findingEventIndex(e)
     if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex)) return
     const section = this.data.sections[sectionIndex]
     if (!section) return
@@ -1787,9 +1799,7 @@ Page({
 
   onAttachFindingPhoto(e) {
     if (this.data.readOnly) return
-    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
-    const si = Number(ds.sectionIndex)
-    const fi = Number(ds.findingIndex)
+    const { sectionIndex: si, findingIndex: fi } = this.findingEventIndex(e)
     if (!Number.isFinite(si) || !Number.isFinite(fi)) return
     const section = this.data.sections[si]
     if (!section || !section.findings || !section.findings[fi]) return
@@ -2635,6 +2645,18 @@ Page({
         '',
     ).trim()
     const urls = normalizePendingImages(this.data.pendingImages).map((img) => img.url)
+    if (!urls.length) return
+    wx.previewImage({ current: url || urls[0], urls })
+  },
+
+  onPreviewFindingPhoto(e) {
+    const url = String((e.detail && e.detail.url) || '').trim()
+    const { sectionIndex, findingIndex } = this.findingEventIndex(e)
+    const section = (this.data.sections || [])[sectionIndex]
+    const finding = section && section.findings && section.findings[findingIndex]
+    const urls = ((finding && finding.images) || [])
+      .map((img) => (img && img.url) || '')
+      .filter(Boolean)
     if (!urls.length) return
     wx.previewImage({ current: url || urls[0], urls })
   },

@@ -1329,6 +1329,35 @@ function buildRepairReportPayload({
   }
 }
 
+function looksLikeWorkFinding(raw = {}) {
+  if (!raw || typeof raw !== 'object') return false
+  if (Object.prototype.hasOwnProperty.call(raw, 'outsideQuote')) return true
+  if (String(raw.material || '').trim()) return true
+  if (String(raw.brand || '').trim()) return true
+  if (String(raw.quoteLineId || '').trim()) return true
+  if (String(raw.qty || '').trim()) return true
+  if (raw.amount != null && raw.amount !== '') return true
+  return false
+}
+
+function normalizeDraftFinding(raw = {}, index = -1) {
+  return looksLikeWorkFinding(raw)
+    ? normalizeWorkFinding(raw, index)
+    : normalizeItemFinding(raw, index)
+}
+
+function findingDraftKeeps(row = {}) {
+  return Boolean(
+    row.url ||
+      row.partName ||
+      row.advice ||
+      row.result ||
+      row.caption ||
+      (row.images && row.images.length) ||
+      row.id,
+  )
+}
+
 function normalizePhotoDraft(raw = {}) {
   return {
     chiefComplaint: String(raw.chiefComplaint || '').trim(),
@@ -1342,10 +1371,8 @@ function normalizePhotoDraft(raw = {}) {
     findings: Array.isArray(raw.findings)
       ? raw.findings
           .map((item, index) => {
-            const row = normalizeItemFinding(item, index)
-            return row.url || row.partName || row.advice || row.result || row.images.length || row.id
-              ? row
-              : null
+            const row = normalizeDraftFinding(item, index)
+            return findingDraftKeeps(row) ? row : null
           })
           .filter(Boolean)
       : [],
@@ -1448,6 +1475,7 @@ module.exports = {
   parseOdometerMileageFromTexts,
   formatMileageText,
   normalizePhotoDraft,
+  looksLikeWorkFinding,
   mergePhotoDraft,
   normalizePendingImages,
   applyOrganizeGroups,

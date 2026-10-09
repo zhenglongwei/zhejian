@@ -105,6 +105,24 @@ test('a photo that is not on any item and has another part becomes its own item'
   assert.equal(rows[1].result, '')
 })
 
+test('work item outsideQuote survives persist used by notify-then-cancel', () => {
+  const once = normalizePhotoDraft({
+    findings: [{
+      id: 'wf_1',
+      partName: '下摆臂胶套',
+      caption: '旧件铝制摆臂表面有氧化痕迹。',
+      outsideQuote: true,
+      material: '胶套',
+      images: [{ url: 'https://cdn.example/api/v1/media/files/uploads/w.jpg', imageId: 'w1' }],
+    }],
+  }).findings[0]
+  assert.equal(once.outsideQuote, true)
+  assert.equal(once.material, '胶套')
+  const twice = normalizePhotoDraft({ findings: [once] }).findings[0]
+  assert.equal(twice.outsideQuote, true)
+  assert.equal(twice.partName, '下摆臂胶套')
+})
+
 test('work item with photos and no inspection result still saves', () => {
   const saved = normalizePhotoDraft({
     findings: [{
