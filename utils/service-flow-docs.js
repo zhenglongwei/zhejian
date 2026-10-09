@@ -619,7 +619,7 @@ function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
           part: row.partName,
           caption: row.caption,
           material: row.material,
-          extra: row.outsideQuote ? '不在方案里' : '',
+          extra: row.outsideQuote ? '报价没有这项' : '',
         })
         if (item) facts.work.push(item)
       })
@@ -1150,6 +1150,7 @@ function normalizeQuoteLine(raw = {}, index = -1) {
   const evidenceUrls = listQuoteLineEvidenceUrls(raw)
   return remapLegacyQuoteLineLayout({
     id: stableLineId(raw, index),
+    workFindingId: String((raw && raw.workFindingId) || '').trim(),
     name: String(raw.name || '').trim(),
     brand: String(raw.brand || '').trim(),
     amount: amount == null ? '' : amount,
@@ -1157,6 +1158,81 @@ function normalizeQuoteLine(raw = {}, index = -1) {
     evidenceUrl: evidenceUrls[0] || '',
     evidenceUrls,
   })
+}
+
+function workFindingAddonNote(row = {}) {
+  return [row.caption, row.material].map((part) => String(part || '').trim()).filter(Boolean).join(' · ')
+}
+
+function collectOutsideWorkFindings(findings = []) {
+  return (findings || [])
+    .map((raw, index) => normalizeWorkFinding(raw, index))
+    .filter((row) => row && row.outsideQuote && (row.partName || (row.images && row.images.length)))
+}
+
+/** 工单里所有「报价没有这项」合成一张增项草稿。图跟项 id 走，不按下标对。 */
+function buildAddonDraftFromWorkFindings(findings = []) {
+  const rows = collectOutsideWorkFindings(findings)
+  if (!rows.length) {
+    return {
+      seeded: false,
+      lines: [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [], workFindingId: '' }],
+      discovery: { images: [], note: '', ready: false },
+    }
+  }
+  const lines = rows.map((row, index) => {
+    const evidenceUrls = (row.images || []).map((img) => String((img && img.url) || '').trim()).filter(Boolean)
+    return normalizeQuoteLine(
+      {
+        id: row.id ? `ql_work_${row.id}` : '',
+        workFindingId: row.id,
+        name: row.partName,
+        brand: row.brand,
+        amount: '',
+        note: workFindingAddonNote(row),
+        evidenceUrls,
+      },
+      index,
+    )
+  })
+  const images = []
+  const seen = {}
+  rows.forEach((row) => {
+    ;(row.images || []).forEach((img) => {
+      const url = String((img && img.url) || '').trim()
+      if (!url || seen[url]) return
+      seen[url] = true
+      images.push(url)
+    })
+  })
+  const note = rows
+    .map((row) => {
+      const name = row.partName || '未填项目'
+      const detail = workFindingAddonNote(row)
+      return detail ? `${name}：${detail}` : name
+    })
+    .join('\n')
+  return {
+    seeded: true,
+    lines,
+    discovery: {
+      images,
+      note,
+      ready: Boolean(images.length && String(note || '').trim()),
+    },
+  }
+}
+
+function addonDraftStillBlank(payload = {}) {
+  const lines = Array.isArray(payload.lines) ? payload.lines : []
+  const hasNamed = lines.some((row) => String((row && row.name) || '').trim())
+  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+  const discoveryReady = Boolean(
+    discovery.ready &&
+      (Array.isArray(discovery.images) ? discovery.images.filter(Boolean).length : 0) &&
+      String(discovery.note || '').trim(),
+  )
+  return !hasNamed && !discoveryReady
 }
 
 function collectQuoteConfirmGaps(payload = {}, options = {}) {
@@ -1363,6 +1439,8 @@ module.exports = {
   stableLineId,
   buildRepairReportPayload,
   normalizeQuoteLine,
+  buildAddonDraftFromWorkFindings,
+  addonDraftStillBlank,
   listQuoteLineEvidenceUrls,
   isQuoteEvidenceFinding,
   sumQuoteAmounts,

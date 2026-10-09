@@ -1010,7 +1010,7 @@ Page({
           ? '待拍照'
           : missing === 0
             ? row.outsideQuote
-              ? '不在方案里'
+              ? '报价没有'
               : row.caption || `${row.images.length} 张`
             : '缺项目',
         labelToneDanger: !hasPhoto || missing > 0 || row.outsideQuote,
@@ -4518,8 +4518,14 @@ Page({
         await this.persistPhotoDraft()
       }
       const added = await insertMerchantAddonPlan(this.albumId)
+      const seeded = Boolean(added && added.addonSeeded)
       wx.showToast({
-        title: added && added.addonAlreadyOpen ? '新发现已在这一页' : '请先拍故障、写看见什么',
+        title:
+          seeded
+            ? '补金额后通知车主'
+            : added && added.addonAlreadyOpen
+              ? '新发现已在这一页'
+              : '请先拍故障、写看见什么',
         icon: 'none',
       })
       await this.loadFlow({ silent: true })

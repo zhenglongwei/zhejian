@@ -27,6 +27,8 @@ const {
   normalizePhotoDraft,
   mergePhotoDraft,
   normalizeQuoteLine,
+  buildAddonDraftFromWorkFindings,
+  addonDraftStillBlank,
   listQuoteLineEvidenceUrls,
   resolveWarrantyNotes,
   parseMileageKm,
@@ -1172,16 +1174,55 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   assertAlbumContentEditable(album)
 
   const existingNodes = sortFlowNodes(readFlowNodesRaw(album))
+  const workForSeed =
+    existingNodes.find((n) => n && n.kind === 'work' && n.status === 'in_progress') ||
+    existingNodes.find((n) => n && n.kind === 'work' && n.status !== 'locked') ||
+    existingNodes.find((n) => n && n.kind === 'work')
+  const seedFindings = Array.isArray(workForSeed && workForSeed.photoDraft && workForSeed.photoDraft.findings)
+    ? workForSeed.photoDraft.findings
+    : []
+  const addonDraft = buildAddonDraftFromWorkFindings(seedFindings)
   const openAddon = existingNodes.find((n) => {
     if (!n || n.kind !== 'quote_confirm' || String(n.insertedReason || '') !== 'addon') return false
     const status = String((n.document && n.document.status) || 'draft')
     return status === 'draft' || status === 'pending_confirm'
   })
   if (openAddon) {
-    const viewNodes = mapNodesForView(album)
+    let seededIntoOpen = false
+    const openStatus = String((openAddon.document && openAddon.document.status) || 'draft')
+    const openPayload = (openAddon.document && openAddon.document.payload) || {}
+    if (openStatus === 'draft' && addonDraft.seeded && addonDraftStillBlank(openPayload)) {
+      await writeFlowPackage(albumId, (pkg) => {
+        const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+        return {
+          ...pkg,
+          flowNodes: nodes.map((n) => {
+            if (!n || n.id !== openAddon.id) return n
+            const document = n.document && typeof n.document === 'object' ? n.document : emptyDocument('quote_confirm')
+            const payload = document.payload && typeof document.payload === 'object' ? document.payload : {}
+            seededIntoOpen = true
+            return {
+              ...n,
+              document: {
+                ...document,
+                payload: {
+                  ...payload,
+                  lines: addonDraft.lines,
+                  discovery: addonDraft.discovery,
+                  confirmCopy: payload.confirmCopy || QUOTE_CONFIRM_COPY,
+                },
+              },
+            }
+          }),
+        }
+      })
+    }
+    const refreshedOpen = await loadAlbum(albumId)
+    const viewNodes = mapNodesForView(refreshedOpen)
     return {
-      ...buildFlowView(album, viewNodes),
+      ...buildFlowView(refreshedOpen, viewNodes),
       addonAlreadyOpen: true,
+      addonSeeded: Boolean(seededIntoOpen),
     }
   }
 
@@ -1229,8 +1270,8 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
         ...emptyDocument('quote_confirm'),
         status: 'draft',
         payload: {
-          lines: [{ name: '', brand: '', amount: '', note: '' }],
-          discovery: { images: [], note: '', ready: false },
+          lines: addonDraft.lines,
+          discovery: addonDraft.discovery,
           confirmCopy: QUOTE_CONFIRM_COPY,
         },
       },
@@ -1265,7 +1306,10 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
 
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
-  return buildFlowView(refreshed, viewNodes)
+  return {
+    ...buildFlowView(refreshed, viewNodes),
+    addonSeeded: Boolean(addonDraft.seeded),
+  }
 }
 
 /**

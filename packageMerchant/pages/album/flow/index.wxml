@@ -290,7 +290,7 @@
                       wx:for-item="finding"
                       wx:for-index="findingIndex"
                       wx:key="listKey"
-                      class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}}"
+                      class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}} {{finding.outsideQuote ? 'merchant-flow-page__finding-row--quote-miss' : ''}}"
                     >
                       <view
                         wx:if="{{!finding.expanded}}"
@@ -348,6 +348,14 @@
                           catchtap="onRemoveFinding"
                         >×</text>
                       </view>
+                      <view
+                        wx:if="{{finding.outsideQuote}}"
+                        class="merchant-flow-page__quote-miss"
+                        catchtap="onAddAddonPlan"
+                      >
+                        <text class="merchant-flow-page__quote-miss-text">报价没有这项</text>
+                        <text wx:if="{{!readOnly}}" class="merchant-flow-page__quote-miss-action">去通知车主</text>
+                      </view>
                       <view wx:if="{{!finding.expanded && finding.hasCollapsedHints}}" class="merchant-flow-page__finding-hints">
                         <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                         <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
@@ -400,7 +408,6 @@
                               disabled="{{readOnly}}"
                               bindinput="onSectionFindingFieldInput"
                             />
-                            <text wx:if="{{finding.outsideQuote}}" class="text-caption text-danger">不在方案里</text>
                           </view>
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">用料</text>
@@ -1074,6 +1081,18 @@
                       disabled="{{readOnly || confirmAwaitingOwner}}"
                       bindinput="onQuoteLineInput"
                     />
+                    <view wx:if="{{item.evidenceUrls.length}}" class="merchant-flow-page__work-thumbs">
+                      <image
+                        wx:for="{{item.evidenceUrls}}"
+                        wx:for-item="shot"
+                        wx:key="*this"
+                        class="merchant-flow-page__work-thumb-img image-placeholder"
+                        src="{{shot}}"
+                        mode="aspectFill"
+                        data-url="{{shot}}"
+                        bindtap="onPreviewAddonDiscovery"
+                      />
+                    </view>
                     <text class="text-caption text-secondary merchant-flow-page__field-label">施工方案</text>
                     <textarea
                       class="merchant-flow-page__plan-note"

@@ -700,6 +700,35 @@
   border-color: var(--color-primary);
 }
 
+.merchant-flow-page__finding-row--quote-miss,
+.merchant-flow-page__finding-row--quote-miss.merchant-flow-page__finding-row--open {
+  border-color: var(--color-warning);
+}
+
+.merchant-flow-page__quote-miss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-warning-light);
+}
+
+.merchant-flow-page__quote-miss-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__quote-miss-action {
+  flex-shrink: 0;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  color: var(--color-primary);
+}
+
 .merchant-flow-page__finding-summary {
   display: flex;
   align-items: flex-start;
