@@ -140,7 +140,7 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorF
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
     MECHANIC_VOICE_RULES,
-    '每张图的说明是「图1」「图2」。返回 imageSlots 填这些编号，例如 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。',
+    '每张图的说明是「图1」「图2」。返回 imageSlots 填这些编号，例如 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。本批只附已打码的图，编号可能不连续；没附图的编号不要写进组。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
     priorFacts ? `前面各步已经识过/写过的结果（只是文字，不要再看那些图）：${JSON.stringify(priorFacts)}` : '',
@@ -457,8 +457,11 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
   }
 
   const masked = await collectMaskedPending(albumId, pending)
-  if (!masked.ready || !masked.urls.length) {
+  if (!masked.ready) {
     return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true, cacheHits: 0 }
+  }
+  if (!masked.urls.length) {
+    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: false, cacheHits: 0 }
   }
 
   let cached = []

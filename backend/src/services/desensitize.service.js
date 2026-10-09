@@ -526,48 +526,77 @@ async function buildPreMaskUrlLookup(albumId) {
   }
 }
 
-/** 认单张：先名单、再媒体成功标识，没有才打这一张。不等整本就绪。 */
-async function resolveMaskedUrlForRaw(rawUrl, lookup = { byRawUrl: new Map() }) {
+/** 认单张：先名单、再媒体成功标识，没有才打这一张。不等整本就绪。终态失败不再打。 */
+async function resolveMaskedOutcomeForRaw(rawUrl, lookup = { byRawUrl: new Map() }) {
   const raw = String(rawUrl || '').trim()
-  if (!raw) return ''
+  if (!raw) return { settled: true, masked: '' }
   const byRawUrl = lookup.byRawUrl || new Map()
   const hit =
     byRawUrl.get(raw) ||
     byRawUrl.get(stripUrlQuery(raw)) ||
     ''
-  if (hit) return hit
+  if (hit) return { settled: true, masked: hit }
   const media = await ensureMediaRecordFromUrl(raw)
   if (media && media.desensitizeStatus === 'success' && media.desensitizedUrl) {
-    return String(media.desensitizedUrl).trim()
+    return { settled: true, masked: String(media.desensitizedUrl).trim() }
+  }
+  if (
+    media &&
+    (media.desensitizeStatus === 'need_manual' || media.desensitizeStatus === 'failed')
+  ) {
+    return { settled: true, masked: '', needManual: media.desensitizeStatus === 'need_manual' }
   }
   const masked = await resolveDesensitizedUrlForAsset(raw, { force: false })
-  return masked && masked.ok ? String(masked.maskedUrl || '').trim() : ''
+  if (masked && masked.ok && masked.maskedUrl) {
+    return { settled: true, masked: String(masked.maskedUrl).trim() }
+  }
+  if (masked && masked.settled) {
+    return { settled: true, masked: '', needManual: Boolean(masked.needManual) }
+  }
+  return { settled: false, masked: '' }
+}
+
+async function resolveMaskedUrlForRaw(rawUrl, lookup = { byRawUrl: new Map() }) {
+  const outcome = await resolveMaskedOutcomeForRaw(rawUrl, lookup)
+  return outcome.masked || ''
 }
 
 async function collectMaskedUrlsForRawList(albumId, entries = [], options = {}) {
-  const requireAll = options.requireAll !== false
+  const requireAllSuccess = options.requireAll === true
   const lookup = await buildPreMaskUrlLookup(albumId)
   const packed = await mapLimit(entries || [], MASK_JOB_LIMIT, async (row, i) => {
       const raw = String((row && row.url) || '').trim()
-      if (!raw) return { skip: true, index: i }
-      const masked = await resolveMaskedUrlForRaw(raw, lookup)
-      if (!masked) return { skip: false, index: i, raw, masked: '' }
-      lookup.byRawUrl.set(raw, masked)
-      lookup.byRawUrl.set(stripUrlQuery(raw), masked)
+      if (!raw) return { skip: true, index: i, settled: true }
+      const outcome = await resolveMaskedOutcomeForRaw(raw, lookup)
+      if (!outcome.masked) {
+        return {
+          skip: false,
+          index: i,
+          raw,
+          masked: '',
+          settled: Boolean(outcome.settled),
+        }
+      }
+      lookup.byRawUrl.set(raw, outcome.masked)
+      lookup.byRawUrl.set(stripUrlQuery(raw), outcome.masked)
       return {
         skip: false,
         index: i,
         raw,
-        masked,
+        masked: outcome.masked,
+        settled: true,
         item: {
-          url: masked,
+          url: outcome.masked,
           label: (row && row.label) || `图${i + 1}`,
           rawUrl: raw,
           imageKey: (row && row.imageKey) || '',
         },
       }
   })
-  if (requireAll && packed.some((row) => row && !row.skip && !row.masked)) {
+  if (packed.some((row) => row && !row.skip && !row.settled)) {
+    return { ready: false, urls: [] }
+  }
+  if (requireAllSuccess && packed.some((row) => row && !row.skip && !row.masked)) {
     return { ready: false, urls: [] }
   }
   return {

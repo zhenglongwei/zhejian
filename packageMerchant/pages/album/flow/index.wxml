@@ -305,7 +305,7 @@
                         findingIndex="{{findingIndex}}"
                         data-section-index="{{sectionIndex}}"
                         data-finding-index="{{findingIndex}}"
-                        bind:tap="onToggleFinding"
+                        bind:cardtap="onToggleFinding"
                         bind:remove="onRemoveFinding"
                         bind:emptyphoto="onAttachFindingPhoto"
                         bind:preview="onPreviewFindingPhoto"
@@ -374,7 +374,7 @@
                             </view>
                           </view>
                           <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
-                          <view class="merchant-flow-page__field">
+                          <view wx:if="{{finding.outsideQuote}}" class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
@@ -383,45 +383,6 @@
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
                               data-field="partName"
-                              disabled="{{readOnly}}"
-                              bindinput="onSectionFindingFieldInput"
-                            />
-                          </view>
-                          <view class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">用料</text>
-                            <input
-                              class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="换了什么件"
-                              value="{{finding.material}}"
-                              data-section-index="{{sectionIndex}}"
-                              data-finding-index="{{findingIndex}}"
-                              data-field="material"
-                              disabled="{{readOnly}}"
-                              bindinput="onSectionFindingFieldInput"
-                            />
-                          </view>
-                          <view class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">品牌</text>
-                            <input
-                              class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="原厂/品牌名"
-                              value="{{finding.brand}}"
-                              data-section-index="{{sectionIndex}}"
-                              data-finding-index="{{findingIndex}}"
-                              data-field="brand"
-                              disabled="{{readOnly}}"
-                              bindinput="onSectionFindingFieldInput"
-                            />
-                          </view>
-                          <view class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">数量</text>
-                            <input
-                              class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="例：1 个 / 2 升"
-                              value="{{finding.qty}}"
-                              data-section-index="{{sectionIndex}}"
-                              data-finding-index="{{findingIndex}}"
-                              data-field="qty"
                               disabled="{{readOnly}}"
                               bindinput="onSectionFindingFieldInput"
                             />

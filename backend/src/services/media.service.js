@@ -147,6 +147,15 @@ function mapEngineResultToStatus(engineResult) {
   return DESENSITIZE_STATUS.FAILED
 }
 
+function isDesensitizeTerminal(media = {}) {
+  const status = String((media && media.desensitizeStatus) || '')
+  return (
+    status === DESENSITIZE_STATUS.SUCCESS ||
+    status === DESENSITIZE_STATUS.NEED_MANUAL ||
+    status === DESENSITIZE_STATUS.FAILED
+  )
+}
+
 function shouldUseCachedDesensitize(media, context = {}) {
   if (!media.desensitizedUrl || media.desensitizeStatus !== DESENSITIZE_STATUS.SUCCESS) {
     return false
@@ -160,6 +169,15 @@ function shouldUseCachedDesensitize(media, context = {}) {
     return false
   }
   return true
+}
+
+function shouldSkipRerunDesensitize(media, context = {}) {
+  if (!media || context.force) return false
+  if (shouldUseCachedDesensitize(media, context)) return true
+  return (
+    media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL ||
+    media.desensitizeStatus === DESENSITIZE_STATUS.FAILED
+  )
 }
 
 async function shouldRerunDetection(media, context = {}) {
@@ -242,6 +260,16 @@ async function runMediaDesensitize(mediaId, context = {}) {
       riskTags: summary.riskTags || [],
       engineVersion: summary.engineVersion || ENGINE_VERSION,
     }
+  }
+  if (shouldSkipRerunDesensitize(media, context)) {
+    const err = new Error(
+      media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL ? '脱敏需人工处理' : '脱敏失败',
+    )
+    err.status = 422
+    err.taskStatus = media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL ? 'NEED_MANUAL' : 'FAILED'
+    err.riskLevel = media.privacyRiskLevel || ''
+    err.riskTags = media.riskTags || []
+    throw err
   }
 
   let materialized
@@ -350,7 +378,28 @@ const maskJobsByMediaId = new Map()
 async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
   const media = await ensureMediaRecordFromUrl(rawUrl)
   if (!media) {
-    return { mediaId: '', maskedUrl: '', ok: false, riskTags: [], riskLevel: '' }
+    return { mediaId: '', maskedUrl: '', ok: false, settled: true, riskTags: [], riskLevel: '' }
+  }
+  if (!context.force && shouldUseCachedDesensitize(media, context)) {
+    return {
+      mediaId: media.id,
+      maskedUrl: media.desensitizedUrl,
+      ok: true,
+      settled: true,
+      riskTags: media.riskTags || [],
+      riskLevel: media.privacyRiskLevel || '',
+    }
+  }
+  if (!context.force && shouldSkipRerunDesensitize(media, context)) {
+    return {
+      mediaId: media.id,
+      maskedUrl: '',
+      ok: false,
+      settled: true,
+      needManual: media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL,
+      riskTags: media.riskTags || [],
+      riskLevel: media.privacyRiskLevel || '',
+    }
   }
   const run = async () => {
     try {
@@ -362,6 +411,7 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
         mediaId: media.id,
         maskedUrl: result.desensitizedUrl,
         ok: Boolean(result.desensitizedUrl),
+        settled: true,
         riskTags: result.riskTags || [],
         riskLevel: result.riskLevel || '',
       }
@@ -376,6 +426,7 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
         mediaId: media.id,
         maskedUrl: '',
         ok: false,
+        settled: true,
         riskTags: e.riskTags || [],
         riskLevel: e.riskLevel || '',
         needManual: e.taskStatus === 'NEED_MANUAL',
@@ -548,6 +599,8 @@ async function applyManualMaskToAsset({
 
 module.exports = {
   DESENSITIZE_STATUS,
+  isDesensitizeTerminal,
+  shouldSkipRerunDesensitize,
   createMediaFromUpload,
   ensureMediaRecordFromUrl,
   getMediaById,

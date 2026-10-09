@@ -45,7 +45,7 @@ Component({
       }
     },
     onTap() {
-      this.triggerEvent('tap', this.loc())
+      this.triggerEvent('cardtap', this.loc())
     },
     onRemove() {
       this.triggerEvent('remove', this.loc())

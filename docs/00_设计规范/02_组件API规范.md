@@ -367,7 +367,7 @@
 
 | 事件 | 说明 |
 |---|---|
-| tap | 点卡片（展开） |
+| cardtap | 点卡片（展开）；勿用原生名 `tap` |
 | remove | 删除 |
 | emptyphoto | 点空拍照格 |
 | preview | `{ url }` 点图预览 |

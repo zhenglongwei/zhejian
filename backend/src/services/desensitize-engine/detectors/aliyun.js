@@ -225,6 +225,89 @@ function plateResultFromViapi(viapi, imageWidth, imageHeight, extras = {}) {
   }
 }
 
+async function tryOcrApiPlate(imagePath, imageWidth, imageHeight) {
+  if (ocrApiUnreachable) {
+    return {
+      boxes: [],
+      authFailed: false,
+      error: '',
+      plateMaskMiss: false,
+      orgWidth: imageWidth,
+      orgHeight: imageHeight,
+      ocrNetworkFailed: true,
+    }
+  }
+  let ocrApiError = ''
+  try {
+    const data = await ocrRecognize(
+      RecognizeCarNumberRequest,
+      'recognizeCarNumber',
+      imagePath,
+    )
+    const plate = parsePlateResult(data)
+    if (plate.boxes.length) {
+      return {
+        boxes: plate.boxes,
+        authFailed: false,
+        error: '',
+        plateMaskMiss: false,
+        orgWidth: plate.orgWidth,
+        orgHeight: plate.orgHeight,
+        ocrNetworkFailed: false,
+      }
+    }
+    const summary = summarizeOcrPayload(data)
+    if (summary.kv || summary.plateValue) {
+      console.warn('[desensitize-engine] plate ocr-api parsed empty boxes', summary)
+    }
+    return {
+      boxes: [],
+      authFailed: false,
+      error: '',
+      plateMaskMiss: Boolean(plate.plateTextFound),
+      orgWidth: plate.orgWidth || imageWidth,
+      orgHeight: plate.orgHeight || imageHeight,
+      ocrNetworkFailed: false,
+    }
+  } catch (err) {
+    ocrApiError = String(err.message || err.code || 'ocr-api failed')
+    if (isAuthError(err)) {
+      return {
+        boxes: [],
+        authFailed: true,
+        error: `plate:${err.message || 'auth'}`,
+        plateMaskMiss: true,
+        orgWidth: 0,
+        orgHeight: 0,
+        ocrNetworkFailed: false,
+      }
+    }
+    if (isNetworkError(err)) {
+      return {
+        boxes: [],
+        authFailed: false,
+        error: '',
+        plateMaskMiss: false,
+        orgWidth: imageWidth,
+        orgHeight: imageHeight,
+        ocrNetworkFailed: true,
+      }
+    }
+    if (!isBenignDetectError(err)) {
+      console.warn('[desensitize-engine] plate ocr-api:', err.code || '', ocrApiError.slice(0, 120))
+    }
+    return {
+      boxes: [],
+      authFailed: false,
+      error: isBenignDetectError(err) ? '' : `plate:${ocrApiError}`,
+      plateMaskMiss: false,
+      orgWidth: imageWidth,
+      orgHeight: imageHeight,
+      ocrNetworkFailed: false,
+    }
+  }
+}
+
 async function detectPlateRegion(imagePath, detectOptions = {}) {
   const { imageWidth = 0, imageHeight = 0 } = detectOptions
   const useViapiFirst = config.desensitize.plateProvider === 'viapi'
@@ -232,7 +315,19 @@ async function detectPlateRegion(imagePath, detectOptions = {}) {
   if (useViapiFirst) {
     try {
       const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
-      return plateResultFromViapi(viapi, imageWidth, imageHeight)
+      const result = plateResultFromViapi(viapi, imageWidth, imageHeight)
+      if (result.boxes.length) return result
+      if (result.plateMaskMiss) {
+        console.warn('[desensitize-engine] viapi plate miss, try ocr-api boxes')
+        const fallback = await tryOcrApiPlate(imagePath, imageWidth, imageHeight)
+        if (fallback.boxes.length) return fallback
+        if (fallback.authFailed) return fallback
+        return {
+          ...result,
+          ocrNetworkFailed: Boolean(fallback.ocrNetworkFailed),
+        }
+      }
+      return result
     } catch (viapiErr) {
       if (isAuthError(viapiErr)) {
         return {
@@ -264,53 +359,13 @@ async function detectPlateRegion(imagePath, detectOptions = {}) {
     }
   }
 
-  let ocrApiError = ''
-  try {
-    const data = await ocrRecognize(
-      RecognizeCarNumberRequest,
-      'recognizeCarNumber',
-      imagePath,
-    )
-    const plate = parsePlateResult(data)
-    if (plate.boxes.length) {
-      return {
-        boxes: plate.boxes,
-        authFailed: false,
-        error: '',
-        plateMaskMiss: false,
-        orgWidth: plate.orgWidth,
-        orgHeight: plate.orgHeight,
-        ocrNetworkFailed: false,
-      }
-    }
-    const summary = summarizeOcrPayload(data)
-    if (summary.kv || summary.plateValue) {
-      console.warn('[desensitize-engine] plate ocr-api parsed empty boxes', summary)
-    }
-  } catch (err) {
-    ocrApiError = String(err.message || err.code || 'ocr-api failed')
-    if (isAuthError(err)) {
-      return {
-        boxes: [],
-        authFailed: true,
-        error: `plate:${err.message || 'auth'}`,
-        plateMaskMiss: true,
-        orgWidth: 0,
-        orgHeight: 0,
-        ocrNetworkFailed: false,
-      }
-    }
-    if (isNetworkError(err)) {
-      /* 预发 ECS 常解析不了 ocr-api；后续 vin/text 会跳过 */
-    } else if (!isBenignDetectError(err)) {
-      console.warn('[desensitize-engine] plate ocr-api:', err.code || '', ocrApiError.slice(0, 120))
-    }
-  }
+  const ocrFirst = await tryOcrApiPlate(imagePath, imageWidth, imageHeight)
+  if (ocrFirst.boxes.length || ocrFirst.authFailed) return ocrFirst
 
   try {
     const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
     return plateResultFromViapi(viapi, imageWidth, imageHeight, {
-      ocrNetworkFailed: Boolean(ocrApiError && isNetworkError({ message: ocrApiError })),
+      ocrNetworkFailed: Boolean(ocrFirst.ocrNetworkFailed),
     })
   } catch (viapiErr) {
     if (isAuthError(viapiErr)) {
@@ -347,7 +402,7 @@ async function detectPlateRegion(imagePath, detectOptions = {}) {
       plateMaskMiss: false,
       orgWidth: 0,
       orgHeight: 0,
-      ocrNetworkFailed: isNetworkError(viapiErr) || isNetworkError({ message: ocrApiError }),
+      ocrNetworkFailed: isNetworkError(viapiErr) || Boolean(ocrFirst.ocrNetworkFailed),
     }
   }
 }
@@ -436,6 +491,8 @@ async function detectSensitiveRegions(imagePath, options = {}) {
     }
     boxes.push(...found)
   })
+
+  if (boxes.some((box) => box.type === 'plate')) plateMaskMiss = false
 
   if (ocrAuthFailed) {
     console.error('[desensitize-engine] ocr permission error', {
