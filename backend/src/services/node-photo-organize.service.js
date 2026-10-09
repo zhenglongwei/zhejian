@@ -16,7 +16,7 @@ const {
 
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v8'
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v9'
 
 function text(value) {
   return String(value || '').trim()
@@ -156,13 +156,11 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorF
   }
   if (mode === 'work') {
     return common.concat([
-      '这是工单留证。按「换成了哪一件」归组：一项只放同一配件或同一道工序的图。',
-      '方案若是一条大套餐（如车身前部修复含结构件/外观件），做成了几件就拆几组。禁止用套餐全称当 partName 把不同件的图合成一项。',
-      'partName 写具体件名，如下摆臂、前杠、轮胎。不要写套餐广告名。',
+      '这是工单留证。按已确认方案归组：一条方案行对应最多一组。',
       '用前面的检测和方案文字对照本批新图。不要把接车/检测图再认一遍。',
-      `已确认方案项目：${JSON.stringify(quoteNames || [])}`,
-      '这件属于某条方案范围的，outsideQuote 填 false，partName 仍写具体件名。',
-      '方案里完全没有的，outsideQuote 填 true，partName 仍写图上实际做的事。不要丢掉这组图。',
+      `已确认方案项目（必须原样抄写）：${JSON.stringify(quoteNames || [])}`,
+      '图上做的事属于名单里某一项时：partName 必须从名单原样抄过来，一个字都不能改；outsideQuote 填 false。同一方案行的多张图放进同一组。',
+      '名单里没有任何一项对得上时：outsideQuote 填 true，partName 写图上实际做的事。不要丢掉这组图。',
       'caption 只写用料短名（换了什么件，如图上的下摆臂、胶套）。禁止写检查、查看、处理、拆卸、安装。没有换件就留空。',
       '人像、半身、店员操作照、与施工无关的图不要进任何组，留给未归组。',
       '拍了关键工序就挂在对应件；没拍到的工序不要编。',

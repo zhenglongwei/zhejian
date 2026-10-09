@@ -656,39 +656,83 @@ function compactQuoteName(value = '') {
   return String(value || '').replace(/\s+/g, '')
 }
 
-/** 工单项目名能否对上已确认方案行；对上则返回方案原名。 */
+/** 工单项目名与已确认方案行必须完全一致；对上则返回方案原名。 */
 function matchQuotePartName(partName, quoteNames = []) {
   const raw = String(partName || '').trim()
+  if (!raw) return ''
   const names = (quoteNames || []).map((n) => String(n || '').trim()).filter(Boolean)
-  if (!raw || !names.length) return ''
-  const exact = names.find((n) => n === raw)
-  if (exact) return exact
-  const compact = compactQuoteName(raw)
-  if (compact.length < 2) return ''
-  const loose = names.find((n) => {
-    const b = compactQuoteName(n)
-    if (b.length < 2) return false
-    return compact.includes(b) || b.includes(compact)
-  })
-  return loose || ''
+  return names.find((n) => n === raw) || ''
 }
 
 function stampWorkQuoteMatch(groups = [], quoteNames = []) {
   const names = Array.isArray(quoteNames) ? quoteNames : []
   return (groups || []).map((group) => {
     const partName = String((group && group.partName) || '').trim()
-    if (!names.length) return { ...group, partName, outsideQuote: false }
     const hit = matchQuotePartName(partName, names)
-    if (hit) return { ...group, partName, outsideQuote: false }
-    if (group && group.outsideQuote === false) return { ...group, partName, outsideQuote: false }
+    if (hit) return { ...group, partName: hit, outsideQuote: false }
     return { ...group, partName, outsideQuote: true }
   })
 }
 
 function workOutsideQuoteOf(partName, quoteNames = []) {
-  const names = Array.isArray(quoteNames) ? quoteNames : []
-  if (!names.length) return false
-  return !matchQuotePartName(partName, names)
+  return !matchQuotePartName(partName, quoteNames)
+}
+
+function usedWorkQuoteNames(findings = []) {
+  const used = new Set()
+  ;(findings || []).forEach((row) => {
+    const name = String((row && row.partName) || '').trim()
+    if (name) used.add(name)
+  })
+  return used
+}
+
+/** 工单「并入」：整张方案 + 本步已有新增项 */
+function buildWorkAssignPickGroups({ quoteNames = [], findings = [] } = {}) {
+  const names = (quoteNames || []).map((n) => String(n || '').trim()).filter(Boolean)
+  const rows = (findings || []).map((row, index) => normalizeWorkFinding(row, index))
+  const used = usedWorkQuoteNames(rows)
+  const groups = []
+  if (names.length) {
+    groups.push({
+      label: '方案',
+      items: names.map((title) => ({
+        key: `quote:${title}`,
+        title,
+        meta: used.has(title) ? '已有' : '',
+      })),
+    })
+  }
+  const extras = rows.filter((row) => row && row.outsideQuote)
+  if (extras.length) {
+    groups.push({
+      label: '新增',
+      items: extras.map((row) => ({
+        key: `finding:${row.id}`,
+        title: row.partName || '待填写',
+        meta: '',
+      })),
+    })
+  }
+  return groups
+}
+
+/** 工单「加一项」：尚未做到工单上的方案行 */
+function buildWorkAddPickGroups({ quoteNames = [], findings = [] } = {}) {
+  const names = (quoteNames || []).map((n) => String(n || '').trim()).filter(Boolean)
+  const used = usedWorkQuoteNames(findings)
+  const leftover = names.filter((title) => !used.has(title))
+  if (!leftover.length) return []
+  return [
+    {
+      label: '方案',
+      items: leftover.map((title) => ({
+        key: `quote:${title}`,
+        title,
+        meta: '',
+      })),
+    },
+  ]
 }
 
 /** 整理结果并入已有项：对得上部位/项目则加图，空字段才填草稿，未用到的图留在待整理。 */
@@ -1484,6 +1528,8 @@ module.exports = {
   matchQuotePartName,
   stampWorkQuoteMatch,
   workOutsideQuoteOf,
+  buildWorkAssignPickGroups,
+  buildWorkAddPickGroups,
   applyIntakeOrganizeGroups,
   normalizeIntakeResult,
   parseAmount,

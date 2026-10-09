@@ -127,26 +127,41 @@ test('work organize uses confirmed quote name and flags items outside quote', ()
     pendingImages: [a, b],
     findings: [],
     groups: [
-      { partName: '机油', imageKeys: ['uploads/a.jpg'] },
+      { partName: '小保养机油', imageKeys: ['uploads/a.jpg'] },
       { partName: '更换雨刮片', imageKeys: ['uploads/b.jpg'] },
     ],
     mode: 'work',
     quoteNames: ['小保养机油', '机滤'],
   })
-  const oil = findings.find((row) => /机油/.test(row.partName))
+  const oil = findings.find((row) => row.partName === '小保养机油')
   const wiper = findings.find((row) => /雨刮/.test(row.partName))
-  assert.equal(oil.partName, '机油')
   assert.equal(oil.outsideQuote, false)
   assert.equal(wiper.partName, '更换雨刮片')
   assert.equal(wiper.outsideQuote, true)
 })
 
-test('work organize keeps specific part name and fills material', () => {
+test('near-synonym work name is a new item, not a fuzzy quote hit', () => {
   const { findings } = applyOrganizeGroups({
     pendingImages: [a],
     findings: [],
     groups: [{
-      partName: '下摆臂',
+      partName: '机油',
+      imageKeys: ['uploads/a.jpg'],
+      outsideQuote: false,
+    }],
+    mode: 'work',
+    quoteNames: ['小保养机油'],
+  })
+  assert.equal(findings[0].partName, '机油')
+  assert.equal(findings[0].outsideQuote, true)
+})
+
+test('work organize copies exact quote name and fills material', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [a],
+    findings: [],
+    groups: [{
+      partName: '车身前部事故损伤修复（含结构件校正/更换及外观件修复）',
       caption: '下摆臂',
       observation: '旧件胶套可见磨损',
       imageKeys: ['uploads/a.jpg'],
@@ -156,7 +171,7 @@ test('work organize keeps specific part name and fills material', () => {
     quoteNames: ['车身前部事故损伤修复（含结构件校正/更换及外观件修复）'],
   })
   assert.equal(findings.length, 1)
-  assert.equal(findings[0].partName, '下摆臂')
+  assert.equal(findings[0].partName, '车身前部事故损伤修复（含结构件校正/更换及外观件修复）')
   assert.equal(findings[0].material, '下摆臂')
   assert.equal(findings[0].caption, '旧件胶套可见磨损')
   assert.equal(findings[0].outsideQuote, false)

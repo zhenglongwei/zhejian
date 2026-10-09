@@ -5,6 +5,9 @@ const {
   mapFindingRows,
   buildInspectionReportPayload,
   collectInspectionReportGaps,
+  buildWorkAssignPickGroups,
+  buildWorkAddPickGroups,
+  workOutsideQuoteOf,
 } = require('./service-flow-docs')
 
 const hydraulic = {
@@ -135,4 +138,34 @@ test('work item with photos and no inspection result still saves', () => {
   assert.equal(saved.caption, '已紧固')
   assert.equal(saved.result, '')
   assert.equal(saved.images.length, 1)
+})
+
+test('empty work name is outside quote; exact name is in quote', () => {
+  const names = ['更换机油', '机滤']
+  assert.equal(workOutsideQuoteOf('', names), true)
+  assert.equal(workOutsideQuoteOf('机油', names), true)
+  assert.equal(workOutsideQuoteOf('更换机油', names), false)
+})
+
+test('work assign pick lists all quote lines and existing extra items', () => {
+  const groups = buildWorkAssignPickGroups({
+    quoteNames: ['更换机油', '机滤'],
+    findings: [
+      { id: 'wf_1', partName: '更换机油', outsideQuote: false, images: [] },
+      { id: 'wf_2', partName: '下摆臂胶套', outsideQuote: true, images: [] },
+    ],
+  })
+  assert.equal(groups[0].label, '方案')
+  assert.equal(groups[0].items[0].meta, '已有')
+  assert.equal(groups[0].items[1].meta, '')
+  assert.equal(groups[1].label, '新增')
+  assert.equal(groups[1].items[0].key, 'finding:wf_2')
+})
+
+test('work add pick hides quote lines already on the work order', () => {
+  const groups = buildWorkAddPickGroups({
+    quoteNames: ['更换机油', '机滤'],
+    findings: [{ id: 'wf_1', partName: '更换机油', outsideQuote: false, images: [] }],
+  })
+  assert.deepEqual(groups[0].items.map((row) => row.title), ['机滤'])
 })

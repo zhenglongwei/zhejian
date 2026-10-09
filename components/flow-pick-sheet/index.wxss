@@ -1,0 +1,29 @@
+.flow-pick-sheet {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-sm);
+}
+
+.flow-pick-sheet__label {
+  display: block;
+  padding: var(--space-sm) 0 var(--space-xs);
+}
+
+.flow-pick-sheet__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.flow-pick-sheet__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.flow-pick-sheet__extra {
+  display: block;
+  padding: var(--space-md) 0 var(--space-sm);
+}

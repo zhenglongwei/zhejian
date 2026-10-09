@@ -1,0 +1,29 @@
+<bottom-sheet
+  visible="{{visible}}"
+  title="{{title}}"
+  showActions="{{false}}"
+  scrollable="{{true}}"
+  bind:close="onClose"
+>
+  <view class="flow-pick-sheet">
+    <block wx:for="{{groups}}" wx:for-item="group" wx:key="label">
+      <text wx:if="{{group.label}}" class="text-caption text-secondary flow-pick-sheet__label">{{group.label}}</text>
+      <view
+        wx:for="{{group.items}}"
+        wx:for-item="row"
+        wx:key="key"
+        class="flow-pick-sheet__row"
+        data-key="{{row.key}}"
+        bindtap="onPick"
+      >
+        <text class="text-body flow-pick-sheet__title">{{row.title}}</text>
+        <text wx:if="{{row.meta}}" class="text-caption text-secondary">{{row.meta}}</text>
+      </view>
+    </block>
+    <text
+      wx:if="{{extraTitle}}"
+      class="text-caption text-link flow-pick-sheet__extra"
+      bindtap="onExtra"
+    >{{extraTitle}}</text>
+  </view>
+</bottom-sheet>

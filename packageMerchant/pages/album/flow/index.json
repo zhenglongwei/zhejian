@@ -9,6 +9,7 @@
     "ui-album-node": "/components/album-node/index",
     "flow-stepper": "/components/flow-stepper/index",
     "flow-unmatched-photos": "/components/flow-unmatched-photos/index",
-    "flow-finding-card": "/components/flow-finding-card/index"
+    "flow-finding-card": "/components/flow-finding-card/index",
+    "flow-pick-sheet": "/components/flow-pick-sheet/index"
   }
 }

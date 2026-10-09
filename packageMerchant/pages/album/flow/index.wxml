@@ -251,7 +251,7 @@
                     <flow-unmatched-photos
                       images="{{pendingImages}}"
                       label="本次照片"
-                      canAssign="{{hasFindingItems}}"
+                      canAssign="{{canAssignPending}}"
                       canPromote="{{true}}"
                       readOnly="{{readOnly}}"
                       bind:preview="onPreviewPendingPhoto"
@@ -551,7 +551,7 @@
                     <flow-unmatched-photos
                       images="{{pendingImages}}"
                       label="未归组"
-                      canAssign="{{hasFindingItems}}"
+                      canAssign="{{canAssignPending}}"
                       canPromote="{{true}}"
                       readOnly="{{readOnly}}"
                       bind:preview="onPreviewPendingPhoto"
@@ -1257,26 +1257,15 @@
     </view>
   </view>
 
-  <view wx:if="{{showAssignSheet}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseAssignSheet">
-    <view class="merchant-flow-page__library" catchtap="onLibraryPanelTap">
-      <view class="merchant-flow-page__library-head">
-        <text class="text-h3">{{assignSheetTitle}}</text>
-        <text class="text-caption text-secondary" catchtap="onCloseAssignSheet">关闭</text>
-      </view>
-      <scroll-view scroll-y class="merchant-flow-page__library-list">
-        <view
-          wx:for="{{assignTargets}}"
-          wx:for-item="row"
-          wx:key="key"
-          class="merchant-flow-page__assign-row"
-          data-key="{{row.key}}"
-          bindtap="onPickAssignTarget"
-        >
-          <text class="text-body">{{row.title}}</text>
-        </view>
-      </scroll-view>
-    </view>
-  </view>
+  <flow-pick-sheet
+    visible="{{showPickSheet}}"
+    title="{{pickSheetTitle}}"
+    groups="{{pickSheetGroups}}"
+    extraTitle="{{pickSheetExtra}}"
+    bind:close="onClosePickSheet"
+    bind:pick="onPickSheetItem"
+    bind:extra="onPickSheetExtra"
+  />
 
   <view wx:if="{{showCancelAddonModal}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
     <view class="merchant-flow-page__modal">

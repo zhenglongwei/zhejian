@@ -332,6 +332,23 @@
 | promote | `{ index }` 新开 |
 | remove | `{ index }` 删除（进本单图库，不删文件） |
 
+#### FlowPickSheet（`components/flow-pick-sheet` · 商家进度）
+
+工单「并入 / 加一项」与接车「并入哪一类」共用的底部选择层，组合 `bottom-sheet`（无确认栏）。点行即完成。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| visible | Boolean | false | 是否展示 |
+| title | String | `''` | 如「并入」「加一项」 |
+| groups | Array | `[]` | `{ label, items: [{ key, title, meta }] }[]` |
+| extraTitle | String | `''` | 有值时列表底露出文字链（加一项的「新增一项」） |
+
+| 事件 | 说明 |
+|---|---|
+| close | 点遮罩 |
+| pick | `{ key }` 选中一行 |
+| extra | 点底栏文字链 |
+
 #### FlowFindingCard（`components/flow-finding-card` · 商家进度）
 
 检测 / 工单折叠项卡，版式对齐车主 `service-doc-sheet` 发现项：标题 → 三列方图 → 说明。展开编辑仍由页面自己做。
@@ -1136,3 +1153,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V2.4 | 车主检测项去掉结果 Tag；三类改为需要处理 / 建议关注 / 正常（按本次方案归属，标题用 h3） |
 | V2.5 | 新增 `FlowUnmatchedPhotos`：商家进度未归组上图下三钮，接车/检测/工单共用 |
 | V2.6 | 新增 `FlowFindingCard`：商家检测/工单折叠卡，对齐车主发现项上图下文 |
+| V2.7 | 新增 `FlowPickSheet`：工单并入/加一项选方案行或新增项 |

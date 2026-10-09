@@ -57,6 +57,8 @@ const {
   applyIntakeOrganizeGroups,
   collectConfirmedQuoteNames,
   workOutsideQuoteOf,
+  buildWorkAssignPickGroups,
+  buildWorkAddPickGroups,
   normalizeIntakeResult,
   normalizePendingImages,
   buildQuoteDraft,
@@ -391,13 +393,15 @@ Page({
     canUseLibrary: false,
     organizedOnce: false,
     hasFindingItems: false,
+    canAssignPending: false,
     organizeActionLabel: '整理',
     showOrganizeAction: false,
-    showAssignSheet: false,
-    assignKind: 'finding',
-    assignSheetTitle: '并入哪一项',
+    showPickSheet: false,
+    pickSheetKind: '',
+    pickSheetTitle: '',
+    pickSheetGroups: [],
+    pickSheetExtra: '',
     assignPendingIndex: -1,
-    assignTargets: [],
     walkaround: [],
     walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
     isInspectionPhotoStep: false,
@@ -1082,9 +1086,15 @@ Page({
   findingChromePatch(sections, pendingImages) {
     const findingSection = (sections || []).find((row) => row && row.findingMode)
     const findings = (findingSection && findingSection.findings) || []
+    const isWork = Boolean(findingSection && findingSection.findingKind === 'work')
+    const quoteNames = isWork ? collectConfirmedQuoteNames(this._flowNodes || []) : []
+    const canAssignPending = isWork
+      ? quoteNames.length > 0 || findings.some((row) => row && row.outsideQuote)
+      : findings.length > 0
     return {
       hasFindingItems: findings.length > 0,
       hasOutsideQuoteItems: findings.some((row) => row && row.outsideQuote),
+      canAssignPending,
     }
   },
 
@@ -2365,7 +2375,7 @@ Page({
     this.setData({
       pendingImages,
       autoSaveLabel: '保存中…',
-      showAssignSheet: false,
+      showPickSheet: false,
       ...this.findingChromePatch(this.data.sections, pendingImages),
     })
     this.scheduleAutoSavePhotos()
@@ -2376,26 +2386,41 @@ Page({
     return (sections || []).findIndex((row) => row && row.findingMode)
   },
 
-  onAddFindingItem(e) {
-    if (this.data.readOnly) return
-    let sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
-    if (!Number.isFinite(sectionIndex) || sectionIndex < 0) {
-      sectionIndex = this.findingSectionIndex()
+  confirmedQuoteNames() {
+    return collectConfirmedQuoteNames(this._flowNodes || [])
+  },
+
+  closePickSheet(extra = {}) {
+    this.setData({
+      showPickSheet: false,
+      pickSheetKind: '',
+      pickSheetTitle: '',
+      pickSheetGroups: [],
+      pickSheetExtra: '',
+      assignPendingIndex: -1,
+      ...extra,
+    })
+  },
+
+  openPickSheet({ kind, title, groups, extra = '', pendingIndex = -1 }) {
+    if (!groups.length && !extra) {
+      wx.showToast({ title: extra ? '' : '没有可选项', icon: 'none' })
+      return
     }
+    this.setData({
+      showPickSheet: true,
+      pickSheetKind: kind,
+      pickSheetTitle: title,
+      pickSheetGroups: groups,
+      pickSheetExtra: extra,
+      assignPendingIndex: pendingIndex,
+    })
+  },
+
+  appendFindingToSection(sectionIndex, item, extra = {}) {
     const section = this.data.sections[sectionIndex]
-    if (!section || !section.findingMode) return
-    const id = `fid_new_${Date.now()}`
-    const blank =
-      section.findingKind === 'work'
-        ? normalizeWorkFinding({
-            id,
-            partName: '',
-            caption: '',
-            images: [],
-            outsideQuote: workOutsideQuoteOf('', collectConfirmedQuoteNames(this._flowNodes || [])),
-          })
-        : normalizeFinding({ id, partName: '', result: '', advice: '', images: [] })
-    const findings = (section.findings || []).concat([blank])
+    if (!section) return
+    const findings = (section.findings || []).concat([item])
     const sections = this.data.sections.map((row, i) => {
       if (i !== sectionIndex) return row
       return {
@@ -2409,10 +2434,65 @@ Page({
     })
     this.setSectionsWithFindings(
       sections,
-      { autoSaveLabel: '保存中…' },
+      {
+        autoSaveLabel: '保存中…',
+        showPickSheet: false,
+        pickSheetKind: '',
+        pickSheetGroups: [],
+        pickSheetExtra: '',
+        assignPendingIndex: -1,
+        ...extra,
+      },
       `${sectionIndex}:${findings.length - 1}`,
     )
     this.scheduleAutoSavePhotos()
+  },
+
+  addBlankFinding(sectionIndex, { workQuoteName = '', images = [] } = {}) {
+    const section = this.data.sections[sectionIndex]
+    if (!section || !section.findingMode) return
+    const id = `fid_new_${Date.now()}`
+    const shots = Array.isArray(images) ? images : []
+    const blank =
+      section.findingKind === 'work'
+        ? normalizeWorkFinding({
+            id,
+            partName: workQuoteName,
+            caption: '',
+            images: shots,
+            outsideQuote: workOutsideQuoteOf(workQuoteName, this.confirmedQuoteNames()),
+          })
+        : normalizeFinding({
+            id,
+            partName: '',
+            result: '',
+            advice: '',
+            images: shots,
+          })
+    this.appendFindingToSection(sectionIndex, blank)
+  },
+
+  onAddFindingItem(e) {
+    if (this.data.readOnly) return
+    let sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
+    if (!Number.isFinite(sectionIndex) || sectionIndex < 0) {
+      sectionIndex = this.findingSectionIndex()
+    }
+    const section = this.data.sections[sectionIndex]
+    if (!section || !section.findingMode) return
+    if (section.findingKind === 'work') {
+      this.openPickSheet({
+        kind: 'add-work',
+        title: '加一项',
+        groups: buildWorkAddPickGroups({
+          quoteNames: this.confirmedQuoteNames(),
+          findings: section.findings || [],
+        }),
+        extra: '新增一项',
+      })
+      return
+    }
+    this.addBlankFinding(sectionIndex)
   },
 
   onOpenAssignPending(e) {
@@ -2425,55 +2505,180 @@ Page({
         wx.showToast({ title: '先新开', icon: 'none' })
         return
       }
-      this.setData({
-        showAssignSheet: true,
-        assignKind: 'intake',
-        assignSheetTitle: '并入哪一类',
-        assignPendingIndex: pendingIndex,
-        assignTargets: list.map((row) => ({
-          key: row.category,
-          title: String((row && row.label) || row.category || '').trim() || '未命名',
-        })),
+      this.openPickSheet({
+        kind: 'intake',
+        title: '并入',
+        pendingIndex,
+        groups: [
+          {
+            label: '',
+            items: list.map((row) => ({
+              key: row.category,
+              title: String((row && row.label) || row.category || '').trim() || '未命名',
+              meta: '',
+            })),
+          },
+        ],
       })
       return
     }
     const si = this.findingSectionIndex()
     const section = this.data.sections[si]
-    const list = (section && section.findings) || []
+    if (!section) return
+    if (section.findingKind === 'work') {
+      const groups = buildWorkAssignPickGroups({
+        quoteNames: this.confirmedQuoteNames(),
+        findings: section.findings || [],
+      })
+      if (!groups.length) {
+        wx.showToast({ title: '先新开', icon: 'none' })
+        return
+      }
+      this.openPickSheet({
+        kind: 'assign-work',
+        title: '并入',
+        pendingIndex,
+        groups,
+      })
+      return
+    }
+    const list = section.findings || []
     if (!list.length) {
       wx.showToast({ title: '先新开', icon: 'none' })
       return
     }
-    this.setData({
-      showAssignSheet: true,
-      assignKind: 'finding',
-      assignSheetTitle: '并入哪一项',
-      assignPendingIndex: pendingIndex,
-      assignTargets: list.map((row, index) => ({
-        key: String(index),
-        title: String((row && row.partName) || '').trim() || `第${index + 1}项`,
-      })),
+    this.openPickSheet({
+      kind: 'assign-finding',
+      title: '并入',
+      pendingIndex,
+      groups: [
+        {
+          label: '',
+          items: list.map((row, index) => ({
+            key: String(index),
+            title: String((row && row.partName) || '').trim() || '待填写',
+            meta: '',
+          })),
+        },
+      ],
     })
   },
 
-  onCloseAssignSheet() {
-    this.setData({
-      showAssignSheet: false,
-      assignKind: 'finding',
-      assignSheetTitle: '并入哪一项',
-      assignPendingIndex: -1,
-      assignTargets: [],
-    })
+  onClosePickSheet() {
+    this.closePickSheet()
   },
 
-  onPickAssignTarget(e) {
-    const key = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) || '')
+  onPickSheetExtra() {
+    if (this.data.pickSheetKind !== 'add-work') return
+    this.addBlankFinding(this.findingSectionIndex())
+  },
+
+  onPickSheetItem(e) {
+    const key = String((e.detail && e.detail.key) || '')
     if (!key) return
-    if (this.data.assignKind === 'intake') {
+    const kind = this.data.pickSheetKind
+    if (kind === 'intake' || kind === 'intake-promote') {
       this.attachPendingToIntake(this.data.assignPendingIndex, key)
       return
     }
-    this.assignPendingToFinding(this.data.assignPendingIndex, Number(key))
+    if (kind === 'assign-finding') {
+      this.assignPendingToFinding(this.data.assignPendingIndex, Number(key))
+      return
+    }
+    if (kind === 'assign-work') {
+      this.assignPendingWorkKey(this.data.assignPendingIndex, key)
+      return
+    }
+    if (kind === 'add-work') {
+      const si = this.findingSectionIndex()
+      if (key.indexOf('quote:') === 0) {
+        this.addBlankFinding(si, { workQuoteName: key.slice('quote:'.length) })
+      }
+    }
+  },
+
+  workFindingIndexById(findings, id) {
+    return (findings || []).findIndex((row) => String((row && row.id) || '') === String(id || ''))
+  },
+
+  workFindingIndexByQuoteName(findings, quoteName) {
+    const name = String(quoteName || '').trim()
+    if (!name) return -1
+    return (findings || []).findIndex((row) => String((row && row.partName) || '').trim() === name)
+  },
+
+  assignPendingWorkKey(pendingIndex, key) {
+    const si = this.findingSectionIndex()
+    const section = this.data.sections[si]
+    if (!section) return
+    if (key.indexOf('finding:') === 0) {
+      const idx = this.workFindingIndexById(section.findings, key.slice('finding:'.length))
+      if (idx < 0) return
+      this.assignPendingToFinding(pendingIndex, idx)
+      return
+    }
+    if (key.indexOf('quote:') !== 0) return
+    this.assignPendingToWorkQuote(pendingIndex, key.slice('quote:'.length))
+  },
+
+  assignPendingToWorkQuote(pendingIndex, quoteName) {
+    if (this.data.readOnly) return
+    const name = String(quoteName || '').trim()
+    const pending = normalizePendingImages(this.data.pendingImages)
+    const shot = pending[pendingIndex]
+    const si = this.findingSectionIndex()
+    const section = this.data.sections[si]
+    if (!shot || !name || !section) return
+    let hostIdx = this.workFindingIndexByQuoteName(section.findings, name)
+    let findings = (section.findings || []).slice()
+    if (hostIdx < 0) {
+      findings.push(
+        normalizeWorkFinding({
+          id: `fid_new_${Date.now()}`,
+          partName: name,
+          caption: '',
+          images: [],
+          outsideQuote: false,
+        }),
+      )
+      hostIdx = findings.length - 1
+    }
+    const current = normalizeWorkFinding(findings[hostIdx])
+    if (current.images.length >= WORK_IMAGES_MAX) {
+      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+      return
+    }
+    const nextImages = current.images.concat([{ url: shot.url, imageId: shot.imageId || '' }]).slice(
+      0,
+      WORK_IMAGES_MAX,
+    )
+    findings[hostIdx] = this.withFindingMeta(
+      current,
+      normalizeWorkFinding({ ...current, partName: name, images: nextImages, outsideQuote: false }),
+    )
+    const leftover = pending.filter((_, i) => i !== pendingIndex)
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== si) return row
+      return {
+        ...row,
+        findings,
+        images: this.flattenWorkSectionImages(findings),
+      }
+    })
+    this.setSectionsWithFindings(
+      sections,
+      {
+        pendingImages: leftover,
+        autoSaveLabel: '保存中…',
+        showPickSheet: false,
+        pickSheetKind: '',
+        pickSheetGroups: [],
+        pickSheetExtra: '',
+        assignPendingIndex: -1,
+      },
+      `${si}:${hostIdx}`,
+    )
+    this.scheduleAutoSavePhotos()
   },
 
   attachPendingToIntake(pendingIndex, categoryId) {
@@ -2506,9 +2711,11 @@ Page({
       pendingImages: leftover,
       odometerUrl: odoShot ? odoShot.url : this.data.odometerUrl,
       odometerImageId: odoShot ? odoShot.imageId || '' : this.data.odometerImageId,
-      showAssignSheet: false,
+      showPickSheet: false,
+      pickSheetKind: '',
+      pickSheetGroups: [],
+      pickSheetExtra: '',
       assignPendingIndex: -1,
-      assignTargets: [],
       autoSaveLabel: '保存中…',
     })
     this.scheduleAutoSavePhotos()
@@ -2567,9 +2774,11 @@ Page({
       {
         pendingImages: leftover,
         autoSaveLabel: '保存中…',
-        showAssignSheet: false,
+        showPickSheet: false,
+        pickSheetKind: '',
+        pickSheetGroups: [],
+        pickSheetExtra: '',
         assignPendingIndex: -1,
-        assignTargets: [],
       },
       `${si}:${findingIndex}`,
     )
@@ -2585,15 +2794,20 @@ Page({
     if (this.data.isIntakePhotoStep) {
       const unused = this.intakeUnusedCategories()
       const list = unused.length ? unused : INTAKE_RECORD_CATEGORIES
-      this.setData({
-        showAssignSheet: true,
-        assignKind: 'intake',
-        assignSheetTitle: '新开哪一类',
-        assignPendingIndex: pendingIndex,
-        assignTargets: list.map((row) => ({
-          key: row.id,
-          title: row.label,
-        })),
+      this.openPickSheet({
+        kind: 'intake-promote',
+        title: '新开哪一类',
+        pendingIndex,
+        groups: [
+          {
+            label: '',
+            items: list.map((row) => ({
+              key: row.id,
+              title: row.label,
+              meta: '',
+            })),
+          },
+        ],
       })
       return
     }
