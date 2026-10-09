@@ -1098,7 +1098,7 @@ Page({
     }
   },
 
-  setSectionsWithFindings(sections, extra = {}, expandKey) {
+  setSectionsWithFindings(sections, extra = {}, expandKey, done) {
     const expandedFindingKey =
       expandKey === undefined ? this.data.expandedFindingKey : expandKey
     const decorated = this.decorateSections(sections, expandedFindingKey)
@@ -1113,7 +1113,9 @@ Page({
     if (this.data.isIntakePhotoStep) {
       patch.findings = this.collectFindingsFromSections(decorated)
     }
-    this.setData(patch)
+    this.setData(patch, () => {
+      if (typeof done === 'function') done()
+    })
   },
 
   findFirstIncompleteFindingKey(sections = this.data.sections) {
@@ -3049,8 +3051,15 @@ Page({
           organizeResultHint,
         },
         this.findFirstIncompleteFindingKey(sections) || '',
+        () => {
+          this.writeLocalFlowDraft()
+          this.persistPhotoDraft()
+            .then(() => this.setAutoSaveLabel('已自动保存'))
+            .catch((err) => {
+              this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+            })
+        },
       )
-      this.scheduleAutoSavePhotos()
     } catch (err) {
       this.setData({
         organizeResultHint: organizeFailHint(err),
