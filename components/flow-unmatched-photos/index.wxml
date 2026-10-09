@@ -1,0 +1,36 @@
+<block wx:if="{{images.length}}">
+  <text wx:if="{{label}}" class="text-caption text-secondary flow-unmatched__label">{{label}}</text>
+  <view
+    wx:for="{{images}}"
+    wx:for-item="shot"
+    wx:key="url"
+    class="flow-unmatched__card"
+  >
+    <view class="flow-unmatched__thumb" data-index="{{index}}" data-url="{{shot.url}}" bindtap="onPreview">
+      <image
+        class="flow-unmatched__img image-placeholder"
+        src="{{shot.url}}"
+        mode="aspectFill"
+      />
+    </view>
+    <view wx:if="{{!readOnly}}" class="flow-unmatched__actions">
+      <view
+        wx:if="{{canAssign}}"
+        class="flow-unmatched__btn flow-unmatched__btn--primary"
+        data-index="{{index}}"
+        catchtap="onAssign"
+      >并入</view>
+      <view
+        wx:if="{{canPromote}}"
+        class="flow-unmatched__btn {{canAssign ? '' : 'flow-unmatched__btn--primary'}}"
+        data-index="{{index}}"
+        catchtap="onPromote"
+      >新开</view>
+      <view
+        class="flow-unmatched__btn"
+        data-index="{{index}}"
+        catchtap="onRemove"
+      >删除</view>
+    </view>
+  </view>
+</block>

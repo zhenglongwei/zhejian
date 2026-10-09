@@ -3,7 +3,7 @@ const Ocr = require('@alicloud/ocr-api20210707')
 const Facebody = require('@alicloud/facebody20191230')
 const { config } = require('../../../config')
 const { buildPublicMediaUrl } = require('../../../lib/media-storage')
-const { getOcrClient, getFaceClient, openImageReadable, ocrApiEndpoint } = require('../../../lib/aliyun-clients')
+const { getOcrClient, getFaceClient, openImageReadable } = require('../../../lib/aliyun-clients')
 const { detectPlateViaViapi } = require('./viapi-plate')
 const { writePrivacyDetectJpeg } = require('../oriented')
 const { boxesFromFaceRectangles } = require('../bbox')
@@ -24,7 +24,6 @@ const {
 const { DetectFaceAdvanceRequest } = Facebody
 
 let ocrApiUnreachable = false
-let ocrApiUnreachableLogged = false
 
 function isAuthError(err) {
   const code = String(err?.code || err?.data?.Code || '').toLowerCase()
@@ -107,7 +106,7 @@ async function runDetector(name, fn) {
     if (isAuthError(err)) {
       return { boxes: [], authFailed: true, error: `${name}:${err.message || 'auth'}` }
     }
-    if (isBenignDetectError(err)) {
+    if (isNetworkError(err) || isBenignDetectError(err)) {
       return { boxes: [], authFailed: false, error: '' }
     }
     console.warn(
@@ -183,13 +182,6 @@ async function ocrRecognize(RequestClass, method, imagePath) {
       if (isAuthError(err)) throw err
       if (isNetworkError(err)) {
         ocrApiUnreachable = true
-        if (!ocrApiUnreachableLogged) {
-          ocrApiUnreachableLogged = true
-          console.warn('[desensitize-engine] ocr-api unreachable, skip further ocr-api calls', {
-            endpoint: ocrApiEndpoint(),
-            code: err.code || '',
-          })
-        }
         throw err
       }
       if (isBenignDetectError(err)) continue
@@ -309,7 +301,7 @@ async function detectPlateRegion(imagePath, detectOptions = {}) {
       }
     }
     if (isNetworkError(err)) {
-      /* 预发 ECS 常解析不了 ocr-api；已在 ocrRecognize 打过一次 skip，这里改走 viapi，不按错误刷屏 */
+      /* 预发 ECS 常解析不了 ocr-api；后续 vin/text 会跳过 */
     } else if (!isBenignDetectError(err)) {
       console.warn('[desensitize-engine] plate ocr-api:', err.code || '', ocrApiError.slice(0, 120))
     }

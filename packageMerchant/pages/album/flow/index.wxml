@@ -1,43 +1,3 @@
-<template name="pendingUnmatched">
-  <block wx:if="{{images.length}}">
-    <text class="text-caption text-secondary merchant-flow-page__pending-label">{{label}}</text>
-    <view
-      wx:for="{{images}}"
-      wx:for-item="shot"
-      wx:for-index="pendingIndex"
-      wx:key="url"
-      class="merchant-flow-page__unmatched"
-    >
-      <view class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--skip">
-        <image
-          class="merchant-flow-page__work-thumb-img image-placeholder"
-          src="{{shot.url}}"
-          mode="aspectFill"
-          data-url="{{shot.url}}"
-          bindtap="onPreviewPendingPhoto"
-        />
-      </view>
-      <view wx:if="{{!readOnly}}" class="merchant-flow-page__unmatched-actions">
-        <view
-          wx:if="{{canAssign}}"
-          class="merchant-flow-page__unmatched-btn merchant-flow-page__unmatched-btn--primary"
-          data-pending-index="{{pendingIndex}}"
-          catchtap="onOpenAssignPending"
-        >归入已有项</view>
-        <view
-          class="merchant-flow-page__unmatched-btn {{canAssign ? '' : 'merchant-flow-page__unmatched-btn--primary'}}"
-          data-pending-index="{{pendingIndex}}"
-          catchtap="onPromotePendingToFinding"
-        >单独成一项</view>
-        <view
-          class="merchant-flow-page__unmatched-btn"
-          data-pending-index="{{pendingIndex}}"
-          catchtap="onRemovePendingPhoto"
-        >删除</view>
-      </view>
-    </view>
-  </block>
-</template>
 <template name="aiFieldHint">
   <view wx:if="{{hint && !hint.applied}}" class="merchant-flow-page__ai-hint">
     <view class="merchant-flow-page__ai-hint-body">
@@ -288,9 +248,16 @@
                       <text class="text-body">归组中</text>
                     </view>
                     <block wx:else>
-                    <template
-                      is="pendingUnmatched"
-                      data="{{images: pendingImages, label: '本次照片', canAssign: hasFindingItems, readOnly: readOnly}}"
+                    <flow-unmatched-photos
+                      images="{{pendingImages}}"
+                      label="本次照片"
+                      canAssign="{{hasFindingItems}}"
+                      canPromote="{{true}}"
+                      readOnly="{{readOnly}}"
+                      bind:preview="onPreviewPendingPhoto"
+                      bind:assign="onOpenAssignPending"
+                      bind:promote="onPromotePendingToFinding"
+                      bind:remove="onRemovePendingPhoto"
                     />
                     <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
@@ -433,7 +400,7 @@
                               disabled="{{readOnly}}"
                               bindinput="onSectionFindingFieldInput"
                             />
-                            <text wx:if="{{finding.outsideQuote}}" class="text-caption text-danger">不在已确认方案里</text>
+                            <text wx:if="{{finding.outsideQuote}}" class="text-caption text-danger">不在方案里</text>
                           </view>
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">用料</text>
@@ -591,19 +558,21 @@
                   <view wx:if="{{organizeResultHint}}" class="merchant-flow-page__organize-result">
                     <text class="text-body">{{organizeResultHint}}</text>
                   </view>
-                  <text
-                    wx:if="{{hasOutsideQuoteItems && isWorkPhotoStep && !readOnly}}"
-                    class="text-body merchant-flow-page__quote-gap"
-                    bindtap="onAddAddonPlan"
-                  >有项不在已确认方案里，走施工中新发现</text>
                   <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>
                     </view>
                     <block wx:else>
-                    <template
-                      is="pendingUnmatched"
-                      data="{{images: pendingImages, label: '未归组', canAssign: hasFindingItems, readOnly: readOnly}}"
+                    <flow-unmatched-photos
+                      images="{{pendingImages}}"
+                      label="未归组"
+                      canAssign="{{hasFindingItems}}"
+                      canPromote="{{true}}"
+                      readOnly="{{readOnly}}"
+                      bind:preview="onPreviewPendingPhoto"
+                      bind:assign="onOpenAssignPending"
+                      bind:promote="onPromotePendingToFinding"
+                      bind:remove="onRemovePendingPhoto"
                     />
                     <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
@@ -638,7 +607,7 @@
                   bind:imageschange="onSectionImagesChange"
                 />
                 <ui-button
-                  wx:if="{{!readOnly && isIntakePhotoStep && !section.findingMode && section.images.length}}"
+                  wx:if="{{!readOnly && isIntakePhotoStep && !section.findingMode && (section.images.length || pendingImages.length)}}"
                   type="ghost"
                   block="{{true}}"
                   loading="{{organizingPhotos}}"
@@ -686,6 +655,18 @@
                     </view>
                   </view>
                 </view>
+                <flow-unmatched-photos
+                  wx:if="{{isIntakePhotoStep && !section.findingMode && !organizingPhotos}}"
+                  images="{{pendingImages}}"
+                  label="未归组"
+                  canAssign="{{intakeResults.length > 0}}"
+                  canPromote="{{true}}"
+                  readOnly="{{readOnly}}"
+                  bind:preview="onPreviewPendingPhoto"
+                  bind:assign="onOpenAssignPending"
+                  bind:promote="onPromotePendingToFinding"
+                  bind:remove="onRemovePendingPhoto"
+                />
                 <template is="aiFieldHint" data="{{hint: section.photoHint}}" />
               </view>
 
@@ -1282,16 +1263,16 @@
   <view wx:if="{{showAssignSheet}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseAssignSheet">
     <view class="merchant-flow-page__library" catchtap="onLibraryPanelTap">
       <view class="merchant-flow-page__library-head">
-        <text class="text-h3">归入哪一项</text>
+        <text class="text-h3">{{assignSheetTitle}}</text>
         <text class="text-caption text-secondary" catchtap="onCloseAssignSheet">关闭</text>
       </view>
       <scroll-view scroll-y class="merchant-flow-page__library-list">
         <view
           wx:for="{{assignTargets}}"
           wx:for-item="row"
-          wx:key="index"
+          wx:key="key"
           class="merchant-flow-page__assign-row"
-          data-finding-index="{{row.index}}"
+          data-key="{{row.key}}"
           bindtap="onPickAssignTarget"
         >
           <text class="text-body">{{row.title}}</text>

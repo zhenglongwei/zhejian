@@ -27,6 +27,7 @@ const {
   WALKAROUND_PARTS,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
+  INTAKE_RECORD_CATEGORIES,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
@@ -393,6 +394,8 @@ Page({
     organizeActionLabel: '整理',
     showOrganizeAction: false,
     showAssignSheet: false,
+    assignKind: 'finding',
+    assignSheetTitle: '并入哪一项',
     assignPendingIndex: -1,
     assignTargets: [],
     walkaround: [],
@@ -2329,11 +2332,23 @@ Page({
     })
   },
 
+  pendingIndexFromEvent(e) {
+    const detail = (e && e.detail) || {}
+    const ds = (e && e.currentTarget && e.currentTarget.dataset) || {}
+    const raw = detail.index != null ? detail.index : ds.pendingIndex
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : -1
+  },
+
+  intakeUnusedCategories() {
+    const used = new Set((this.data.intakeResults || []).map((row) => row && row.category))
+    return INTAKE_RECORD_CATEGORIES.filter((row) => !used.has(row.id))
+  },
+
   onRemovePendingPhoto(e) {
     if (this.data.readOnly) return
-    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
-    const index = Number(ds.pendingIndex)
-    if (!Number.isFinite(index)) return
+    const index = this.pendingIndexFromEvent(e)
+    if (index < 0) return
     const pendingImages = normalizePendingImages(this.data.pendingImages).filter(
       (_, i) => i !== index,
     )
@@ -2392,32 +2407,101 @@ Page({
 
   onOpenAssignPending(e) {
     if (this.data.readOnly) return
-    const pendingIndex = Number(e.currentTarget.dataset.pendingIndex)
-    if (!Number.isFinite(pendingIndex)) return
+    const pendingIndex = this.pendingIndexFromEvent(e)
+    if (pendingIndex < 0) return
+    if (this.data.isIntakePhotoStep) {
+      const list = this.data.intakeResults || []
+      if (!list.length) {
+        wx.showToast({ title: '先新开', icon: 'none' })
+        return
+      }
+      this.setData({
+        showAssignSheet: true,
+        assignKind: 'intake',
+        assignSheetTitle: '并入哪一类',
+        assignPendingIndex: pendingIndex,
+        assignTargets: list.map((row) => ({
+          key: row.category,
+          title: String((row && row.label) || row.category || '').trim() || '未命名',
+        })),
+      })
+      return
+    }
     const si = this.findingSectionIndex()
     const section = this.data.sections[si]
     const list = (section && section.findings) || []
     if (!list.length) {
-      wx.showToast({ title: '先单独成一项', icon: 'none' })
+      wx.showToast({ title: '先新开', icon: 'none' })
       return
     }
     this.setData({
       showAssignSheet: true,
+      assignKind: 'finding',
+      assignSheetTitle: '并入哪一项',
       assignPendingIndex: pendingIndex,
       assignTargets: list.map((row, index) => ({
-        index,
+        key: String(index),
         title: String((row && row.partName) || '').trim() || `第${index + 1}项`,
       })),
     })
   },
 
   onCloseAssignSheet() {
-    this.setData({ showAssignSheet: false, assignPendingIndex: -1, assignTargets: [] })
+    this.setData({
+      showAssignSheet: false,
+      assignKind: 'finding',
+      assignSheetTitle: '并入哪一项',
+      assignPendingIndex: -1,
+      assignTargets: [],
+    })
   },
 
   onPickAssignTarget(e) {
-    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
-    this.assignPendingToFinding(this.data.assignPendingIndex, findingIndex)
+    const key = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) || '')
+    if (!key) return
+    if (this.data.assignKind === 'intake') {
+      this.attachPendingToIntake(this.data.assignPendingIndex, key)
+      return
+    }
+    this.assignPendingToFinding(this.data.assignPendingIndex, Number(key))
+  },
+
+  attachPendingToIntake(pendingIndex, categoryId) {
+    if (this.data.readOnly) return
+    const pending = normalizePendingImages(this.data.pendingImages)
+    const shot = pending[pendingIndex]
+    if (!shot || !categoryId) return
+    const leftover = pending.filter((_, i) => i !== pendingIndex)
+    let found = false
+    const intakeResults = (this.data.intakeResults || []).map((row) => {
+      if (row.category !== categoryId) return row
+      found = true
+      return normalizeIntakeResult({
+        ...row,
+        images: (row.images || []).concat([{ url: shot.url, imageId: shot.imageId || '' }]),
+      })
+    })
+    if (!found) {
+      intakeResults.push(
+        normalizeIntakeResult({
+          category: categoryId,
+          images: [{ url: shot.url, imageId: shot.imageId || '' }],
+        }),
+      )
+    }
+    const odo = intakeResults.find((row) => row.category === 'odometer')
+    const odoShot = odo && odo.images && odo.images[0]
+    this.setData({
+      intakeResults,
+      pendingImages: leftover,
+      odometerUrl: odoShot ? odoShot.url : this.data.odometerUrl,
+      odometerImageId: odoShot ? odoShot.imageId || '' : this.data.odometerImageId,
+      showAssignSheet: false,
+      assignPendingIndex: -1,
+      assignTargets: [],
+      autoSaveLabel: '保存中…',
+    })
+    this.scheduleAutoSavePhotos()
   },
 
   assignPendingToFinding(pendingIndex, findingIndex) {
@@ -2484,12 +2568,28 @@ Page({
 
   onPromotePendingToFinding(e) {
     if (this.data.readOnly) return
-    const pendingIndex = Number(e.currentTarget.dataset.pendingIndex)
+    const pendingIndex = this.pendingIndexFromEvent(e)
     const pending = normalizePendingImages(this.data.pendingImages)
     const shot = pending[pendingIndex]
+    if (!shot) return
+    if (this.data.isIntakePhotoStep) {
+      const unused = this.intakeUnusedCategories()
+      const list = unused.length ? unused : INTAKE_RECORD_CATEGORIES
+      this.setData({
+        showAssignSheet: true,
+        assignKind: 'intake',
+        assignSheetTitle: '新开哪一类',
+        assignPendingIndex: pendingIndex,
+        assignTargets: list.map((row) => ({
+          key: row.id,
+          title: row.label,
+        })),
+      })
+      return
+    }
     const si = this.findingSectionIndex()
     const section = this.data.sections[si]
-    if (!shot || !section) return
+    if (!section) return
     const id = `fid_new_${Date.now()}`
     const created =
       section.findingKind === 'work'
@@ -2529,7 +2629,11 @@ Page({
   },
 
   onPreviewPendingPhoto(e) {
-    const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    const url = String(
+      (e.detail && e.detail.url) ||
+        (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) ||
+        '',
+    ).trim()
     const urls = normalizePendingImages(this.data.pendingImages).map((img) => img.url)
     if (!urls.length) return
     wx.previewImage({ current: url || urls[0], urls })
@@ -2538,7 +2642,14 @@ Page({
   collectPendingForOrganize(kind) {
     if (kind === 'intake') {
       const section = (this.data.sections || []).find((row) => row && !row.findingMode) || this.data.sections[0]
-      return normalizePendingImages(section && section.images)
+      const byKey = {}
+      normalizePendingImages(section && section.images)
+        .concat(normalizePendingImages(this.data.pendingImages))
+        .forEach((img) => {
+          const key = mediaKey(img && img.url)
+          if (key) byKey[key] = img
+        })
+      return Object.keys(byKey).map((k) => byKey[k])
     }
     return normalizePendingImages(this.data.pendingImages)
   },
@@ -2550,9 +2661,29 @@ Page({
       groups: (res && res.groups) || [],
       prevResults: this.data.intakeResults,
     })
+    const leftover = applied.pendingImages
+    const leftoverKeys = new Set(leftover.map((img) => mediaKey(img && img.url)))
+    const usedKeys = new Set()
+    pending.forEach((img) => {
+      const key = mediaKey(img && img.url)
+      if (key && !leftoverKeys.has(key)) usedKeys.add(key)
+    })
+    const sections = (this.data.sections || []).map((row) => {
+      if (row.findingMode) return row
+      return {
+        ...row,
+        images: normalizePendingImages(row.images).filter((img) => {
+          const key = mediaKey(img && img.url)
+          if (!key) return false
+          if (leftoverKeys.has(key) || usedKeys.has(key)) return false
+          return true
+        }),
+      }
+    })
     this.setData({
+      sections,
       intakeResults: applied.intakeResults,
-      pendingImages: applied.pendingImages,
+      pendingImages: leftover,
       mileageKm: applied.mileageKm || this.data.mileageKm,
       fuelReading: applied.fuelReading || this.data.fuelReading,
       odometerUrl: applied.odometerUrl || this.data.odometerUrl,
@@ -2579,11 +2710,11 @@ Page({
     })
     const leftoverCount = (leftover || []).length
     if (!names.length) {
-      return leftoverCount ? `没有写成项，还有 ${leftoverCount} 张请手工归` : ''
+      return leftoverCount ? `未成项，余 ${leftoverCount} 张` : ''
     }
     const shown = names.length > 3 ? `${names.slice(0, 3).join('、')} 等${names.length}项` : names.join('、')
-    const placed = `已归入：${shown}`
-    return leftoverCount ? `${placed}。还有 ${leftoverCount} 张请手工归` : placed
+    const placed = `已归入 ${shown}`
+    return leftoverCount ? `${placed}。余 ${leftoverCount} 张` : placed
   },
 
   async waitForOrganizeResult(payload) {
@@ -2668,16 +2799,11 @@ Page({
         }
       })
       const leftover = applied.pendingImages
-      let organizeResultHint = this.summarizeOrganizeResult(
+      const organizeResultHint = this.summarizeOrganizeResult(
         pending,
         applied.findings,
         leftover,
       )
-      if ((applied.findings || []).some((row) => row && row.outsideQuote)) {
-        organizeResultHint = organizeResultHint
-          ? `${organizeResultHint}。有项不在已确认方案里，走施工中新发现`
-          : '有项不在已确认方案里，走施工中新发现'
-      }
       this.setSectionsWithFindings(
         sections,
         {
@@ -4121,7 +4247,7 @@ Page({
       }
     }
     if (
-      (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
+      (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection' || kind === 'intake') &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
       wx.showToast({ title: '先处理未归组的图', icon: 'none' })

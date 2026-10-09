@@ -1,0 +1,53 @@
+.flow-unmatched__label {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.flow-unmatched__card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.flow-unmatched__thumb {
+  width: 100%;
+  height: 360rpx;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--color-bg-muted);
+}
+
+.flow-unmatched__img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.flow-unmatched__actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-sm);
+}
+
+.flow-unmatched__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72rpx;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
+  background-color: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: var(--font-caption);
+  box-sizing: border-box;
+}
+
+.flow-unmatched__btn--primary {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}

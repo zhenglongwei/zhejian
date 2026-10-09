@@ -313,6 +313,25 @@
 | active | 当前步展开区（上传/表单） |
 | completed-detail | 可选：`detailKind` 未知时的兜底插槽 |
 
+#### FlowUnmatchedPhotos（`components/flow-unmatched-photos` · 商家进度）
+
+接车 / 检测 / 工单共用的未归组手工兜底。每张上图、下三钮 **并入 / 新开 / 删除**。无图不渲染。拍照加号、从图库选择仍由页面自己放。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| images | Array | `[]` | `{ url, imageId? }[]` |
+| label | String | `未归组` | 区标题 |
+| canAssign | Boolean | false | 已有可并入的项/类目时露 **并入** |
+| canPromote | Boolean | true | 可否 **新开**；接车选尚未摊开的类目，检测/工单新开一项 |
+| readOnly | Boolean | false | 只读时不露按钮 |
+
+| 事件 | 说明 |
+|---|---|
+| preview | `{ url, index }` 点图预览 |
+| assign | `{ index }` 并入 |
+| promote | `{ index }` 新开 |
+| remove | `{ index }` 删除（进本单图库，不删文件） |
+
 #### ServiceDocSheet（`components/service-doc-sheet` · DOC-FLOW）
 
 车主进度与商家已完成预览共用的只读单据壳。检测报告偏证据卡，方案/完工偏费用表。
@@ -1092,3 +1111,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V2.2 | 车主端 AlbumCard：标题统一车牌；五行信息（类目 / 服务商 / 品牌车型 / 进度）；评价按钮右上 |
 | V2.3 | `ServiceDocSheet`：车主检测项竖排卡+分段；方案金额与合计去重、长说明可展开 |
 | V2.4 | 车主检测项去掉结果 Tag；三类改为需要处理 / 建议关注 / 正常（按本次方案归属，标题用 h3） |
+| V2.5 | 新增 `FlowUnmatchedPhotos`：商家进度未归组上图下三钮，接车/检测/工单共用 |

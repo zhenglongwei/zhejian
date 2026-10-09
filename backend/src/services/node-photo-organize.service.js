@@ -16,7 +16,7 @@ const {
 
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v7'
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v8'
 
 function text(value) {
   return String(value || '').trim()
@@ -163,8 +163,8 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorF
       `已确认方案项目：${JSON.stringify(quoteNames || [])}`,
       '这件属于某条方案范围的，outsideQuote 填 false，partName 仍写具体件名。',
       '方案里完全没有的，outsideQuote 填 true，partName 仍写图上实际做的事。不要丢掉这组图。',
-      'caption 只写用料短名（换了什么件，如图上的下摆臂）。不要写检查结果，不要写正在拆、正在安装、技师操作。',
-      '人像、与施工无关的图不要进任何组。',
+      'caption 只写用料短名（换了什么件，如图上的下摆臂、胶套）。禁止写检查、查看、处理、拆卸、安装。没有换件就留空。',
+      '人像、半身、店员操作照、与施工无关的图不要进任何组，留给未归组。',
       '拍了关键工序就挂在对应件；没拍到的工序不要编。',
       'observation 只写包装或铭牌上的规格、旧件能看清的状态。没有就不写。禁止「拆卸并处理」这类句子。禁止适配型号。',
       '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation","outsideQuote"}]}',
