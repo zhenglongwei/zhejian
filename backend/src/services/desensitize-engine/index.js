@@ -90,10 +90,11 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
 
     if (detection.plateMaskMiss) {
       console.warn('[desensitize-engine] plate text detected but no mask box', {
-        sourcePath,
         imageSize: { width, height },
+        plateNumbers: (detection.plateNumbers || []).slice(0, 3),
       })
-      needManual = true
+      // 套不出框不当整张失败：零件误报也能进检测。公开闸仍看 plateMaskMiss。
+      if (detection.ocrAuthFailed) needManual = true
     }
 
     if (riskTags.includes('plate') && !mergedBoxes.some((b) => b.type === 'plate' || b.type === 'mixed')) {
@@ -122,8 +123,7 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
       throw e
     }
 
-    const noSensitiveContent =
-      !mergedBoxes.length && !riskTags.length && !detection.plateMaskMiss
+    const noSensitiveContent = !mergedBoxes.length && !riskTags.length
 
     if (noSensitiveContent) {
       // 无车牌/人脸/VIN/单据等区域：原图 copy 即脱敏产物，不因 OCR 鉴权或网络失败强制人工

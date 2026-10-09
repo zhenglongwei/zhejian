@@ -24,10 +24,17 @@ test('viapi plate boxes are reused without falling through', () => {
 
 test('viapi plate number without box is a mask miss', () => {
   const result = plateResultFromViapi(
-    { boxes: [], plateTextFound: true, orgWidth: 625, orgHeight: 388 },
+    {
+      boxes: [],
+      plateTextFound: true,
+      plateNumbers: ['浙A12345'],
+      orgWidth: 625,
+      orgHeight: 388,
+    },
     625,
     388,
   )
   assert.equal(result.plateMaskMiss, true)
   assert.deepEqual(result.boxes, [])
+  assert.deepEqual(result.plateNumbers, ['浙A12345'])
 })

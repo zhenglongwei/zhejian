@@ -121,3 +121,56 @@ test('parseViapiPlateBoxes keeps empty boxes when only plate text is present', (
   assert.deepEqual(parsed.boxes, [])
   assert.deepEqual(parsed.plateNumbers, ['粤B12345'])
 })
+
+test('parseViapiPlateBoxes uses 4 corner tuples when roi is empty', () => {
+  const parsed = parseViapiPlateBoxes({
+    plates: [
+      {
+        plateNumber: '浙ED099B',
+        roi: { h: 0, w: 0, x: 0, y: 0 },
+        positions: [
+          [80, 120],
+          [180, 118],
+          [182, 148],
+          [78, 150],
+        ],
+      },
+    ],
+  }, 625, 388)
+  assert.equal(parsed.boxes.length, 1)
+  assert.equal(parsed.boxes[0].source, 'viapi_pos')
+  assert.equal(parsed.boxes[0].left, 78)
+  assert.equal(parsed.boxes[0].width, 104)
+})
+
+test('parseViapiPlateBoxes reads Tea toMap PascalCase while instance fields are empty', () => {
+  const roi = {
+    h: undefined,
+    w: undefined,
+    x: undefined,
+    y: undefined,
+    toMap() {
+      return { H: 24, W: 80, X: 10, Y: 20 }
+    },
+  }
+  const point = (x, y) => ({
+    x: undefined,
+    y: undefined,
+    toMap() {
+      return { X: x, Y: y }
+    },
+  })
+  const parsed = parseViapiPlateBoxes({
+    plates: [
+      {
+        plateNumber: '浙A12345',
+        roi,
+        positions: [point(10, 20), point(90, 20), point(90, 44), point(10, 44)],
+      },
+    ],
+  })
+  assert.equal(parsed.boxes.length, 1)
+  assert.equal(parsed.boxes[0].source, 'viapi_pos')
+  assert.equal(parsed.boxes[0].left, 10)
+  assert.equal(parsed.boxes[0].width, 80)
+})

@@ -13,6 +13,59 @@ function runtimeOptions() {
   })
 }
 
+function asNumber(value) {
+  if (value == null || value === '') return NaN
+  if (typeof value === 'object') {
+    if (typeof value.toMap === 'function') {
+      try {
+        return asNumber(value.toMap())
+      } catch {
+        return NaN
+      }
+    }
+    if (Array.isArray(value)) return asNumber(value[0])
+    return asNumber(value.value ?? value.Value ?? value.x ?? value.X)
+  }
+  const n = Number(value)
+  return Number.isFinite(n) ? n : NaN
+}
+
+function teaPlain(value, depth = 0) {
+  if (value == null || depth > 6) return value
+  if (typeof value.toMap === 'function') {
+    try {
+      return teaPlain(value.toMap(), depth + 1)
+    } catch {
+      /* fall through */
+    }
+  }
+  if (Array.isArray(value)) return value.map((item) => teaPlain(item, depth + 1))
+  if (typeof value === 'object') {
+    const out = {}
+    Object.keys(value).forEach((key) => {
+      out[key] = teaPlain(value[key], depth + 1)
+    })
+    return out
+  }
+  return value
+}
+
+function readPoint(raw) {
+  if (raw == null) return null
+  const p = typeof raw.toMap === 'function' ? teaPlain(raw) : raw
+  if (Array.isArray(p)) {
+    const x = asNumber(p[0])
+    const y = asNumber(p[1])
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y }
+    return null
+  }
+  if (typeof p !== 'object') return null
+  const x = asNumber(p.x ?? p.X ?? p.left ?? p.Left ?? p[0])
+  const y = asNumber(p.y ?? p.Y ?? p.top ?? p.Top ?? p[1])
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  return { x, y }
+}
+
 function normalizeBoxCoords(left, top, width, height, imageWidth, imageHeight) {
   const l = Number(left)
   const t = Number(top)
@@ -35,12 +88,7 @@ function normalizeBoxCoords(left, top, width, height, imageWidth, imageHeight) {
 
 function boxFromNormalizedPoints(points, type, source, imageWidth, imageHeight) {
   if (!Array.isArray(points) || points.length < 2) return null
-  const coords = points
-    .map((p) => ({
-      x: Number(p.x ?? p.X),
-      y: Number(p.y ?? p.Y),
-    }))
-    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+  const coords = points.map(readPoint).filter(Boolean)
   if (coords.length < 2) return null
 
   const maxVal = Math.max(...coords.flatMap((p) => [p.x, p.y]))
@@ -82,11 +130,12 @@ function pickBestPlate(plates) {
 
 function boxFromRoi(roi, imageWidth, imageHeight) {
   if (!roi || typeof roi !== 'object') return null
+  const plain = teaPlain(roi)
   const raw = normalizeBoxCoords(
-    roi.x ?? roi.X ?? roi.left ?? roi.Left,
-    roi.y ?? roi.Y ?? roi.top ?? roi.Top,
-    roi.w ?? roi.W ?? roi.width ?? roi.Width,
-    roi.h ?? roi.H ?? roi.height ?? roi.Height,
+    asNumber(plain.x ?? plain.X ?? plain.left ?? plain.Left),
+    asNumber(plain.y ?? plain.Y ?? plain.top ?? plain.Top),
+    asNumber(plain.w ?? plain.W ?? plain.width ?? plain.Width),
+    asNumber(plain.h ?? plain.H ?? plain.height ?? plain.Height),
     imageWidth,
     imageHeight
   )
@@ -95,27 +144,28 @@ function boxFromRoi(roi, imageWidth, imageHeight) {
 }
 
 function unwrapViapiData(data) {
-  if (!data || typeof data !== 'object') return data
-  if (data.plates || data.Plates) return data
-  const nested = data.data || data.Data
+  const plain = teaPlain(data)
+  if (!plain || typeof plain !== 'object') return plain
+  if (plain.plates || plain.Plates) return plain
+  const nested = plain.data || plain.Data
   if (nested && (nested.plates || nested.Plates)) return nested
-  return data
+  return plain
 }
 
 function listPlates(data) {
   const root = unwrapViapiData(data)
   const raw = root?.plates || root?.Plates
-  if (Array.isArray(raw)) return raw
-  if (raw && typeof raw === 'object' && (raw.plateNumber || raw.PlateNumber)) return [raw]
+  if (Array.isArray(raw)) return raw.map((plate) => teaPlain(plate))
+  if (raw && typeof raw === 'object' && (raw.plateNumber || raw.PlateNumber)) return [teaPlain(raw)]
   return []
 }
 
 function parsePositions(raw) {
   if (!raw) return null
-  let value = raw
-  if (typeof raw === 'string') {
+  let value = teaPlain(raw)
+  if (typeof value === 'string') {
     try {
-      value = JSON.parse(raw)
+      value = JSON.parse(value)
     } catch {
       return null
     }
@@ -133,6 +183,9 @@ function parsePositions(raw) {
   if (value && typeof value === 'object') {
     if (Array.isArray(value.X) && Array.isArray(value.Y)) {
       return value.X.map((x, i) => ({ x, y: value.Y[i] }))
+    }
+    if (Array.isArray(value.x) && Array.isArray(value.y)) {
+      return value.x.map((x, i) => ({ x, y: value.y[i] }))
     }
     if (Array.isArray(value.points)) return value.points
   }
@@ -204,13 +257,27 @@ function hasViapiPlateText(data) {
 
 function logViapiPlateMiss(data, parsed) {
   const plate = listPlates(data)[0] || null
-  const roi = plate && (plate.roi || plate.Roi)
+  const roi = plate && teaPlain(plate.roi || plate.Roi)
   const positions = plate && (plate.positions || plate.Positions)
+  const pos0 = Array.isArray(positions) ? readPoint(positions[0]) : null
   console.warn('[desensitize-engine] viapi plate text without box', {
     plateKeys: plate ? Object.keys(plate) : [],
     roiKeys: roi && typeof roi === 'object' ? Object.keys(roi) : [],
+    roiVals: roi && typeof roi === 'object'
+      ? {
+          x: roi.x ?? roi.X,
+          y: roi.y ?? roi.Y,
+          w: roi.w ?? roi.W,
+          h: roi.h ?? roi.H,
+        }
+      : null,
     positionsType: Array.isArray(positions) ? 'array' : typeof positions,
     positionsLen: Array.isArray(positions) ? positions.length : 0,
+    pos0Keys: Array.isArray(positions) && positions[0] && typeof positions[0] === 'object'
+      ? Object.keys(positions[0])
+      : [],
+    pos0,
+    plateNumbers: parsed.plateNumbers.slice(0, 3),
     plateCount: parsed.plateNumbers.length,
   })
 }

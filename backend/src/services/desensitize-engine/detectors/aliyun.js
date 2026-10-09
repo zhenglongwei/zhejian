@@ -218,6 +218,7 @@ function plateResultFromViapi(viapi, imageWidth, imageHeight, extras = {}) {
     authFailed: false,
     error: '',
     plateMaskMiss: plateTextFound && !boxes.length,
+    plateNumbers: (viapi && viapi.plateNumbers) || [],
     orgWidth: (viapi && viapi.orgWidth) || imageWidth || 0,
     orgHeight: (viapi && viapi.orgHeight) || imageHeight || 0,
     ocrNetworkFailed: false,
@@ -519,6 +520,7 @@ async function detectSensitiveRegions(imagePath, options = {}) {
     ocrAuthFailed,
     ocrNetworkFailed,
     plateMaskMiss,
+    plateNumbers: plateResult.plateNumbers || [],
     ocrWidth,
     ocrHeight,
   }
