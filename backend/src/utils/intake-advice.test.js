@@ -13,6 +13,7 @@ test('parse intake advice keeps checkpoints with stable ids', () => {
   assert.equal(got.checkpoints.length, 2)
   assert.equal(got.checkpoints[0].id.slice(0, 3), 'ck_')
   assert.equal(got.askOwner[0].body.includes('过坎') || got.askOwner[0].title.includes('过坎'), true)
+  assert.equal(got.photoTips[0].title, '里程')
 })
 
 test('parse ask owner options and sort checkpoints by priority', () => {
@@ -30,6 +31,37 @@ test('parse ask owner options and sort checkpoints by priority', () => {
   )
   assert.equal(got.checkpoints[0].partName, '下摆臂球头')
   assert.equal(got.checkpoints[1].partName, '半轴防尘套')
+})
+
+test('walkaround photo tips keep intake categories and drop inspection parts', () => {
+  const got = parseIntakeAdvicePayload({
+    diagnosis: '异响更像衬套间隙。',
+    photoTips: [
+      { title: '发动机及变速箱机脚胶', body: '特写橡胶裂纹。' },
+      { title: '前桥下摆臂及衬套', body: '拍前后衬套。' },
+      { title: '仪表', body: '表盘入镜，不要导航。' },
+      { title: '随车物品', body: '舱内随车物入镜。' },
+    ],
+    checkpoints: [{ partName: '发动机机脚胶', why: '先查胶垫开裂' }],
+  })
+  assert.deepEqual(
+    got.photoTips.map((row) => row.title),
+    ['里程', '随车物品'],
+  )
+  assert.equal(got.checkpoints[0].partName, '发动机机脚胶')
+})
+
+test('walkaround photo tips fall back to intake categories when model dumps inspection shots', () => {
+  const got = parseIntakeAdvicePayload({
+    photoTips: [
+      { title: '平衡杆吊耳及连杆', body: '拍李子串胶套。' },
+      { title: '半轴防尘套', body: '确认破损甩油。' },
+    ],
+  })
+  assert.deepEqual(
+    got.photoTips.map((row) => row.title),
+    ['里程', '油量', '漆面', '玻璃', '轮胎', '灯光', '随车物品'],
+  )
 })
 
 test('unmatched checkpoints skip findings that already cover the part', () => {
