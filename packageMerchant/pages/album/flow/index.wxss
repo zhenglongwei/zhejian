@@ -26,6 +26,19 @@
   gap: var(--space-sm);
 }
 
+.merchant-flow-page__hero-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+.merchant-flow-page__hero-vehicle {
+  color: var(--color-text-secondary);
+}
+
 .merchant-flow-page__section {
   margin-bottom: var(--space-md);
 }

@@ -134,3 +134,12 @@
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
+
+.album-create__vehicle-row {
+  align-items: stretch;
+}
+
+.album-create__vehicle-input {
+  flex: 1;
+  min-width: 0;
+}

@@ -74,7 +74,10 @@
     <view class="page-content merchant-flow-page__body">
         <view class="merchant-flow-page__hero">
           <view class="merchant-flow-page__hero-top">
-            <text class="text-h3">{{serviceName}}</text>
+            <view class="merchant-flow-page__hero-heading">
+              <text class="text-h3">{{serviceName}}</text>
+              <text wx:if="{{vehicleLine}}" class="text-caption merchant-flow-page__hero-vehicle">{{vehicleLine}}</text>
+            </view>
             <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
           </view>
         </view>
@@ -113,36 +116,6 @@
                   disabled="{{confirming && !adviceOpen}}"
                   bind:btntap="onToggleAdvice"
                 >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
-                <text class="text-body merchant-flow-page__label">品牌车型</text>
-                <view class="merchant-flow-page__vehicle-row">
-                  <input
-                    class="merchant-flow-page__input merchant-flow-page__input--third"
-                    value="{{vehicleBrand}}"
-                    maxlength="20"
-                    placeholder="品牌"
-                    disabled="{{readOnly}}"
-                    bindinput="onVehicleFieldInput"
-                    data-field="vehicleBrand"
-                  />
-                  <input
-                    class="merchant-flow-page__input merchant-flow-page__input--third"
-                    value="{{vehicleSeries}}"
-                    maxlength="24"
-                    placeholder="车系"
-                    disabled="{{readOnly}}"
-                    bindinput="onVehicleFieldInput"
-                    data-field="vehicleSeries"
-                  />
-                  <input
-                    class="merchant-flow-page__input merchant-flow-page__input--third"
-                    value="{{vehicleYear}}"
-                    maxlength="8"
-                    placeholder="年款"
-                    disabled="{{readOnly}}"
-                    bindinput="onVehicleFieldInput"
-                    data-field="vehicleYear"
-                  />
-                </view>
               </view>
 
               <view

@@ -105,6 +105,9 @@ Page({
       serviceId: '',
       plate: '',
       vin: '',
+      vehicleBrand: '',
+      vehicleSeries: '',
+      vehicleYear: '',
       userPhone: '',
       complexityLevel: DEFAULT_COMPLEXITY,
     },
@@ -242,6 +245,17 @@ Page({
     this.openVehicleScan('vin')
   },
 
+  applyDecodedFields(vehicle = {}) {
+    const brand = String(vehicle.brand || '').trim()
+    const series = String(vehicle.series || '').trim()
+    const year = String(vehicle.modelYear || vehicle.year || '').trim()
+    const patch = {}
+    if (brand) patch['form.vehicleBrand'] = brand
+    if (series) patch['form.vehicleSeries'] = series
+    if (year) patch['form.vehicleYear'] = year
+    if (Object.keys(patch).length) this.setData(patch)
+  },
+
   applyVehicleHints(hints = {}, vin = '') {
     const vehicle = {
       ...(this.data.decodedVehicle || {}),
@@ -252,6 +266,7 @@ Page({
       decodedVehicle: vehicle,
       vehiclePreview: buildVehiclePreview(vehicle) || (vin ? `已识别车架号 ${vin}` : ''),
     })
+    this.applyDecodedFields(vehicle)
   },
 
   async tryDecodeVin(vin, fallbackHints = {}) {
@@ -263,6 +278,7 @@ Page({
         decodedVehicle: vehicle,
         vehiclePreview: buildVehiclePreview(vehicle),
       })
+      this.applyDecodedFields(vehicle)
     } catch (e) {
       if (fallbackHints && (fallbackHints.brand || fallbackHints.series || fallbackHints.engineModel)) {
         this.applyVehicleHints(fallbackHints, vin)
@@ -270,7 +286,7 @@ Page({
       }
       this.setData({
         decodedVehicle: { vin, ...(fallbackHints || {}) },
-        vehiclePreview: 'VIN 已填写；解析失败可稍后在编辑页手工补全车型',
+        vehiclePreview: '未解析出车型，请在下方手填',
       })
     }
   },
@@ -291,15 +307,43 @@ Page({
       wx.showToast({ title: '车架号须为 17 位', icon: 'none' })
       return null
     }
-    return { serviceName, plate, vin }
+    const vehicleBrand = String(this.data.form.vehicleBrand || '').trim()
+    const vehicleSeries = String(this.data.form.vehicleSeries || '').trim()
+    if (!vehicleBrand) {
+      wx.showToast({ title: '请填写品牌', icon: 'none' })
+      return null
+    }
+    if (!vehicleSeries) {
+      wx.showToast({ title: '请填写车系', icon: 'none' })
+      return null
+    }
+    return {
+      serviceName,
+      plate,
+      vin,
+      vehicleBrand,
+      vehicleSeries,
+      vehicleYear: String(this.data.form.vehicleYear || '').trim(),
+    }
   },
 
-  async buildCreatePayload({ serviceName, plate, vin, includePhone }) {
+  async buildCreatePayload({
+    serviceName,
+    plate,
+    vin,
+    vehicleBrand,
+    vehicleSeries,
+    vehicleYear,
+    includePhone,
+  }) {
     const meta = resolveServiceMeta(this.data.serviceQuickOptions, serviceName)
     let vehicle = {
       plate,
       ...(this.data.decodedVehicle || {}),
+      brand: vehicleBrand,
+      series: vehicleSeries,
     }
+    if (vehicleYear) vehicle.modelYear = vehicleYear
     if (vin) vehicle.vin = vin
     if ((!vehicle.brand || !vehicle.series) && vin) {
       wx.showLoading({ title: '解析车型…', mask: true })

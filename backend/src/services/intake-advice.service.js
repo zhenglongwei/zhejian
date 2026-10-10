@@ -30,18 +30,29 @@ function readFlowNodes(album) {
   return sortFlowNodes(pkg.flowNodes)
 }
 
+function vehicleFacts(album, draft = {}) {
+  const vehicle = (album && album.vehicleJson) || {}
+  return {
+    vehicleBrand: text(draft.vehicleBrand) || text(vehicle.brand),
+    vehicleSeries: text(draft.vehicleSeries) || text(vehicle.series),
+    vehicleYear: text(draft.vehicleYear) || text(vehicle.modelYear) || text(vehicle.year),
+  }
+}
+
 function buildFingerprint(album) {
   const nodes = readFlowNodes(album)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
   const draft = (intake && intake.photoDraft) || {}
+  const vehicle = vehicleFacts(album, draft)
   return crypto
     .createHash('sha1')
     .update(
       JSON.stringify({
         c: text(draft.chiefComplaint),
         t: text(album && album.templateId),
-        b: text(draft.vehicleBrand),
-        s: text(draft.vehicleSeries),
+        b: vehicle.vehicleBrand,
+        s: vehicle.vehicleSeries,
+        y: vehicle.vehicleYear,
       }),
     )
     .digest('hex')
@@ -73,6 +84,7 @@ async function runGenerateLlm(facts) {
   const instruction = [
     '你是汽修店员的接车助手。根据车主主诉给出店内意见，不要百科，不要编没听到的损伤。',
     MECHANIC_VOICE_RULES,
+    '车型、年款是本车事实，诊断和检查点要按这台车来，不要当成通用百科。',
     '给店员看：可能什么问题、留证怎么拍、建议按什么顺序查哪些点、还要不要再问车主几句。',
     '不要写成必须填完的检测表。checkpoints 每条要有部位名和一句为什么查。',
     '不要写模型名、不要写 AI。',
@@ -129,13 +141,14 @@ async function runIntakeAdviceJob(albumId) {
       },
     }))
     const draft = intake.photoDraft || {}
+    const vehicle = vehicleFacts(album, draft)
     const parsed = await runGenerateLlm({
       chiefComplaint: text(draft.chiefComplaint),
       templateId: text(album.templateId),
       serviceName: text(album.serviceName),
-      vehicleBrand: text(draft.vehicleBrand),
-      vehicleSeries: text(draft.vehicleSeries),
-      vehicleYear: text(draft.vehicleYear),
+      vehicleBrand: vehicle.vehicleBrand,
+      vehicleSeries: vehicle.vehicleSeries,
+      vehicleYear: vehicle.vehicleYear,
     })
     await patchIntakeNode(albumId, (item) => ({
       ...item,

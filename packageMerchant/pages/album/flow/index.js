@@ -445,6 +445,7 @@ Page({
     vehicleBrand: '',
     vehicleSeries: '',
     vehicleYear: '',
+    vehicleLine: '',
     warrantyPeriod: '',
     warrantyNotes: '',
     allDone: false,
@@ -1552,6 +1553,13 @@ Page({
             photoDraft.vehicleYear || albumVehicle.modelYear || albumVehicle.year || '',
           ).trim()
         : String(photoDraft.vehicleYear || '').trim()
+      const vehicleLine = [
+        String(albumVehicle.brand || vehicleBrand || '').trim(),
+        String(albumVehicle.series || vehicleSeries || '').trim(),
+        String(albumVehicle.modelYear || albumVehicle.year || vehicleYear || '').trim(),
+      ]
+        .filter(Boolean)
+        .join(' · ')
 
       this.setData({
         status: 'ready',
@@ -1652,6 +1660,7 @@ Page({
         vehicleBrand,
         vehicleSeries,
         vehicleYear,
+        vehicleLine,
         quoteLines,
         quoteDraftHint,
         quoteEvidenceFindings,
@@ -3495,14 +3504,6 @@ Page({
     )
   },
 
-  onVehicleFieldInput(e) {
-    const field = e.currentTarget.dataset.field
-    if (!['vehicleBrand', 'vehicleSeries', 'vehicleYear'].includes(field)) return
-    this.setData({ [field]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
-      this.scheduleAutoSaveDraftOnly()
-    })
-  },
-
   onSectionFindingFieldInput(e) {
     if (this.data.readOnly) return
     const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
@@ -3930,7 +3931,7 @@ Page({
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
-  }
+  },
 
   decorateIntakeAdvice(raw) {
     if (!raw || typeof raw !== 'object') {
@@ -3962,7 +3963,7 @@ Page({
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
-  }
+  },
 
   computeCheckpointMisses(flowNodes, findings, enabled) {
     if (!enabled) return []
@@ -4993,6 +4994,10 @@ Page({
       wx.showToast({ title: '先写问诊登记', icon: 'none' })
       return
     }
+    if (!String(this.data.vehicleBrand || '').trim() || !String(this.data.vehicleSeries || '').trim()) {
+      wx.showToast({ title: '先填品牌车系', icon: 'none' })
+      return
+    }
     this.setData({ confirming: true, adviceOpen: true })
     try {
       await this.persistPhotoDraft()
@@ -5006,7 +5011,7 @@ Page({
     } finally {
       this.setData({ confirming: false })
     }
-  }
+  },
 
   async onStartQuoteAiCheck() {
     if (this.data.readOnly || this.data.confirming) return
@@ -5036,7 +5041,7 @@ Page({
     } finally {
       this.setData({ confirming: false })
     }
-  }
+  },
 
   async onStartDeliveryAdvice() {
     if (this.data.readOnly || this.data.confirming || this.data.aiReviewBusy) return

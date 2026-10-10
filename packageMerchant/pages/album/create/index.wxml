@@ -71,6 +71,36 @@
     </view>
 
     <view class="merchant-form__section">
+      <text class="merchant-form__label">品牌车型（必填）</text>
+      <view class="merchant-form__row album-create__vehicle-row">
+        <input
+          class="merchant-form__input album-create__vehicle-input"
+          placeholder="品牌"
+          value="{{form.vehicleBrand}}"
+          maxlength="20"
+          data-field="vehicleBrand"
+          bindinput="onInput"
+        />
+        <input
+          class="merchant-form__input album-create__vehicle-input"
+          placeholder="车系"
+          value="{{form.vehicleSeries}}"
+          maxlength="24"
+          data-field="vehicleSeries"
+          bindinput="onInput"
+        />
+        <input
+          class="merchant-form__input album-create__vehicle-input"
+          placeholder="年款"
+          value="{{form.vehicleYear}}"
+          maxlength="8"
+          data-field="vehicleYear"
+          bindinput="onInput"
+        />
+      </view>
+    </view>
+
+    <view class="merchant-form__section">
       <text class="merchant-form__label">车主手机号</text>
       <input
         class="merchant-form__input"
