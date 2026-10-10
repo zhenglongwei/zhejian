@@ -1,5 +1,5 @@
 /**
- * 检测确认后出分析 + 建议报价；失败回落类目规则
+ * 检测确认后出建议报价；失败回落类目规则
  * 真源：docs/04_维修过程相册/26_ §4.2.1
  */
 const crypto = require('crypto')
@@ -79,19 +79,16 @@ async function runGenerateLlm(facts, category) {
   if (!engines.length) return null
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
-  const accident = category === 'accident'
   const instruction = [
-    '你是汽修店员的方案助手。根据接车主诉和检测已写结果出分析稿和建议报价。不要百科，不要编没写到的损伤。',
+    '你是汽修店员的方案助手。根据接车主诉和检测已写结果出建议报价。不要百科，不要编没写到的损伤。',
     MECHANIC_VOICE_RULES,
-    '建议报价的成交金额一律不要写。每行只给原厂/品牌/经济件宽区间，不是实时行情。',
-    accident ? '事故车不要给金额档，suggestedLines 里 oem/brand/economy 留空。' : '',
+    '只出建议报价：项目名和施工方案。不要分析、不要漏项、不要车主可能问、不要预填检测说明。',
+    '不要写成交金额，不要写原厂/品牌/经济件价档，不要写市场参考价。价格意见留给复查。',
     '封闭类目必须保住套餐主项；开口活只出可见需处理项和拆检，未拆开的隐藏件不要写成收费行。',
-    '状态良好、仅记录、巡检类不要出行。漏项只写在 analysis.omissions，不要写进 suggestedLines。',
-    '拆检行不要给原厂/品牌/经济件价档。issues/omissions/objections 必须是短句字符串，不要对象。',
-    'reportPrefill 是可填进检测说明的短句，空栏才用；不要写 AI/模型。',
+    '状态良好、仅记录、巡检类不要出行。漏查不要写成收费行。',
     `类目约束：${JSON.stringify(facts.constraint)}`,
     `本单事实：${JSON.stringify(facts.body)}`,
-    '输出 JSON：{"analysis":{"summary","reportPrefill","issues":[],"omissions":[],"objections":[]},"suggestedLines":[{"name","note","oem","brand","economy"}]}',
+    '输出 JSON：{"suggestedLines":[{"name","note"}]}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -113,7 +110,7 @@ async function runGenerateLlm(facts, category) {
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
       })
       const parsed = parseQuoteAssistPayload(result && result.text, { category })
-      if (!parsed.suggestedLines.length && !parsed.reportPrefill && !parsed.summary) continue
+      if (!parsed.suggestedLines.length) continue
       return { parsed, engineId: engine.id }
     } catch (_) {
       /* 换下一家 */
@@ -123,7 +120,6 @@ async function runGenerateLlm(facts, category) {
 }
 
 function applyAssistToNodes(nodes, parsed, album) {
-  const reportIdx = nodes.findIndex((item) => item && item.kind === 'inspection_report')
   const quoteIdx = nodes.findIndex((item) => item && item.kind === 'quote_confirm' && !item.insertedReason)
   if (quoteIdx < 0) return nodes
   const quote = nodes[quoteIdx]
@@ -140,9 +136,6 @@ function applyAssistToNodes(nodes, parsed, album) {
       id: line.id,
       name: line.name,
       note: line.note,
-      oem: row.oem,
-      brand: row.brand,
-      economy: row.economy,
     }
   })
   const nextLines = hasNamed
@@ -162,21 +155,6 @@ function applyAssistToNodes(nodes, parsed, album) {
         lines: nextLines,
       },
     },
-  }
-
-  if (reportIdx >= 0 && text(parsed.reportPrefill)) {
-    const report = nodes[reportIdx]
-    const reportDoc = report.document || {}
-    const reportPayload = reportDoc.payload || {}
-    if (!text(reportPayload.conclusion)) {
-      nodes[reportIdx] = {
-        ...report,
-        document: {
-          ...reportDoc,
-          payload: { ...reportPayload, conclusion: parsed.reportPrefill },
-        },
-      }
-    }
   }
   return nodes
 }
@@ -268,11 +246,9 @@ async function runQuoteAssistJob(albumId, merchantId) {
             status,
             fingerprint,
             generateEngine: engineId,
-            summary: parsed.summary,
-            reportPrefill: parsed.reportPrefill,
-            issues: parsed.issues,
-            omissions: parsed.omissions,
-            objections: parsed.objections,
+            issues: [],
+            omissions: [],
+            objections: [],
             suggestedLines: parsed.suggestedLines,
             errorMessage: status === 'failed' ? '未能出方案' : '',
             updatedAt: new Date().toISOString(),

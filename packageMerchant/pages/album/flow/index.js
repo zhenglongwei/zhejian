@@ -881,29 +881,14 @@ Page({
         if (key) taken[key] = index
       })
     })
-    const suggested =
-      (this._pendingQuoteAssist && this._pendingQuoteAssist.suggestedLines) ||
-      (this.data.quoteAssist && this.data.quoteAssist.suggestedLines) ||
-      []
     return (lines || []).map((line, index) => {
       const normalized = normalizeQuoteLine(line)
       const urls = listQuoteLineEvidenceUrls(normalized)
-      const band = suggested.find(
-        (row) =>
-          (row.id && row.id === normalized.id) ||
-          (row.name && row.name === normalized.name),
-      )
-      const teardown = /拆检|拆解/.test(String(normalized.name || ''))
-      const bandText =
-        !teardown && band
-          ? [band.oem && `原厂 ${band.oem}`, band.brand && `品牌 ${band.brand}`, band.economy && `经济件 ${band.economy}`]
-              .filter(Boolean)
-              .join(' · ')
-          : ''
       return {
         ...line,
         ...normalized,
-        bandText,
+        bandChips: [],
+        hasBands: false,
         lineKey: line.lineKey || `ql-${index}-${Math.random().toString(36).slice(2, 8)}`,
         evidenceThumbs: urls.map((url) => {
           const key = evidenceKey(url)
@@ -3906,21 +3891,22 @@ Page({
     if (!raw || typeof raw !== 'object') {
       return { status: '', isWaiting: false, hasContent: false, suggestedLines: [], summary: '' }
     }
-    const brief = this.decorateMerchantBrief(raw)
     const status = String(raw.status || '')
-    const omissions = brief.omissions || []
-    const objections = brief.objections || []
     return {
       ...raw,
-      ...brief,
       status,
+      kicker: '',
+      summary: '',
       issues: [],
       hasIssues: false,
       priceBands: [],
       hasBands: false,
-      hasOmissions: omissions.length > 0,
-      hasObjections: objections.length > 0,
-      hasContent: omissions.length > 0 || objections.length > 0,
+      hasSummary: false,
+      omissions: [],
+      objections: [],
+      hasOmissions: false,
+      hasObjections: false,
+      hasContent: false,
       suggestedLines: Array.isArray(raw.suggestedLines) ? raw.suggestedLines : [],
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出方案' : ''),

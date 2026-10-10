@@ -1,6 +1,6 @@
 <template name="quoteMerchantBrief">
   <view wx:if="{{brief.hasContent}}" class="merchant-flow-page__quote-brief">
-    <text class="text-caption text-secondary">店内参考</text>
+    <text class="text-caption text-secondary merchant-flow-page__quote-brief-kicker">{{brief.kicker || '店内参考'}}</text>
     <block wx:if="{{brief.hasIssues}}">
       <text class="text-caption merchant-flow-page__quote-brief-label">已写内容</text>
       <text wx:for="{{brief.issues}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
@@ -14,7 +14,7 @@
       <text wx:for="{{brief.objections}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
     </block>
     <block wx:if="{{brief.hasBands}}">
-      <text class="text-caption merchant-flow-page__quote-brief-label">配件参考</text>
+      <text class="text-caption merchant-flow-page__quote-brief-label">市场参考价</text>
       <view wx:for="{{brief.priceBands}}" wx:key="lineIndex" class="merchant-flow-page__quote-brief-band">
         <text class="text-caption">{{item.name}}</text>
         <text class="text-caption text-secondary">{{item.bandText}}</text>
@@ -853,25 +853,42 @@
                           bindinput="onQuoteLineInput"
                         />
                       </view>
-                      <view class="merchant-flow-page__plan-amount-wrap">
-                        <text class="text-caption text-secondary">¥</text>
-                        <input
-                          class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--amount"
-                          placeholder="0"
-                          type="digit"
-                          value="{{item.amount}}"
-                          data-index="{{index}}"
-                          data-field="amount"
-                          disabled="{{readOnly}}"
-                          bindinput="onQuoteLineInput"
-                        />
+                      <view class="merchant-flow-page__plan-amount">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">金额</text>
+                        <view class="merchant-flow-page__plan-amount-wrap">
+                          <text class="text-caption text-secondary">¥</text>
+                          <input
+                            class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--amount"
+                            placeholder="0"
+                            type="digit"
+                            value="{{item.amount}}"
+                            data-index="{{index}}"
+                            data-field="amount"
+                            disabled="{{readOnly}}"
+                            bindinput="onQuoteLineInput"
+                          />
+                        </view>
                       </view>
                     </view>
-                    <text wx:if="{{item.bandText}}" class="text-caption text-secondary">{{item.bandText}}</text>
+                    <view wx:if="{{item.hasBands}}" class="merchant-flow-page__plan-band-block">
+                      <text class="text-caption text-secondary merchant-flow-page__field-label">市场参考价</text>
+                      <view class="merchant-flow-page__plan-bands">
+                        <view
+                          wx:for="{{item.bandChips}}"
+                          wx:for-item="chip"
+                          wx:key="key"
+                          class="merchant-flow-page__plan-band"
+                        >
+                          <text class="merchant-flow-page__plan-band-k">{{chip.k}}</text>
+                          <text class="merchant-flow-page__plan-band-v">{{chip.v}}</text>
+                        </view>
+                      </view>
+                    </view>
                     <template is="aiFieldHint" data="{{hint: item.nameHint}}" />
+                    <text class="text-caption text-secondary merchant-flow-page__field-label">品牌</text>
                     <input
                       class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                      placeholder="品牌（选填）"
+                      placeholder="选填"
                       value="{{item.brand}}"
                       data-index="{{index}}"
                       data-field="brand"
@@ -903,7 +920,6 @@
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
-                  <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
                   <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
                 </view>
               </view>
@@ -1042,25 +1058,42 @@
                           bindinput="onQuoteLineInput"
                         />
                       </view>
-                      <view class="merchant-flow-page__plan-amount-wrap">
-                        <text class="text-caption text-secondary">¥</text>
-                        <input
-                          class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--amount"
-                          placeholder="0"
-                          type="digit"
-                          value="{{item.amount}}"
-                          data-index="{{index}}"
-                          data-field="amount"
-                          disabled="{{readOnly || confirmAwaitingOwner}}"
-                          bindinput="onQuoteLineInput"
-                        />
+                      <view class="merchant-flow-page__plan-amount">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">金额</text>
+                        <view class="merchant-flow-page__plan-amount-wrap">
+                          <text class="text-caption text-secondary">¥</text>
+                          <input
+                            class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--amount"
+                            placeholder="0"
+                            type="digit"
+                            value="{{item.amount}}"
+                            data-index="{{index}}"
+                            data-field="amount"
+                            disabled="{{readOnly || confirmAwaitingOwner}}"
+                            bindinput="onQuoteLineInput"
+                          />
+                        </view>
                       </view>
                     </view>
-                    <text wx:if="{{item.bandText}}" class="text-caption text-secondary">{{item.bandText}}</text>
+                    <view wx:if="{{item.hasBands}}" class="merchant-flow-page__plan-band-block">
+                      <text class="text-caption text-secondary merchant-flow-page__field-label">市场参考价</text>
+                      <view class="merchant-flow-page__plan-bands">
+                        <view
+                          wx:for="{{item.bandChips}}"
+                          wx:for-item="chip"
+                          wx:key="key"
+                          class="merchant-flow-page__plan-band"
+                        >
+                          <text class="merchant-flow-page__plan-band-k">{{chip.k}}</text>
+                          <text class="merchant-flow-page__plan-band-v">{{chip.v}}</text>
+                        </view>
+                      </view>
+                    </view>
                     <template is="aiFieldHint" data="{{hint: item.nameHint}}" />
+                    <text class="text-caption text-secondary merchant-flow-page__field-label">品牌</text>
                     <input
                       class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                      placeholder="品牌（选填）"
+                      placeholder="选填"
                       value="{{item.brand}}"
                       data-index="{{index}}"
                       data-field="brand"
@@ -1104,7 +1137,6 @@
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
-                  <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
                   <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
                 </view>
               </view>

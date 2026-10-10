@@ -191,10 +191,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm) 0;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
   padding-right: 48rpx;
-  border-bottom: 1rpx dashed var(--color-border);
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .merchant-flow-page__plan-row-remove {
@@ -421,15 +421,53 @@
   gap: var(--space-xs);
 }
 
+.merchant-flow-page__plan-amount {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-items: flex-end;
+}
+
 .merchant-flow-page__plan-amount-wrap {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
-  flex-shrink: 0;
-  padding: 0 var(--space-xs);
+  gap: var(--space-xs);
+  min-height: 56rpx;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__plan-bands {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__plan-band {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-xs);
+  height: var(--tag-height);
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  background-color: var(--tag-reference-bg);
+}
+
+.merchant-flow-page__plan-band-k {
+  font-size: var(--font-caption);
+  line-height: var(--tag-height);
+  color: var(--tag-reference-fg);
+}
+
+.merchant-flow-page__plan-band-v {
+  font-size: var(--font-caption);
+  line-height: var(--tag-height);
+  color: var(--color-text-primary);
 }
 
 .merchant-flow-page__plan-note {
@@ -453,15 +491,33 @@
 .merchant-flow-page__plan-total-bar {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  padding: var(--space-sm) 0;
+  align-items: baseline;
+  padding: var(--space-md) 0 var(--space-sm);
   margin-top: var(--space-xs);
+  border-top: 1rpx solid var(--color-border);
 }
 
 .merchant-flow-page__quote-brief {
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1rpx solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__quote-brief-kicker {
+  font-weight: 500;
+}
+
+.merchant-flow-page__quote-brief-summary {
+  display: block;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__plan-band-block {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);

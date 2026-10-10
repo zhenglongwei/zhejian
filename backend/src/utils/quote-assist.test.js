@@ -2,17 +2,18 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { parseQuoteAssistPayload, parseSuggestedLines } = require('./quote-assist')
 
-test('parse suggested lines keeps intervals and drops empty names', () => {
+test('parse suggested lines keeps names and drops generate-side price bands', () => {
   const lines = parseSuggestedLines([
     { name: '更换机油机滤', note: '更换机油与机滤', oem: '480-680', brand: '320-450', economy: '220-320' },
     { name: '  ' },
   ])
   assert.equal(lines.length, 1)
   assert.equal(lines[0].name, '更换机油机滤')
-  assert.equal(lines[0].economy, '220-320')
+  assert.equal(lines[0].oem, '')
+  assert.equal(lines[0].economy, '')
 })
 
-test('parse quote assist payload reads analysis and omissions', () => {
+test('parse quote assist payload keeps lines and drops generate-side brief', () => {
   const got = parseQuoteAssistPayload({
     analysis: {
       summary: '主诉异响，前片偏薄。',
@@ -23,21 +24,15 @@ test('parse quote assist payload reads analysis and omissions', () => {
     },
     suggestedLines: [{ name: '更换前刹车片', oem: '380-520', brand: '220-320', economy: '150-220' }],
   })
-  assert.match(got.reportPrefill, /前刹车片/)
-  assert.equal(got.omissions[0], '未查后片')
+  assert.equal(got.reportPrefill, '')
+  assert.equal(got.summary, '')
+  assert.equal(got.omissions.length, 0)
+  assert.equal(got.objections.length, 0)
   assert.equal(got.suggestedLines[0].name, '更换前刹车片')
+  assert.equal(got.suggestedLines[0].oem, '')
 })
 
-test('teardown quote lines have no price bands', () => {
-  const lines = parseSuggestedLines([
-    { name: '拆检', oem: '100-200', brand: '80-120', economy: '50-100' },
-    { name: '更换机油滤芯', oem: '80-150', economy: '30-60' },
-  ])
-  assert.equal(lines[0].oem, '')
-  assert.equal(lines[1].oem, '80-150')
-})
-
-test('accident quote assist strips price bands', () => {
+test('accident quote assist also drops price bands', () => {
   const got = parseQuoteAssistPayload(
     {
       suggestedLines: [{ name: '前杠拆检', oem: '2000', brand: '1200', economy: '800' }],
@@ -46,5 +41,5 @@ test('accident quote assist strips price bands', () => {
     { category: 'accident' },
   )
   assert.equal(got.suggestedLines[0].oem, '')
-  assert.equal(got.omissions[0], '内板未拆')
+  assert.equal(got.omissions.length, 0)
 })
