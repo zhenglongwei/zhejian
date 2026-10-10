@@ -2,7 +2,7 @@
  * 报告与方案 · 分析稿 / 建议报价解析
  * 真源：docs/04_维修过程相册/26_ §4.2.1
  */
-const { parseReviewModelJson, parseMerchantBrief } = require('./node-ai-review-rules')
+const { parseReviewModelJson, parseMerchantBrief, flattenBriefLine } = require('./node-ai-review-rules')
 
 function text(value) {
   return String(value || '').trim()
@@ -15,9 +15,11 @@ function parseSuggestedLines(raw, { accident = false } = {}) {
     if (!row || typeof row !== 'object') return
     const name = text(row.name || row.title)
     if (!name) return
-    const oem = accident ? '' : text(row.oem || (row.bands && row.bands.oem))
-    const brand = accident ? '' : text(row.brandBand || row.oemBrand || (row.bands && row.bands.brand))
-    const economy = accident ? '' : text(row.economy || (row.bands && row.bands.economy))
+    const teardown = /拆检|拆解/.test(name)
+    const skipBand = accident || teardown
+    const oem = skipBand ? '' : text(row.oem || (row.bands && row.bands.oem))
+    const brand = skipBand ? '' : text(row.brandBand || (row.bands && row.bands.brand) || '')
+    const economy = skipBand ? '' : text(row.economy || (row.bands && row.bands.economy))
     lines.push({
       name,
       note: text(row.note),
@@ -80,9 +82,11 @@ function sanitizeQuoteAssistForView(assist) {
     status,
     reviewStatus: text(review.status),
     summary: text(assist.summary),
-    issues: Array.isArray(assist.issues) ? assist.issues : [],
-    omissions: Array.isArray(assist.omissions) ? assist.omissions : [],
-    objections: Array.isArray(assist.objections) ? assist.objections : [],
+    issues: Array.isArray(assist.issues) ? assist.issues.map(flattenBriefLine).filter(Boolean) : [],
+    omissions: Array.isArray(assist.omissions) ? assist.omissions.map(flattenBriefLine).filter(Boolean) : [],
+    objections: Array.isArray(assist.objections)
+      ? assist.objections.map(flattenBriefLine).filter(Boolean)
+      : [],
     suggestedLines: Array.isArray(assist.suggestedLines) ? assist.suggestedLines : [],
     waitHint: status === 'queued' || status === 'running' ? '正在出方案' : text(review.status) === 'queued' || text(review.status) === 'running' ? '正在复查' : '',
     errorMessage: status === 'failed' ? text(assist.errorMessage) || '未能出方案' : '',

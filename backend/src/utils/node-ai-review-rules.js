@@ -262,12 +262,28 @@ function parseReviewModelJson(raw) {
   }
 }
 
+function flattenBriefLine(item) {
+  if (item == null) return ''
+  if (typeof item === 'string' || typeof item === 'number') return text(item)
+  if (typeof item !== 'object') return ''
+  return text(
+    item.text ||
+      item.title ||
+      item.how ||
+      item.content ||
+      item.point ||
+      item.issue ||
+      item.message ||
+      item.summary,
+  )
+}
+
 function clipTextList(value, max = 6, maxLen = 80) {
   if (!Array.isArray(value)) return []
   const out = []
   value.forEach((item) => {
-    const line = text(item).slice(0, maxLen)
-    if (line) out.push(line)
+    const line = flattenBriefLine(item).slice(0, maxLen)
+    if (line && line !== '[object Object]') out.push(line)
   })
   return out.slice(0, max)
 }
@@ -391,5 +407,6 @@ module.exports = {
   parseModelSuggestions,
   parseMerchantBrief,
   merchantBriefHasContent,
+  flattenBriefLine,
   keepCompletenessSuggestions,
 }

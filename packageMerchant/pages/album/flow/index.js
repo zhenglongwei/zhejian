@@ -893,11 +893,13 @@ Page({
           (row.id && row.id === normalized.id) ||
           (row.name && row.name === normalized.name),
       )
-      const bandText = band
-        ? [band.oem && `原厂 ${band.oem}`, band.brand && `品牌 ${band.brand}`, band.economy && `经济件 ${band.economy}`]
-            .filter(Boolean)
-            .join(' · ')
-        : ''
+      const teardown = /拆检|拆解/.test(String(normalized.name || ''))
+      const bandText =
+        !teardown && band
+          ? [band.oem && `原厂 ${band.oem}`, band.brand && `品牌 ${band.brand}`, band.economy && `经济件 ${band.economy}`]
+              .filter(Boolean)
+              .join(' · ')
+          : ''
       return {
         ...line,
         ...normalized,
@@ -3906,21 +3908,40 @@ Page({
     }
     const brief = this.decorateMerchantBrief(raw)
     const status = String(raw.status || '')
+    const omissions = brief.omissions || []
+    const objections = brief.objections || []
     return {
       ...raw,
       ...brief,
       status,
+      issues: [],
+      hasIssues: false,
+      priceBands: [],
+      hasBands: false,
+      hasOmissions: omissions.length > 0,
+      hasObjections: objections.length > 0,
+      hasContent: omissions.length > 0 || objections.length > 0,
       suggestedLines: Array.isArray(raw.suggestedLines) ? raw.suggestedLines : [],
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出方案' : ''),
     }
   },
 
+  flattenBriefLine(item) {
+    if (item && typeof item === 'object') {
+      return String(
+        item.text || item.title || item.how || item.content || item.point || item.issue || '',
+      ).trim()
+    }
+    const line = String(item || '').trim()
+    return line === '[object Object]' ? '' : line
+  },
+
   decorateMerchantBrief(raw) {
     const brief = raw && typeof raw === 'object' ? raw : {}
-    const issues = Array.isArray(brief.issues) ? brief.issues.filter(Boolean) : []
-    const omissions = Array.isArray(brief.omissions) ? brief.omissions.filter(Boolean) : []
-    const objections = Array.isArray(brief.objections) ? brief.objections.filter(Boolean) : []
+    const issues = (Array.isArray(brief.issues) ? brief.issues : []).map((row) => this.flattenBriefLine(row)).filter(Boolean)
+    const omissions = (Array.isArray(brief.omissions) ? brief.omissions : []).map((row) => this.flattenBriefLine(row)).filter(Boolean)
+    const objections = (Array.isArray(brief.objections) ? brief.objections : []).map((row) => this.flattenBriefLine(row)).filter(Boolean)
     const priceBands = (Array.isArray(brief.priceBands) ? brief.priceBands : [])
       .filter((row) => row && (row.name || row.oem || row.brand || row.economy))
       .map((row) => ({

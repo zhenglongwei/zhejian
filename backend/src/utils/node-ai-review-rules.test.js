@@ -151,6 +151,17 @@ test('model payload keeps part so advice is not applied by index alone', () => {
   assert.equal(list[0].suggestedText, '滤芯表面有油污附着，建议更换')
 })
 
+test('merchant brief flattens object issues to sentences', () => {
+  const { parseMerchantBrief } = require('./node-ai-review-rules')
+  const brief = parseMerchantBrief({
+    merchantBrief: {
+      issues: [{ title: '主诉', text: '异响还没写进方案' }, { how: '补拍近景' }],
+    },
+  })
+  assert.equal(brief.issues[0], '异响还没写进方案')
+  assert.equal(brief.issues[1], '补拍近景')
+})
+
 test('merchant brief keeps omissions and strips accident price bands', () => {
   const brief = parseMerchantBrief({
     merchantBrief: {

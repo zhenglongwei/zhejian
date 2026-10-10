@@ -28,6 +28,15 @@ test('parse quote assist payload reads analysis and omissions', () => {
   assert.equal(got.suggestedLines[0].name, '更换前刹车片')
 })
 
+test('teardown quote lines have no price bands', () => {
+  const lines = parseSuggestedLines([
+    { name: '拆检', oem: '100-200', brand: '80-120', economy: '50-100' },
+    { name: '更换机油滤芯', oem: '80-150', economy: '30-60' },
+  ])
+  assert.equal(lines[0].oem, '')
+  assert.equal(lines[1].oem, '80-150')
+})
+
 test('accident quote assist strips price bands', () => {
   const got = parseQuoteAssistPayload(
     {

@@ -87,6 +87,7 @@ async function runGenerateLlm(facts, category) {
     accident ? '事故车不要给金额档，suggestedLines 里 oem/brand/economy 留空。' : '',
     '封闭类目必须保住套餐主项；开口活只出可见需处理项和拆检，未拆开的隐藏件不要写成收费行。',
     '状态良好、仅记录、巡检类不要出行。漏项只写在 analysis.omissions，不要写进 suggestedLines。',
+    '拆检行不要给原厂/品牌/经济件价档。issues/omissions/objections 必须是短句字符串，不要对象。',
     'reportPrefill 是可填进检测说明的短句，空栏才用；不要写 AI/模型。',
     `类目约束：${JSON.stringify(facts.constraint)}`,
     `本单事实：${JSON.stringify(facts.body)}`,
