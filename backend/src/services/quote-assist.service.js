@@ -82,13 +82,13 @@ async function runGenerateLlm(facts, category) {
   const instruction = [
     '你是汽修店员的方案助手。根据接车主诉和检测已写结果出建议报价。不要百科，不要编没写到的损伤。',
     MECHANIC_VOICE_RULES,
-    '只出建议报价：项目名和施工方案。不要分析、不要漏项、不要车主可能问、不要预填检测说明。',
-    '不要写成交金额，不要写原厂/品牌/经济件价档，不要写市场参考价。价格意见留给复查。',
+    '出建议报价表：项目名和施工方案，金额必须空着。同时给店员看意见：可能漏了、车主可能问、市场参考价档。',
+    '不要写成交金额。price 用原厂/品牌/经济件宽区间，不是实时行情。漏查只进 omissions，不要写成收费行。',
     '封闭类目必须保住套餐主项；开口活只出可见需处理项和拆检，未拆开的隐藏件不要写成收费行。',
-    '状态良好、仅记录、巡检类不要出行。漏查不要写成收费行。',
+    '状态良好、仅记录、巡检类不要出行。',
     `类目约束：${JSON.stringify(facts.constraint)}`,
     `本单事实：${JSON.stringify(facts.body)}`,
-    '输出 JSON：{"suggestedLines":[{"name","note"}]}',
+    '输出 JSON：{"suggestedLines":[{"name","note","oem","brand","economy"}],"omissions":[{"title","body"}],"objections":[{"title","body"}]}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -247,8 +247,8 @@ async function runQuoteAssistJob(albumId, merchantId) {
             fingerprint,
             generateEngine: engineId,
             issues: [],
-            omissions: [],
-            objections: [],
+            omissions: parsed.omissions,
+            objections: parsed.objections,
             suggestedLines: parsed.suggestedLines,
             errorMessage: status === 'failed' ? '未能出方案' : '',
             updatedAt: new Date().toISOString(),

@@ -437,6 +437,11 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     err.status = 400
     throw err
   }
+  if (kind === 'work') {
+    const err = new Error('施工按方案行传图，不用识图归组')
+    err.status = 400
+    throw err
+  }
 
   const pending = Array.isArray(payload.pendingImages) ? payload.pendingImages : []
   if (!pending.length) {

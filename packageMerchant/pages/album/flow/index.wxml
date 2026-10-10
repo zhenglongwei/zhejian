@@ -1,26 +1,39 @@
 <template name="quoteMerchantBrief">
   <view wx:if="{{brief.hasContent}}" class="merchant-flow-page__quote-brief">
-    <text class="text-caption text-secondary merchant-flow-page__quote-brief-kicker">{{brief.kicker || '店内参考'}}</text>
-    <block wx:if="{{brief.hasIssues}}">
-      <text class="text-caption merchant-flow-page__quote-brief-label">已写内容</text>
-      <text wx:for="{{brief.issues}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
-    </block>
-    <block wx:if="{{brief.hasOmissions}}">
-      <text class="text-caption merchant-flow-page__quote-brief-label">可能漏了</text>
-      <text wx:for="{{brief.omissions}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
-    </block>
-    <block wx:if="{{brief.hasObjections}}">
-      <text class="text-caption merchant-flow-page__quote-brief-label">车主可能问</text>
-      <text wx:for="{{brief.objections}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
-    </block>
-    <block wx:if="{{brief.hasBands}}">
-      <text class="text-caption merchant-flow-page__quote-brief-label">市场参考价</text>
-      <view wx:for="{{brief.priceBands}}" wx:key="lineIndex" class="merchant-flow-page__quote-brief-band">
-        <text class="text-caption">{{item.name}}</text>
-        <text class="text-caption text-secondary">{{item.bandText}}</text>
-        <text wx:if="{{item.note}}" class="text-caption text-secondary">{{item.note}}</text>
+    <view wx:if="{{brief.hasIssues}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">已写内容</text>
+      <view wx:for="{{brief.issues}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
       </view>
-    </block>
+    </view>
+    <view wx:if="{{brief.hasOmissions}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">可能漏了</text>
+      <view wx:for="{{brief.omissions}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+      </view>
+    </view>
+    <view wx:if="{{brief.hasObjections}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">车主可能问</text>
+      <view wx:for="{{brief.objections}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+      </view>
+    </view>
+    <view wx:if="{{brief.hasBands}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">市场参考价</text>
+      <view wx:for="{{brief.priceBands}}" wx:key="lineIndex" class="merchant-flow-page__quote-brief-card">
+        <text class="merchant-flow-page__quote-brief-item-title">{{item.name}}</text>
+        <view wx:if="{{item.hasChips}}" class="merchant-flow-page__plan-bands">
+          <view wx:for="{{item.bandChips}}" wx:for-item="chip" wx:key="key" class="merchant-flow-page__plan-band">
+            <text class="merchant-flow-page__plan-band-k">{{chip.k}}</text>
+            <text class="merchant-flow-page__plan-band-v">{{chip.v}}</text>
+          </view>
+        </view>
+        <text wx:if="{{item.note}}" class="merchant-flow-page__quote-brief-item-body">{{item.note}}</text>
+      </view>
+    </view>
   </view>
 </template>
 <template name="aiFieldHint">
@@ -92,6 +105,14 @@
                   bindinput="onChiefComplaintInput"
                 />
                 <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
+                <ui-button
+                  wx:if="{{showQuoteAiCheck && !readOnly}}"
+                  type="secondary"
+                  block="{{true}}"
+                  loading="{{confirming && !adviceOpen}}"
+                  disabled="{{confirming && !adviceOpen}}"
+                  bind:btntap="onToggleAdvice"
+                >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                 <text class="text-body merchant-flow-page__label">品牌车型</text>
                 <view class="merchant-flow-page__vehicle-row">
                   <input
@@ -313,6 +334,17 @@
                       bindtap="onAddFindingItem"
                     >加一项</text>
                     </block>
+                  </view>
+                  <view wx:if="{{isInspectionPhotoStep && checkpointMisses.length}}" class="merchant-flow-page__checkpoint-miss">
+                    <text class="text-caption text-secondary">对照意见未见到</text>
+                    <view
+                      wx:for="{{checkpointMisses}}"
+                      wx:key="id"
+                      class="merchant-flow-page__checkpoint-miss-item"
+                    >
+                      <text class="merchant-flow-page__quote-brief-item-title">{{item.partName}}</text>
+                      <text wx:if="{{item.why}}" class="merchant-flow-page__quote-brief-item-body">{{item.why}}</text>
+                    </view>
                   </view>
                   <view class="merchant-flow-page__finding-list">
                     <view
@@ -695,6 +727,14 @@
                   <template is="aiFieldHint" data="{{hint: item}}" />
                 </view>
                 <view class="merchant-flow-page__step-actions">
+                  <ui-button
+                    wx:if="{{showQuoteAiCheck && isDeliveryPhotoStep && !readOnly}}"
+                    type="secondary"
+                    block="{{true}}"
+                    loading="{{confirming && !adviceOpen}}"
+                    disabled="{{confirming && !adviceOpen}}"
+                    bind:btntap="onToggleAdvice"
+                  >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                   <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action merchant-flow-page__step-action--primary">
                     <ui-button
                       type="primary"
@@ -920,26 +960,25 @@
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
-                  <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
                 </view>
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
                 <view
-                  wx:if="{{quoteAssist.isWaiting || aiReview.isWaiting}}"
+                  wx:if="{{(quoteAssist.isWaiting || aiReview.isWaiting) && !adviceOpen}}"
                   class="merchant-flow-page__ai-status"
                 >
                   <view class="merchant-flow-page__ai-status-spin"></view>
-                  <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : aiReview.waitHint}}</text>
+                  <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : '正在出意见'}}</text>
                 </view>
                 <ui-button
                   wx:if="{{showQuoteAiCheck}}"
-                  type="{{quoteNotifyReady ? 'secondary' : 'primary'}}"
+                  type="secondary"
                   block="{{true}}"
-                  loading="{{confirming}}"
-                  disabled="{{confirming}}"
-                  bind:btntap="onStartQuoteAiCheck"
-                >复查</ui-button>
+                  loading="{{confirming && !adviceOpen}}"
+                  disabled="{{confirming && !adviceOpen}}"
+                  bind:btntap="onToggleAdvice"
+                >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                 <ui-button
                   wx:if="{{quoteNotifyReady && !notifyConfirmDisabled}}"
                   type="primary"
@@ -1137,7 +1176,6 @@
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
-                  <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
                 </view>
               </view>
               <view
@@ -1146,21 +1184,21 @@
               >
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
                 <view
-                  wx:if="{{quoteAssist.isWaiting || aiReview.isWaiting}}"
+                  wx:if="{{(quoteAssist.isWaiting || aiReview.isWaiting) && !adviceOpen}}"
                   class="merchant-flow-page__ai-status"
                 >
                   <view class="merchant-flow-page__ai-status-spin"></view>
-                  <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : aiReview.waitHint}}</text>
+                  <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : '正在出意见'}}</text>
                 </view>
                 <block wx:if="{{!confirmAwaitingOwner}}">
                   <ui-button
                     wx:if="{{showQuoteAiCheck}}"
-                    type="{{quoteNotifyReady ? 'secondary' : 'primary'}}"
+                    type="secondary"
                     block="{{true}}"
-                    loading="{{confirming}}"
-                    disabled="{{confirming}}"
-                    bind:btntap="onStartQuoteAiCheck"
-                  >复查</ui-button>
+                    loading="{{confirming && !adviceOpen}}"
+                    disabled="{{confirming && !adviceOpen}}"
+                    bind:btntap="onToggleAdvice"
+                  >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                   <ui-button
                     wx:if="{{quoteNotifyReady}}"
                     type="primary"
@@ -1305,6 +1343,57 @@
         </view>
       </scroll-view>
       <ui-button type="primary" block="{{true}}" bind:btntap="onConfirmLibrary">选用</ui-button>
+    </view>
+  </view>
+
+  <view wx:if="{{adviceOpen}}" class="merchant-flow-page__advice-mask" catchtouchmove="true" bindtap="onCloseAdvice">
+    <view class="merchant-flow-page__advice" catchtap="onAdvicePanelTap">
+      <view class="merchant-flow-page__advice-head">
+        <text class="text-h3">AI意见</text>
+        <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
+      </view>
+      <scroll-view scroll-y class="merchant-flow-page__advice-body">
+        <view wx:if="{{intakeAdvice.isWaiting || quoteAssist.isWaiting || (aiReview && aiReview.isWaiting)}}" class="merchant-flow-page__ai-status">
+          <view class="merchant-flow-page__ai-status-spin"></view>
+          <text class="merchant-flow-page__ai-status-text">正在出意见</text>
+        </view>
+        <block wx:elif="{{intakeAdvice.hasContent}}">
+          <view wx:if="{{intakeAdvice.hasDiagnosis}}" class="merchant-flow-page__quote-brief-sec">
+            <text class="merchant-flow-page__quote-brief-sec-title">怎么看</text>
+            <view class="merchant-flow-page__quote-brief-card">
+              <text class="merchant-flow-page__quote-brief-item-body">{{intakeAdvice.diagnosis}}</text>
+            </view>
+          </view>
+          <view wx:if="{{intakeAdvice.hasPhotoTips}}" class="merchant-flow-page__quote-brief-sec">
+            <text class="merchant-flow-page__quote-brief-sec-title">留证怎么拍</text>
+            <view wx:for="{{intakeAdvice.photoTips}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+            </view>
+          </view>
+          <view wx:if="{{intakeAdvice.hasCheckpoints}}" class="merchant-flow-page__quote-brief-sec">
+            <text class="merchant-flow-page__quote-brief-sec-title">建议查这些</text>
+            <view wx:for="{{intakeAdvice.checkpoints}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+            </view>
+          </view>
+          <view wx:if="{{intakeAdvice.hasAskOwner}}" class="merchant-flow-page__quote-brief-sec">
+            <text class="merchant-flow-page__quote-brief-sec-title">还可以问</text>
+            <view wx:for="{{intakeAdvice.askOwner}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+            </view>
+          </view>
+        </block>
+        <block wx:elif="{{quoteAssist.hasContent}}">
+          <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
+        </block>
+        <block wx:elif="{{aiReview && aiReview.merchantBrief.hasContent}}">
+          <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
+        </block>
+        <view wx:else class="text-caption text-secondary">这次没有额外意见</view>
+      </scroll-view>
     </view>
   </view>
 

@@ -202,6 +202,14 @@ function mapFlowNodeForView(node, albumNodes = []) {
         return null
       }
     })(),
+    intakeAdvice: (() => {
+      try {
+        const { sanitizeIntakeAdviceForView } = require('./intake-advice.service')
+        return sanitizeIntakeAdviceForView(node.intakeAdvice)
+      } catch (_) {
+        return null
+      }
+    })(),
     summary: photo
       ? countPhotosForFlowNode(node, albumNodes) > 0
         ? `已拍 ${countPhotosForFlowNode(node, albumNodes)} 张`
@@ -526,6 +534,16 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
       const { queueQuoteAssistGenerate } = require('./quote-assist.service')
       queueQuoteAssistGenerate({ albumId, merchantId })
     }
+    const intakeRaw = sortFlowNodes(readFlowNodesRaw(album)).find(
+      (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
+    )
+    const adviceStatus = String(
+      (intakeRaw && intakeRaw.intakeAdvice && intakeRaw.intakeAdvice.status) || '',
+    )
+    if (adviceStatus === 'queued' || adviceStatus === 'running') {
+      const { runIntakeAdviceJob } = require('./intake-advice.service')
+      runIntakeAdviceJob(album.id).catch(() => {})
+    }
   } catch (_) {
     /* ignore */
   }
@@ -581,6 +599,59 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     const err = new Error('已发给车主，不能再改')
     err.status = 409
     throw err
+  }
+
+  if (payload.startIntakeAdvice) {
+    const { queueIntakeAdviceIfNeeded } = require('./intake-advice.service')
+    const startAlbum = await loadAlbum(albumId)
+    const queued = await queueIntakeAdviceIfNeeded(startAlbum, merchantId)
+    const fresh = await loadAlbum(albumId)
+    const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
+    const viewNodes = mapNodesForView(fresh)
+    return {
+      queued: Boolean(queued && queued.queued),
+      reuse: Boolean(queued && queued.reuse),
+      nextAction: 'intake_advice',
+      unlockedNext: false,
+      node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+    }
+  }
+
+  if (payload.startQuoteAssist) {
+    if (payload.document && payload.document.payload) {
+      const mergedPayload = {
+        ...((preview.document && preview.document.payload) || {}),
+        ...(payload.document.payload || {}),
+      }
+      await writeFlowPackage(albumId, (pkg) => {
+        const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+        const index = nodes.findIndex((n) => n.id === id)
+        if (index < 0) return pkg
+        const prev = nodes[index]
+        if (prev.kind === 'quote_confirm' || prev.kind === 'inspection_report') {
+          nodes[index] = {
+            ...prev,
+            document: {
+              ...(prev.document || {}),
+              status: 'draft',
+              payload: mergedPayload,
+            },
+          }
+        }
+        return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
+      })
+    }
+    const { queueQuoteAssistIfNeeded } = require('./quote-assist.service')
+    const startAlbum = await loadAlbum(albumId)
+    await queueQuoteAssistIfNeeded(startAlbum, merchantId)
+    const fresh = await loadAlbum(albumId)
+    const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
+    const viewNodes = mapNodesForView(fresh)
+    return {
+      nextAction: 'quote_assist',
+      unlockedNext: false,
+      node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+    }
   }
 
   if (payload.startAiReview && String((payload.document && payload.document.status) || '') !== 'pending_confirm') {
@@ -763,17 +834,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     throw err
   }
 
-  let preferQuoteAssist = false
-  if (node.kind === 'inspection' || node.kind === 'intake_inspection') {
-    try {
-      const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
-      const cap = await resolveCapabilityForMerchant(merchantId)
-      preferQuoteAssist = Boolean(cap && cap.entitled && cap.llmEnabled)
-    } catch (_) {
-      preferQuoteAssist = false
-    }
-  }
-
   const vehicle = album.vehicleJson || {}
   const incomingDraft = mergePhotoDraft(node.photoDraft || {}, {
     ...(payload.photoDraft || {}),
@@ -845,23 +905,22 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
   }
 
-  // 工单是如实记录施工过程的单据：定稿前先拿它跟检测报告、报价核一遍。
-  // 检查没跑完就不置「已完成」，免得门店以为交了定稿其实还漏着项
-  const { maybeHoldWorkSheetForReview } = require('./node-ai-review.service')
-  const heldSheet = await maybeHoldWorkSheetForReview({
-    album,
-    node,
-    merchantId,
-    incomingDraft,
-    payload,
-  })
-  if (heldSheet) {
-    return {
-      ...heldSheet,
-      node: mapFlowNodeForView(
-        { ...node, photoDraft: incomingDraft, aiReview: heldSheet.review },
-        nodes,
-      ),
+  if (node.kind === 'delivery_photos') {
+    const { maybeHoldDeliverForAiReview } = require('./node-ai-review.service')
+    const heldDelivery = await maybeHoldDeliverForAiReview({
+      album,
+      node: { ...node, photoDraft: incomingDraft },
+      merchantId,
+      payload,
+    })
+    if (heldDelivery) {
+      return {
+        ...heldDelivery,
+        node: mapFlowNodeForView(
+          { ...node, photoDraft: incomingDraft, aiReview: heldDelivery.review },
+          nodes,
+        ),
+      }
     }
   }
 
@@ -923,9 +982,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
                 ...(prevQuoteDoc.payload || {}),
                 lines: hasNamed
                   ? existingLines
-                  : preferQuoteAssist
-                    ? [{ name: '', amount: '', note: '' }]
-                    : quoteLinesForAlbum(draft.findings, album, existingLines),
+                  : quoteLinesForAlbum(draft.findings, album, existingLines),
                 confirmCopy: quoteCopyForAlbum(
                   album,
                   prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
@@ -933,15 +990,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
                 evidenceRef: reportId,
               },
             },
-            quoteAssist:
-              preferQuoteAssist && !hasNamed
-                ? {
-                    status: 'queued',
-                    fingerprint: '',
-                    suggestedLines: [],
-                    updatedAt: new Date().toISOString(),
-                  }
-                : list[quoteIdx].quoteAssist,
           }
         }
       }
@@ -993,16 +1041,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
 
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: list }
   })
-
-  if (preferQuoteAssist) {
-    try {
-      const { queueQuoteAssistIfNeeded } = require('./quote-assist.service')
-      const fresh = await loadAlbum(albumId)
-      await queueQuoteAssistIfNeeded(fresh, merchantId)
-    } catch (_) {
-      /* ignore */
-    }
-  }
 
   // 车型/里程由接车节点登记（存量合并节点 intake_inspection 同口径）
   if (node.kind === 'intake' || node.kind === 'intake_inspection') {

@@ -218,7 +218,7 @@ function buildReviewContext(album, node, extra = {}) {
   let workItems = []
   if (reviewStep === 'work_sheet') {
     // 工单定稿：这份单据如实记录了施工过程，要拿它核对检测报告与报价方案。
-    // 检测/报价都是定好的、不可改，发现矛盾或漏项只提示门店，并润色工单文案
+    // 检测/报价都是定好的、不可改；工单完成不再排队，对账改在交车
     findings = Array.isArray(draft.findings) ? draft.findings : []
     quoteLines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
     orderItems = findings.map((row) => ({
@@ -457,11 +457,11 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
   const accident = ctx.rubric.category === 'accident'
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是店内参考，不写进车主字段：必须同时核已写内容和可能漏了什么。issues 写已写内容站不住的点；omissions 写结合主诉和检测后报价或检测可能漏报/漏查的（只提醒，不要编成收费行，不要放进 suggestions）；objections 写车主可能问的短句。priceBands 只针对已有报价行给原厂/品牌/经济件宽区间，不必过细，不是实时行情。不要改金额，不要自动加报价行。'
+      ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是给店员看的检查结果，不写进车主字段。issues/omissions/objections 每条必须是 {"title","body"}：title 4到12个字写部位或问题名，body 一两句人话。不要写发现项序号、字段名、规范、违反规定。omissions 只提醒可能漏查/漏报，不要编成收费行，不要放进 suggestions。objections 的 title 写成车主会问的原话，body 可空。priceBands 只针对已有报价行给原厂/品牌/经济件宽区间，不是实时行情。不要改金额，不要自动加报价行。'
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。suggestions 只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。merchantBrief 同样要核已写内容和可能漏了什么，漏项只提醒不自动加行。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
-          ? '这是完工通知车主验收前的一次核对。结合前面接车、检测、方案、工单已经写下的结果（文字），只查本步空缺：施工说明空了、质保空了、该有的交车照没有。已经写了的字不要改。前面的图不要再看。不要改金额。'
+          ? '这是完工通知车主验收前的整单对账。接车、检测、已确认报价只作背景，不要建议改那些确认件。只指出工单、交车照、质保的错项或漏项。已经写了的字不要润色、不要给 suggestedText。不要把意见留到公开案例。不要改金额。'
           : ctx.rubric.step === 'work'
             ? '只看本步是否缺说明、缺图。已经写了的字不要改。有新旧配件或关键工序就按项归；缺哪一类都不要当成必须补拍。不要对已确认检测和报价提修改意见，也不要改金额。'
               : ctx.rubric.step === 'notify_check'
@@ -469,12 +469,14 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
                 : ''
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实查缺项，不要百科，不要编造没拍到的读数。',
-    MECHANIC_VOICE_RULES,
+    ctx.rubric.step === 'delivery'
+      ? '不要润色已经写了的字。空栏才给一句可直接填的。'
+      : MECHANIC_VOICE_RULES,
     stepNote,
     accident && (ctx.rubric.step === 'quote_check' || ctx.rubric.step === 'addon_check')
       ? '事故车不要给金额档，priceBands 必须空数组。'
       : '',
-    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}],"merchantBrief":{"issues":[],"omissions":[],"objections":[],"priceBands":[{"lineIndex","name","oem","brand","economy","note"}]}}',
+    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}],"merchantBrief":{"issues":[{"title","body"}],"omissions":[{"title","body"}],"objections":[{"title","body"}],"priceBands":[{"lineIndex","name","oem","brand","economy","note"}]}}',
     'text 只在对应字段为空时才给 suggestedText。栏里已经有字，一律不要出改句，保留店员原文。没有空缺就返回空 suggestions。quote_check / addon_check 即使 suggestions 为空，也要给 merchantBrief。',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
     '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',

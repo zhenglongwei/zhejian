@@ -496,18 +496,22 @@ function resolveRunReviewStep(node = {}) {
 function planNodeReview({ event, node } = {}) {
   if (!node) return null
   const kind = String(node.kind || '')
-  const addon =
-    kind === 'addon_quote_confirm' || String(node.insertedReason || '') === 'addon'
 
-  if (event === 'complete') {
-    // 工单＝施工记录单据：这是唯一需要在「完成」时核对的节点
-    return kind === 'work' ? { step: 'work_sheet' } : null
-  }
+  if (event === 'complete') return null
   if (event !== 'expose') return null
-  // 接车＝留证步：照片不进车主时间线、不上公网，不排 AI 检查
-  if (kind === 'intake') return null
-  if (addon) return { step: 'addon_check' }
-  return { step: resolveReviewStep(kind) || 'notify_check' }
+  if (
+    kind === 'intake' ||
+    kind === 'inspection' ||
+    kind === 'intake_inspection' ||
+    kind === 'work' ||
+    kind === 'quote_confirm' ||
+    kind === 'inspection_report' ||
+    kind === 'addon_quote_confirm'
+  ) {
+    return null
+  }
+  const step = resolveReviewStep(kind)
+  return step === 'delivery' ? { step: 'delivery' } : null
 }
 
 function getReviewRubric(templateId, kind, serviceName, stepOverride) {

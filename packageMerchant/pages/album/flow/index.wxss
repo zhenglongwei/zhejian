@@ -498,44 +498,53 @@
 }
 
 .merchant-flow-page__quote-brief {
-  margin-top: var(--space-sm);
-  padding-top: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
   border-top: 1rpx solid var(--color-border);
   display: flex;
   flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-flow-page__quote-brief-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__quote-brief-sec-title {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+.merchant-flow-page__quote-brief-card {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
 }
 
-.merchant-flow-page__quote-brief-kicker {
-  font-weight: 500;
-}
-
-.merchant-flow-page__quote-brief-summary {
-  display: block;
+.merchant-flow-page__quote-brief-item-title {
   font-size: var(--font-body-size);
   line-height: var(--font-body-lh);
+  font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.merchant-flow-page__quote-brief-item-body {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
 }
 
 .merchant-flow-page__plan-band-block {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-}
-
-.merchant-flow-page__quote-brief-label {
-  margin-top: var(--space-xs);
-  color: var(--color-text-secondary);
-}
-
-.merchant-flow-page__quote-brief-item {
-  color: var(--color-text-primary);
-}
-
-.merchant-flow-page__quote-brief-band {
-  display: flex;
-  flex-direction: column;
-  gap: 2rpx;
 }
 
 .merchant-flow-page__plan-add {
@@ -673,6 +682,49 @@
   color: var(--color-primary);
   text-align: center;
   padding: var(--space-xs) 0;
+}
+
+.merchant-flow-page__advice-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-popup);
+  background-color: var(--color-mask);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.merchant-flow-page__advice {
+  width: 100%;
+  max-height: 80vh;
+  padding: var(--space-lg);
+  padding-bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background-color: var(--color-bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__advice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.merchant-flow-page__advice-body {
+  min-height: 40vh;
+  max-height: 64vh;
+}
+
+.merchant-flow-page__advice-body .merchant-flow-page__quote-brief {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .merchant-flow-page__library-mask {
@@ -847,6 +899,22 @@
   font-size: var(--font-body-size);
   line-height: var(--font-body-lh);
   color: var(--color-primary);
+}
+
+.merchant-flow-page__checkpoint-miss {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__checkpoint-miss-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .merchant-flow-page__finding-open-bar {

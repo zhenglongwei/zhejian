@@ -57,6 +57,9 @@ const {
   applyOrganizeGroups,
   applyIntakeOrganizeGroups,
   collectConfirmedQuoteNames,
+  collectConfirmedQuoteLines,
+  seedWorkFindingsFromQuoteLines,
+  unmatchedCheckpoints,
   workOutsideQuoteOf,
   buildWorkAssignPickGroups,
   buildWorkAddPickGroups,
@@ -464,8 +467,11 @@ Page({
     photoConfirmDisabled: false,
     notifyConfirmDisabled: false,
     showQuoteAiCheck: false,
+    adviceOpen: false,
     quoteNotifyReady: true,
     quoteAssist: null,
+    intakeAdvice: null,
+    checkpointMisses: [],
     aiTextBatchCanApply: false,
     aiTextBatchCanUndo: false,
     chiefComplaintPlaceholder: '例：到店检查异响',
@@ -1283,6 +1289,15 @@ Page({
       let deliveryExtraCount = 0
 
       if (activeIsPhoto && active) {
+        if (isWorkPhotoStep) {
+          photoDraft = {
+            ...photoDraft,
+            findings: seedWorkFindingsFromQuoteLines(
+              photoDraft.findings,
+              collectConfirmedQuoteLines(flowNodes),
+            ),
+          }
+        }
         sections = this.buildSections(album, active, photoDraft, flowNodes)
         // 主诉 / 环车勾选记在接车步
         if (isIntakePhotoStep) {
@@ -1470,15 +1485,9 @@ Page({
           const assistBusy =
             quoteAssist &&
             (quoteAssist.status === 'queued' || quoteAssist.status === 'running')
-          const skipRuleDraft = Boolean(
-            flow.nodeAiReview &&
-              flow.nodeAiReview.entitled &&
-              (!quoteAssist || quoteAssist.status !== 'failed'),
-          )
           if (
             !(quoteLines || []).some((row) => String(row.name || '').trim()) &&
-            !assistBusy &&
-            !skipRuleDraft
+            !assistBusy
           ) {
             const quoteDraft = buildQuoteDraft({
               findings: reportFindings,
@@ -1577,30 +1586,30 @@ Page({
         notifyOwnerLabel: '通知车主',
         notifyConfirmDisabled: false,
         quoteAssist: this.decorateQuoteAssist(this._pendingQuoteAssist),
+        intakeAdvice: this.decorateIntakeAdvice(
+          (flowNodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
+            .intakeAdvice,
+        ),
+        checkpointMisses: this.computeCheckpointMisses(
+          flowNodes,
+          findings,
+          isInspectionPhotoStep && (findings || []).some((row) => row && row.partName),
+        ),
+        adviceOpen: options.silent ? this.data.adviceOpen : false,
         showQuoteAiCheck: Boolean(
           flow.nodeAiReview &&
             flow.nodeAiReview.entitled &&
             !readOnly &&
             !confirmAwaitingOwner &&
-            !(
-              this._pendingQuoteAssist &&
-              (this._pendingQuoteAssist.status === 'queued' ||
-                this._pendingQuoteAssist.status === 'running')
-            ) &&
             (active &&
               (active.kind === 'inspection_report' ||
                 active.kind === 'quote_confirm' ||
-                active.kind === 'addon_quote_confirm')),
+                active.kind === 'addon_quote_confirm' ||
+                active.kind === 'intake' ||
+                active.kind === 'repair_report' ||
+                active.kind === 'delivery_photos')),
         ),
-        quoteNotifyReady: Boolean(
-          !(flow.nodeAiReview && flow.nodeAiReview.entitled) ||
-            !(
-              active &&
-              (active.kind === 'inspection_report' ||
-                active.kind === 'quote_confirm' ||
-                active.kind === 'addon_quote_confirm')
-            ),
-        ),
+        quoteNotifyReady: true,
         chiefComplaintHint: null,
         odometerHint: null,
         warrantyHint: null,
@@ -1691,6 +1700,9 @@ Page({
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
       this.resumeQuoteAssistPoll()
+      if (isWorkPhotoStep && !this.data.readOnly && !options.silent) {
+        this.scheduleAutoSavePhotos()
+      }
 
     } catch (e) {
       this.setData({ status: 'error', errorMessage: (e && e.message) || '加载失败' })
@@ -2419,7 +2431,7 @@ Page({
         } finally {
           wx.hideLoading()
         }
-        await this.onOrganizePhotos()
+        if (!this.data.isWorkPhotoStep) await this.onOrganizePhotos()
       },
     })
   },
@@ -3048,7 +3060,7 @@ Page({
     if (this.data.readOnly || this.data.organizingPhotos) return
     const node = this.data.activeNode
     const rawKind = (node && node.kind) || ''
-    if (rawKind === 'delivery_photos') return
+    if (rawKind === 'delivery_photos' || rawKind === 'work') return
     const kind =
       rawKind === 'intake_inspection' ? 'inspection' : rawKind
     const pending = this.collectPendingForOrganize(kind)
@@ -3112,6 +3124,10 @@ Page({
         applied.findings,
         leftover,
       )
+      const checkpointMisses =
+        mode === 'inspection'
+          ? this.computeCheckpointMisses(this._flowNodes || [], applied.findings, true)
+          : this.data.checkpointMisses
       this.setSectionsWithFindings(
         sections,
         {
@@ -3119,6 +3135,7 @@ Page({
           autoSaveLabel: '保存中…',
           organizedOnce: true,
           organizeResultHint,
+          checkpointMisses,
         },
         this.findFirstIncompleteFindingKey(sections) || '',
         () => {
@@ -3892,25 +3909,69 @@ Page({
       return { status: '', isWaiting: false, hasContent: false, suggestedLines: [], summary: '' }
     }
     const status = String(raw.status || '')
+    const suggestedLines = Array.isArray(raw.suggestedLines) ? raw.suggestedLines : []
+    const brief = this.decorateMerchantBrief({
+      omissions: raw.omissions,
+      objections: raw.objections,
+      priceBands: suggestedLines.map((row, lineIndex) => ({
+        lineIndex,
+        name: row && row.name,
+        oem: row && row.oem,
+        brand: row && row.brand,
+        economy: row && row.economy,
+        note: '',
+      })),
+    })
     return {
       ...raw,
       status,
-      kicker: '',
-      summary: '',
-      issues: [],
-      hasIssues: false,
-      priceBands: [],
-      hasBands: false,
-      hasSummary: false,
-      omissions: [],
-      objections: [],
-      hasOmissions: false,
-      hasObjections: false,
-      hasContent: false,
-      suggestedLines: Array.isArray(raw.suggestedLines) ? raw.suggestedLines : [],
+      ...brief,
+      suggestedLines,
       isWaiting: status === 'queued' || status === 'running',
-      waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出方案' : ''),
+      waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
+  }
+
+  decorateIntakeAdvice(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return { status: '', isWaiting: false, hasContent: false }
+    }
+    const status = String(raw.status || '')
+    const diagnosis = String(raw.diagnosis || '').trim()
+    const photoTips = (Array.isArray(raw.photoTips) ? raw.photoTips : [])
+      .map((row) => this.decorateBriefItem(row))
+      .filter((row) => row.hasTitle || row.hasBody)
+    const askOwner = (Array.isArray(raw.askOwner) ? raw.askOwner : [])
+      .map((row) => this.decorateBriefItem(row, true))
+      .filter((row) => row.hasTitle || row.hasBody)
+    const checkpoints = (Array.isArray(raw.checkpoints) ? raw.checkpoints : [])
+      .map((row) => this.decorateBriefItem({ title: row.partName, body: row.why }))
+      .filter((row) => row.hasTitle || row.hasBody)
+    return {
+      ...raw,
+      status,
+      diagnosis,
+      photoTips,
+      askOwner,
+      checkpoints,
+      hasDiagnosis: Boolean(diagnosis),
+      hasPhotoTips: photoTips.length > 0,
+      hasAskOwner: askOwner.length > 0,
+      hasCheckpoints: checkpoints.length > 0,
+      hasContent: Boolean(diagnosis || photoTips.length || askOwner.length || checkpoints.length),
+      isWaiting: status === 'queued' || status === 'running',
+      waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
+    }
+  }
+
+  computeCheckpointMisses(flowNodes, findings, enabled) {
+    if (!enabled) return []
+    const intake = (flowNodes || []).find(
+      (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
+    )
+    const checkpoints =
+      (intake && intake.intakeAdvice && intake.intakeAdvice.checkpoints) || []
+    return unmatchedCheckpoints(checkpoints, findings)
   },
 
   flattenBriefLine(item) {
@@ -3925,18 +3986,31 @@ Page({
 
   decorateMerchantBrief(raw) {
     const brief = raw && typeof raw === 'object' ? raw : {}
-    const issues = (Array.isArray(brief.issues) ? brief.issues : []).map((row) => this.flattenBriefLine(row)).filter(Boolean)
-    const omissions = (Array.isArray(brief.omissions) ? brief.omissions : []).map((row) => this.flattenBriefLine(row)).filter(Boolean)
-    const objections = (Array.isArray(brief.objections) ? brief.objections : []).map((row) => this.flattenBriefLine(row)).filter(Boolean)
+    const issues = (Array.isArray(brief.issues) ? brief.issues : [])
+      .map((row) => this.decorateBriefItem(row))
+      .filter((row) => row.hasTitle || row.hasBody)
+    const omissions = (Array.isArray(brief.omissions) ? brief.omissions : [])
+      .map((row) => this.decorateBriefItem(row))
+      .filter((row) => row.hasTitle || row.hasBody)
+    const objections = (Array.isArray(brief.objections) ? brief.objections : [])
+      .map((row) => this.decorateBriefItem(row, true))
+      .filter((row) => row.hasTitle || row.hasBody)
     const priceBands = (Array.isArray(brief.priceBands) ? brief.priceBands : [])
       .filter((row) => row && (row.name || row.oem || row.brand || row.economy))
-      .map((row) => ({
-        ...row,
-        bandText: [row.oem && `原厂 ${row.oem}`, row.brand && `品牌 ${row.brand}`, row.economy && `经济件 ${row.economy}`]
-          .filter(Boolean)
-          .join(' · '),
-      }))
+      .map((row) => {
+        const bandChips = [
+          row.oem ? { key: 'oem', k: '原厂', v: row.oem } : null,
+          row.brand ? { key: 'brand', k: '品牌', v: row.brand } : null,
+          row.economy ? { key: 'eco', k: '经济件', v: row.economy } : null,
+        ].filter(Boolean)
+        return {
+          ...row,
+          bandChips,
+          hasChips: bandChips.length > 0,
+        }
+      })
     return {
+      kicker: 'AI意见',
       issues,
       omissions,
       objections,
@@ -3953,23 +4027,42 @@ Page({
     }
   },
 
-  quoteAiButtonFlags(review) {
-    const kind = (this.data.activeNode && this.data.activeNode.kind) || this.data.activeKind
-    const quoteStep =
-      kind === 'inspection_report' || kind === 'quote_confirm' || kind === 'addon_quote_confirm'
-    if (!quoteStep) {
-      return { showQuoteAiCheck: false, quoteNotifyReady: true }
+  decorateBriefItem(item, asQuestion) {
+    if (item && typeof item === 'object' && (item.title || item.body)) {
+      const title = String(item.title || '').trim()
+      const body = String(item.body || '').trim()
+      return { title, body, hasTitle: Boolean(title), hasBody: Boolean(body) }
     }
+    const line = this.flattenBriefLine(item)
+    if (!line) return { title: '', body: '', hasTitle: false, hasBody: false }
+    if (asQuestion || /[？?]$/.test(line)) {
+      return { title: line, body: '', hasTitle: true, hasBody: false }
+    }
+    const colon = line.match(/^(.{2,16}?)[:：]\s*(.+)$/)
+    if (colon) {
+      return { title: colon[1], body: colon[2], hasTitle: true, hasBody: true }
+    }
+    const stop = line.match(/^(.{2,16}?)[，。]\s*(.+)$/)
+    if (stop && stop[2].length >= 6) {
+      return { title: stop[1], body: stop[2], hasTitle: true, hasBody: true }
+    }
+    return { title: '', body: line, hasTitle: false, hasBody: true }
+  },
+
+  quoteAiButtonFlags() {
+    const kind = (this.data.activeNode && this.data.activeNode.kind) || this.data.activeKind
+    const adviceStep =
+      kind === 'inspection_report' ||
+      kind === 'quote_confirm' ||
+      kind === 'addon_quote_confirm' ||
+      kind === 'intake' ||
+      kind === 'repair_report' ||
+      kind === 'delivery_photos'
     const entitled = Boolean(this._nodeAiReviewEntitled)
-    const waiting = Boolean(review && review.isWaiting)
-    const timedOut = Boolean(this.data.aiReviewTimedOut)
-    const assistWaiting = Boolean(this.data.quoteAssist && this.data.quoteAssist.isWaiting)
-    const checkBusy = (waiting && !timedOut) || assistWaiting
-    const finished = Boolean(review && (review.isReady || review.isFailed || timedOut))
     const awaiting = Boolean(this.data.confirmAwaitingOwner)
     return {
-      showQuoteAiCheck: Boolean(entitled && !checkBusy && !this.data.readOnly && !awaiting),
-      quoteNotifyReady: Boolean(!entitled || (!checkBusy && finished)),
+      showQuoteAiCheck: Boolean(adviceStep && entitled && !this.data.readOnly && !awaiting),
+      quoteNotifyReady: true,
     }
   },
 
@@ -4306,13 +4399,16 @@ Page({
       aiReview: decorated,
       aiReviewBusy: false,
     }
-    Object.assign(patch, this.quoteAiButtonFlags(decorated))
+    Object.assign(patch, this.quoteAiButtonFlags())
     if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
       patch.notifyOwnerLabel = '通知车主'
-      patch.notifyConfirmDisabled = waiting && !timedOut
+      patch.notifyConfirmDisabled = false
     } else {
       patch.photoConfirmLabel = canProceed ? '进入下一步' : '确认并继续'
       patch.photoConfirmDisabled = waiting && !timedOut
+    }
+    if (!waiting && decorated.merchantBrief && decorated.merchantBrief.hasContent) {
+      patch.adviceOpen = true
     }
     if (waiting || decorated.isFailed || !decorated.hasSuggestions) {
       patch.chiefComplaintHint = waiting ? this.data.chiefComplaintHint : null
@@ -4355,8 +4451,7 @@ Page({
       kind === 'intake_inspection' ||
       kind === 'intake' ||
       kind === 'inspection' ||
-      kind === 'work' ||
-      kind === 'delivery_photos'
+      kind === 'work'
     ) {
       return
     }
@@ -4364,10 +4459,8 @@ Page({
     if (!review || review.acknowledged) return
     if (review.status !== 'queued' && review.status !== 'running' && review.status !== 'ready') return
     let action = ''
-    if (kind === 'inspection_report') action = 'deliver'
-    else if (kind === 'quote_confirm' || kind === 'addon_quote_confirm' || kind === 'repair_report') {
-      action = 'notify'
-    }
+    if (kind === 'delivery_photos') action = 'complete'
+    else if (kind === 'repair_report') action = 'notify'
     if (!action) return
     this.applyInlineAiReview(review, action)
   },
@@ -4425,8 +4518,9 @@ Page({
   },
 
   resumeQuoteAssistPoll() {
-    const assist = this.data.quoteAssist
-    if (assist && assist.isWaiting) this.startQuoteAssistPoll()
+    const assistWaiting = Boolean(this.data.quoteAssist && this.data.quoteAssist.isWaiting)
+    const intakeWaiting = Boolean(this.data.intakeAdvice && this.data.intakeAdvice.isWaiting)
+    if (assistWaiting || intakeWaiting) this.startQuoteAssistPoll()
     else this.stopQuoteAssistPoll()
   },
 
@@ -4860,89 +4954,110 @@ Page({
     }
   },
 
-  async onStartQuoteAiCheck() {
-    if (this.data.readOnly || this.data.confirming || this.data.aiReviewBusy) return
-    if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
-    if (!this._nodeAiReviewEntitled) {
-      this.setData({ quoteNotifyReady: true, showQuoteAiCheck: false })
+  onToggleAdvice() {
+    if (this.data.adviceOpen) {
+      this.setData({ adviceOpen: false })
       return
     }
+    this.setData({ adviceOpen: true })
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    if (kind === 'intake') {
+      const advice = this.data.intakeAdvice
+      if ((advice && advice.hasContent) || (advice && advice.isWaiting)) return
+      this.onStartIntakeAdvice()
+      return
+    }
+    if (kind === 'inspection_report' || kind === 'quote_confirm') {
+      const assist = this.data.quoteAssist
+      if ((assist && assist.hasContent) || (assist && assist.isWaiting)) return
+      this.onStartQuoteAiCheck()
+      return
+    }
+    if (kind === 'repair_report' || kind === 'delivery_photos') {
+      const brief = this.data.aiReview && this.data.aiReview.merchantBrief
+      if ((brief && brief.hasContent) || (this.data.aiReview && this.data.aiReview.isWaiting)) return
+      this.onStartDeliveryAdvice()
+    }
+  },
+
+  onCloseAdvice() {
+    this.setData({ adviceOpen: false })
+  },
+
+  onAdvicePanelTap() {},
+
+  async onStartIntakeAdvice() {
+    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
+    if (!String(this.data.chiefComplaint || '').trim()) {
+      wx.showToast({ title: '先写问诊登记', icon: 'none' })
+      return
+    }
+    this.setData({ confirming: true, adviceOpen: true })
+    try {
+      await this.persistPhotoDraft()
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        startIntakeAdvice: true,
+      })
+      await this.loadFlow({ silent: true })
+      this.setData({ adviceOpen: true })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  }
+
+  async onStartQuoteAiCheck() {
+    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
+    if (!this._nodeAiReviewEntitled) return
     try {
       await this.flushDocDraftSave()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '请先保存当前修改', icon: 'none' })
       return
     }
-    const kind = this.data.activeNode && this.data.activeNode.kind
-    this.setData({ confirming: true, aiReviewBusy: true })
-    this.stopAiReviewPoll()
+    this.setData({ confirming: true, adviceOpen: true })
     try {
-      if (kind === 'inspection_report') {
-        const reportPayload = this.buildDocPayloadForSave()
-        const quotePayload = this.buildQuotePayloadForSave()
-        const reportGaps = collectInspectionReportGaps(reportPayload)
-        if (reportGaps.length) {
-          wx.showModal({
-            title: '请先补全报告',
-            content: reportGaps.slice(0, 4).join('\n'),
-            showCancel: false,
-          })
-          return
-        }
-        const quoteGaps = collectQuoteConfirmGaps(quotePayload)
-        if (quoteGaps.length) {
-          wx.showModal({
-            title: '请先填写方案金额',
-            content: quoteGaps.slice(0, 4).join('\n'),
-            showCancel: false,
-          })
-          return
-        }
-        await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-          document: { status: 'draft', payload: reportPayload },
+      const quotePayload = this.buildQuotePayloadForSave()
+      const quoteNodeId =
+        this.data.quoteNodeId || this._quoteNodeId || (this.data.activeNode && this.data.activeNode.id)
+      if (quoteNodeId) {
+        await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+          document: { status: 'draft', payload: quotePayload },
+          startQuoteAssist: true,
         })
-        const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
-        if (quoteNodeId) {
-          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
-            document: { status: 'draft', payload: quotePayload },
-          })
-        }
-        const res = await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-          startAiReview: true,
-          quoteLines: (quotePayload && quotePayload.lines) || [],
-        })
-        if (res && res.nextAction === 'ai_review') {
-          this.applyInlineAiReview(res.review, 'deliver')
-          return
-        }
-        this.setData({ quoteNotifyReady: true, showQuoteAiCheck: false })
-        return
       }
-      const payload = this.buildDocPayloadForSave()
-      if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
-        const gaps = collectQuoteConfirmGaps(payload, {
-          requireDiscovery: this.data.isAddonQuote,
-        })
-        if (gaps.length) {
-          wx.showModal({
-            title: '请先补全项目与金额',
-            content: gaps.slice(0, 4).join('\n'),
-            showCancel: false,
-          })
-          return
-        }
-      }
-      const res = await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: { status: 'draft', payload },
+      await this.loadFlow({ silent: true })
+      this.setData({ adviceOpen: true })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  }
+
+  async onStartDeliveryAdvice() {
+    if (this.data.readOnly || this.data.confirming || this.data.aiReviewBusy) return
+    if (this.data.aiReview && this.data.aiReview.isWaiting) return
+    if (!this._nodeAiReviewEntitled) return
+    const node = this.data.activeNode
+    if (!node) return
+    this.setData({ confirming: true, aiReviewBusy: true, adviceOpen: true })
+    try {
+      const res = await updateMerchantFlowNode(this.albumId, node.id, {
         startAiReview: true,
       })
       if (res && res.nextAction === 'ai_review') {
-        this.applyInlineAiReview(res.review, 'notify')
+        this.applyInlineAiReview(
+          res.review,
+          node.kind === 'delivery_photos' ? 'complete' : 'notify',
+        )
         return
       }
-      this.setData({ quoteNotifyReady: true, showQuoteAiCheck: false })
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '检查失败', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
     } finally {
       this.setData({ confirming: false, aiReviewBusy: false })
     }

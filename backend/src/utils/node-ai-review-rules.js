@@ -288,6 +288,55 @@ function clipTextList(value, max = 6, maxLen = 80) {
   return out.slice(0, max)
 }
 
+function sanitizeBriefJargon(value) {
+  return text(value)
+    .replace(/发现项\s*\d+/g, '检测')
+    .replace(/报价行\s*\d+/g, '报价')
+    .replace(/的?note字段/gi, '施工方案')
+    .replace(/违反[^，。]{0,24}规定[，,]?/g, '')
+    .replace(/不符合[^，。]{0,24}规范[。.]?/g, '')
+    .replace(/应直接/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function splitTitleBody(line, { question = false } = {}) {
+  const cleaned = sanitizeBriefJargon(line)
+  if (!cleaned || cleaned === '[object Object]') return null
+  if (question || /[？?]$/.test(cleaned)) {
+    return { title: cleaned.slice(0, 40), body: '' }
+  }
+  const colon = cleaned.match(/^(.{2,16}?)[:：]\s*(.+)$/)
+  if (colon) return { title: colon[1], body: colon[2].slice(0, 160) }
+  const stop = cleaned.match(/^(.{2,16}?)[，。]\s*(.+)$/)
+  if (stop && stop[2].length >= 6) return { title: stop[1], body: stop[2].slice(0, 160) }
+  return { title: '', body: cleaned.slice(0, 160) }
+}
+
+function clipBriefItems(value, max = 6, opts = {}) {
+  if (!Array.isArray(value)) return []
+  const out = []
+  value.forEach((item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const title = sanitizeBriefJargon(item.title || item.part || item.name).slice(0, 20)
+      const body = sanitizeBriefJargon(
+        item.body || item.text || item.how || item.content || item.point || item.issue || '',
+      ).slice(0, 160)
+      if (!title && !body) return
+      if (title && body && title !== body) {
+        out.push({ title, body })
+        return
+      }
+      const row = splitTitleBody(body || title, opts)
+      if (row && (row.title || row.body)) out.push(row)
+      return
+    }
+    const row = splitTitleBody(String(item || ''), opts)
+    if (row && (row.title || row.body)) out.push(row)
+  })
+  return out.slice(0, max)
+}
+
 function parseMerchantBrief(raw, ctx = {}) {
   const parsed = parseReviewModelJson(raw)
   const brief =
@@ -314,14 +363,14 @@ function parseMerchantBrief(raw, ctx = {}) {
         oem,
         brand,
         economy,
-        note: text(row.note).slice(0, 40),
+        note: text(row.note).slice(0, 80),
       })
     })
   }
   return {
-    issues: clipTextList(brief.issues),
-    omissions: clipTextList(brief.omissions),
-    objections: clipTextList(brief.objections),
+    issues: clipBriefItems(brief.issues),
+    omissions: clipBriefItems(brief.omissions),
+    objections: clipBriefItems(brief.objections, 6, { question: true }),
     priceBands: bands,
   }
 }
@@ -408,5 +457,6 @@ module.exports = {
   parseMerchantBrief,
   merchantBriefHasContent,
   flattenBriefLine,
+  clipBriefItems,
   keepCompletenessSuggestions,
 }

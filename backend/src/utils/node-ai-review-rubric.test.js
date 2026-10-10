@@ -62,29 +62,27 @@ test('run step keeps the step written when queued', () => {
   )
 })
 
-test('完成事件只认工单：它是如实记录施工过程的单据，定稿要核对', () => {
-  assert.deepEqual(planNodeReview({ event: 'complete', node: { kind: 'work' } }), {
-    step: 'work_sheet',
-  })
-  // 其余节点「完成」时不查：那是门店内部动作，内容还没到车主眼前
+test('完成事件不再排队：工单按方案行施工，不对账', () => {
+  assert.equal(planNodeReview({ event: 'complete', node: { kind: 'work' } }), null)
   assert.equal(planNodeReview({ event: 'complete', node: { kind: 'quote_confirm' } }), null)
   assert.equal(planNodeReview({ event: 'complete', node: { kind: 'repair_report' } }), null)
-  assert.equal(planNodeReview({ event: 'complete', node: { kind: 'work_order' } }), null)
   assert.equal(planNodeReview({ event: 'expose', node: null }), null)
   assert.equal(planNodeReview({}), null)
 })
 
-test('expose picks the step by kind only', () => {
-  const step = (node) => planNodeReview({ event: 'expose', node }).step
-  assert.equal(step({ kind: 'quote_confirm' }), 'quote_check')
-  assert.equal(step({ kind: 'inspection_report' }), 'quote_check')
-  assert.equal(step({ kind: 'work' }), 'work')
+test('expose 只强制交车对账，报价接车检测不拦通知', () => {
+  const step = (node) => {
+    const plan = planNodeReview({ event: 'expose', node })
+    return plan ? plan.step : undefined
+  }
+  assert.equal(step({ kind: 'quote_confirm' }), undefined)
+  assert.equal(step({ kind: 'inspection_report' }), undefined)
+  assert.equal(step({ kind: 'work' }), undefined)
   assert.equal(step({ kind: 'repair_report' }), 'delivery')
-  // 增项两种写法都要落到 addon_check
-  assert.equal(step({ kind: 'addon_quote_confirm' }), 'addon_check')
-  assert.equal(step({ kind: 'quote_confirm', insertedReason: 'addon' }), 'addon_check')
-  // 新增单据类型自动纳入，不再漏查
-  assert.equal(step({ kind: 'brand_new_kind' }), 'notify_check')
+  assert.equal(step({ kind: 'delivery_photos' }), 'delivery')
+  assert.equal(step({ kind: 'addon_quote_confirm' }), undefined)
+  assert.equal(step({ kind: 'quote_confirm', insertedReason: 'addon' }), undefined)
+  assert.equal(step({ kind: 'brand_new_kind' }), undefined)
 })
 
 test('工单核对提纲：文案可落地，照片沿用本品类施工口径', () => {

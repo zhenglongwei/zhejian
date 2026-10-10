@@ -151,15 +151,16 @@ test('model payload keeps part so advice is not applied by index alone', () => {
   assert.equal(list[0].suggestedText, '滤芯表面有油污附着，建议更换')
 })
 
-test('merchant brief flattens object issues to sentences', () => {
+test('merchant brief keeps title and body for issues', () => {
   const { parseMerchantBrief } = require('./node-ai-review-rules')
   const brief = parseMerchantBrief({
     merchantBrief: {
       issues: [{ title: '主诉', text: '异响还没写进方案' }, { how: '补拍近景' }],
     },
   })
-  assert.equal(brief.issues[0], '异响还没写进方案')
-  assert.equal(brief.issues[1], '补拍近景')
+  assert.equal(brief.issues[0].title, '主诉')
+  assert.equal(brief.issues[0].body, '异响还没写进方案')
+  assert.equal(brief.issues[1].body, '补拍近景')
 })
 
 test('merchant brief keeps omissions and strips accident price bands', () => {
@@ -172,6 +173,8 @@ test('merchant brief keeps omissions and strips accident price bands', () => {
     },
   })
   assert.equal(brief.omissions.length, 1)
+  assert.equal(brief.omissions[0].title, '检测写了刹车片偏薄')
+  assert.equal(brief.omissions[0].body, '报价没有对应项')
   assert.equal(brief.priceBands.length, 1)
   assert.equal(brief.priceBands[0].brand, '220-320')
 
@@ -184,8 +187,23 @@ test('merchant brief keeps omissions and strips accident price bands', () => {
     },
     { rubric: { category: 'accident' } },
   )
-  assert.equal(accident.omissions[0], '内板未拆检')
+  assert.equal(accident.omissions[0].body || accident.omissions[0].title, '内板未拆检')
   assert.equal(accident.priceBands.length, 0)
+})
+
+test('merchant brief strips field names and keeps question as title', () => {
+  const { parseMerchantBrief } = require('./node-ai-review-rules')
+  const brief = parseMerchantBrief({
+    merchantBrief: {
+      issues: ['发现项0建议中使用了“疑似”一词，违反禁止含糊词的规定，应直接描述观察到的油污状态。'],
+      objections: ['为什么换个滤芯要300块？'],
+    },
+  })
+  assert.equal(brief.issues[0].title, '检测建议中使用了“疑似”一词')
+  assert.match(brief.issues[0].body, /油污/)
+  assert.doesNotMatch(brief.issues[0].body, /规定|字段/)
+  assert.equal(brief.objections[0].title, '为什么换个滤芯要300块？')
+  assert.equal(brief.objections[0].body, '')
 })
 
 test('model payload drops mechanic-voice violations', () => {

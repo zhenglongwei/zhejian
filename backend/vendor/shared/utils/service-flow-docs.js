@@ -647,6 +647,70 @@ function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
   return facts
 }
 
+function collectConfirmedQuoteLines(flowNodes = []) {
+  const lines = []
+  const seen = new Set()
+  ;(flowNodes || []).forEach((node) => {
+    const kind = String((node && node.kind) || '')
+    if (kind !== 'quote_confirm' && kind !== 'addon_quote_confirm') return
+    const doc = (node && node.document) || {}
+    if (String(doc.status || '') !== 'confirmed') return
+    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
+    const list = Array.isArray(payload.lines) ? payload.lines : []
+    list.forEach((line) => {
+      const id = String((line && line.id) || '').trim()
+      const name = String((line && line.name) || '').trim()
+      if (!name) return
+      const key = id || name
+      if (seen.has(key)) return
+      seen.add(key)
+      lines.push({
+        id,
+        name,
+        note: String((line && line.note) || '').trim(),
+      })
+    })
+  })
+  return lines
+}
+
+function seedWorkFindingsFromQuoteLines(findings = [], quoteLines = []) {
+  const rows = (findings || []).map((row, index) => normalizeWorkFinding(row, index))
+  if (rows.some((row) => String(row.partName || '').trim() || row.images.length || row.quoteLineId)) {
+    return rows
+  }
+  return (quoteLines || [])
+    .filter((line) => String((line && line.name) || '').trim())
+    .map((line, index) =>
+      normalizeWorkFinding(
+        {
+          id: `wf_${String(line.id || index)}`,
+          partName: line.name,
+          quoteLineId: line.id || '',
+          caption: '',
+          images: [],
+        },
+        index,
+      ),
+    )
+}
+
+function unmatchedCheckpoints(checkpoints, findings) {
+  const normalize = (name) =>
+    String(name || '')
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/[左右前后内外侧上下]/g, '')
+  const names = (Array.isArray(findings) ? findings : [])
+    .map((row) => normalize(row && row.partName))
+    .filter(Boolean)
+  return (Array.isArray(checkpoints) ? checkpoints : []).filter((ck) => {
+    const key = normalize(ck && ck.partName)
+    if (!key) return false
+    return !names.some((name) => name.includes(key) || key.includes(name))
+  })
+}
+
 function collectConfirmedQuoteNames(flowNodes = []) {
   const names = []
   const seen = new Set()
@@ -1543,6 +1607,9 @@ module.exports = {
   normalizePendingImages,
   applyOrganizeGroups,
   collectConfirmedQuoteNames,
+  collectConfirmedQuoteLines,
+  seedWorkFindingsFromQuoteLines,
+  unmatchedCheckpoints,
   buildPriorOrganizeFacts,
   matchQuotePartName,
   stampWorkQuoteMatch,
