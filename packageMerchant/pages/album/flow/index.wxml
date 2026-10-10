@@ -1331,31 +1331,46 @@
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
         <block wx:elif="{{intakeAdvice.hasContent}}">
-          <view wx:if="{{intakeAdvice.hasDiagnosis}}" class="merchant-flow-page__quote-brief-sec">
-            <text class="merchant-flow-page__quote-brief-sec-title">怎么看</text>
-            <view class="merchant-flow-page__quote-brief-card">
-              <text class="merchant-flow-page__quote-brief-item-body">{{intakeAdvice.diagnosis}}</text>
+          <view wx:if="{{intakeAdvice.hasAskOwner}}" class="merchant-flow-page__advice-sec">
+            <text class="merchant-flow-page__advice-sec-title">建议进一步了解</text>
+            <view wx:for="{{intakeAdvice.askOwner}}" wx:key="title" class="merchant-flow-page__advice-ask">
+              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+              <view wx:if="{{item.hasOptions}}" class="merchant-flow-page__advice-chips">
+                <view
+                  wx:for="{{item.options}}"
+                  wx:for-item="opt"
+                  wx:key="label"
+                  class="merchant-flow-page__advice-chip {{opt.picked ? 'is-on' : ''}}"
+                  data-q="{{opt.q}}"
+                  data-o="{{opt.o}}"
+                  bindtap="onToggleAskOption"
+                >{{opt.label}}</view>
+              </view>
             </view>
           </view>
-          <view wx:if="{{intakeAdvice.hasPhotoTips}}" class="merchant-flow-page__quote-brief-sec">
-            <text class="merchant-flow-page__quote-brief-sec-title">留证怎么拍</text>
-            <view wx:for="{{intakeAdvice.photoTips}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+          <view wx:if="{{intakeAdvice.hasDiagnosis}}" class="merchant-flow-page__advice-sec">
+            <text class="merchant-flow-page__advice-sec-title">初步诊断</text>
+            <text class="merchant-flow-page__advice-lead">{{intakeAdvice.diagnosis}}</text>
+          </view>
+          <view wx:if="{{intakeAdvice.hasPhotoTips}}" class="merchant-flow-page__advice-sec">
+            <text class="merchant-flow-page__advice-sec-title">先做环车检查，避免后续纠纷</text>
+            <view wx:for="{{intakeAdvice.photoTips}}" wx:key="seq" class="merchant-flow-page__advice-step">
+              <text class="merchant-flow-page__advice-step-num">{{item.seq}}</text>
+              <view class="merchant-flow-page__advice-step-main">
+                <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-step-title">{{item.title}}</text>
+                <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-step-body">{{item.body}}</text>
+              </view>
             </view>
           </view>
-          <view wx:if="{{intakeAdvice.hasCheckpoints}}" class="merchant-flow-page__quote-brief-sec">
-            <text class="merchant-flow-page__quote-brief-sec-title">建议查这些</text>
-            <view wx:for="{{intakeAdvice.checkpoints}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
-            </view>
-          </view>
-          <view wx:if="{{intakeAdvice.hasAskOwner}}" class="merchant-flow-page__quote-brief-sec">
-            <text class="merchant-flow-page__quote-brief-sec-title">还可以问</text>
-            <view wx:for="{{intakeAdvice.askOwner}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+          <view wx:if="{{intakeAdvice.hasCheckpoints}}" class="merchant-flow-page__advice-sec">
+            <text class="merchant-flow-page__advice-sec-title">检测顺序</text>
+            <view wx:for="{{intakeAdvice.checkpoints}}" wx:key="seq" class="merchant-flow-page__advice-step">
+              <text class="merchant-flow-page__advice-step-num merchant-flow-page__advice-step-num--check">{{item.seq}}</text>
+              <view class="merchant-flow-page__advice-step-main">
+                <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-step-title">{{item.title}}</text>
+                <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-step-body">{{item.body}}</text>
+              </view>
             </view>
           </view>
         </block>

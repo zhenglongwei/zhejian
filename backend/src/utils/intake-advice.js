@@ -14,25 +14,57 @@ function checkpointId(partName, index) {
   return `ck_${crypto.createHash('sha1').update(key).digest('hex').slice(0, 10)}`
 }
 
-function parseTitleBodyList(raw, max = 8) {
+function parseOptions(raw) {
+  const list = Array.isArray(raw) ? raw : []
+  const out = []
+  const seen = new Set()
+  list.forEach((item) => {
+    const label = text(typeof item === 'object' ? item.label || item.title || item.text : item).slice(0, 16)
+    if (!label || seen.has(label)) return
+    seen.add(label)
+    out.push({ label })
+  })
+  return out.slice(0, 4)
+}
+
+function parseAskOwner(raw) {
   const list = Array.isArray(raw) ? raw : []
   const out = []
   list.forEach((item, index) => {
     if (item && typeof item === 'object') {
-      const title = text(item.title || item.part || item.name).slice(0, 20)
-      const body = text(item.body || item.text || item.why || item.how).slice(0, 160)
+      const title = text(item.title || item.part || item.name).slice(0, 16)
+      const body = text(item.body || item.text || item.why).slice(0, 80)
+      const options = parseOptions(item.options || item.choices)
+      if (title || body || options.length) {
+        out.push({ title, body, options, sortOrder: index })
+      }
+      return
+    }
+    const line = text(item)
+    if (line) out.push({ title: '', body: line.slice(0, 80), options: [], sortOrder: index })
+  })
+  return out.slice(0, 4)
+}
+
+function parseTitleBodyList(raw, max = 6) {
+  const list = Array.isArray(raw) ? raw : []
+  const out = []
+  list.forEach((item, index) => {
+    if (item && typeof item === 'object') {
+      const title = text(item.title || item.part || item.name).slice(0, 16)
+      const body = text(item.body || item.text || item.why || item.how).slice(0, 72)
       if (title || body) out.push({ title, body, sortOrder: index })
       return
     }
     const line = text(item)
-    if (line) out.push({ title: '', body: line.slice(0, 160), sortOrder: index })
+    if (line) out.push({ title: '', body: line.slice(0, 72), sortOrder: index })
   })
   return out.slice(0, max)
 }
 
 function parseCheckpoints(raw) {
   const list = Array.isArray(raw) ? raw : []
-  const out = []
+  const rows = []
   const seen = new Set()
   list.forEach((row, index) => {
     if (!row || typeof row !== 'object') return
@@ -41,23 +73,27 @@ function parseCheckpoints(raw) {
     const id = text(row.id) || checkpointId(partName, index)
     if (seen.has(id)) return
     seen.add(id)
-    out.push({
+    const priority = Number(row.priority || row.sortOrder)
+    rows.push({
       id,
-      partName: partName.slice(0, 24),
-      why: text(row.why || row.body || row.reason).slice(0, 120),
-      sortOrder: index,
+      partName: partName.slice(0, 20),
+      why: text(row.why || row.body || row.reason).slice(0, 56),
+      sortOrder: Number.isFinite(priority) ? priority : index,
     })
   })
-  return out.slice(0, 12)
+  return rows
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .slice(0, 8)
+    .map((row, index) => ({ ...row, sortOrder: index }))
 }
 
 function parseIntakeAdvicePayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
-  const diagnosis = text(parsed.diagnosis || parsed.summary).slice(0, 400)
+  const diagnosis = text(parsed.diagnosis || parsed.summary).slice(0, 160)
   return {
     diagnosis,
-    photoTips: parseTitleBodyList(parsed.photoTips || parsed.photos, 8),
-    askOwner: parseTitleBodyList(parsed.askOwner || parsed.questions, 6),
+    photoTips: parseTitleBodyList(parsed.photoTips || parsed.photos, 5),
+    askOwner: parseAskOwner(parsed.askOwner || parsed.questions),
     checkpoints: parseCheckpoints(parsed.checkpoints || parsed.inspectPoints),
   }
 }

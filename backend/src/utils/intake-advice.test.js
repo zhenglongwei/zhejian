@@ -15,6 +15,23 @@ test('parse intake advice keeps checkpoints with stable ids', () => {
   assert.equal(got.askOwner[0].body.includes('过坎') || got.askOwner[0].title.includes('过坎'), true)
 })
 
+test('parse ask owner options and sort checkpoints by priority', () => {
+  const got = parseIntakeAdvicePayload({
+    diagnosis: '更像衬套间隙。',
+    askOwner: [{ title: '异响工况', options: ['冷车启动', '过减速带', '冷车启动'] }],
+    checkpoints: [
+      { partName: '半轴防尘套', why: '漏油会响', priority: 3 },
+      { partName: '下摆臂球头', why: '松旷常见', priority: 1 },
+    ],
+  })
+  assert.deepEqual(
+    got.askOwner[0].options.map((row) => row.label),
+    ['冷车启动', '过减速带'],
+  )
+  assert.equal(got.checkpoints[0].partName, '下摆臂球头')
+  assert.equal(got.checkpoints[1].partName, '半轴防尘套')
+})
+
 test('unmatched checkpoints skip findings that already cover the part', () => {
   const miss = unmatchedCheckpoints(
     [

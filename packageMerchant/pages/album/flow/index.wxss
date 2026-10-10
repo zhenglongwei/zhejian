@@ -740,6 +740,114 @@
   border-top: none;
 }
 
+.merchant-flow-page__advice-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  padding-left: var(--space-sm);
+  border-left: 4rpx solid var(--color-primary);
+}
+
+.merchant-flow-page__advice-sec-title {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.merchant-flow-page__advice-lead {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__advice-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__advice-ask-title {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__advice-ask-body {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__advice-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__advice-chip {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-muted);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-flow-page__advice-chip.is-on {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.merchant-flow-page__advice-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__advice-step-num {
+  flex-shrink: 0;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: var(--radius-full);
+  font-size: var(--font-caption);
+  line-height: 40rpx;
+  text-align: center;
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  font-weight: 600;
+}
+
+.merchant-flow-page__advice-step-num--check {
+  color: var(--color-text-inverse);
+  background-color: var(--color-primary);
+}
+
+.merchant-flow-page__advice-step-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__advice-step-title {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__advice-step-body {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
 .merchant-flow-page__library-mask {
   position: fixed;
   left: 0;

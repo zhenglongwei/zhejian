@@ -5,7 +5,6 @@
 const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
-const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 const {
   parseIntakeAdvicePayload,
   sanitizeIntakeAdviceForView,
@@ -82,14 +81,15 @@ async function runGenerateLlm(facts) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    '你是汽修店员的接车助手。根据车主主诉给出店内意见，不要百科，不要编没听到的损伤。',
-    MECHANIC_VOICE_RULES,
-    '车型、年款是本车事实，诊断和检查点要按这台车来，不要当成通用百科。',
-    '给店员看：可能什么问题、留证怎么拍、建议按什么顺序查哪些点、还要不要再问车主几句。',
-    '不要写成必须填完的检测表。checkpoints 每条要有部位名和一句为什么查。',
-    '不要写模型名、不要写 AI。',
+    '你是汽修店员的接车助手。根据主诉和车型给短意见，不要百科，不要编没听到的损伤。',
+    '四块不许互相复述。',
+    'askOwner：最多 4 条。每条一个短标题，options 2到4个可勾选项（短词，如「冷车启动」「过减速带」）。没有把握就不问。',
+    'diagnosis：最多三句，只说最可能什么问题。不要列部位清单，不要写怎么拍。',
+    'photoTips：只写进场环车留证（四角/故障方位外观、仪表、未举升能拍的底盘外观）。不要写举升、拆检、球头间隙、衬套。最多 5 条，title 部位，body 一句怎么拍。',
+    'checkpoints：举升后检测顺序，按优先级从前到后。每条 partName + 一句 why（为什么先查）。不要写怎么拍，不要重复 diagnosis。最多 8 条。',
+    '车型年款按本车写。不要写模型名、不要写 AI。',
     `本单：${JSON.stringify(facts)}`,
-    '输出 JSON：{"diagnosis":"","photoTips":[{"title","body"}],"askOwner":[{"title","body"}],"checkpoints":[{"partName","why"}]}',
+    '输出 JSON：{"askOwner":[{"title","options":["",""]}],"diagnosis":"","photoTips":[{"title","body"}],"checkpoints":[{"partName","why","priority":1}]}',
   ].join('\n')
 
   for (const engine of engines) {

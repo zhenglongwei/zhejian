@@ -3327,7 +3327,11 @@ Page({
 
   onChiefComplaintInput(e) {
     if (this.data.isIntakePhotoStep) {
-      this.setData({ chiefComplaint: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+      const value = e.detail.value
+      const askOwner = (this.data.intakeAdvice && this.data.intakeAdvice.askOwner) || []
+      const hasPick = askOwner.some((row) => (row.options || []).some((opt) => opt && opt.picked))
+      if (!hasPick) this._askComplaintBase = String(value || '').trim()
+      this.setData({ chiefComplaint: value, autoSaveLabel: '保存中…' }, () => {
         this.scheduleAutoSaveDraftOnly()
       })
       return
@@ -3939,15 +3943,48 @@ Page({
     }
     const status = String(raw.status || '')
     const diagnosis = String(raw.diagnosis || '').trim()
+    const prevAsk = (this.data.intakeAdvice && this.data.intakeAdvice.askOwner) || []
     const photoTips = (Array.isArray(raw.photoTips) ? raw.photoTips : [])
-      .map((row) => this.decorateBriefItem(row))
+      .map((row, index) => {
+        const item = this.decorateBriefItem(row)
+        return { ...item, seq: String(index + 1) }
+      })
       .filter((row) => row.hasTitle || row.hasBody)
     const askOwner = (Array.isArray(raw.askOwner) ? raw.askOwner : [])
-      .map((row) => this.decorateBriefItem(row, true))
-      .filter((row) => row.hasTitle || row.hasBody)
+      .map((row, qi) => {
+        const title = String((row && (row.title || row.partName)) || '').trim()
+        const body = String((row && row.body) || '').trim()
+        const prev =
+          prevAsk.find((item) => item && item.title === title) || prevAsk[qi] || {}
+        const prevOpts = Array.isArray(prev.options) ? prev.options : []
+        const options = (Array.isArray(row.options) ? row.options : [])
+          .map((opt, oi) => {
+            const label = String((opt && (opt.label || opt.title || opt)) || '').trim()
+            const hit = prevOpts.find((item) => item && item.label === label)
+            return { label, picked: Boolean(hit && hit.picked), q: qi, o: oi }
+          })
+          .filter((item) => item.label)
+        return {
+          title,
+          body,
+          hasTitle: Boolean(title),
+          hasBody: Boolean(body) && !options.length,
+          options,
+          hasOptions: options.length > 0,
+        }
+      })
+      .filter((row) => row.hasTitle || row.hasBody || row.hasOptions)
     const checkpoints = (Array.isArray(raw.checkpoints) ? raw.checkpoints : [])
-      .map((row) => this.decorateBriefItem({ title: row.partName, body: row.why }))
+      .map((row, index) => {
+        const item = this.decorateBriefItem({ title: row.partName, body: row.why })
+        return { ...item, seq: String(index + 1) }
+      })
       .filter((row) => row.hasTitle || row.hasBody)
+    const fp = `${status}|${diagnosis}|${askOwner.map((row) => row.title).join(',')}`
+    if (status === 'ready' && this._askAdviceFp !== fp) {
+      this._askAdviceFp = fp
+      this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
+    }
     return {
       ...raw,
       status,
@@ -3963,6 +4000,44 @@ Page({
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
+  },
+
+  mergeAskPicksIntoComplaint(askOwner) {
+    const base = String(this._askComplaintBase || this.data.chiefComplaint || '').trim()
+    const picks = []
+    ;(askOwner || []).forEach((row) => {
+      ;(row.options || []).forEach((opt) => {
+        if (opt && opt.picked && opt.label) picks.push(opt.label)
+      })
+    })
+    if (!picks.length) return base
+    return base ? `${base}；${picks.join('；')}` : picks.join('；')
+  },
+
+  onToggleAskOption(e) {
+    const q = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.q)
+    const o = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.o)
+    const advice = this.data.intakeAdvice
+    if (!advice || !Array.isArray(advice.askOwner) || !Number.isFinite(q) || !Number.isFinite(o)) return
+    const askOwner = advice.askOwner.map((row, qi) => {
+      if (qi !== q) return row
+      const options = (row.options || []).map((opt, oi) =>
+        oi === o ? { ...opt, picked: !opt.picked } : opt,
+      )
+      return { ...row, options }
+    })
+    if (this._askComplaintBase == null) {
+      this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
+    }
+    const chiefComplaint = this.mergeAskPicksIntoComplaint(askOwner)
+    this.setData(
+      {
+        intakeAdvice: { ...advice, askOwner, hasAskOwner: true },
+        chiefComplaint,
+        autoSaveLabel: '保存中…',
+      },
+      () => this.scheduleAutoSaveDraftOnly(),
+    )
   },
 
   computeCheckpointMisses(flowNodes, findings, enabled) {
