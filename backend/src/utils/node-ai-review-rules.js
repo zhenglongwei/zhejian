@@ -248,6 +248,78 @@ function keepCompletenessSuggestions(suggestions, ctx = {}) {
     return !currentTextForSuggestion(ctx, item)
   })
 }
+function parseReviewModelJson(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  const start = trimmed.indexOf('{')
+  const end = trimmed.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try {
+    return JSON.parse(trimmed.slice(start, end + 1))
+  } catch (_) {
+    return null
+  }
+}
+
+function clipTextList(value, max = 6, maxLen = 80) {
+  if (!Array.isArray(value)) return []
+  const out = []
+  value.forEach((item) => {
+    const line = text(item).slice(0, maxLen)
+    if (line) out.push(line)
+  })
+  return out.slice(0, max)
+}
+
+function parseMerchantBrief(raw, ctx = {}) {
+  const parsed = parseReviewModelJson(raw)
+  const brief =
+    parsed && parsed.merchantBrief && typeof parsed.merchantBrief === 'object'
+      ? parsed.merchantBrief
+      : parsed && (Array.isArray(parsed.issues) || Array.isArray(parsed.omissions))
+        ? parsed
+        : null
+  const empty = { issues: [], omissions: [], objections: [], priceBands: [] }
+  if (!brief) return empty
+  const accident = text(ctx.rubric && ctx.rubric.category) === 'accident'
+  const bands = []
+  if (!accident && Array.isArray(brief.priceBands)) {
+    brief.priceBands.slice(0, 8).forEach((row, index) => {
+      if (!row || typeof row !== 'object') return
+      const name = text(row.name)
+      const oem = text(row.oem)
+      const brand = text(row.brand)
+      const economy = text(row.economy)
+      if (!name && !oem && !brand && !economy) return
+      bands.push({
+        lineIndex: Number.isFinite(Number(row.lineIndex)) ? Number(row.lineIndex) : index,
+        name,
+        oem,
+        brand,
+        economy,
+        note: text(row.note).slice(0, 40),
+      })
+    })
+  }
+  return {
+    issues: clipTextList(brief.issues),
+    omissions: clipTextList(brief.omissions),
+    objections: clipTextList(brief.objections),
+    priceBands: bands,
+  }
+}
+
+function merchantBriefHasContent(brief) {
+  if (!brief || typeof brief !== 'object') return false
+  return Boolean(
+    (brief.issues && brief.issues.length) ||
+      (brief.omissions && brief.omissions.length) ||
+      (brief.objections && brief.objections.length) ||
+      (brief.priceBands && brief.priceBands.length),
+  )
+}
+
 function inferSuggestionField(item = {}) {
   const field = text(item.field)
   if (field) return field
@@ -264,15 +336,8 @@ function inferSuggestionField(item = {}) {
 function parseModelSuggestions(raw, fallback = []) {
   let parsed = raw
   if (typeof raw === 'string') {
-    const trimmed = raw.trim()
-    const start = trimmed.indexOf('{')
-    const end = trimmed.lastIndexOf('}')
-    if (start < 0 || end <= start) return fallback
-    try {
-      parsed = JSON.parse(trimmed.slice(start, end + 1))
-    } catch (_) {
-      return fallback
-    }
+    parsed = parseReviewModelJson(raw)
+    if (!parsed) return fallback
   }
   const list = Array.isArray(parsed)
     ? parsed
@@ -322,6 +387,9 @@ module.exports = {
   isVagueChiefComplaint,
   inferSuggestionField,
   buildRuleSuggestions,
+  parseReviewModelJson,
   parseModelSuggestions,
+  parseMerchantBrief,
+  merchantBriefHasContent,
   keepCompletenessSuggestions,
 }

@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { getReviewRubric } = require('./node-ai-review-rubric')
-const { buildRuleSuggestions, parseModelSuggestions } = require('./node-ai-review-rules')
+const { buildRuleSuggestions, parseModelSuggestions, parseMerchantBrief } = require('./node-ai-review-rules')
 
 test('empty maintenance intake suggests odo photo and complaint sentence', () => {
   const rubric = getReviewRubric('maintenance', 'intake_inspection')
@@ -149,6 +149,32 @@ test('model payload keeps part so advice is not applied by index alone', () => {
   assert.equal(list[0].part, '滤芯')
   assert.equal(list[0].findingIndex, 0)
   assert.equal(list[0].suggestedText, '滤芯表面有油污附着，建议更换')
+})
+
+test('merchant brief keeps omissions and strips accident price bands', () => {
+  const brief = parseMerchantBrief({
+    merchantBrief: {
+      issues: ['主诉是异响，报价却只写保养'],
+      omissions: ['检测写了刹车片偏薄，报价没有对应项'],
+      objections: ['为什么不换盘'],
+      priceBands: [{ name: '前片', oem: '380-520', brand: '220-320', economy: '150-220' }],
+    },
+  })
+  assert.equal(brief.omissions.length, 1)
+  assert.equal(brief.priceBands.length, 1)
+  assert.equal(brief.priceBands[0].brand, '220-320')
+
+  const accident = parseMerchantBrief(
+    {
+      merchantBrief: {
+        omissions: ['内板未拆检'],
+        priceBands: [{ name: '前杠', oem: '2000', brand: '1200', economy: '800' }],
+      },
+    },
+    { rubric: { category: 'accident' } },
+  )
+  assert.equal(accident.omissions[0], '内板未拆检')
+  assert.equal(accident.priceBands.length, 0)
 })
 
 test('model payload drops mechanic-voice violations', () => {

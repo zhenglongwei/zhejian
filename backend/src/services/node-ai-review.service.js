@@ -17,7 +17,13 @@ const {
   resolveRunReviewStep,
   planNodeReview,
 } = require('../utils/node-ai-review-rubric')
-const { buildRuleSuggestions, parseModelSuggestions, keepCompletenessSuggestions } = require('../utils/node-ai-review-rules')
+const {
+  buildRuleSuggestions,
+  parseReviewModelJson,
+  parseModelSuggestions,
+  parseMerchantBrief,
+  keepCompletenessSuggestions,
+} = require('../utils/node-ai-review-rules')
 const { isAckStale, canReuseReviewThisRound } = require('../utils/node-ai-review-ack')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
@@ -43,10 +49,15 @@ function sanitizeAiReviewForView(aiReview) {
   if (!aiReview || typeof aiReview !== 'object') return null
   const status = text(aiReview.status)
   if (!status) return null
+  const merchantBrief = parseMerchantBrief(
+    { merchantBrief: aiReview.merchantBrief || {} },
+    {},
+  )
   return {
     status,
     source: text(aiReview.source),
     suggestions: Array.isArray(aiReview.suggestions) ? aiReview.suggestions : [],
+    merchantBrief,
     acknowledged: Boolean(aiReview.acknowledged),
     fingerprint: text(aiReview.fingerprint),
     updatedAt: text(aiReview.updatedAt),
@@ -118,6 +129,7 @@ function buildReviewFingerprint(node, extra = {}) {
     lines: (extra.quoteLines || []).map((line) => ({
       n: text(line && line.name),
       t: text(line && line.note),
+      a: text(line && line.amount),
     })),
   }
   return crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex')
@@ -193,6 +205,14 @@ function buildReviewContext(album, node, extra = {}) {
   }
   let findings = draft.findings || doc.findings || []
   let quoteLines = extra.quoteLines || quotePayload.lines || []
+  if (reviewStep === 'quote_check' || reviewStep === 'addon_check') {
+    if ((!Array.isArray(findings) || !findings.length) && Array.isArray(reportPayload.findings)) {
+      findings = reportPayload.findings
+    }
+    if (node.kind === 'quote_confirm' && Array.isArray(doc.lines)) {
+      quoteLines = extra.quoteLines && extra.quoteLines.length ? extra.quoteLines : doc.lines
+    }
+  }
   /** 工单项目（含增项工单）与完工报告施工项：完工验收时车主一并看到 */
   let orderItems = []
   let workItems = []
@@ -313,8 +333,20 @@ function buildReviewContext(album, node, extra = {}) {
         ? getReviewRubric(album.templateId, node.kind, album.serviceName, 'work_sheet')
         : getReviewRubric(album.templateId, rubricKind, album.serviceName)
   return {
+    skipEngineId: text(extra.skipEngineId),
     rubric,
-    chiefComplaint: text(draft.chiefComplaint || doc.chiefComplaint || extra.chiefComplaint),
+    chiefComplaint: text(
+      draft.chiefComplaint ||
+        doc.chiefComplaint ||
+        extra.chiefComplaint ||
+        reportPayload.chiefComplaint ||
+        (() => {
+          const intake = readFlowNodes(album).find(
+            (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
+          )
+          return intake && intake.photoDraft && intake.photoDraft.chiefComplaint
+        })(),
+    ),
     mileageKm: draft.mileageKm || extra.mileageKm,
     odometerUrl: draft.odometerUrl || extra.odometerUrl || '',
     findings,
@@ -355,10 +387,13 @@ async function collectMaskedUrlsForNode(albumId, node) {
   return collectMaskedUrlsForRawList(albumId, entries, { requireAll: false })
 }
 
-async function runLlmSuggestions(ctx, maskedUrls, capability) {
+async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
   if (!capability.llmEnabled) return null
   const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
-  const engines = resolveConfiguredNodeAiReviewEngines()
+  const skipEngineId = text(options.skipEngineId)
+  const engines = resolveConfiguredNodeAiReviewEngines().filter(
+    (engine) => !skipEngineId || engine.id !== skipEngineId,
+  )
   if (!engines.length) return null
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
@@ -388,6 +423,10 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       name: (line && line.name) || '',
       note: (line && line.note) || '',
       brand: (line && line.brand) || '',
+      amount:
+        ctx.rubric.step === 'quote_check' || ctx.rubric.step === 'addon_check'
+          ? text(line && line.amount)
+          : '',
     })),
     photoObservations: Array.isArray(ctx.photoObservations) ? ctx.photoObservations : [],
     /** 工单项目：车主验收时与施工过程一并看到，须对得上 */
@@ -415,11 +454,12 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       })),
     },
   }
+  const accident = ctx.rubric.category === 'accident'
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是发给车主确认前的核对。只查关键项有没有写：主诉、项目名、施工方案、该填的检查发现、该有的图。栏里已经有字，不要给 suggestedText，不要改句式。空栏才给一句可直接填的，口吻必须像师傅看完实车写的判断。photoObservations 是已看过的图。不要改金额，不要编项目。'
+      ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是店内参考，不写进车主字段：必须同时核已写内容和可能漏了什么。issues 写已写内容站不住的点；omissions 写结合主诉和检测后报价或检测可能漏报/漏查的（只提醒，不要编成收费行，不要放进 suggestions）；objections 写车主可能问的短句。priceBands 只针对已有报价行给原厂/品牌/经济件宽区间，不必过细，不是实时行情。不要改金额，不要自动加报价行。'
       : ctx.rubric.step === 'addon_check'
-        ? '这是通知车主前的核对。只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。不要改金额。不要改已经确认过的首次检测和首次报价。'
+        ? '这是通知车主前的核对。suggestions 只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。merchantBrief 同样要核已写内容和可能漏了什么，漏项只提醒不自动加行。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
           ? '这是完工通知车主验收前的一次核对。结合前面接车、检测、方案、工单已经写下的结果（文字），只查本步空缺：施工说明空了、质保空了、该有的交车照没有。已经写了的字不要改。前面的图不要再看。不要改金额。'
           : ctx.rubric.step === 'work'
@@ -431,8 +471,11 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
     '你是汽修店员的核对助手。只根据本单已有事实查缺项，不要百科，不要编造没拍到的读数。',
     MECHANIC_VOICE_RULES,
     stepNote,
-    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}]}',
-    'text 只在对应字段为空时才给 suggestedText。栏里已经有字，一律不要出改句，保留店员原文。没有空缺就返回空 suggestions。',
+    accident && (ctx.rubric.step === 'quote_check' || ctx.rubric.step === 'addon_check')
+      ? '事故车不要给金额档，priceBands 必须空数组。'
+      : '',
+    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}],"merchantBrief":{"issues":[],"omissions":[],"objections":[],"priceBands":[{"lineIndex","name","oem","brand","economy","note"}]}}',
+    'text 只在对应字段为空时才给 suggestedText。栏里已经有字，一律不要出改句，保留店员原文。没有空缺就返回空 suggestions。quote_check / addon_check 即使 suggestions 为空，也要给 merchantBrief。',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
     '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',
     'findingIndex 必须等于该条 findings 的 index。how 和 suggestedText 只描述这一个部位，不要把别的部位写进同一条。',
@@ -485,11 +528,11 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
       })
       called = true
-      const suggestions = keepCompletenessSuggestions(
-        parseModelSuggestions(result && result.text, []),
-        ctx,
-      )
-      if (suggestions.length) return { suggestions, source: 'llm', engine: engine.id }
+      const parsed = parseReviewModelJson(result && result.text)
+      if (!parsed) continue
+      const suggestions = keepCompletenessSuggestions(parseModelSuggestions(parsed, []), ctx)
+      const merchantBrief = parseMerchantBrief(parsed, ctx)
+      return { suggestions, merchantBrief, source: 'llm', engine: engine.id }
     } catch (error) {
       failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
     }
@@ -551,23 +594,30 @@ async function analyzeNode(album, node, capability) {
   ctx.photoObservations = photoObservations
   let suggestions = fallback
   let source = 'rule'
+  let merchantBrief = parseMerchantBrief({}, ctx)
   if (capability.llmEnabled) {
     try {
-      const fromModel = await runLlmSuggestions(ctx, visionUrls, capability)
-      if (fromModel && fromModel.suggestions && fromModel.suggestions.length) {
-        suggestions = fromModel.suggestions
-        source = fromModel.source || 'llm'
+      const fromModel = await runLlmSuggestions(ctx, visionUrls, capability, {
+        skipEngineId: ctx.skipEngineId,
+      })
+      if (fromModel) {
+        if (fromModel.suggestions && fromModel.suggestions.length) {
+          suggestions = fromModel.suggestions
+        }
+        if (fromModel.source) source = fromModel.source
+        if (fromModel.merchantBrief) merchantBrief = fromModel.merchantBrief
       }
     } catch (error) {
       source = 'rule'
       return {
         suggestions: fallback,
+        merchantBrief,
         source,
         errorMessage: text(error && error.message).slice(0, 120),
       }
     }
   }
-  return { suggestions, source, errorMessage: '' }
+  return { suggestions, merchantBrief, source, errorMessage: '' }
 }
 
 async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
@@ -607,6 +657,7 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
         status: 'ready',
         source: analyzed.source,
         suggestions: analyzed.suggestions,
+        merchantBrief: analyzed.merchantBrief || parseMerchantBrief({}, {}),
         errorMessage: analyzed.errorMessage || '',
         acknowledged: false,
         updatedAt: new Date().toISOString(),
@@ -793,7 +844,11 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = 
     node: mergedNode,
     merchantId,
     // 显式写入口径：送达时排队若不写，执行端就推不出该查什么
-    extra: { quoteLines, step: plan.step },
+    extra: {
+      quoteLines,
+      step: plan.step,
+      skipEngineId: text(quoteNode && quoteNode.quoteAssist && quoteNode.quoteAssist.generateEngine),
+    },
   })
   return {
     delivered: false,
@@ -828,6 +883,45 @@ async function getNodeAiReview(albumId, storeId, nodeId, merchantId) {
   }
 }
 
+/** 报价页点「AI检查」：只排队核对，不发给车主 */
+async function maybeStartAiReview({ album, node, merchantId, payload = {} }) {
+  const plan = planNodeReview({ event: 'expose', node })
+  if (!plan) return null
+  const capability = await resolveCapabilityForMerchant(merchantId)
+  if (!capability.entitled) {
+    return { delivered: false, nextAction: '', review: null, skipped: true, message: '' }
+  }
+  const kind = String((node && node.kind) || '')
+  const doc = (node.document && node.document.payload) || {}
+  const quoteNode = readFlowNodes(album).find(
+    (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
+  )
+  const quoteFromAlbum =
+    (quoteNode && quoteNode.document && quoteNode.document.payload && quoteNode.document.payload.lines) || []
+  const quoteLines =
+    kind === 'quote_confirm' && Array.isArray(doc.lines)
+      ? doc.lines
+      : Array.isArray(payload.quoteLines) && payload.quoteLines.length
+        ? payload.quoteLines
+        : quoteFromAlbum
+  const review = await startOrResumeReview({
+    album,
+    node,
+    merchantId,
+    extra: {
+      step: plan.step,
+      quoteLines,
+      skipEngineId: text(quoteNode && quoteNode.quoteAssist && quoteNode.quoteAssist.generateEngine),
+    },
+  })
+  return {
+    delivered: false,
+    nextAction: 'ai_review',
+    review,
+    message: '正在检查',
+  }
+}
+
 /** 发给车主前查一次（expose 事件） */
 async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {} }) {
   const kind = String((node && node.kind) || '')
@@ -852,6 +946,9 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
     }))
     return null
   }
+  const quoteNodeForSkip = readFlowNodes(album).find(
+    (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
+  )
   const review = await startOrResumeReview({
     album,
     node,
@@ -859,6 +956,9 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
     extra: {
       step: plan.step,
       quoteLines,
+      skipEngineId: text(
+        quoteNodeForSkip && quoteNodeForSkip.quoteAssist && quoteNodeForSkip.quoteAssist.generateEngine,
+      ),
     },
   })
   return {
@@ -875,6 +975,7 @@ module.exports = {
   publicNodeAiReviewCapability,
   maybeHoldDeliverForAiReview,
   maybeHoldNotifyForAiReview,
+  maybeStartAiReview,
   maybeHoldWorkSheetForReview,
   getNodeAiReview,
   flushQueuedNodeAiReviewsForAlbum,

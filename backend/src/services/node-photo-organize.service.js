@@ -7,16 +7,20 @@ const { config } = require('../config')
 const { prisma } = require('../lib/prisma')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { resolveShared } = require('../utils/resolve-shared')
-const { mediaKey, collectConfirmedQuoteNames, stampWorkQuoteMatch, buildPriorOrganizeFacts } = resolveShared(
-  'utils/service-flow-docs.js',
-)
+const {
+  mediaKey,
+  collectConfirmedQuoteNames,
+  stampWorkQuoteMatch,
+  buildPriorOrganizeFacts,
+  stripFigureIndexTalk,
+} = resolveShared('utils/service-flow-docs.js')
 const {
   INTAKE_RECORD_CATEGORIES,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 
-const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v9'
+const FLOW_ORGANIZE_PROMPT_VERSION = 'flow-organize-v10'
 
 function text(value) {
   return String(value || '').trim()
@@ -112,9 +116,9 @@ function normalizeGroups(rawGroups, pending) {
         category,
         reading: text(row && row.reading),
         result: text(row && row.result),
-        advice: text(row && row.advice),
-        caption: text(row && row.caption),
-        observation: text(row && row.observation),
+        advice: stripFigureIndexTalk(text(row && row.advice)),
+        caption: stripFigureIndexTalk(text(row && row.caption)),
+        observation: stripFigureIndexTalk(text(row && row.observation)),
         outsideQuote: Boolean(row && row.outsideQuote),
         imageKeys,
       }
@@ -140,7 +144,8 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorF
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
     MECHANIC_VOICE_RULES,
-    '每张图的说明是「图1」「图2」。返回 imageSlots 填这些编号，例如 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。本批只附已打码的图，编号可能不连续；没附图的编号不要写进组。',
+    '落项用内部编号：返回 imageSlots 填 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。本批只附已打码的图，编号可能不连续；没附图的编号不要写进组。',
+    'observation、advice、caption 只写部位和看见的状态（如旧件胶套撕裂、下摆臂有磨损）。禁止写图1、图2、第几张，用户对不上号。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
     priorFacts ? `前面各步已经识过/写过的结果（只是文字，不要再看那些图）：${JSON.stringify(priorFacts)}` : '',

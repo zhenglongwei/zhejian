@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { applyOrganizeGroups, mapFindingRows } = require('./service-flow-docs')
+const { applyOrganizeGroups, mapFindingRows, stripFigureIndexTalk } = require('./service-flow-docs')
 
 const a = { url: 'https://cdn.example/api/v1/media/files/uploads/a.jpg', imageId: '1' }
 const b = { url: 'https://cdn.example/api/v1/media/files/uploads/b.jpg', imageId: '2' }
@@ -315,4 +315,29 @@ test('intake organize groups mileage reading and paint photos', () => {
   assert.equal(odo.reading, '86500')
   assert.equal(paint.images.length, 1)
   assert.equal(applied.pendingImages.length, 0)
+})
+
+test('stripFigureIndexTalk drops 图4、图5 so copy matches the photos on screen', () => {
+  assert.equal(
+    stripFigureIndexTalk(
+      '图4旧件胶套橡胶层存在明显撕裂破损；图5、图6拆卸下的铝合金下摆臂表面有污渍及磨损痕迹。',
+    ),
+    '旧件胶套橡胶层存在明显撕裂破损；拆卸下的铝合金下摆臂表面有污渍及磨损痕迹。',
+  )
+})
+
+test('work organize observation does not keep 图N in caption', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [a],
+    findings: [],
+    groups: [{
+      partName: '底盘悬挂系统维修',
+      observation: '图4旧件胶套撕裂',
+      imageSlots: ['图1'],
+      outsideQuote: true,
+    }],
+    mode: 'work',
+    quoteNames: [],
+  })
+  assert.equal(findings[0].caption, '旧件胶套撕裂')
 })

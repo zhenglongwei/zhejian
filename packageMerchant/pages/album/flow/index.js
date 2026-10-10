@@ -51,6 +51,7 @@ const {
   resolveWarrantyNotes,
   isVagueWarrantyPeriod,
   parseMileageKm,
+  stripFigureIndexTalk,
   pickOdometerSlot,
   isOdometerFinding,
   applyOrganizeGroups,
@@ -462,6 +463,9 @@ Page({
     notifyOwnerLabel: '通知车主',
     photoConfirmDisabled: false,
     notifyConfirmDisabled: false,
+    showQuoteAiCheck: false,
+    quoteNotifyReady: true,
+    quoteAssist: null,
     aiTextBatchCanApply: false,
     aiTextBatchCanUndo: false,
     chiefComplaintPlaceholder: '例：到店检查异响',
@@ -486,11 +490,13 @@ Page({
   onHide() {
     this.writeLocalFlowDraft()
     this.stopAiReviewPoll()
+    this.stopQuoteAssistPoll()
   },
 
   onUnload() {
     this.writeLocalFlowDraft()
     this.stopAiReviewPoll()
+    this.stopQuoteAssistPoll()
     this.clearFlowTimers()
   },
 
@@ -507,6 +513,7 @@ Page({
       clearTimeout(this._draftSaveTimer)
       this._draftSaveTimer = null
     }
+    this.stopQuoteAssistPoll()
   },
 
   setAutoSaveLabel(label) {
@@ -874,12 +881,27 @@ Page({
         if (key) taken[key] = index
       })
     })
+    const suggested =
+      (this._pendingQuoteAssist && this._pendingQuoteAssist.suggestedLines) ||
+      (this.data.quoteAssist && this.data.quoteAssist.suggestedLines) ||
+      []
     return (lines || []).map((line, index) => {
       const normalized = normalizeQuoteLine(line)
       const urls = listQuoteLineEvidenceUrls(normalized)
+      const band = suggested.find(
+        (row) =>
+          (row.id && row.id === normalized.id) ||
+          (row.name && row.name === normalized.name),
+      )
+      const bandText = band
+        ? [band.oem && `原厂 ${band.oem}`, band.brand && `品牌 ${band.brand}`, band.economy && `经济件 ${band.economy}`]
+            .filter(Boolean)
+            .join(' · ')
+        : ''
       return {
         ...line,
         ...normalized,
+        bandText,
         lineKey: line.lineKey || `ql-${index}-${Math.random().toString(36).slice(2, 8)}`,
         evidenceThumbs: urls.map((url) => {
           const key = evidenceKey(url)
@@ -1376,21 +1398,33 @@ Page({
             templateId: album.templateId,
             serviceName: album.serviceName,
           })
+          const assist = quoteNode && quoteNode.quoteAssist
+          const skipRuleRefresh = Boolean(
+            assist &&
+              (assist.status === 'queued' ||
+                assist.status === 'running' ||
+                assist.status === 'ready'),
+          )
           const unpriced =
             !fromQuote.some((row) => {
               const n = Number(row.amount)
               return Number.isFinite(n) && n > 0
             })
           const canRefreshOpenDraft =
+            !skipRuleRefresh &&
             unpriced &&
             quoteDraft.mode === 'teardown' &&
             (!hasNamed || String((fromQuote[0] && fromQuote[0].name) || '') === '拆检')
           quoteLines =
             hasNamed && !canRefreshOpenDraft
               ? fromQuote
-              : quoteDraft.lines.length
-                ? quoteDraft.lines.map((line) => normalizeQuoteLine(line))
-                : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
+              : skipRuleRefresh
+                ? fromQuote.length
+                  ? fromQuote
+                  : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
+                : quoteDraft.lines.length
+                  ? quoteDraft.lines.map((line) => normalizeQuoteLine(line))
+                  : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           if (!quoteLines.length) {
             quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           }
@@ -1422,7 +1456,7 @@ Page({
       const addonDiscoveryImages = Array.isArray(discovery.images)
         ? discovery.images.filter(Boolean)
         : []
-      const addonDiscoveryNote = String(discovery.note || '')
+      const addonDiscoveryNote = stripFigureIndexTalk(discovery.note)
       const addonDiscoveryReady = Boolean(
         discovery.ready && addonDiscoveryImages.length && addonDiscoveryNote.trim(),
       )
@@ -1442,7 +1476,23 @@ Page({
               report.document.payload.findings) ||
             []
           quoteEvidenceFindings = this.expandQuoteEvidence(reportFindings)
-          if (!(quoteLines || []).some((row) => String(row.name || '').trim())) {
+          const quoteAssistNode = flowNodes.find(
+            (n) => n && n.kind === 'quote_confirm' && !n.insertedReason,
+          )
+          const quoteAssist = (quoteAssistNode && quoteAssistNode.quoteAssist) || null
+          const assistBusy =
+            quoteAssist &&
+            (quoteAssist.status === 'queued' || quoteAssist.status === 'running')
+          const skipRuleDraft = Boolean(
+            flow.nodeAiReview &&
+              flow.nodeAiReview.entitled &&
+              (!quoteAssist || quoteAssist.status !== 'failed'),
+          )
+          if (
+            !(quoteLines || []).some((row) => String(row.name || '').trim()) &&
+            !assistBusy &&
+            !skipRuleDraft
+          ) {
             const quoteDraft = buildQuoteDraft({
               findings: reportFindings,
               templateId: album.templateId,
@@ -1464,6 +1514,12 @@ Page({
         }
       }
       const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
+      this._pendingQuoteAssist = (
+        (flowNodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {})
+          .quoteAssist ||
+        (active && active.quoteAssist) ||
+        null
+      )
       quoteLines = this.decorateQuoteLines(quoteLines, quoteEvidenceFindings)
       const rawSummary = showCombinedPlan
         ? ''
@@ -1533,6 +1589,31 @@ Page({
         photoConfirmDisabled: false,
         notifyOwnerLabel: '通知车主',
         notifyConfirmDisabled: false,
+        quoteAssist: this.decorateQuoteAssist(this._pendingQuoteAssist),
+        showQuoteAiCheck: Boolean(
+          flow.nodeAiReview &&
+            flow.nodeAiReview.entitled &&
+            !readOnly &&
+            !confirmAwaitingOwner &&
+            !(
+              this._pendingQuoteAssist &&
+              (this._pendingQuoteAssist.status === 'queued' ||
+                this._pendingQuoteAssist.status === 'running')
+            ) &&
+            (active &&
+              (active.kind === 'inspection_report' ||
+                active.kind === 'quote_confirm' ||
+                active.kind === 'addon_quote_confirm')),
+        ),
+        quoteNotifyReady: Boolean(
+          !(flow.nodeAiReview && flow.nodeAiReview.entitled) ||
+            !(
+              active &&
+              (active.kind === 'inspection_report' ||
+                active.kind === 'quote_confirm' ||
+                active.kind === 'addon_quote_confirm')
+            ),
+        ),
         chiefComplaintHint: null,
         odometerHint: null,
         warrantyHint: null,
@@ -1622,6 +1703,8 @@ Page({
       })
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
+      this.resumeQuoteAssistPoll()
+
     } catch (e) {
       this.setData({ status: 'error', errorMessage: (e && e.message) || '加载失败' })
     }
@@ -3817,6 +3900,72 @@ Page({
     return missing
   },
 
+  decorateQuoteAssist(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return { status: '', isWaiting: false, hasContent: false, suggestedLines: [], summary: '' }
+    }
+    const brief = this.decorateMerchantBrief(raw)
+    const status = String(raw.status || '')
+    return {
+      ...raw,
+      ...brief,
+      status,
+      suggestedLines: Array.isArray(raw.suggestedLines) ? raw.suggestedLines : [],
+      isWaiting: status === 'queued' || status === 'running',
+      waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出方案' : ''),
+    }
+  },
+
+  decorateMerchantBrief(raw) {
+    const brief = raw && typeof raw === 'object' ? raw : {}
+    const issues = Array.isArray(brief.issues) ? brief.issues.filter(Boolean) : []
+    const omissions = Array.isArray(brief.omissions) ? brief.omissions.filter(Boolean) : []
+    const objections = Array.isArray(brief.objections) ? brief.objections.filter(Boolean) : []
+    const priceBands = (Array.isArray(brief.priceBands) ? brief.priceBands : [])
+      .filter((row) => row && (row.name || row.oem || row.brand || row.economy))
+      .map((row) => ({
+        ...row,
+        bandText: [row.oem && `原厂 ${row.oem}`, row.brand && `品牌 ${row.brand}`, row.economy && `经济件 ${row.economy}`]
+          .filter(Boolean)
+          .join(' · '),
+      }))
+    return {
+      issues,
+      omissions,
+      objections,
+      priceBands,
+      hasIssues: issues.length > 0,
+      hasOmissions: omissions.length > 0,
+      hasObjections: objections.length > 0,
+      hasBands: priceBands.length > 0,
+      hasContent:
+        issues.length > 0 ||
+        omissions.length > 0 ||
+        objections.length > 0 ||
+        priceBands.length > 0,
+    }
+  },
+
+  quoteAiButtonFlags(review) {
+    const kind = (this.data.activeNode && this.data.activeNode.kind) || this.data.activeKind
+    const quoteStep =
+      kind === 'inspection_report' || kind === 'quote_confirm' || kind === 'addon_quote_confirm'
+    if (!quoteStep) {
+      return { showQuoteAiCheck: false, quoteNotifyReady: true }
+    }
+    const entitled = Boolean(this._nodeAiReviewEntitled)
+    const waiting = Boolean(review && review.isWaiting)
+    const timedOut = Boolean(this.data.aiReviewTimedOut)
+    const assistWaiting = Boolean(this.data.quoteAssist && this.data.quoteAssist.isWaiting)
+    const checkBusy = (waiting && !timedOut) || assistWaiting
+    const finished = Boolean(review && (review.isReady || review.isFailed || timedOut))
+    const awaiting = Boolean(this.data.confirmAwaitingOwner)
+    return {
+      showQuoteAiCheck: Boolean(entitled && !checkBusy && !this.data.readOnly && !awaiting),
+      quoteNotifyReady: Boolean(!entitled || (!checkBusy && finished)),
+    }
+  },
+
   decorateAiReview(review) {
     const raw = review || {}
     const status = String(raw.status || '')
@@ -3883,6 +4032,7 @@ Page({
       ...raw,
       status,
       suggestions,
+      merchantBrief: this.decorateMerchantBrief(raw.merchantBrief),
       isWaiting: status === 'queued' || status === 'running',
       isReady: status === 'ready',
       isFailed: status === 'failed',
@@ -4149,6 +4299,7 @@ Page({
       aiReview: decorated,
       aiReviewBusy: false,
     }
+    Object.assign(patch, this.quoteAiButtonFlags(decorated))
     if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
       patch.notifyOwnerLabel = '通知车主'
       patch.notifyConfirmDisabled = waiting && !timedOut
@@ -4264,6 +4415,32 @@ Page({
       this._aiReviewTimer = setTimeout(tick, 2000)
     }
     this._aiReviewTimer = setTimeout(tick, 1600)
+  },
+
+  resumeQuoteAssistPoll() {
+    const assist = this.data.quoteAssist
+    if (assist && assist.isWaiting) this.startQuoteAssistPoll()
+    else this.stopQuoteAssistPoll()
+  },
+
+  stopQuoteAssistPoll() {
+    if (this._quoteAssistTimer) {
+      clearTimeout(this._quoteAssistTimer)
+      this._quoteAssistTimer = null
+    }
+  },
+
+  startQuoteAssistPoll() {
+    if (this._quoteAssistTimer) return
+    const tick = async () => {
+      this._quoteAssistTimer = null
+      try {
+        await this.loadFlow({ silent: true })
+      } catch (_) {
+        this._quoteAssistTimer = setTimeout(tick, 2000)
+      }
+    }
+    this._quoteAssistTimer = setTimeout(tick, 1600)
   },
 
   async onApplyAiSuggestion(e, options = {}) {
@@ -4673,6 +4850,94 @@ Page({
     return {
       lines,
       confirmCopy: this.data.confirmCopy || QUOTE_CONFIRM_COPY,
+    }
+  },
+
+  async onStartQuoteAiCheck() {
+    if (this.data.readOnly || this.data.confirming || this.data.aiReviewBusy) return
+    if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
+    if (!this._nodeAiReviewEntitled) {
+      this.setData({ quoteNotifyReady: true, showQuoteAiCheck: false })
+      return
+    }
+    try {
+      await this.flushDocDraftSave()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '请先保存当前修改', icon: 'none' })
+      return
+    }
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    this.setData({ confirming: true, aiReviewBusy: true })
+    this.stopAiReviewPoll()
+    try {
+      if (kind === 'inspection_report') {
+        const reportPayload = this.buildDocPayloadForSave()
+        const quotePayload = this.buildQuotePayloadForSave()
+        const reportGaps = collectInspectionReportGaps(reportPayload)
+        if (reportGaps.length) {
+          wx.showModal({
+            title: '请先补全报告',
+            content: reportGaps.slice(0, 4).join('\n'),
+            showCancel: false,
+          })
+          return
+        }
+        const quoteGaps = collectQuoteConfirmGaps(quotePayload)
+        if (quoteGaps.length) {
+          wx.showModal({
+            title: '请先填写方案金额',
+            content: quoteGaps.slice(0, 4).join('\n'),
+            showCancel: false,
+          })
+          return
+        }
+        await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+          document: { status: 'draft', payload: reportPayload },
+        })
+        const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
+        if (quoteNodeId) {
+          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+            document: { status: 'draft', payload: quotePayload },
+          })
+        }
+        const res = await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+          startAiReview: true,
+          quoteLines: (quotePayload && quotePayload.lines) || [],
+        })
+        if (res && res.nextAction === 'ai_review') {
+          this.applyInlineAiReview(res.review, 'deliver')
+          return
+        }
+        this.setData({ quoteNotifyReady: true, showQuoteAiCheck: false })
+        return
+      }
+      const payload = this.buildDocPayloadForSave()
+      if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
+        const gaps = collectQuoteConfirmGaps(payload, {
+          requireDiscovery: this.data.isAddonQuote,
+        })
+        if (gaps.length) {
+          wx.showModal({
+            title: '请先补全项目与金额',
+            content: gaps.slice(0, 4).join('\n'),
+            showCancel: false,
+          })
+          return
+        }
+      }
+      const res = await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: { status: 'draft', payload },
+        startAiReview: true,
+      })
+      if (res && res.nextAction === 'ai_review') {
+        this.applyInlineAiReview(res.review, 'notify')
+        return
+      }
+      this.setData({ quoteNotifyReady: true, showQuoteAiCheck: false })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '检查失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false, aiReviewBusy: false })
     }
   },
 

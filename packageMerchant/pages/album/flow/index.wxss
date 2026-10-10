@@ -458,6 +458,30 @@
   margin-top: var(--space-xs);
 }
 
+.merchant-flow-page__quote-brief {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1rpx solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__quote-brief-label {
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__quote-brief-item {
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__quote-brief-band {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+}
+
 .merchant-flow-page__plan-add {
   padding: var(--space-xs) 0 var(--space-sm);
 }

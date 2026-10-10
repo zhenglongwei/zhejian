@@ -32,6 +32,7 @@ const {
   listQuoteLineEvidenceUrls,
   resolveWarrantyNotes,
   parseMileageKm,
+  stripFigureIndexTalk,
   parseAmount,
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
@@ -193,6 +194,14 @@ function mapFlowNodeForView(node, albumNodes = []) {
     photoCount: photo ? countPhotosForFlowNode(node, albumNodes) : 0,
     previewImages: photo ? collectPreviewImages(node, albumNodes) : [],
     aiReview: sanitizeAiReviewForView(node.aiReview),
+    quoteAssist: (() => {
+      try {
+        const { sanitizeQuoteAssistForView } = require('./quote-assist.service')
+        return sanitizeQuoteAssistForView(node.quoteAssist)
+      } catch (_) {
+        return null
+      }
+    })(),
     summary: photo
       ? countPhotosForFlowNode(node, albumNodes) > 0
         ? `已拍 ${countPhotosForFlowNode(node, albumNodes)} 张`
@@ -430,13 +439,19 @@ async function healQuotePrefillAfterReport(albumId, album = null) {
     const existingLines =
       (quote.document && quote.document.payload && quote.document.payload.lines) || []
     const hasNamedLine = existingLines.some((row) => String((row && row.name) || '').trim())
+    const assistStatus = String((quote.quoteAssist && quote.quoteAssist.status) || '')
+    const assistBusy = assistStatus === 'queued' || assistStatus === 'running'
     let changed = false
+
+    // 正在出建议报价：不要用类目规则抢先铺行
+    if (assistBusy) return pkg
 
     // 报告草稿已出、方案行仍空 → 预填（保持锁定）
     if (
       reportDoc.status === 'draft' &&
       (report.status === 'in_progress' || report.status === 'pending') &&
-      !hasNamedLine
+      !hasNamedLine &&
+      assistStatus !== 'ready'
     ) {
       const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
       nodes[quoteIdx] = {
@@ -502,6 +517,18 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   await healQuotePrefillAfterReport(albumId, album)
   album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
+  try {
+    const quoteRaw = sortFlowNodes(readFlowNodesRaw(album)).find(
+      (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
+    )
+    const assistStatus = String((quoteRaw && quoteRaw.quoteAssist && quoteRaw.quoteAssist.status) || '')
+    if (assistStatus === 'queued' || assistStatus === 'running') {
+      const { queueQuoteAssistGenerate } = require('./quote-assist.service')
+      queueQuoteAssistGenerate({ albumId, merchantId })
+    }
+  } catch (_) {
+    /* ignore */
+  }
   const {
     resolveCapabilityForMerchant,
     publicNodeAiReviewCapability,
@@ -554,6 +581,47 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     const err = new Error('已发给车主，不能再改')
     err.status = 409
     throw err
+  }
+
+  if (payload.startAiReview && String((payload.document && payload.document.status) || '') !== 'pending_confirm') {
+    if (payload.document && payload.document.payload) {
+      const mergedPayload = {
+        ...((preview.document && preview.document.payload) || {}),
+        ...(payload.document.payload || {}),
+      }
+      await writeFlowPackage(albumId, (pkg) => {
+        const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+        const index = nodes.findIndex((n) => n.id === id)
+        if (index < 0) return pkg
+        const prev = nodes[index]
+        nodes[index] = {
+          ...prev,
+          document: {
+            ...(prev.document || {}),
+            status: 'draft',
+            payload: mergedPayload,
+          },
+        }
+        return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
+      })
+    }
+    const { maybeStartAiReview } = require('./node-ai-review.service')
+    const startAlbum = await loadAlbum(albumId)
+    const startNode = sortFlowNodes(readFlowNodesRaw(startAlbum)).find((n) => n && n.id === id)
+    const started = await maybeStartAiReview({
+      album: startAlbum,
+      node: startNode || preview,
+      merchantId,
+      payload,
+    })
+    if (started) {
+      const viewNodes = mapNodesForView(startAlbum)
+      return {
+        ...started,
+        unlockedNext: false,
+        node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+      }
+    }
   }
 
   const notifying =
@@ -695,6 +763,17 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     throw err
   }
 
+  let preferQuoteAssist = false
+  if (node.kind === 'inspection' || node.kind === 'intake_inspection') {
+    try {
+      const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
+      const cap = await resolveCapabilityForMerchant(merchantId)
+      preferQuoteAssist = Boolean(cap && cap.entitled && cap.llmEnabled)
+    } catch (_) {
+      preferQuoteAssist = false
+    }
+  }
+
   const vehicle = album.vehicleJson || {}
   const incomingDraft = mergePhotoDraft(node.photoDraft || {}, {
     ...(payload.photoDraft || {}),
@@ -833,6 +912,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
         if (quoteIdx >= 0) {
           const prevQuoteDoc = list[quoteIdx].document || emptyDocument('quote_confirm')
           const existingLines = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
+          const hasNamed = existingLines.some((row) => String((row && row.name) || '').trim())
           list[quoteIdx] = {
             ...list[quoteIdx],
             // 仍锁定：等「通知车主」与报告一并解锁给车主
@@ -841,7 +921,11 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
               status: 'draft',
               payload: {
                 ...(prevQuoteDoc.payload || {}),
-                lines: quoteLinesForAlbum(draft.findings, album, existingLines),
+                lines: hasNamed
+                  ? existingLines
+                  : preferQuoteAssist
+                    ? [{ name: '', amount: '', note: '' }]
+                    : quoteLinesForAlbum(draft.findings, album, existingLines),
                 confirmCopy: quoteCopyForAlbum(
                   album,
                   prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
@@ -849,6 +933,15 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
                 evidenceRef: reportId,
               },
             },
+            quoteAssist:
+              preferQuoteAssist && !hasNamed
+                ? {
+                    status: 'queued',
+                    fingerprint: '',
+                    suggestedLines: [],
+                    updatedAt: new Date().toISOString(),
+                  }
+                : list[quoteIdx].quoteAssist,
           }
         }
       }
@@ -900,6 +993,16 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
 
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: list }
   })
+
+  if (preferQuoteAssist) {
+    try {
+      const { queueQuoteAssistIfNeeded } = require('./quote-assist.service')
+      const fresh = await loadAlbum(albumId)
+      await queueQuoteAssistIfNeeded(fresh, merchantId)
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
   // 车型/里程由接车节点登记（存量合并节点 intake_inspection 同口径）
   if (node.kind === 'intake' || node.kind === 'intake_inspection') {
@@ -1546,7 +1649,7 @@ function mapOwnerWorkSheetLine(row = {}) {
   const material = String(row.material || '').trim()
   const brand = String(row.brand || '').trim()
   const qty = String(row.qty || '').trim()
-  const note = String(row.caption || '').trim()
+  const note = stripFigureIndexTalk(row.caption)
   if (!name && !material && !note) return null
   const amount = parseAmount(row.amount)
   return { name, brand, material, qty, note, amount: amount == null ? 0 : amount }
@@ -1689,7 +1792,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     cancelledBy,
     ownerRejectReason,
-    discoveryNote: String(discovery.note || '').trim(),
+    discoveryNote: stripFigureIndexTalk(discovery.note),
     discoveryImages,
     statusLabel: isCancelled
       ? cancelledBy === 'owner'

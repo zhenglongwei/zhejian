@@ -1,3 +1,28 @@
+<template name="quoteMerchantBrief">
+  <view wx:if="{{brief.hasContent}}" class="merchant-flow-page__quote-brief">
+    <text class="text-caption text-secondary">店内参考</text>
+    <block wx:if="{{brief.hasIssues}}">
+      <text class="text-caption merchant-flow-page__quote-brief-label">已写内容</text>
+      <text wx:for="{{brief.issues}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
+    </block>
+    <block wx:if="{{brief.hasOmissions}}">
+      <text class="text-caption merchant-flow-page__quote-brief-label">可能漏了</text>
+      <text wx:for="{{brief.omissions}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
+    </block>
+    <block wx:if="{{brief.hasObjections}}">
+      <text class="text-caption merchant-flow-page__quote-brief-label">车主可能问</text>
+      <text wx:for="{{brief.objections}}" wx:key="*this" class="text-caption merchant-flow-page__quote-brief-item">{{item}}</text>
+    </block>
+    <block wx:if="{{brief.hasBands}}">
+      <text class="text-caption merchant-flow-page__quote-brief-label">配件参考</text>
+      <view wx:for="{{brief.priceBands}}" wx:key="lineIndex" class="merchant-flow-page__quote-brief-band">
+        <text class="text-caption">{{item.name}}</text>
+        <text class="text-caption text-secondary">{{item.bandText}}</text>
+        <text wx:if="{{item.note}}" class="text-caption text-secondary">{{item.note}}</text>
+      </view>
+    </block>
+  </view>
+</template>
 <template name="aiFieldHint">
   <view wx:if="{{hint && !hint.applied}}" class="merchant-flow-page__ai-hint">
     <view class="merchant-flow-page__ai-hint-body">
@@ -832,6 +857,7 @@
                         />
                       </view>
                     </view>
+                    <text wx:if="{{item.bandText}}" class="text-caption text-secondary">{{item.bandText}}</text>
                     <template is="aiFieldHint" data="{{hint: item.nameHint}}" />
                     <input
                       class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
@@ -867,19 +893,30 @@
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
+                  <text wx:if="{{quoteAssist.summary}}" class="text-caption merchant-flow-page__quote-brief-item">{{quoteAssist.summary}}</text>
+                  <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
+                  <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
                 </view>
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
                 <view
-                  wx:if="{{aiReview.isWaiting}}"
+                  wx:if="{{quoteAssist.isWaiting || aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"
                 >
                   <view class="merchant-flow-page__ai-status-spin"></view>
-                  <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
+                  <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : aiReview.waitHint}}</text>
                 </view>
                 <ui-button
-                  wx:if="{{!notifyConfirmDisabled}}"
+                  wx:if="{{showQuoteAiCheck}}"
+                  type="{{quoteNotifyReady ? 'secondary' : 'primary'}}"
+                  block="{{true}}"
+                  loading="{{confirming}}"
+                  disabled="{{confirming}}"
+                  bind:btntap="onStartQuoteAiCheck"
+                >复查</ui-button>
+                <ui-button
+                  wx:if="{{quoteNotifyReady && !notifyConfirmDisabled}}"
                   type="primary"
                   block="{{true}}"
                   loading="{{confirming}}"
@@ -1010,6 +1047,7 @@
                         />
                       </view>
                     </view>
+                    <text wx:if="{{item.bandText}}" class="text-caption text-secondary">{{item.bandText}}</text>
                     <template is="aiFieldHint" data="{{hint: item.nameHint}}" />
                     <input
                       class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
@@ -1057,6 +1095,9 @@
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
+                  <text wx:if="{{quoteAssist.summary}}" class="text-caption merchant-flow-page__quote-brief-item">{{quoteAssist.summary}}</text>
+                  <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
+                  <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
                 </view>
               </view>
               <view
@@ -1065,14 +1106,23 @@
               >
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
                 <view
-                  wx:if="{{aiReview.isWaiting}}"
+                  wx:if="{{quoteAssist.isWaiting || aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"
                 >
                   <view class="merchant-flow-page__ai-status-spin"></view>
-                  <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
+                  <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : aiReview.waitHint}}</text>
                 </view>
                 <block wx:if="{{!confirmAwaitingOwner}}">
                   <ui-button
+                    wx:if="{{showQuoteAiCheck}}"
+                    type="{{quoteNotifyReady ? 'secondary' : 'primary'}}"
+                    block="{{true}}"
+                    loading="{{confirming}}"
+                    disabled="{{confirming}}"
+                    bind:btntap="onStartQuoteAiCheck"
+                  >复查</ui-button>
+                  <ui-button
+                    wx:if="{{quoteNotifyReady}}"
                     type="primary"
                     block="{{true}}"
                     loading="{{confirming}}"

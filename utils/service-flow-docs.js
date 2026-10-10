@@ -25,6 +25,21 @@ function parseMileageKm(value) {
   return String(Math.round(n))
 }
 
+/** 给店员/车主看的说明里去掉「图1、图2」，只留部位和状态 */
+function stripFigureIndexTalk(value) {
+  let s = String(value || '')
+  if (!s) return ''
+  s = s.replace(/如(?:图\s*\d+\s*[、,，和及]?\s*)+所示/g, '')
+  s = s.replace(/见(?:图\s*\d+\s*[、,，和及]?\s*)+/g, '')
+  s = s.replace(/图\s*\d+(?:\s*[、,，和及]\s*图\s*\d+)*/g, '')
+  s = s.replace(/第\s*\d+\s*张(?:图|照片)?/g, '')
+  s = s.replace(/[；;]{2,}/g, '；')
+  s = s.replace(/[、，,]{2,}/g, '，')
+  s = s.replace(/^[的、，,；;：:\s]+/, '')
+  s = s.replace(/[、，,；;：:\s]+$/, '')
+  return s.replace(/\s{2,}/g, ' ').trim()
+}
+
 function parseOdometerMileageFromTexts(texts = []) {
   const list = Array.isArray(texts) ? texts : [texts]
   const labeled = []
@@ -146,9 +161,9 @@ function normalizeItemFinding(raw = {}, index = -1) {
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
     : collectFindingImages(raw)
   images = images.slice(0, FINDING_IMAGES_MAX)
-  const caption = String(raw.caption || '').trim()
+  const caption = stripFigureIndexTalk(raw.caption)
   const result = normalizeFindingResult(raw.result)
-  let advice = String(raw.advice || '').trim()
+  let advice = stripFigureIndexTalk(raw.advice)
   if (result === FINDING_RESULT.OK && !advice) advice = FINDING_ADVICE_NONE
   const first = images[0] || { url: '', imageId: '' }
   return {
@@ -244,7 +259,7 @@ function normalizeWorkFinding(raw = {}, index = -1) {
     if (one) images = [one]
   }
   images = images.slice(0, WORK_IMAGES_MAX)
-  const caption = String(raw.caption || '').trim()
+  const caption = stripFigureIndexTalk(raw.caption)
   const partName = String(raw.partName || '').trim()
   const first = images[0] || null
   return {
@@ -788,10 +803,10 @@ function applyOrganizeGroups({
           partName: host.partName || partName,
           material:
             host.material ||
-            String((group && (group.material || group.caption)) || '').trim(),
+            stripFigureIndexTalk(group && (group.material || group.caption)),
           caption:
             host.caption ||
-            String((group && (group.observation || '')) || '').trim(),
+            stripFigureIndexTalk(group && (group.observation || '')),
           outsideQuote: Boolean(group && group.outsideQuote),
         })
       } else {
@@ -802,7 +817,7 @@ function applyOrganizeGroups({
             result: host.result || (isValidFindingResult(String((group && group.result) || '').trim())
               ? group.result
               : ''),
-          advice: host.advice || group.advice || '',
+          advice: host.advice || stripFigureIndexTalk(group && group.advice),
         })
       }
       return
@@ -811,8 +826,8 @@ function applyOrganizeGroups({
       nextFindings.push(
         normalizeWorkFinding({
           partName,
-          material: String((group && (group.material || group.caption)) || '').trim(),
-          caption: String((group && (group.observation || '')) || '').trim(),
+          material: stripFigureIndexTalk(group && (group.material || group.caption)),
+          caption: stripFigureIndexTalk(group && (group.observation || '')),
           images: shots.slice(0, WORK_IMAGES_MAX),
           outsideQuote: Boolean(group && group.outsideQuote),
         }),
@@ -825,7 +840,7 @@ function applyOrganizeGroups({
         result: isValidFindingResult(String((group && group.result) || '').trim())
           ? group.result
           : '',
-        advice: (group && group.advice) || '',
+        advice: stripFigureIndexTalk(group && group.advice),
         images: shots.slice(0, FINDING_IMAGES_MAX),
       }),
     )
@@ -1198,14 +1213,17 @@ function normalizeQuoteLine(raw = {}, index = -1) {
     name: String(raw.name || '').trim(),
     brand: String(raw.brand || '').trim(),
     amount: amount == null ? '' : amount,
-    note: String(raw.note || '').trim(),
+    note: stripFigureIndexTalk(raw.note),
     evidenceUrl: evidenceUrls[0] || '',
     evidenceUrls,
   })
 }
 
 function workFindingAddonNote(row = {}) {
-  return [row.caption, row.material].map((part) => String(part || '').trim()).filter(Boolean).join(' · ')
+  return [row.caption, row.material]
+    .map((part) => stripFigureIndexTalk(part))
+    .filter(Boolean)
+    .join(' · ')
 }
 
 function collectOutsideWorkFindings(findings = []) {
@@ -1516,6 +1534,7 @@ module.exports = {
   isQuoteEvidenceFinding,
   sumQuoteAmounts,
   parseMileageKm,
+  stripFigureIndexTalk,
   parseOdometerMileageFromTexts,
   formatMileageText,
   normalizePhotoDraft,
