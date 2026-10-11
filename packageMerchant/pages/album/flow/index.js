@@ -357,6 +357,7 @@ Page({
     workTitle: '',
     stageKey: '',
     stageBoard: null,
+    stageEditor: false,
     doneView: null,
     statusBarHeight: 20,
     capsulePad: 16,
@@ -1821,7 +1822,7 @@ Page({
   },
 
   onCloseWork() {
-    this.setData({ workOpen: false, stageKey: '', stageBoard: null })
+    this.setData({ workOpen: false, stageKey: '', stageBoard: null, stageEditor: false })
   },
 
   resolveStageKey(id) {
@@ -1842,9 +1843,15 @@ Page({
     this.setData({
       workOpen: true,
       doneView: null,
+      stageEditor: false,
       stageKey: key,
       stageBoard: buildMerchantStageBoard(this._album || {}, this._flowNodes || [], key),
     })
+  },
+
+  onOpenStageEditor() {
+    if (!this.data.stageBoard || this.data.stageBoard.state !== 'current') return
+    this.setData({ stageEditor: true })
   },
 
   onPickStage(e) {

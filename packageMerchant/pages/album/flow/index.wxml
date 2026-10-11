@@ -256,7 +256,7 @@
           <text class="st-tab__name">{{item.short}}</text>
         </view>
       </view>
-      <scroll-view scroll-y class="ov-work__body {{stageBoard.state === 'current' ? '' : 'ov-work__body--bar'}}" show-scrollbar="{{false}}">
+      <scroll-view scroll-y class="ov-work__body {{stageEditor ? '' : 'ov-work__body--bar'}}" show-scrollbar="{{false}}">
           <view wx:if="{{stageBoard}}" class="st-vehicle">
             <view class="st-vehicle__icon"><image src="/assets/mch/car-blue.png" mode="aspectFit" /></view>
             <view class="st-vehicle__text">
@@ -471,7 +471,7 @@
             </view>
           </block>
 
-          <view wx:if="{{!stageBoard || stageBoard.state === 'current'}}" class="merchant-flow-page__active">
+          <view wx:if="{{stageEditor}}" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">问诊登记</text>
@@ -1670,8 +1670,9 @@
             </block>
           </view>
       </scroll-view>
-      <view wx:if="{{stageBoard && stageBoard.state !== 'current'}}" class="st-bar">
+      <view wx:if="{{stageBoard && !stageEditor}}" class="st-bar">
         <view class="st-bar__btn" bindtap="onPreviewStage">预览记录</view>
+        <view wx:if="{{stageBoard.state === 'current'}}" class="st-bar__btn st-bar__btn--go" bindtap="onOpenStageEditor">继续填写</view>
       </view>
     </view>
     <view wx:if="{{doneView}}" class="ov-work ov-work--top">

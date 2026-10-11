@@ -131,6 +131,9 @@ page {
   --color-mch-hero-sub: #758cb8;
   /* 时间线说明、单据状态，比正文灰更浅 */
   --color-mch-caption: #a1aab9;
+  --color-mch-meta: #8290a3;
+  --color-mch-copy: #53677f;
+  --color-mch-rail: #dce2ea;
   /* AI 意见标题。主色只给左侧圆标和页眉；标题比主色深一档 */
   --color-mch-advice: #1a5baa;
   /* AI 助手页头图，取自原型 .ai-overview */
@@ -225,8 +228,23 @@ page {
   --font-price-sm: 28rpx;
   --font-price-sm-lh: 36rpx;
 
-  --font-mch-figure: 64rpx;
-  --font-mch-figure-lh: 72rpx;
+  --font-mch-figure: 62rpx;
+  --font-mch-figure-lh: 70rpx;
+
+  --font-mch-micro: 16rpx;
+  --font-mch-micro-lh: 22rpx;
+
+  --font-mch-kicker: 18rpx;
+  --font-mch-kicker-lh: 26rpx;
+
+  --font-mch-row: 20rpx;
+  --font-mch-row-lh: 28rpx;
+
+  --font-mch-hero-title: 32rpx;
+  --font-mch-hero-title-lh: 44rpx;
+
+  --font-mch-page: 36rpx;
+  --font-mch-page-lh: 48rpx;
 
   /**
    * 字重止于 600。标题和数字用 semibold，不要写 700 / 800。
