@@ -1,8 +1,61 @@
-<view class="mch-assist">
-  <ui-empty
-    theme="album"
-    title="暂无新意见"
-    description="进行中的服务相册有新意见时，会列在这里。"
-  />
+<view class="mch-ai" style="padding-top: {{statusBarHeight}}px;">
+  <view class="mch-top" style="padding-right: {{capsulePad}}px;">
+    <text class="mch-kicker">基于案例与车型数据研判</text>
+    <view class="mch-brand">AI 助手</view>
+  </view>
+
+  <view wx:if="{{status === 'loading'}}" class="mch-ai__state">
+    <ui-skeleton rows="{{3}}" title="{{true}}" avatar="{{false}}" />
+  </view>
+
+  <view wx:elif="{{status === 'error'}}" class="mch-ai__state" bindtap="onRetry">
+    <text>{{errorMessage || '加载失败'}}，点此重试</text>
+  </view>
+
+  <view wx:elif="{{status === 'empty'}}" class="mch-ai__empty">
+    <ui-empty
+      theme="album"
+      title="暂无新意见"
+      description="进行中的服务相册有新意见时，会列在这里。"
+    />
+  </view>
+
+  <block wx:else>
+    <view class="mch-ai-hero">
+      <view class="mch-ai-hero__orb">
+        <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+      </view>
+      <text class="mch-ai-hero__label">进行中相册</text>
+      <text class="mch-ai-hero__count">{{cards.length}} 条意见</text>
+      <text class="mch-ai-hero__from">来自 {{albumCount}} 本相册</text>
+    </view>
+
+    <view class="mch-ai-sec">
+      <view>
+        <text class="mch-kicker">需要关注</text>
+        <view class="mch-ai-sec__title">实时意见</view>
+      </view>
+      <text class="mch-ai-sec__count">{{cards.length}} 条</text>
+    </view>
+
+    <view class="mch-ai-card" wx:for="{{cards}}" wx:key="id">
+      <view class="mch-ai-card__head">
+        <view class="mch-ai-card__kind">
+          <image src="/assets/mch/tab-ai-on.png" mode="aspectFit" />
+          <text>{{item.kindLabel}}</text>
+        </view>
+        <text wx:if="{{item.when}}" class="mch-ai-card__when">{{item.when}}</text>
+        <text wx:else class="mch-ai-card__when">{{item.plate}}</text>
+      </view>
+      <text wx:if="{{item.when}}" class="mch-ai-card__plate">{{item.plate}}</text>
+      <text class="mch-ai-card__title">{{item.title}}</text>
+      <text wx:if="{{item.body}}" class="mch-ai-card__body">{{item.body}}</text>
+      <view class="mch-ai-card__actions">
+        <view class="mch-ai-card__btn" data-id="{{item.id}}" bindtap="onAction">{{item.actionLabel}}</view>
+      </view>
+    </view>
+
+    <text class="mch-ai-note">AI 意见仅供专业技师参考，最终维修方案需结合实车检测确定</text>
+  </block>
 </view>
 <merchant-tab-bar active="ai" />

@@ -484,6 +484,7 @@ Page({
 
   onLoad(options) {
     this.albumId = String(options.albumId || '').trim()
+    this._focusNodeId = String(options.nodeId || '').trim()
     const sys = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
     let capsulePad = 16
     try {
@@ -1773,6 +1774,24 @@ Page({
         deliveryPickMode,
         overview: buildMerchantAlbumOverview(album, flowNodes),
       })
+      const focusId = !options.silent ? String(this._focusNodeId || '').trim() : ''
+      if (focusId) {
+        this._focusNodeId = ''
+        const isActive = Boolean(active && active.id === focusId)
+        const inCompleted = (completedSteps || []).some((step) => step && step.id === focusId)
+        const quoteOnReport = Boolean(
+          active &&
+            active.kind === 'inspection_report' &&
+            focusId &&
+            focusId === this._quoteNodeId,
+        )
+        if (isActive || inCompleted || quoteOnReport) {
+          this.setData({
+            showOverview: false,
+            expandedCompletedId: isActive || quoteOnReport ? '' : focusId,
+          })
+        }
+      }
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
       this.resumeQuoteAssistPoll()

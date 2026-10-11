@@ -130,7 +130,18 @@ page {
   --color-mch-hero-sub: #758cb8;
   /* 时间线说明、单据状态，比正文灰更浅 */
   --color-mch-caption: #a1aab9;
-  --color-mch-kicker: #5ca3e3;
+  /* AI 意见标题。主色只给左侧圆标和页眉；标题比主色深一档 */
+  --color-mch-advice: #1a5baa;
+  /* AI 助手页头图，取自原型 .ai-overview */
+  --color-mch-ai-start: #062f76;
+  --color-mch-ai-end: #0c6ede;
+  --color-mch-ai-sub: #9cc7fa;
+  --color-mch-ai-note: rgba(255, 255, 255, 0.65);
+  /* AI 助手卡片眉题，取自原型 .insight-head */
+  --color-mch-insight: #2266bd;
+  /* 时间线还没到的圆标，取自原型 .timeline-rail span */
+  --color-mch-dot: #e9edf3;
+  --color-mch-dot-ink: #8995a7;
   --color-mch-on-card-green: #c8f6e2;
   --color-mch-on-card-amber: #ffe3ad;
   --radius-mch-card: 40rpx;
@@ -364,6 +375,11 @@ page {
 | `--color-mch-blue` | `var(--color-primary)` | 与全站主色同一套 |
 | `--color-mch-bg` | `var(--color-bg-page)` | 与全站页面底同一套 |
 | `--color-mch-hero-start` / `mid` / `end` | `#0b55ca` / `#087ced` / `#12a2f3` | 工作台头图渐变 |
+| `--color-mch-ai-start` / `end` | `#062f76` / `#0c6ede` | AI 助手头图 |
+| `--color-mch-ai-sub` | `#9cc7fa` | AI 助手头图上的小字 |
+| `--color-mch-ai-note` | `rgba(255,255,255,0.65)` | AI 助手头图上的说明 |
+| `--color-mch-insight` | `#2266bd` | AI 助手卡片眉题 |
+| `--color-mch-dot` / `--color-mch-dot-ink` | `#e9edf3` / `#8995a7` | 时间线还没到的圆标：浅底、深色数字 |
 | `--color-album-immersive-caption-bg` | `rgba(22,20,18,0.88)` | 沉浸大图门店说明底条（高对比） |
 | `--color-bg-immersive` | `#000` | 沉浸翻页全屏底 |
 | `--color-album-immersive-border` | `rgba(255,255,255,0.14)` | 沉浸面板描边 |

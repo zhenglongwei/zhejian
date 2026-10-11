@@ -2,10 +2,191 @@ page {
   background: var(--color-mch-bg);
 }
 
-.mch-assist {
-  min-height: 70vh;
+.mch-ai {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+  color: var(--color-text-primary);
+  background: var(--color-mch-bg);
+}
+
+.mch-top {
+  padding: 8rpx 32rpx 4rpx;
+}
+
+.mch-kicker {
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-brand {
+  margin-top: 4rpx;
+  font-size: var(--font-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h1-lh);
+}
+
+.mch-ai__state,
+.mch-ai__empty {
+  padding: 48rpx 32rpx;
+}
+
+.mch-ai-hero {
+  position: relative;
+  margin: 24rpx 32rpx 0;
+  padding: 36rpx 32rpx;
+  border-radius: var(--radius-mch-card);
+  color: var(--color-text-inverse);
+  background: linear-gradient(130deg, var(--color-mch-ai-start), var(--color-mch-ai-end));
+  overflow: hidden;
+}
+
+.mch-ai-hero__orb {
+  position: absolute;
+  right: 28rpx;
+  top: 28rpx;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  border: 1rpx solid var(--color-mch-glass);
+  background: var(--color-mch-glass);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
+}
+
+.mch-ai-hero__orb image {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.mch-ai-hero__label {
+  display: block;
+  color: var(--color-mch-ai-sub);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-hero__count {
+  display: block;
+  margin-top: 8rpx;
+  font-size: var(--font-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h1-lh);
+}
+
+.mch-ai-hero__from {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--color-mch-ai-note);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-sec {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 36rpx 32rpx 16rpx;
+}
+
+.mch-ai-sec__title {
+  margin-top: 4rpx;
+  font-size: var(--font-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h1-lh);
+}
+
+.mch-ai-sec__count {
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-card {
+  margin: 0 32rpx 20rpx;
+  padding: var(--space-md);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-mch-card);
+}
+
+.mch-ai-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.mch-ai-card__kind {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  min-width: 0;
+  color: var(--color-mch-insight);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-card__kind image {
+  width: 28rpx;
+  height: 28rpx;
+  flex: none;
+}
+
+.mch-ai-card__when,
+.mch-ai-card__plate {
+  color: var(--color-mch-caption);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-card__plate {
+  display: block;
+  margin-top: 8rpx;
+}
+
+.mch-ai-card__title {
+  display: block;
+  margin-top: 16rpx;
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h3-lh);
+}
+
+.mch-ai-card__body {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20rpx;
+}
+
+.mch-ai-card__btn {
+  padding: 12rpx 20rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-ai-note {
+  display: block;
+  margin: 12rpx 48rpx 0;
+  text-align: center;
+  color: var(--color-mch-caption);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
 }

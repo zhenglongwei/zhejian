@@ -1766,7 +1766,7 @@
 }
 
 .ov-kicker {
-  color: var(--color-mch-kicker);
+  color: var(--color-primary);
   font-size: var(--font-caption);
   font-weight: var(--font-weight-medium);
   line-height: var(--font-caption-lh);
@@ -1962,6 +1962,11 @@
   height: 26rpx;
 }
 
+.ov-row--todo .ov-row__dot {
+  background: var(--color-mch-dot);
+  color: var(--color-mch-dot-ink);
+}
+
 .ov-row__bar {
   width: 4rpx;
   flex: 1;
@@ -2046,7 +2051,7 @@
 
 .ov-advice__kicker {
   display: block;
-  color: var(--color-primary);
+  color: var(--color-mch-advice);
   font-size: var(--font-sub);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-sub-lh);
