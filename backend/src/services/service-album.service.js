@@ -1454,13 +1454,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     },
     orderBy: { updatedAt: 'desc' },
   })
-  // 与车主端一致：以案例审通过为界（全部 / 进行中 / 已完工）
-  albums = filterUserAlbumsByTab(
-    albums,
-    normalizeMerchantServiceAlbumListTab(options.tab),
-    resolvePublicCaseStatus
-  )
-
+  const merchantTab = normalizeMerchantServiceAlbumListTab(options.tab)
   const q = String(options.q || options.keyword || options.search || '')
     .trim()
     .toLowerCase()
@@ -1468,29 +1462,34 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     albums = albums.filter((album) => merchantAlbumMatchesQuery(album, q))
   }
 
-  return albums.map((album) => {
-    const view = buildMerchantView(album)
-    const followUpCount = countFollowUpItemsInChecklist(album.checklistJson)
-    const host = mapMerchantAlbumHostSite(album)
-    return {
-      albumId: view.albumId,
-      serviceName: view.serviceName,
-      storeName: view.storeName,
-      vehicleDisplay: view.vehicleDisplay,
-      vehicle: view.vehicle || {},
-      status: view.status,
-      imageCount: view.imageCount,
-      userPhone: view.userPhone,
-      userPhoneDisplay: view.userPhoneDisplay,
-      hasOwner: view.hasOwner,
-      updatedAt: view.updatedAt,
-      coverUrl: buildListCoverUrl(album),
-      followUpCount,
-      flowVersion: view.flowVersion || 0,
-      usesFlowTimeline: Boolean(view.usesFlowTimeline),
-      hosted: host.hosted,
-      hostedSiteUrl: host.hostedSiteUrl,
-      hubCard: require('../utils/merchant-hub-card').buildMerchantHubCard({
+  const doneIds = albums
+    .filter((album) => filterUserAlbumsByTab([album], 'done').length)
+    .map((album) => album.id)
+  const reviewByAlbum = new Map()
+  if (doneIds.length) {
+    const rows = await prisma.serviceAlbumReview.findMany({
+      where: { albumId: { in: doneIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { albumId: true, overallScore: true, content: true, status: true },
+    })
+    rows.forEach((row) => {
+      if (reviewByAlbum.has(row.albumId)) return
+      if (String(row.status || '') === 'hidden') return
+      reviewByAlbum.set(row.albumId, row)
+    })
+  }
+
+  const {
+    matchMerchantAlbumTab,
+    reviewLineForAlbum,
+    buildMerchantHubCard,
+  } = require('../utils/merchant-hub-card')
+  return albums
+    .map((album) => {
+      const view = buildMerchantView(album)
+      const followUpCount = countFollowUpItemsInChecklist(album.checklistJson)
+      const host = mapMerchantAlbumHostSite(album)
+      const hubCard = buildMerchantHubCard({
         status: view.status,
         flowNodes: view.flowNodes,
         vehicle: view.vehicle,
@@ -1499,9 +1498,30 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
         createdAt: view.createdAt,
         completedAt: view.completedAt,
         updatedAt: view.updatedAt,
-      }),
-    }
-  })
+      })
+      return {
+        albumId: view.albumId,
+        serviceName: view.serviceName,
+        storeName: view.storeName,
+        vehicleDisplay: view.vehicleDisplay,
+        vehicle: view.vehicle || {},
+        status: view.status,
+        imageCount: view.imageCount,
+        userPhone: view.userPhone,
+        userPhoneDisplay: view.userPhoneDisplay,
+        hasOwner: view.hasOwner,
+        updatedAt: view.updatedAt,
+        coverUrl: buildListCoverUrl(album),
+        followUpCount,
+        flowVersion: view.flowVersion || 0,
+        usesFlowTimeline: Boolean(view.usesFlowTimeline),
+        hosted: host.hosted,
+        hostedSiteUrl: host.hostedSiteUrl,
+        hubCard,
+        reviewLine: reviewLineForAlbum(hubCard.repairDone, reviewByAlbum.get(album.id)),
+      }
+    })
+    .filter((item) => matchMerchantAlbumTab(item.hubCard, merchantTab))
 }
 
 /** 已托管且网站可打开时，列表才给出网页地址 */

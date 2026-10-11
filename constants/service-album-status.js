@@ -90,10 +90,16 @@ function normalizeServiceAlbumListTab(tab) {
 }
 
 /**
- * 商家端列表 Tab：与车主端一致（相册是否完工 · 2026-08-13）
- * 废止「待公开授权」第四档
+ * 商家端列表 Tab（2026-10-11）
+ * 待确认 = 报价还没确认。已完成 = 已交车。
+ * 车主端仍用上面的三档，不要改成这一套。
  */
-const MERCHANT_SERVICE_ALBUM_LIST_TABS = SERVICE_ALBUM_LIST_TABS
+const MERCHANT_SERVICE_ALBUM_LIST_TABS = [
+  { key: 'all', label: '全部' },
+  { key: 'active', label: '进行中' },
+  { key: 'confirm', label: '待确认' },
+  { key: 'done', label: '已完成' },
+]
 
 /** 兼容旧商家 tab 参数 */
 const MERCHANT_SERVICE_ALBUM_LIST_TAB_ALIASES = {

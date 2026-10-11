@@ -3,6 +3,7 @@
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
-    "merchant-tab-bar": "/components/merchant-tab-bar/index"
+    "merchant-tab-bar": "/components/merchant-tab-bar/index",
+    "merchant-create-sheet": "/components/merchant-create-sheet/index"
   }
 }

@@ -6,7 +6,6 @@ const {
 const {
   buildOwnerShareMessageFromDataset,
 } = require('../../../../utils/service-album-share')
-const { enrichMerchantAlbumListItem } = require('../../../../utils/service-album-display')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -21,6 +20,14 @@ const {
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { buildMerchantAlbumEntryPath } = require('../../../../utils/merchant-album-nav')
 const { openH5Url } = require('../../../../constants/h5-links')
+const { toCard } = require('../../../../utils/merchant-workbench-home')
+
+function matchesListTab(card, tab) {
+  if (tab === 'done') return Boolean(card.repairDone)
+  if (tab === 'confirm') return Boolean(card.quotePending) && !card.repairDone
+  if (tab === 'active') return !card.repairDone
+  return true
+}
 
 Page({
   data: {
@@ -30,12 +37,27 @@ Page({
     tab: 'all',
     keyword: '',
     errorMessage: '',
+    createOpen: false,
+    statusBarHeight: 20,
+    capsulePad: 16,
   },
 
   onLoad(options) {
+    const sys = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+    let capsulePad = 16
+    try {
+      const menu = wx.getMenuButtonBoundingClientRect()
+      if (menu && menu.left && sys.windowWidth) {
+        capsulePad = Math.max(16, sys.windowWidth - menu.left + 8)
+      }
+    } catch (e) {
+      capsulePad = 96
+    }
     this.setData({
       tab: normalizeMerchantServiceAlbumListTab(options.tab),
       keyword: String(options.q || options.keyword || '').trim(),
+      statusBarHeight: sys.statusBarHeight || 20,
+      capsulePad,
     })
   },
 
@@ -89,7 +111,15 @@ Page({
         tab: this.data.tab,
         q: keyword || undefined,
       })
-      const list = (raw || []).map(enrichMerchantAlbumListItem)
+      const list = (raw || [])
+        .map((item) => ({
+          ...toCard(item),
+          reviewLine: item.reviewLine || '',
+          hostedSiteUrl: item.hostedSiteUrl || '',
+          hasOwner: Boolean(item.hasOwner),
+          status: item.status || '',
+        }))
+        .filter((card) => matchesListTab(card, this.data.tab))
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',
@@ -120,19 +150,22 @@ Page({
     this.setData({ keyword: '' }, () => this.loadList({ forceLoading: true }))
   },
 
-  onTabChange(e) {
-    const key = normalizeMerchantServiceAlbumListTab(e.detail && e.detail.key)
+  onChip(e) {
+    const key = normalizeMerchantServiceAlbumListTab(e.currentTarget.dataset.key)
     if (key === this.data.tab) return
     this.setData({ tab: key }, () => this.loadList({ forceLoading: true }))
   },
 
   onCreate() {
-    markListNeedRefresh(this)
-    wx.navigateTo({ url: '/packageMerchant/pages/album/create/index' })
+    this.setData({ createOpen: true })
+  },
+
+  onCloseCreate() {
+    this.setData({ createOpen: false })
   },
 
   onCardTap(e) {
-    const { id } = e.detail
+    const id = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || (e.detail && e.detail.id)
     if (!id) return
     const item = (this.data.list || []).find((row) => row.albumId === id) || { albumId: id }
     markListNeedRefresh(this)

@@ -1,0 +1,141 @@
+<view wx:if="{{show}}" class="mch-create">
+  <view class="mch-create__mask" bindtap="onClose" catchtouchmove="noop" />
+  <view class="mch-create__sheet" catchtap="noop">
+    <view class="mch-create__head">
+      <view class="mch-create__head-copy">
+        <text class="mch-create__kicker">NEW ALBUM</text>
+        <text class="mch-create__title">新建服务相册</text>
+        <text class="mch-create__sub">录入基础信息，后续过程由系统持续记录</text>
+      </view>
+      <view class="mch-create__close" bindtap="onClose">×</view>
+    </view>
+
+    <scroll-view class="mch-create__body" scroll-y>
+      <view class="mch-create__pair">
+        <view class="mch-create__field">
+          <text class="mch-create__label">车牌号</text>
+          <view class="mch-create__box">
+            <input
+              class="mch-create__input"
+              placeholder-class="mch-create__ph"
+              placeholder="粤B·"
+              value="{{form.plate}}"
+              maxlength="12"
+              data-field="plate"
+              bindinput="onInput"
+            />
+          </view>
+        </view>
+        <view class="mch-create__field">
+          <text class="mch-create__label">当前里程</text>
+          <view class="mch-create__box">
+            <input
+              class="mch-create__input"
+              placeholder-class="mch-create__ph"
+              type="digit"
+              placeholder="请输入"
+              value="{{form.mileage}}"
+              maxlength="7"
+              data-field="mileage"
+              bindinput="onInput"
+            />
+            <text class="mch-create__unit">km</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="mch-create__field">
+        <text class="mch-create__label">车架号 VIN</text>
+        <view class="mch-create__vin">
+          <view class="mch-create__box mch-create__box--grow">
+            <input
+              class="mch-create__input"
+              placeholder-class="mch-create__ph"
+              placeholder="输入或扫描 17 位车架号"
+              value="{{form.vin}}"
+              maxlength="17"
+              data-field="vin"
+              bindinput="onInput"
+            />
+          </view>
+          <view class="mch-create__scan" bindtap="onScanVin">
+            <image class="mch-create__scan-ico" src="/assets/mch/scan-blue.png" mode="aspectFit" />
+            <text>扫描</text>
+          </view>
+        </view>
+        <text wx:if="{{vehicleHint}}" class="mch-create__hint">{{vehicleHint}}</text>
+      </view>
+
+      <view class="mch-create__field">
+        <text class="mch-create__label">品牌 / 车系 / 年款</text>
+        <view class="mch-create__trio">
+          <view class="mch-create__box">
+            <input
+              class="mch-create__input mch-create__input--center"
+              placeholder-class="mch-create__ph"
+              placeholder="品牌"
+              value="{{form.vehicleBrand}}"
+              maxlength="20"
+              data-field="vehicleBrand"
+              bindinput="onInput"
+            />
+          </view>
+          <view class="mch-create__box">
+            <input
+              class="mch-create__input mch-create__input--center"
+              placeholder-class="mch-create__ph"
+              placeholder="车系"
+              value="{{form.vehicleSeries}}"
+              maxlength="24"
+              data-field="vehicleSeries"
+              bindinput="onInput"
+            />
+          </view>
+          <view class="mch-create__box">
+            <input
+              class="mch-create__input mch-create__input--center"
+              placeholder-class="mch-create__ph"
+              placeholder="年款"
+              value="{{form.vehicleYear}}"
+              maxlength="8"
+              data-field="vehicleYear"
+              bindinput="onInput"
+            />
+          </view>
+        </view>
+      </view>
+
+      <view class="mch-create__field">
+        <text class="mch-create__label">车主手机号</text>
+        <view class="mch-create__box">
+          <input
+            class="mch-create__input"
+            placeholder-class="mch-create__ph"
+            type="number"
+            maxlength="11"
+            placeholder="用于发送确认单与交车报告"
+            value="{{form.userPhone}}"
+            data-field="userPhone"
+            bindinput="onInput"
+          />
+        </view>
+      </view>
+
+      <view class="mch-create__privacy">
+        <image class="mch-create__privacy-ico" src="/assets/mch/check-green.png" mode="aspectFit" />
+        <text>车主隐私信息仅用于本次服务，公开案例将自动脱敏</text>
+      </view>
+    </scroll-view>
+
+    <view class="mch-create__foot">
+      <ui-button
+        ext-class="mch-create__submit"
+        type="primary"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:btntap="onSubmit"
+      >创建相册</ui-button>
+    </view>
+  </view>
+</view>

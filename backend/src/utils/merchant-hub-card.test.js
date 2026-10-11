@@ -1,11 +1,17 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { buildMerchantHubCard } = require('./merchant-hub-card')
+const { buildMerchantHubCard, matchMerchantAlbumTab, reviewLineForAlbum } = require('./merchant-hub-card')
 
 test('施工中：报价已确认，工单进行中', () => {
   const card = buildMerchantHubCard({
     status: 'in_progress',
-    vehicle: { plateDisplay: '粤B·7K52M', brand: '宝马', series: '3系', modelYear: '2021款' },
+    vehicle: {
+      plate: '粤B7K52M',
+      plateDisplay: '粤B****M',
+      brand: '宝马',
+      series: '3系',
+      modelYear: '2021款',
+    },
     flowNodes: [
       { id: 'n1', kind: 'intake', status: 'completed' },
       { id: 'n2', kind: 'inspection', status: 'completed' },
@@ -15,7 +21,7 @@ test('施工中：报价已确认，工单进行中', () => {
     ],
   })
   assert.equal(card.pill, '施工中')
-  assert.equal(card.plate, '粤B·7K52M')
+  assert.equal(card.plate, '粤B7K52M')
   assert.equal(card.modelLine, '宝马 · 3系 · 2021款')
   assert.deepEqual(
     card.steps.map((step) => step.state),
@@ -63,6 +69,20 @@ test('已完工相册是已交车，五步都完成', () => {
   assert.equal(card.publicOnSite, true)
   assert.equal(card.progress, 100)
   assert.ok(card.steps.every((step) => step.state === 'done'))
+})
+
+test('列表筛选：待确认和已完成分开，评价只挂在已交车', () => {
+  const pending = { quotePending: true, repairDone: false }
+  const active = { quotePending: false, repairDone: false }
+  const done = { quotePending: false, repairDone: true }
+  assert.equal(matchMerchantAlbumTab(pending, 'confirm'), true)
+  assert.equal(matchMerchantAlbumTab(active, 'confirm'), false)
+  assert.equal(matchMerchantAlbumTab(pending, 'active'), true)
+  assert.equal(matchMerchantAlbumTab(done, 'done'), true)
+  assert.equal(matchMerchantAlbumTab(done, 'active'), false)
+  assert.equal(reviewLineForAlbum(false, { overallScore: 5, content: '很好' }), '')
+  assert.equal(reviewLineForAlbum(true, null), '还没有评价')
+  assert.equal(reviewLineForAlbum(true, { overallScore: 5, content: '交接清楚' }), '5 分 · 交接清楚')
 })
 
 test('没有流程记录的进行中相册停在接车', () => {

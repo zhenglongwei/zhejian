@@ -1,3 +1,4 @@
+<view class="mch-stage {{createOpen ? 'is-blurred' : ''}}">
 <view class="mch-home" style="padding-top: {{statusBarHeight}}px;">
     <block wx:if="{{status === 'loading'}}">
       <view class="merchant-hub__pad">
@@ -63,6 +64,7 @@
       </view>
 
       <view class="mch-hero">
+        <image class="mch-hero__car" src="/assets/mch/car-white.png" mode="aspectFit" />
         <view class="mch-hero__copy">
           <block wx:if="{{home.heroCount}}">
             <view class="mch-hero__title">今天，有 <text class="mch-hero__em">{{home.heroCount}} 台车</text></view>
@@ -103,7 +105,9 @@
       <block wx:if="{{home.featured}}">
         <view class="mch-order" data-id="{{home.featured.albumId}}" bindtap="onHomeAlbumTap">
           <view class="mch-order__top">
-            <view class="mch-order__avatar" />
+            <view class="mch-order__avatar">
+              <image class="mch-mark__img" src="/assets/mch/car-blue.png" mode="aspectFit" />
+            </view>
             <view class="mch-order__main">
               <text class="mch-order__plate">{{home.featured.plate}}</text>
               <text class="mch-order__model">{{home.featured.modelLine}}</text>
@@ -133,7 +137,9 @@
         data-id="{{item.albumId}}"
         bindtap="onHomeAlbumTap"
       >
-        <view class="mch-compact__mark mch-compact__mark--{{item.pillTone}}" />
+        <view class="mch-compact__mark mch-compact__mark--{{item.pillTone}}">
+          <image class="mch-mark__img mch-mark__img--sm" src="{{item.markIcon}}" mode="aspectFit" />
+        </view>
         <view class="mch-compact__main">
           <text class="mch-compact__plate">{{item.plate}}</text>
           <text class="mch-compact__sub">{{item.subLine}}</text>
@@ -143,4 +149,6 @@
     </block>
 </view>
 <merchant-tab-bar wx:if="{{status === 'normal'}}" active="home" />
+</view>
+<merchant-create-sheet show="{{createOpen}}" bind:close="onCloseCreate" />
 <privacy-authorize-popup id="privacyAuthorizePopup" />

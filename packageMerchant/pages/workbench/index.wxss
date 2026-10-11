@@ -24,6 +24,10 @@ page {
   text-align: center;
 }
 
+.mch-stage.is-blurred {
+  filter: blur(12px);
+}
+
 .mch-home {
   min-height: 100vh;
   box-sizing: border-box;
@@ -43,13 +47,13 @@ page {
 .mch-kicker {
   color: var(--color-mch-blue);
   font-size: 20rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 2rpx;
 }
 
 .mch-brand {
   font-size: 36rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.35;
 }
 
@@ -62,17 +66,27 @@ page {
   align-items: center;
   color: var(--color-mch-blue);
   font-size: 24rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
   flex: none;
 }
 
 .mch-hero {
+  position: relative;
   margin: 24rpx 32rpx 0;
   min-height: 360rpx;
   border-radius: var(--radius-mch-hero);
   color: var(--color-text-inverse);
   background: linear-gradient(135deg, var(--color-mch-hero-start), var(--color-mch-hero-mid) 60%, var(--color-mch-hero-end));
   box-shadow: var(--shadow-mch-hero);
+  overflow: hidden;
+}
+
+.mch-hero__car {
+  position: absolute;
+  right: 12rpx;
+  bottom: 36rpx;
+  width: 200rpx;
+  height: 140rpx;
 }
 
 .mch-hero__copy {
@@ -86,7 +100,7 @@ page {
 }
 
 .mch-hero__em {
-  font-weight: 800;
+  font-weight: var(--font-weight-semibold);
 }
 
 .mch-hero__desc {
@@ -107,7 +121,7 @@ page {
   background: var(--color-bg-card);
   color: var(--color-mch-blue-dark);
   font-size: 26rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
 }
 
 .mch-metrics {
@@ -140,8 +154,9 @@ page {
 .mch-metric__num {
   margin: 4rpx 0;
   font-size: 44rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -1rpx;
+  color: var(--color-primary);
 }
 
 .mch-metric__hint {
@@ -163,7 +178,7 @@ page {
 
 .mch-section-title {
   font-size: 36rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
 }
 
 .mch-more {
@@ -199,6 +214,19 @@ page {
   border-radius: 28rpx;
   background: var(--color-mch-blue-soft);
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mch-mark__img {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.mch-mark__img--sm {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .mch-compact__mark {
@@ -226,7 +254,7 @@ page {
 .mch-order__plate,
 .mch-compact__plate {
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
 }
 
 .mch-order__model,
@@ -244,7 +272,7 @@ page {
   border-radius: 999rpx;
   padding: 8rpx 16rpx;
   font-size: 20rpx;
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
 }
 
 .mch-pill--blue {

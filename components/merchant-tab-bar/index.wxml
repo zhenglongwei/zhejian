@@ -6,7 +6,7 @@
     data-key="{{item.key}}"
     bindtap="onTap"
   >
-    <view class="mch-tab__ico mch-tab__ico--{{item.key}}" />
+    <image class="mch-tab__ico" src="{{active === item.key ? item.iconOn : item.icon}}" mode="aspectFit" />
     <text class="mch-tab__label">{{item.label}}</text>
   </view>
 </view>

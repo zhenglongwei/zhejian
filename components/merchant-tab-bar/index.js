@@ -1,8 +1,8 @@
 const TABS = [
-  { key: 'home', label: '工作台', url: '/packageMerchant/pages/workbench/index' },
-  { key: 'albums', label: '服务相册', url: '/packageMerchant/pages/album/list/index' },
-  { key: 'ai', label: 'AI 助手', url: '/packageMerchant/pages/assistant/index' },
-  { key: 'store', label: '门店', url: '/packageMerchant/pages/store/home/index' },
+  { key: 'home', label: '工作台', url: '/packageMerchant/pages/workbench/index', icon: '/assets/mch/tab-home.png', iconOn: '/assets/mch/tab-home-on.png' },
+  { key: 'albums', label: '服务相册', url: '/packageMerchant/pages/album/list/index', icon: '/assets/mch/tab-albums.png', iconOn: '/assets/mch/tab-albums-on.png' },
+  { key: 'ai', label: 'AI 助手', url: '/packageMerchant/pages/assistant/index', icon: '/assets/mch/tab-ai.png', iconOn: '/assets/mch/tab-ai-on.png' },
+  { key: 'store', label: '门店', url: '/packageMerchant/pages/store/home/index', icon: '/assets/mch/tab-store.png', iconOn: '/assets/mch/tab-store-on.png' },
 ]
 
 Component({

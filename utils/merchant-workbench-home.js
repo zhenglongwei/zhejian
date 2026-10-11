@@ -2,6 +2,14 @@ const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('../constants/service-alb
 
 const STEP_LABELS = ['接车', '检测', '报价', '施工', '完工']
 
+function privatePlate(vehicle = {}, fallback = '') {
+  const full = String(vehicle.plate || '').trim()
+  if (full && !/\*{2,}/.test(full)) return full
+  const display = String(fallback || vehicle.plateDisplay || '').trim()
+  if (display && !/\*{2,}/.test(display)) return display
+  return full || display || '未登记车牌'
+}
+
 function fallbackHub(item = {}) {
   const repairDone = SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(item.status)
   const vehicle = item.vehicle || {}
@@ -10,7 +18,7 @@ function fallbackHub(item = {}) {
     .filter(Boolean)
     .join(' · ')
   return {
-    plate: String(vehicle.plateDisplay || vehicle.plate || '').trim() || '未登记车牌',
+    plate: privatePlate(vehicle),
     modelLine: modelLine || String(item.serviceName || '').trim(),
     serviceName: String(item.serviceName || '').trim(),
     pill: repairDone ? '已交车' : '进行中',
@@ -38,6 +46,12 @@ function timeOf(iso) {
   return Number.isFinite(ms) ? ms : 0
 }
 
+const MARK_ICON = {
+  blue: '/assets/mch/car-blue.png',
+  amber: '/assets/mch/clock-amber.png',
+  green: '/assets/mch/check-green.png',
+}
+
 function toCard(item = {}) {
   const hub = item.hubCard || fallbackHub(item)
   const modelLine = String(hub.modelLine || item.serviceName || '').trim()
@@ -47,11 +61,12 @@ function toCard(item = {}) {
   }
   return {
     albumId: item.albumId,
-    plate: hub.plate || '未登记车牌',
+    plate: privatePlate(item.vehicle, hub.plate),
     modelLine,
     subLine,
     pill: hub.pill || '进行中',
     pillTone: hub.pillTone || 'blue',
+    markIcon: MARK_ICON[hub.pillTone] || MARK_ICON.blue,
     progress: Number(hub.progress) || 0,
     steps: Array.isArray(hub.steps) ? hub.steps : [],
     quotePending: Boolean(hub.quotePending),

@@ -1,8 +1,13 @@
-<view class="page merchant-album-page merchant-album-list">
-  <view class="merchant-album-list__search page-content">
+<view class="mch-albums {{createOpen ? 'is-blurred' : ''}}" style="padding-top: {{statusBarHeight}}px;">
+  <view class="mch-top" style="padding-right: {{capsulePad}}px;">
+    <text class="mch-kicker">服务相册</text>
+    <view class="mch-brand">相册列表</view>
+  </view>
+
+  <view class="mch-search">
     <ui-search-bar
       value="{{keyword}}"
-      placeholder="车型 / 电话 / 车架号 / 车牌 / 项目"
+      placeholder="车牌 / 车型 / 手机号"
       showSearch="{{true}}"
       bind:input="onKeywordInput"
       bind:confirm="onKeywordSearch"
@@ -10,34 +15,63 @@
       bind:clear="onKeywordClear"
     />
   </view>
-  <ui-list-page-shell
-    tabs="{{statusTabs}}"
-    activeKey="{{tab}}"
-    status="{{status}}"
-    errorMessage="{{errorMessage}}"
-    bodyClearance="{{true}}"
-    emptyTitle="暂无服务相册"
-    emptyDescription="为线下服务创建服务相册，记录四阶段过程与说明"
-    emptyActionText="新建服务相册"
-    emptyTheme="album"
-    skeletonTheme="album"
-    skeletonVariant="album-card"
-    bind:tabchange="onTabChange"
-    bind:retry="onRetry"
-    bind:emptyaction="onCreate"
-  >
-    <ui-album-card
-      wx:for="{{list}}"
-      wx:key="albumId"
-      item="{{item}}"
-      audience="merchant"
-      bind:tap="onCardTap"
-      bind:opensite="onOpenHostedSite"
-    />
-    <view class="mch-tab-spacer" />
-    <view slot="footer" class="merchant-list-fab page-content">
+
+  <view class="mch-chips">
+    <text
+      wx:for="{{statusTabs}}"
+      wx:key="key"
+      class="mch-chip {{tab === item.key ? 'is-on' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onChip"
+    >{{item.label}}</text>
+  </view>
+
+  <view wx:if="{{status === 'loading'}}" class="mch-albums__state">加载中</view>
+  <view wx:elif="{{status === 'error'}}" class="mch-albums__state" bindtap="onRetry">{{errorMessage || '加载失败'}}，点此重试</view>
+  <view wx:elif="{{status === 'empty'}}" class="mch-albums__state">
+    <text>还没有相册</text>
+    <view class="mch-albums__empty-btn">
       <ui-button type="primary" bind:btntap="onCreate">新建服务相册</ui-button>
     </view>
-  </ui-list-page-shell>
-  <merchant-tab-bar active="albums" />
+  </view>
+
+  <block wx:else>
+    <view
+      wx:for="{{list}}"
+      wx:key="albumId"
+      class="mch-card"
+      data-id="{{item.albumId}}"
+      bindtap="onCardTap"
+    >
+      <view class="mch-card__top">
+        <view class="mch-card__mark mch-card__mark--{{item.pillTone}}">
+          <image class="mch-card__ico" src="{{item.markIcon}}" mode="aspectFit" />
+        </view>
+        <view class="mch-card__main">
+          <text class="mch-card__plate">{{item.plate}}</text>
+          <text class="mch-card__sub">{{item.subLine}}</text>
+        </view>
+        <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
+      </view>
+      <view class="mch-track"><view class="mch-track__bar" style="width: {{item.progress}}%;" /></view>
+      <view class="mch-steps">
+        <view
+          wx:for="{{item.steps}}"
+          wx:for-item="step"
+          wx:key="label"
+          class="mch-step {{step.state === 'done' || step.state === 'current' ? 'is-on' : ''}}"
+        >
+          <text wx:if="{{step.state === 'done'}}" class="mch-step__mark">✓</text>
+          <text wx:else class="mch-step__dot" />
+          <text>{{step.label}}</text>
+        </view>
+      </view>
+      <text wx:if="{{item.reviewLine}}" class="mch-card__review">{{item.reviewLine}}</text>
+    </view>
+    <view class="mch-albums__create">
+      <ui-button type="primary" block bind:btntap="onCreate">新建服务相册</ui-button>
+    </view>
+  </block>
 </view>
+<merchant-tab-bar active="albums" />
+<merchant-create-sheet show="{{createOpen}}" bind:close="onCloseCreate" />

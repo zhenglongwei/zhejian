@@ -3,17 +3,17 @@
  * 设计细则：docs/00_设计规范/00_辙见平台设计体系.md §10.8
  */
 :root {
-  --color-primary: #1677ff;
-  --color-primary-light: #e8f3ff;
-  --color-primary-dark: #0958d9;
+  --color-primary: #1269f2;
+  --color-primary-light: #eaf2ff;
+  --color-primary-dark: #074bb8;
   --color-text-primary: #1f2329;
-  --color-text-secondary: #646a73;
+  --color-text-secondary: #718096;
   --color-text-tertiary: #8f959e;
   --color-text-disabled: #c9cdd4;
   --color-text-inverse: #ffffff;
-  --color-border: #e5e6eb;
+  --color-border: #e7ebf2;
   --color-border-strong: #d1d5db;
-  --color-bg-page: #f5f6f7;
+  --color-bg-page: #f5f7fb;
   --color-bg-card: #ffffff;
   --color-bg-muted: #f7f8fa;
   --color-bg-surface: #ffffff;
@@ -22,9 +22,9 @@
   --color-danger: #f53f3f;
   --color-danger-light: #fff1f0;
   --color-mask: rgba(0, 0, 0, 0.45);
-  --tag-order-fg: #0958d9;
-  --tag-order-bg: #e8f3ff;
-  --tag-history-fg: #646a73;
+  --tag-order-fg: #074bb8;
+  --tag-order-bg: #eaf2ff;
+  --tag-history-fg: #718096;
   --tag-history-bg: #f2f3f5;
   --tag-desensitized-fg: #0e7b8b;
   --tag-desensitized-bg: #e8fffb;

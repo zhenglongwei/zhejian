@@ -1,9 +1,6 @@
 {
   "navigationBarTitleText": "新建服务相册",
   "usingComponents": {
-    "ui-button": "/components/button/index",
-    "ui-privacy-banner": "/components/privacy-banner/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-skeleton": "/components/skeleton/index"
+    "merchant-create-sheet": "/components/merchant-create-sheet/index"
   }
 }

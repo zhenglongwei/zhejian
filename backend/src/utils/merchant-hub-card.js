@@ -2,6 +2,7 @@ const {
   SERVICE_ALBUM_REPAIR_DONE_STATUSES,
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
+const { ownerVisiblePlate } = require('./plate-mask')
 const { isFlowNodeDone } = require('../../vendor/shared/utils/service-flow-progress')
 
 const STEPS = [
@@ -82,7 +83,27 @@ function vehicleLine(vehicle = {}) {
 }
 
 function plateOf(vehicle = {}) {
-  return String(vehicle.plateDisplay || vehicle.plate || '').trim() || '未登记车牌'
+  return ownerVisiblePlate(vehicle) || '未登记车牌'
+}
+
+function matchMerchantAlbumTab(card = {}, tab = 'all') {
+  const key = String(tab || 'all')
+  if (key === 'done') return Boolean(card.repairDone)
+  if (key === 'confirm') return Boolean(card.quotePending) && !card.repairDone
+  if (key === 'active') return !card.repairDone
+  return true
+}
+
+function reviewLineForAlbum(repairDone, review) {
+  if (!repairDone) return ''
+  if (!review) return '还没有评价'
+  const score = Number(review.overallScore) || 0
+  const text = String(review.content || '').trim().replace(/\s+/g, ' ')
+  const short = text.length > 18 ? `${text.slice(0, 18)}…` : text
+  if (score && short) return `${score} 分 · ${short}`
+  if (score) return `${score} 分`
+  if (short) return short
+  return '还没有评价'
 }
 
 function buildMerchantHubCard(input = {}) {
@@ -110,6 +131,8 @@ function buildMerchantHubCard(input = {}) {
 module.exports = {
   STEPS,
   buildMerchantHubCard,
+  matchMerchantAlbumTab,
+  reviewLineForAlbum,
   progressOf,
   resolveSteps,
 }

@@ -1,14 +1,117 @@
-<view class="mch-store">
-  <view class="mch-store__head">
-    <view class="mch-store__name">{{storeName}}</view>
-    <text wx:if="{{address}}" class="mch-store__addr">{{address}}</text>
-    <view class="mch-store__actions">
-      <text class="mch-store__link" bindtap="onEdit">编辑</text>
-      <text class="mch-store__link" bindtap="onSwitchOwner">切换为车主</text>
+<view class="mch-store" style="padding-top: {{statusBarHeight}}px;">
+  <view class="mch-top" style="padding-right: {{capsulePad}}px;">
+    <view>
+      <text class="mch-kicker">公开信息越完整，越容易被 AI 发现</text>
+      <view class="mch-brand">门店资料</view>
     </view>
   </view>
-  <view class="mch-store__row" bindtap="onEdit">门店资料</view>
-  <view wx:if="{{canManageStaff}}" class="mch-store__row" bindtap="onStaff">账号管理</view>
-  <view class="mch-store__row" bindtap="onServices">擅长服务</view>
+
+  <block wx:if="{{status === 'loading' || !home}}">
+    <view class="mch-store__loading">加载中</view>
+  </block>
+
+  <block wx:else>
+    <view class="mch-store__card">
+      <view class="mch-store__identity">
+        <view class="mch-store__logo" catchtap="onLogoMenu">{{home.logoText}}</view>
+        <view class="mch-store__main" bindtap="onSwitchStore">
+          <view class="mch-store__name-row">
+            <text class="mch-store__name">{{home.storeName}}</text>
+            <text class="mch-store__pill {{home.verified ? 'is-ok' : 'is-warn'}}">{{home.authLabel}}</text>
+          </view>
+          <view wx:if="{{home.address}}" class="mch-store__addr">
+            <image class="mch-store__pin" src="/assets/mch/pin-white.png" mode="aspectFit" />
+            <text class="mch-store__addr-text">{{home.address}}</text>
+          </view>
+        </view>
+        <view class="mch-store__edit" bindtap="onEdit">
+          <image class="mch-store__edit-ico" src="/assets/mch/pencil-white.png" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
+    <view class="mch-store__panel">
+      <view class="mch-ring" style="background: conic-gradient(var(--color-mch-blue) {{home.percent}}%, var(--color-mch-blue-soft) 0);">
+        <view class="mch-ring__hole">
+          <text class="mch-ring__num">{{home.percent}}</text>
+          <text class="mch-ring__unit">%</text>
+        </view>
+      </view>
+      <view class="mch-store__copy">
+        <text class="mch-kicker mch-kicker--muted">资料完善度</text>
+        <view wx:if="{{home.complete}}" class="mch-store__headline">资料已齐</view>
+        <view wx:else class="mch-store__headline">再补充 {{home.missingCount}} 项</view>
+        <text wx:if="{{!home.complete}}" class="mch-store__hint">补资料能提高被 AI 推荐的概率</text>
+        <text wx:if="{{home.missingLine}}" class="mch-store__miss">{{home.missingLine}}</text>
+      </view>
+    </view>
+
+    <view class="mch-store__panel mch-store__list">
+      <view class="mch-store__section">
+        <view>
+          <text class="mch-kicker mch-kicker--muted">公开名片</text>
+          <view class="mch-store__headline">门店信息</view>
+        </view>
+        <text class="mch-store__preview" bindtap="onPreview">预览公开页</text>
+      </view>
+
+      <view class="mch-row" bindtap="onEdit">
+        <view class="mch-row__well {{home.introDone ? 'is-done' : ''}}">
+          <image wx:if="{{home.introDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
+          <text wx:else class="mch-row__plus">+</text>
+        </view>
+        <view class="mch-row__body">
+          <text class="mch-row__title">门店介绍</text>
+          <text class="mch-row__value">{{home.introValue}}</text>
+        </view>
+        <text class="mch-row__chev">›</text>
+      </view>
+      <view class="mch-row" bindtap="onServices">
+        <view class="mch-row__well {{home.serviceDone ? 'is-done' : ''}}">
+          <image wx:if="{{home.serviceDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
+          <text wx:else class="mch-row__plus">+</text>
+        </view>
+        <view class="mch-row__body">
+          <text class="mch-row__title">擅长服务</text>
+          <text class="mch-row__value">{{home.serviceValue}}</text>
+        </view>
+        <text class="mch-row__chev">›</text>
+      </view>
+      <view class="mch-row" bindtap="onEdit">
+        <view class="mch-row__well {{home.techDone ? 'is-done' : ''}}">
+          <image wx:if="{{home.techDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
+          <text wx:else class="mch-row__plus">+</text>
+        </view>
+        <view class="mch-row__body">
+          <text class="mch-row__title">技师资质</text>
+          <text class="mch-row__value">{{home.techValue}}</text>
+        </view>
+        <text class="mch-row__chev">›</text>
+      </view>
+      <view wx:if="{{canManageStaff}}" class="mch-row" bindtap="onStaff">
+        <view class="mch-row__well">
+          <image class="mch-row__ico" src="/assets/mch/person-blue.png" mode="aspectFit" />
+        </view>
+        <view class="mch-row__body">
+          <text class="mch-row__title">账号管理</text>
+          <text class="mch-row__value">员工账号</text>
+        </view>
+        <text class="mch-row__chev">›</text>
+      </view>
+    </view>
+
+    <view class="mch-stats">
+      <view class="mch-stat">
+        <image class="mch-stat__ico" src="/assets/mch/tab-albums-on.png" mode="aspectFit" />
+        <text class="mch-stat__num">{{home.publicCaseCount}}</text>
+        <text class="mch-stat__label">公开案例</text>
+      </view>
+      <view class="mch-stat">
+        <image class="mch-stat__ico" src="/assets/mch/eye-blue.png" mode="aspectFit" />
+        <text class="mch-stat__num">{{home.monthViewCount}}</text>
+        <text class="mch-stat__label">本月被查看</text>
+      </view>
+    </view>
+  </block>
 </view>
 <merchant-tab-bar active="store" />

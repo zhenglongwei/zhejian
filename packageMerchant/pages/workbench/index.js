@@ -92,6 +92,7 @@ Page({
     capsulePad: 16,
     albumRows: [],
     home: buildWorkbenchHome([]),
+    createOpen: false,
   },
 
   onLoad() {
@@ -458,7 +459,12 @@ Page({
   },
 
   onCreateAlbum() {
-    this._navigateTo('/packageMerchant/pages/album/create/index')
+    if (this.data.status !== 'normal') return
+    this.setData({ createOpen: true })
+  },
+
+  onCloseCreate() {
+    this.setData({ createOpen: false })
   },
 
   onAlbumList() {

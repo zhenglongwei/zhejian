@@ -63,24 +63,24 @@ page {
    * 品牌色
    * 用于主按钮、链接、选中态、关键入口。
    */
-  --color-primary: #1677ff;
-  --color-primary-light: #e8f3ff;
-  --color-primary-dark: #0958d9;
+  --color-primary: #1269f2;
+  --color-primary-light: #eaf2ff;
+  --color-primary-dark: #074bb8;
 
   /**
    * 中性色
    * 用于文字、边框、背景、弱提示。
    */
   --color-text-primary: #1f2329;
-  --color-text-secondary: #646a73;
+  --color-text-secondary: #718096;
   --color-text-tertiary: #8f959e;
   --color-text-disabled: #c9cdd4;
   --color-text-inverse: #ffffff;
 
-  --color-border: #e5e6eb;
+  --color-border: #e7ebf2;
   --color-border-strong: #d1d5db;
 
-  --color-bg-page: #f5f6f7;
+  --color-bg-page: #f5f7fb;
   --color-bg-card: #ffffff;
   --color-bg-muted: #f7f8fa;
   --color-bg-active: #f2f3f5;
@@ -90,11 +90,11 @@ page {
    */
   --color-bg-album: #f8fafc;
   --color-bg-band: #f0f4fa;
-  --color-album-active: #1677ff;
-  --color-album-active-light: #e8f3ff;
+  --color-album-active: #1269f2;
+  --color-album-active-light: #eaf2ff;
   --color-album-frame: #eef2f8;
   --color-album-frame-line: #e5eaf0;
-  --color-album-frame-corner: #1677ff;
+  --color-album-frame-corner: #1269f2;
   --color-album-frame-inner: #ffffff;
   --color-nav-icon-well: #f2f3f5;
   --color-album-toolbar-bg: rgba(248, 250, 252, 0.92);
@@ -102,15 +102,15 @@ page {
 
   /**
    * 商家端壳层（2026-10-11 · 工作台原型）
-   * 只用于商家四格与工作台，不替换全站 --color-primary。
+   * 主色、文字、页面底与全站同一套。这里只保留头图、门店卡、玻璃按钮。
    */
-  --color-mch-blue: #1269f2;
-  --color-mch-blue-dark: #074bb8;
-  --color-mch-blue-soft: #eaf2ff;
-  --color-mch-ink: #13233e;
-  --color-mch-muted: #718096;
-  --color-mch-line: #e7ebf2;
-  --color-mch-bg: #f5f7fb;
+  --color-mch-blue: var(--color-primary);
+  --color-mch-blue-dark: var(--color-primary-dark);
+  --color-mch-blue-soft: var(--color-primary-light);
+  --color-mch-ink: var(--color-text-primary);
+  --color-mch-muted: var(--color-text-secondary);
+  --color-mch-line: var(--color-border);
+  --color-mch-bg: var(--color-bg-page);
   --color-mch-green: #14a879;
   --color-mch-green-soft: #e7f8f1;
   --color-mch-amber: #b66b00;
@@ -118,6 +118,12 @@ page {
   --color-mch-hero-start: #0b55ca;
   --color-mch-hero-mid: #087ced;
   --color-mch-hero-end: #12a2f3;
+  --color-mch-card-start: #0e458c;
+  --color-mch-card-end: #165eae;
+  --color-mch-glass: rgba(255, 255, 255, 0.16);
+  --color-mch-on-card: #d7e6f8;
+  --color-mch-on-card-green: #c8f6e2;
+  --color-mch-on-card-amber: #ffe3ad;
   --radius-mch-card: 40rpx;
   --radius-mch-hero: 48rpx;
   --shadow-mch-card: 0 16rpx 48rpx rgba(35, 61, 99, 0.06);
@@ -143,10 +149,10 @@ page {
    * 标签业务色
    * 用于案例来源、脱敏、审核、到店检测、复杂度等业务标签。
    */
-  --tag-order-fg: #0958d9;
-  --tag-order-bg: #e8f3ff;
+  --tag-order-fg: #074bb8;
+  --tag-order-bg: #eaf2ff;
 
-  --tag-history-fg: #646a73;
+  --tag-history-fg: #718096;
   --tag-history-bg: #f2f3f5;
 
   --tag-desensitized-fg: #0e7b8b;
@@ -193,7 +199,8 @@ page {
   --font-price-sm-lh: 36rpx;
 
   /**
-   * 字重
+   * 字重止于 600。标题和数字用 semibold，不要写 700 / 800。
+   * 关键数字用 --color-primary。
    */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -334,13 +341,13 @@ page {
 | `--color-bg-album` | `#f8fafc` | 工具页页面底（冷白） |
 | `--color-album-frame` | `#eef2f8` | 相框外 mat / folio 辅色 |
 | `--color-album-frame-line` | `#e5eaf0` | 相框描边、panel 分割线 |
-| `--color-album-frame-corner` | `#1677ff` | 相框 L 形角饰（主色蓝） |
+| `--color-album-frame-corner` | `#1269f2` | 相框 L 形角饰（主色蓝） |
 | `--color-album-frame-inner` | `#ffffff` | 相框内衬 / panel 白底 |
 | `--color-nav-icon-well` | `#f2f3f5` | 我的/设置菜单图标底块 |
 | `--color-album-toolbar-bg` | `rgba(248,250,252,0.92)` | 节点 Tab 底栏半透明底 |
 | `--color-album-caption-bar` | `rgba(255,255,255,0.96)` | 框内短文案条底 |
-| `--color-mch-blue` | `#1269f2` | 商家端主色、底栏选中、主按钮 |
-| `--color-mch-bg` | `#f5f7fb` | 商家端页面底 |
+| `--color-mch-blue` | `var(--color-primary)` | 与全站主色同一套 |
+| `--color-mch-bg` | `var(--color-bg-page)` | 与全站页面底同一套 |
 | `--color-mch-hero-start` / `mid` / `end` | `#0b55ca` / `#087ced` / `#12a2f3` | 工作台头图渐变 |
 | `--color-album-immersive-caption-bg` | `rgba(22,20,18,0.88)` | 沉浸大图门店说明底条（高对比） |
 | `--color-bg-immersive` | `#000` | 沉浸翻页全屏底 |
@@ -353,7 +360,7 @@ page {
 | `--color-album-nav-back` / `--back-pressed` | `rgba(0,0,0,0.28/0.42)` | 沉浸返回按钮底 |
 | `--shadow-album-immersive-panel` | `0 8rpx 28rpx rgba(0,0,0,0.28)` | 沉浸说明面板阴影 |
 | `--shadow-album-overlay-chip` | `0 4rpx 20rpx rgba(0,0,0,0.14)` | overlay chip 阴影 |
-| `--shadow-album-segment-active` | `0 0 12rpx rgba(22,119,255,0.45)` | 当前阶段进度光晕 |
+| `--shadow-album-segment-active` | `0 0 12rpx rgba(18,105,242,0.45)` | 当前阶段进度光晕 |
 | `--shadow-album-compare-handle` | `0 0 8rpx rgba(0,0,0,0.35)` | 前后对比滑块中线/手柄阴影 |
 | `--color-album-end-finish` | `#94bfff` | 尾页「本册已阅」装饰线（淡蓝，非褐灰） |
 | `--shadow-album-frame` | 双层冷色阴影 `rgba(22,45,90,…)` | 详情全屏相框立体感 |
