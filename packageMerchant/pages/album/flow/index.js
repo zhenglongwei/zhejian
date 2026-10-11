@@ -33,6 +33,7 @@ const {
 } = require('../../../../constants/service-flow-nodes')
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
+const { buildMerchantAlbumOverview } = require('../../../../utils/merchant-album-overview')
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
@@ -349,6 +350,10 @@ Page({
   data: {
     status: 'loading',
     errorMessage: '',
+    showOverview: true,
+    overview: null,
+    statusBarHeight: 20,
+    capsulePad: 16,
     albumId: '',
     serviceName: '',
     statusLabel: '',
@@ -479,7 +484,21 @@ Page({
 
   onLoad(options) {
     this.albumId = String(options.albumId || '').trim()
-    this.setData({ albumId: this.albumId })
+    const sys = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+    let capsulePad = 16
+    try {
+      const menu = wx.getMenuButtonBoundingClientRect()
+      if (menu && menu.left && sys.windowWidth) {
+        capsulePad = Math.max(16, sys.windowWidth - menu.left + 8)
+      }
+    } catch (e) {
+      capsulePad = 96
+    }
+    this.setData({
+      albumId: this.albumId,
+      statusBarHeight: sys.statusBarHeight || 20,
+      capsulePad,
+    })
     this.bootstrap()
   },
 
@@ -1752,6 +1771,7 @@ Page({
         deliveryExtraCount,
         deliveryExteriorUrl,
         deliveryPickMode,
+        overview: buildMerchantAlbumOverview(album, flowNodes),
       })
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
@@ -1774,6 +1794,40 @@ Page({
     this.setData({
       expandedCompletedId: this.data.expandedCompletedId === id ? '' : id,
     })
+  },
+
+  onOverviewBack() {
+    wx.navigateBack({
+      fail() {
+        wx.redirectTo({ url: '/packageMerchant/pages/album/list/index' })
+      },
+    })
+  },
+
+  onBackToOverview() {
+    this.setData({ showOverview: true })
+  },
+
+  onOpenOverview(e) {
+    const state = String((e.currentTarget.dataset && e.currentTarget.dataset.state) || '')
+    const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    if (state === 'todo') {
+      wx.showToast({ title: '还没到这一步', icon: 'none' })
+      return
+    }
+    this.setData({
+      showOverview: false,
+      expandedCompletedId: state === 'done' ? id : '',
+    })
+  },
+
+  onCallOwner() {
+    const phone = String((this.data.overview && this.data.overview.phone) || '').trim()
+    if (!phone) {
+      wx.showToast({ title: '还没有车主电话', icon: 'none' })
+      return
+    }
+    wx.makePhoneCall({ phoneNumber: phone })
   },
 
   syncFindingsWithImages(prevFindings = [], images = [], findingKind = 'inspection') {

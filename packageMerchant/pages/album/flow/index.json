@@ -1,5 +1,6 @@
 {
-  "navigationBarTitleText": "服务进度",
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "服务相册",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-button": "/components/button/index",

@@ -106,6 +106,107 @@
   </block>
 
   <block wx:else>
+    <block wx:if="{{showOverview && overview}}">
+      <view class="ov" style="padding-top: {{statusBarHeight}}px;">
+        <view class="ov-nav" style="padding-right: {{capsulePad}}px;">
+          <text class="ov-back" bindtap="onOverviewBack">‹</text>
+          <view class="ov-nav__text">
+            <text class="ov-kicker">服务相册详情</text>
+            <text class="ov-plate">{{overview.plate}}</text>
+          </view>
+        </view>
+
+        <view class="ov-hero">
+          <text class="ov-pill ov-pill--{{overview.pill.tone}}">{{overview.pill.text}}</text>
+          <text class="ov-hero__name">{{overview.vehicleName}}</text>
+          <text wx:if="{{overview.spec}}" class="ov-hero__spec">{{overview.spec}}</text>
+          <text wx:if="{{overview.meta}}" class="ov-hero__meta">{{overview.meta}}</text>
+        </view>
+
+        <view class="ov-docs">
+          <view
+            wx:for="{{overview.docs}}"
+            wx:key="title"
+            class="ov-doc ov-doc--{{item.tone}}"
+            data-id="{{item.nodeId}}"
+            data-state="{{item.state}}"
+            bindtap="onOpenOverview"
+          >
+            <view class="ov-doc__icon">
+              <image wx:if="{{item.tone === 'ok'}}" src="/assets/mch/check-green.png" mode="aspectFit" />
+              <image wx:elif="{{item.tone === 'live'}}" src="/assets/mch/pencil-blue.png" mode="aspectFit" />
+              <image wx:else src="/assets/mch/clock-amber.png" mode="aspectFit" />
+            </view>
+            <text class="ov-doc__name">{{item.title}}</text>
+            <text class="ov-doc__label">{{item.label}}</text>
+          </view>
+        </view>
+
+        <view class="ov-sec">
+          <text class="ov-sec__kicker">全过程留证</text>
+          <view class="ov-sec__row">
+            <text class="ov-sec__title">服务时间线</text>
+            <text class="ov-sec__count">{{overview.records}} 份记录</text>
+          </view>
+        </view>
+
+        <view class="ov-line">
+          <view wx:for="{{overview.rows}}" wx:key="key" class="ov-row ov-row--{{item.state}}">
+            <view class="ov-row__rail">
+              <view class="ov-row__dot">
+                <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-green.png" mode="aspectFit" />
+                <text wx:else>{{item.index}}</text>
+              </view>
+              <view wx:if="{{index < overview.rows.length - 1}}" class="ov-row__bar" />
+            </view>
+            <view class="ov-row__main" data-id="{{item.nodeId}}" data-state="{{item.state}}" bindtap="onOpenOverview">
+              <view class="ov-row__head">
+                <text class="ov-row__title">{{item.title}}</text>
+                <text class="ov-row__mark">{{item.mark}}</text>
+              </view>
+              <text class="ov-row__detail">{{item.detail}}</text>
+              <view wx:if="{{item.advice}}" class="ov-advice">
+                <text class="ov-advice__kicker">AI 技师意见</text>
+                <text class="ov-advice__text">{{item.advice}}</text>
+              </view>
+              <view wx:if="{{item.shots.length || item.canAddShot}}" class="ov-shots">
+                <view wx:for="{{item.shots}}" wx:for-item="shot" wx:key="url" class="ov-shot">
+                  <image src="{{shot.url}}" mode="aspectFill" />
+                  <text wx:if="{{shot.caption}}" class="ov-shot__cap">{{shot.caption}}</text>
+                </view>
+                <view
+                  wx:if="{{item.canAddShot}}"
+                  class="ov-shot ov-shot--add"
+                  data-id="{{item.nodeId}}"
+                  data-state="current"
+                  catchtap="onOpenOverview"
+                >
+                  <text>添加留证</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="ov-foot">
+          <view class="ov-call" bindtap="onCallOwner">联系车主</view>
+          <view
+            wx:if="{{overview.action}}"
+            class="ov-go"
+            data-id="{{overview.actionId}}"
+            data-state="current"
+            bindtap="onOpenOverview"
+          >{{overview.action}}</view>
+        </view>
+      </view>
+    </block>
+    <block wx:else>
+    <view class="ov-editor-bar" style="padding-top: {{statusBarHeight}}px;">
+      <view class="ov-editor-bar__row" style="padding-right: {{capsulePad}}px;">
+        <text class="ov-back" bindtap="onBackToOverview">‹</text>
+        <text class="ov-editor-bar__title">{{activeTitle || '服务进度'}}</text>
+      </view>
+    </view>
     <view class="page-content merchant-flow-page__body">
         <view class="merchant-flow-page__hero">
           <view class="merchant-flow-page__hero-top">
@@ -1345,6 +1446,7 @@
           >{{hosted ? (hostVisibility === 'public' ? '管理托管' : '管理托管') : '托管到案例站'}}</ui-button>
         </view>
       </view>
+    </block>
   </block>
 
   <view wx:if="{{showLibrary}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseLibrary">
