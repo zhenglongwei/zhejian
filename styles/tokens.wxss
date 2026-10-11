@@ -81,6 +81,11 @@ page {
   --color-mch-thumb-badge: rgba(22, 24, 28, 0.42);
   --color-mch-glass: rgba(255, 255, 255, 0.16);
   --color-mch-on-card: #d7e6f8;
+  /* 蓝底卡片上的次级字，比白字沉一档 */
+  --color-mch-hero-sub: #758cb8;
+  /* 时间线说明、单据状态，比正文灰更浅 */
+  --color-mch-caption: #a1aab9;
+  --color-mch-kicker: #5ca3e3;
   --color-mch-on-card-green: #c8f6e2;
   --color-mch-on-card-amber: #ffe3ad;
   --radius-mch-card: 40rpx;
@@ -165,6 +170,12 @@ page {
 
   --font-caption: 24rpx;
   --font-caption-lh: 34rpx;
+
+  --font-sub: 26rpx;
+  --font-sub-lh: 36rpx;
+
+  --font-status: 22rpx;
+  --font-status-lh: 30rpx;
 
   --font-price: 36rpx;
   --font-price-lh: 44rpx;

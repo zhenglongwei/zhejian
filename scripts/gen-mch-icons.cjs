@@ -128,6 +128,7 @@ function canvas(size) {
 const SIZE = 96
 const C = {
   gray: [113, 128, 150, 255],
+  ink: [31, 35, 41, 255],
   blue: [18, 105, 242, 255],
   white: [255, 255, 255, 255],
   amber: [182, 107, 0, 255],
@@ -278,6 +279,43 @@ function drawCheck(color) {
   return g.px
 }
 
+function drawDoc(color) {
+  const g = canvas(SIZE)
+  g.roundRect(26, 16, 44, 64, 6, color, 5)
+  g.stroke(36, 36, 60, 36, color, 4)
+  g.stroke(36, 50, 60, 50, color, 4)
+  g.stroke(36, 64, 52, 64, color, 4)
+  return g.px
+}
+
+function drawCamera(color) {
+  const g = canvas(SIZE)
+  g.roundRect(16, 32, 64, 44, 8, color, 5)
+  g.stroke(34, 32, 40, 22, color, 5)
+  g.stroke(40, 22, 58, 22, color, 5)
+  g.stroke(58, 22, 64, 32, color, 5)
+  g.circle(48, 54, 12, color, 5)
+  return g.px
+}
+
+function drawPhone(color) {
+  const g = canvas(SIZE)
+  g.stroke(28, 62, 40, 50, color, 6)
+  g.stroke(40, 50, 46, 56, color, 6)
+  g.stroke(46, 56, 62, 40, color, 6)
+  g.stroke(62, 40, 70, 28, color, 6)
+  g.stroke(22, 68, 34, 68, color, 6)
+  g.stroke(64, 22, 74, 22, color, 6)
+  return g.px
+}
+
+function drawPlus(color) {
+  const g = canvas(SIZE)
+  g.stroke(48, 22, 48, 74, color, 8)
+  g.stroke(22, 48, 74, 48, color, 8)
+  return g.px
+}
+
 const outDir = path.join(__dirname, '..', 'assets', 'mch')
 fs.mkdirSync(outDir, { recursive: true })
 
@@ -294,6 +332,14 @@ const files = {
   'car-blue.png': drawCar(C.blue),
   'clock-amber.png': drawClock(C.amber),
   'check-green.png': drawCheck(C.green),
+  'check-blue.png': drawCheck(C.blue),
+  'check-white.png': drawCheck(C.white),
+  'clock-gray.png': drawClock(C.gray),
+  'doc-blue.png': drawDoc(C.blue),
+  'camera-gray.png': drawCamera(C.gray),
+  'phone-ink.png': drawPhone(C.ink),
+  'plus-white.png': drawPlus(C.white),
+  'spark-white.png': drawSpark(C.white),
   'pencil-blue.png': drawPencil(C.blue),
   'pencil-white.png': drawPencil(C.white),
   'scan-blue.png': drawScan(C.blue),

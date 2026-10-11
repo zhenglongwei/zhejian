@@ -133,9 +133,9 @@
             bindtap="onOpenOverview"
           >
             <view class="ov-doc__icon">
-              <image wx:if="{{item.tone === 'ok'}}" src="/assets/mch/check-green.png" mode="aspectFit" />
-              <image wx:elif="{{item.tone === 'live'}}" src="/assets/mch/pencil-blue.png" mode="aspectFit" />
-              <image wx:else src="/assets/mch/clock-amber.png" mode="aspectFit" />
+              <image wx:if="{{item.tone === 'ok'}}" src="/assets/mch/check-blue.png" mode="aspectFit" />
+              <image wx:elif="{{item.tone === 'live'}}" src="/assets/mch/doc-blue.png" mode="aspectFit" />
+              <image wx:else src="/assets/mch/clock-gray.png" mode="aspectFit" />
             </view>
             <text class="ov-doc__name">{{item.title}}</text>
             <text class="ov-doc__label">{{item.label}}</text>
@@ -146,7 +146,10 @@
           <text class="ov-sec__kicker">全过程留证</text>
           <view class="ov-sec__row">
             <text class="ov-sec__title">服务时间线</text>
-            <text class="ov-sec__count">{{overview.records}} 份记录</text>
+            <view class="ov-sec__count">
+              <image src="/assets/mch/tab-albums.png" mode="aspectFit" />
+              <text>{{overview.records}} 份记录</text>
+            </view>
           </view>
         </view>
 
@@ -154,7 +157,7 @@
           <view wx:for="{{overview.rows}}" wx:key="key" class="ov-row ov-row--{{item.state}}">
             <view class="ov-row__rail">
               <view class="ov-row__dot">
-                <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-green.png" mode="aspectFit" />
+                <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-white.png" mode="aspectFit" />
                 <text wx:else>{{item.index}}</text>
               </view>
               <view wx:if="{{index < overview.rows.length - 1}}" class="ov-row__bar" />
@@ -166,8 +169,13 @@
               </view>
               <text class="ov-row__detail">{{item.detail}}</text>
               <view wx:if="{{item.advice}}" class="ov-advice">
-                <text class="ov-advice__kicker">AI 技师意见</text>
-                <text class="ov-advice__text">{{item.advice}}</text>
+                <view class="ov-advice__mark">
+                  <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+                </view>
+                <view class="ov-advice__body">
+                  <text class="ov-advice__kicker">AI 技师意见</text>
+                  <text class="ov-advice__text">{{item.advice}}</text>
+                </view>
               </view>
               <view wx:if="{{item.shots.length || item.canAddShot}}" class="ov-shots">
                 <view wx:for="{{item.shots}}" wx:for-item="shot" wx:key="url" class="ov-shot">
@@ -181,6 +189,7 @@
                   data-state="current"
                   catchtap="onOpenOverview"
                 >
+                  <image src="/assets/mch/camera-gray.png" mode="aspectFit" />
                   <text>添加留证</text>
                 </view>
               </view>
@@ -189,14 +198,20 @@
         </view>
 
         <view class="ov-foot">
-          <view class="ov-call" bindtap="onCallOwner">联系车主</view>
+          <view class="ov-call" bindtap="onCallOwner">
+            <image src="/assets/mch/phone-ink.png" mode="aspectFit" />
+            <text>联系车主</text>
+          </view>
           <view
             wx:if="{{overview.action}}"
             class="ov-go"
             data-id="{{overview.actionId}}"
             data-state="current"
             bindtap="onOpenOverview"
-          >{{overview.action}}</view>
+          >
+            <image wx:if="{{overview.action === '补充施工记录'}}" src="/assets/mch/plus-white.png" mode="aspectFit" />
+            <text>{{overview.action}}</text>
+          </view>
         </view>
       </view>
     </block>
