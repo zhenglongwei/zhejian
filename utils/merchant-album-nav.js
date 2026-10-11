@@ -1,8 +1,6 @@
 const MERCHANT_ALBUM_EDIT_PAGE = '/packageMerchant/pages/album/edit/index'
 const MERCHANT_ALBUM_FLOW_PAGE = '/packageMerchant/pages/album/flow/index'
 const MERCHANT_ALBUM_INVITE_PAGE = '/packageMerchant/pages/album/invite/index'
-const { usesFlowTimeline } = require('./service-flow-display')
-
 function resolveAlbumHasOwner(album = {}) {
   if (album.hasOwner === true) return true
   return (
@@ -11,8 +9,8 @@ function resolveAlbumHasOwner(album = {}) {
   )
 }
 
-function resolveMerchantAlbumEditPage(album = {}) {
-  return usesFlowTimeline(album) ? MERCHANT_ALBUM_FLOW_PAGE : MERCHANT_ALBUM_EDIT_PAGE
+function resolveMerchantAlbumEditPage() {
+  return MERCHANT_ALBUM_FLOW_PAGE
 }
 
 function buildMerchantAlbumEntryPath(albumId, album = {}, options = {}) {

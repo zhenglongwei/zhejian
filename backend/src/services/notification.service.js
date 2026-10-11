@@ -586,9 +586,9 @@ async function notifyAuthorizationSubmitted(albumId, agreed) {
     content: `${album.serviceName || '服务相册'}等待平台审核。`,
     refType: 'album',
     refId: album.id,
-    jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
+    jumpPath: `/packageMerchant/pages/album/flow/index?albumId=${album.id}`,
     wechatTemplateKey: 'audit',
-    wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
+    wechatPage: `packageMerchant/pages/album/flow/index?albumId=${album.id}`,
     wechatPayload: {
       caseNo,
       auditStatus: '待审核',
@@ -620,7 +620,7 @@ async function notifyAuthorizationWithdrawn(albumId) {
     content: `${album.serviceName || '服务相册'}不再公开展示。`,
     refType: 'album',
     refId: album.id,
-    jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
+    jumpPath: `/packageMerchant/pages/album/flow/index?albumId=${album.id}`,
   })
 }
 
@@ -706,9 +706,9 @@ async function notifyCaseAuditResult({
       : truncate(comment || '请按审核意见修改相册与案例稿后，再次生成案例送审。', 120),
     refType: 'album',
     refId: album.id,
-    jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
+    jumpPath: `/packageMerchant/pages/album/flow/index?albumId=${album.id}`,
     wechatTemplateKey: 'audit',
-    wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
+    wechatPage: `packageMerchant/pages/album/flow/index?albumId=${album.id}`,
     wechatPayload: merchantAuditPayload,
   })
 }

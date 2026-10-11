@@ -601,9 +601,7 @@ Page({
     }
     if (!this.albumId) return
     wx.navigateTo({
-      url: `/packageMerchant/pages/album/edit/index?albumId=${encodeURIComponent(
-        this.albumId,
-      )}&itemKey=${encodeURIComponent(key)}`,
+      url: `/packageMerchant/pages/album/flow/index?albumId=${encodeURIComponent(this.albumId)}`,
     })
   },
 

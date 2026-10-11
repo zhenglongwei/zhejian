@@ -197,6 +197,22 @@
           </view>
         </view>
 
+        <view wx:if="{{!readOnly && needManualComplete}}" class="ov-extra">
+          <ui-button
+            type="primary"
+            block="{{true}}"
+            loading="{{completing}}"
+            bind:btntap="onCompleteAlbum"
+          >标记整单完工</ui-button>
+        </view>
+        <view wx:if="{{showHostEntry}}" class="ov-extra">
+          <ui-button
+            type="primary"
+            block="{{true}}"
+            bind:btntap="onGoHostAlbum"
+          >{{hosted ? '管理托管' : '托管到案例站'}}</ui-button>
+        </view>
+
         <view class="ov-foot">
           <view class="ov-call" bindtap="onCallOwner">
             <image src="/assets/mch/phone-ink.png" mode="aspectFit" />
@@ -215,36 +231,15 @@
         </view>
       </view>
     </block>
-    <block wx:else>
-    <view class="ov-editor-bar" style="padding-top: {{statusBarHeight}}px;">
-      <view class="ov-editor-bar__row" style="padding-right: {{capsulePad}}px;">
-        <text class="ov-back" bindtap="onBackToOverview">‹</text>
-        <text class="ov-editor-bar__title">{{activeTitle || '服务进度'}}</text>
-      </view>
-    </view>
-    <view class="page-content merchant-flow-page__body">
-        <view class="merchant-flow-page__hero">
-          <view class="merchant-flow-page__hero-top">
-            <view class="merchant-flow-page__hero-heading">
-              <text class="text-h3">{{serviceName}}</text>
-              <text wx:if="{{vehicleLine}}" class="text-caption merchant-flow-page__hero-vehicle">{{vehicleLine}}</text>
-            </view>
-            <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
-          </view>
+    <view wx:if="{{workOpen}}" class="ov-work">
+      <view class="ov-work__bar" style="padding-top: {{statusBarHeight}}px;">
+        <view class="ov-work__row" style="padding-right: {{capsulePad}}px;">
+          <text class="ov-back" bindtap="onCloseWork">‹</text>
+          <text class="ov-work__title">{{workTitle}}</text>
         </view>
-
-        <flow-stepper
-          completedSteps="{{completedSteps}}"
-          activeTitle="{{activeTitle}}"
-          activeSummary="{{activeSummary}}"
-          activeCategory="{{activeCategory}}"
-          progressLabel="{{progressLabel}}"
-          showActive="{{showActive}}"
-          lockedHint="{{lockedHint}}"
-          expandedCompletedId="{{expandedCompletedId}}"
-          bind:completedtap="onCompletedTap"
-        >
-          <view slot="active" class="merchant-flow-page__active">
+      </view>
+      <scroll-view scroll-y class="ov-work__body" show-scrollbar="{{false}}">
+          <view class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">问诊登记</text>
@@ -1442,26 +1437,34 @@
               </view>
             </block>
           </view>
-        </flow-stepper>
-
-        <view wx:if="{{!readOnly && needManualComplete}}" class="merchant-flow-page__footer-actions">
-          <ui-button
-            type="primary"
-            block="{{true}}"
-            loading="{{completing}}"
-            bind:btntap="onCompleteAlbum"
-          >标记整单完工</ui-button>
-        </view>
-
-        <view wx:if="{{showHostEntry}}" class="merchant-flow-page__footer-actions">
-          <ui-button
-            type="primary"
-            block="{{true}}"
-            bind:btntap="onGoHostAlbum"
-          >{{hosted ? (hostVisibility === 'public' ? '管理托管' : '管理托管') : '托管到案例站'}}</ui-button>
+      </scroll-view>
+    </view>
+    <view wx:if="{{doneView}}" class="ov-work">
+      <view class="ov-work__bar" style="padding-top: {{statusBarHeight}}px;">
+        <view class="ov-work__row" style="padding-right: {{capsulePad}}px;">
+          <text class="ov-back" bindtap="onCloseDone">‹</text>
+          <text class="ov-work__title">{{doneView.title}}</text>
         </view>
       </view>
-    </block>
+      <scroll-view scroll-y class="ov-work__body" show-scrollbar="{{false}}">
+        <service-doc-sheet wx:if="{{doneView.mode === 'doc'}}" doc="{{doneView.sheetDoc}}" mode="merchant" />
+        <view wx:else class="ov-done">
+          <text wx:if="{{doneView.complaint}}" class="ov-done__line">{{doneView.complaint}}</text>
+          <view wx:if="{{doneView.images.length}}" class="ov-done__photos">
+            <image
+              wx:for="{{doneView.images}}"
+              wx:key="url"
+              class="ov-done__photo"
+              src="{{item.url}}"
+              mode="aspectFill"
+              data-url="{{item.url}}"
+              bindtap="onPreviewDonePhoto"
+            />
+          </view>
+          <text class="ov-done__count">共 {{doneView.photoCount}} 张</text>
+        </view>
+      </scroll-view>
+    </view>
   </block>
 
   <view wx:if="{{showLibrary}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseLibrary">

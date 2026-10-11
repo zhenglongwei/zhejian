@@ -352,6 +352,9 @@ Page({
     errorMessage: '',
     showOverview: true,
     overview: null,
+    workOpen: false,
+    workTitle: '',
+    doneView: null,
     statusBarHeight: 20,
     capsulePad: 16,
     albumId: '',
@@ -1774,24 +1777,7 @@ Page({
         deliveryPickMode,
         overview: buildMerchantAlbumOverview(album, flowNodes),
       })
-      const focusId = !options.silent ? String(this._focusNodeId || '').trim() : ''
-      if (focusId) {
-        this._focusNodeId = ''
-        const isActive = Boolean(active && active.id === focusId)
-        const inCompleted = (completedSteps || []).some((step) => step && step.id === focusId)
-        const quoteOnReport = Boolean(
-          active &&
-            active.kind === 'inspection_report' &&
-            focusId &&
-            focusId === this._quoteNodeId,
-        )
-        if (isActive || inCompleted || quoteOnReport) {
-          this.setData({
-            showOverview: false,
-            expandedCompletedId: isActive || quoteOnReport ? '' : focusId,
-          })
-        }
-      }
+      this._focusNodeId = ''
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
       this.resumeQuoteAssistPoll()
@@ -1824,7 +1810,24 @@ Page({
   },
 
   onBackToOverview() {
-    this.setData({ showOverview: true })
+    this.setData({ workOpen: false, doneView: null })
+  },
+
+  onCloseWork() {
+    this.setData({ workOpen: false })
+  },
+
+  onCloseDone() {
+    this.setData({ doneView: null })
+  },
+
+  workTitleFor(id) {
+    const overview = this.data.overview || {}
+    const row = (overview.rows || []).find((item) => item && item.nodeId === id)
+    if (row && row.title) return row.title
+    const doc = (overview.docs || []).find((item) => item && item.nodeId === id)
+    if (doc && doc.title) return doc.title
+    return '这一步'
   },
 
   onOpenOverview(e) {
@@ -1834,10 +1837,48 @@ Page({
       wx.showToast({ title: '还没到这一步', icon: 'none' })
       return
     }
+    if (state === 'done') {
+      this.openDoneReview(id)
+      return
+    }
+    this.setData({ workOpen: true, workTitle: this.workTitleFor(id), doneView: null })
+  },
+
+  openDoneReview(nodeId) {
+    const node = (this._flowNodes || []).find((item) => item && item.id === nodeId)
+    if (!node) return
+    const preview = mapCompletedStepPreview({ id: nodeId, summary: '' }, node, this._album || {})
+    if (preview.detailKind === 'doc_sheet' && preview.sheetDoc) {
+      this.setData({
+        workOpen: false,
+        doneView: {
+          mode: 'doc',
+          title: preview.sheetDoc.title || this.workTitleFor(nodeId),
+          sheetDoc: preview.sheetDoc,
+        },
+      })
+      return
+    }
+    const images = (Array.isArray(preview.previewImages) ? preview.previewImages : [])
+      .map((img) => (typeof img === 'string' ? { url: img } : { url: String((img && img.url) || '') }))
+      .filter((img) => img.url)
     this.setData({
-      showOverview: false,
-      expandedCompletedId: state === 'done' ? id : '',
+      workOpen: false,
+      doneView: {
+        mode: 'photos',
+        title: this.workTitleFor(nodeId),
+        complaint: preview.chiefComplaint || '',
+        images,
+        photoCount: Number(preview.photoCount) || images.length,
+      },
     })
+  },
+
+  onPreviewDonePhoto(e) {
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '')
+    const urls = ((this.data.doneView && this.data.doneView.images) || []).map((img) => img.url).filter(Boolean)
+    if (!url || !urls.length) return
+    wx.previewImage({ current: url, urls })
   },
 
   onCallOwner() {

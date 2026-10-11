@@ -2113,6 +2113,75 @@
   height: 40rpx;
 }
 
+.ov-extra {
+  margin-top: 24rpx;
+}
+
+.ov-work {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-mch-bg);
+}
+
+.ov-work__bar {
+  flex: none;
+  background: var(--color-bg-card);
+}
+
+.ov-work__row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-height: 88rpx;
+  padding-left: 16rpx;
+}
+
+.ov-work__title {
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h3-lh);
+  color: var(--color-text-primary);
+}
+
+.ov-work__body {
+  flex: 1;
+  height: 0;
+  padding: 24rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.ov-done {
+  padding-top: 8rpx;
+}
+
+.ov-done__line,
+.ov-done__count {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.ov-done__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin: 16rpx 0;
+}
+
+.ov-done__photo {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
 .ov-foot {
   position: fixed;
   left: 0;

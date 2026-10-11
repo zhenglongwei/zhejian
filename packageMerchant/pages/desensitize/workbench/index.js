@@ -132,7 +132,7 @@ Page({
     const albumId = this.data.albumId
     if (albumId) {
       wx.redirectTo({
-        url: `/packageMerchant/pages/album/edit/index?albumId=${albumId}`,
+        url: `/packageMerchant/pages/album/flow/index?albumId=${albumId}`,
       })
       return
     }
@@ -281,7 +281,7 @@ Page({
       setTimeout(() => {
         if (this.data.from === 'album_edit') {
           wx.redirectTo({
-            url: `/packageMerchant/pages/album/edit/index?albumId=${this.data.albumId}&refresh=1`,
+            url: `/packageMerchant/pages/album/flow/index?albumId=${this.data.albumId}`,
           })
         } else if (this.data.from === 'album_create') {
           wx.navigateBack({ delta: 2 })
