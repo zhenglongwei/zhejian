@@ -1,19 +1,7 @@
 <view class="mch-albums {{createOpen ? 'is-blurred' : ''}}" style="padding-top: {{statusBarHeight}}px;">
   <view class="mch-top" style="padding-right: {{capsulePad}}px;">
-    <text class="mch-kicker">服务相册</text>
-    <view class="mch-brand">相册列表</view>
-  </view>
-
-  <view class="mch-search">
-    <ui-search-bar
-      value="{{keyword}}"
-      placeholder="车牌 / 车型 / 手机号"
-      showSearch="{{true}}"
-      bind:input="onKeywordInput"
-      bind:confirm="onKeywordSearch"
-      bind:search="onKeywordSearch"
-      bind:clear="onKeywordClear"
-    />
+    <text class="mch-kicker">真实记录 · 长期沉淀</text>
+    <view class="mch-brand">服务相册</view>
   </view>
 
   <view class="mch-chips">
@@ -23,7 +11,19 @@
       class="mch-chip {{tab === item.key ? 'is-on' : ''}}"
       data-key="{{item.key}}"
       bindtap="onChip"
-    >{{item.label}}</text>
+    >{{item.label}} {{item.count}}</text>
+  </view>
+
+  <view class="mch-search">
+    <ui-search-bar
+      value="{{keyword}}"
+      placeholder="搜索车牌、车型或车主手机号"
+      showSearch="{{false}}"
+      bind:input="onKeywordInput"
+      bind:confirm="onKeywordSearch"
+      bind:search="onKeywordSearch"
+      bind:clear="onKeywordClear"
+    />
   </view>
 
   <view wx:if="{{status === 'loading'}}" class="mch-albums__state">加载中</view>
@@ -43,33 +43,24 @@
       data-id="{{item.albumId}}"
       bindtap="onCardTap"
     >
-      <view class="mch-card__top">
-        <view class="mch-card__mark mch-card__mark--{{item.pillTone}}">
-          <image class="mch-card__ico" src="{{item.markIcon}}" mode="aspectFit" />
-        </view>
-        <view class="mch-card__main">
+      <view class="mch-thumb mch-thumb--{{item.thumbTone}}">
+        <image class="mch-thumb__car" src="/assets/mch/car-white.png" mode="aspectFit" />
+        <text class="mch-thumb__count">{{item.imageCount}} 条留证</text>
+      </view>
+      <view class="mch-card__main">
+        <view class="mch-card__head">
           <text class="mch-card__plate">{{item.plate}}</text>
-          <text class="mch-card__sub">{{item.subLine}}</text>
+          <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
         </view>
-        <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
-      </view>
-      <view class="mch-track"><view class="mch-track__bar" style="width: {{item.progress}}%;" /></view>
-      <view class="mch-steps">
-        <view
-          wx:for="{{item.steps}}"
-          wx:for-item="step"
-          wx:key="label"
-          class="mch-step {{step.state === 'done' || step.state === 'current' ? 'is-on' : ''}}"
-        >
-          <text wx:if="{{step.state === 'done'}}" class="mch-step__mark">✓</text>
-          <text wx:else class="mch-step__dot" />
-          <text>{{step.label}}</text>
+        <text wx:if="{{item.titleLine}}" class="mch-card__title">{{item.titleLine}}</text>
+        <text wx:if="{{item.metaLine}}" class="mch-card__meta">{{item.metaLine}}</text>
+        <view class="mch-track">
+          <view class="mch-track__bar mch-track__bar--{{item.pillTone}}" style="width: {{item.progress}}%;" />
+        </view>
+        <view wx:if="{{item.chips.length}}" class="mch-tags">
+          <text wx:for="{{item.chips}}" wx:for-item="chip" wx:key="*this" class="mch-tag">{{chip}}</text>
         </view>
       </view>
-      <text wx:if="{{item.reviewLine}}" class="mch-card__review">{{item.reviewLine}}</text>
-    </view>
-    <view class="mch-albums__create">
-      <ui-button type="primary" block bind:btntap="onCreate">新建服务相册</ui-button>
     </view>
   </block>
 </view>

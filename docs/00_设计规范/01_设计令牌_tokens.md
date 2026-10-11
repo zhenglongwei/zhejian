@@ -120,6 +120,10 @@ page {
   --color-mch-hero-end: #12a2f3;
   --color-mch-card-start: #0e458c;
   --color-mch-card-end: #165eae;
+  /* 相册列表留证块：待确认偏灰，已交车深灰。不要用门店卡的蓝。 */
+  --color-mch-thumb-gray: #6a6e74;
+  --color-mch-thumb-gray-deep: #3a3e44;
+  --color-mch-thumb-badge: rgba(22, 24, 28, 0.42);
   --color-mch-glass: rgba(255, 255, 255, 0.16);
   --color-mch-on-card: #d7e6f8;
   --color-mch-on-card-green: #c8f6e2;

@@ -32,6 +32,7 @@ const {
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
+const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
@@ -170,15 +171,6 @@ function buildSheetMetaLine(payload = {}, album = {}) {
   return parts.join(' · ')
 }
 
-/** 商家时间线：步号写在标题上，不用顶部「第 n / 总步数」 */
-function withFlowStepOrdinal(title, stepNo) {
-  const t = String(title || '').trim()
-  const n = Number(stepNo)
-  if (!t || !Number.isFinite(n) || n < 1) return t
-  if (/^第\s*\d+\s*步/.test(t)) return t
-  return `第${n}步 · ${t}`
-}
-
 function mapCompletedStepPreview(step, node, album = {}) {
   const base = {
     ...step,
@@ -233,7 +225,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
       summary,
       sheetDoc: {
         kind,
-        title: node.title || '检测报告',
+        title: merchantDocTitle(kind) || '检测报告',
         statusLabel: summary,
         storeName,
         metaLine,
@@ -250,10 +242,8 @@ function mapCompletedStepPreview(step, node, album = {}) {
       ? payload.lines.map((line) => normalizeQuoteLine(line)).filter((row) => String(row.name || '').trim())
       : []
     const total = sumQuoteAmounts(lines)
-    const sheetTitle =
-      node.insertedReason === 'addon'
-        ? '施工中新发现'
-        : node.title || '方案确认'
+    const sheetTitle = merchantDocTitle(kind) || '报价单'
+    const docStatus = String((node.document && node.document.status) || '')
     const statusLabel =
       String((node.document && node.document.status) || '') === 'cancelled'
         ? '门店已取消'
@@ -270,6 +260,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
         kind,
         title: sheetTitle,
         statusLabel,
+        sealed: docStatus === 'confirmed',
         storeName,
         metaLine,
         styleVariant: 'document',
@@ -304,7 +295,8 @@ function mapCompletedStepPreview(step, node, album = {}) {
       summary,
       sheetDoc: {
         kind,
-        title: node.title || '完工确认',
+        title: merchantDocTitle(kind) || '交车报告',
+        sealed: String((node.document && node.document.status) || '') === 'confirmed',
         statusLabel: summary === '草稿' ? '' : summary,
         storeName,
         metaLine,
@@ -1315,13 +1307,11 @@ Page({
       flowNodes.forEach((node) => {
         if (node && node.id) nodeById[node.id] = node
       })
-      const completedSteps = (progress.completedSteps || []).map((step, index) => {
-        const preview = mapCompletedStepPreview(step, nodeById[step.id], album)
-        return {
-          ...preview,
-          title: withFlowStepOrdinal(preview.title || step.title, index + 1),
-        }
-      })
+      const completedPreview = (progress.completedSteps || []).map((step) =>
+        mapCompletedStepPreview(step, nodeById[step.id], album),
+      )
+      const timeline = presentMerchantTimeline(completedPreview, active)
+      const completedSteps = timeline.completed
 
       let findings = []
       let chiefComplaint = ''
@@ -1589,14 +1579,7 @@ Page({
       } else if (isIntakePhotoStep || isDeliveryPhotoStep) {
         activeSummary = ''
       }
-      const activeTitleRaw = showCombinedPlan
-        ? '核对报告与方案'
-        : isAddonQuote
-          ? '施工中新发现'
-          : (active && active.title) || ''
-      const activeTitle = active
-        ? withFlowStepOrdinal(activeTitleRaw, completedSteps.length + 1)
-        : ''
+      const activeTitle = timeline.activeTitle
 
       const albumVehicle = (album && album.vehicle) || {}
       const mileageKm = isIntakePhotoStep

@@ -317,6 +317,10 @@
   color: var(--color-text-secondary);
 }
 
+.service-doc-sheet__seal {
+  color: var(--color-text-tertiary);
+}
+
 .service-doc-sheet__reject {
   margin-top: var(--space-sm);
 }

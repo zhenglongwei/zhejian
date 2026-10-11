@@ -230,6 +230,8 @@
     <text class="service-doc-sheet__protocol-text">{{doc.confirmCopy}}</text>
   </view>
 
+  <text wx:if="{{doc.sealed}}" class="text-caption service-doc-sheet__seal">数据不可篡改</text>
+
   <ui-button
     wx:if="{{mode === 'owner' && doc.needsConfirm}}"
     type="primary"

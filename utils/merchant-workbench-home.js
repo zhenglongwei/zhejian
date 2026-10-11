@@ -52,6 +52,73 @@ const MARK_ICON = {
   green: '/assets/mch/check-green.png',
 }
 
+function dottedPlate(plate) {
+  const raw = String(plate || '').replace(/[·.\s]/g, '')
+  if (!raw || raw === '未登记车牌' || raw.length < 3) return raw || '未登记车牌'
+  return `${raw.slice(0, 2)}·${raw.slice(2)}`
+}
+
+function clockText(date) {
+  const h = date.getHours()
+  const m = date.getMinutes()
+  return `${h < 10 ? `0${h}` : h}:${m < 10 ? `0${m}` : m}`
+}
+
+function whenText(iso, now) {
+  const ms = timeOf(iso)
+  if (!ms) return ''
+  const date = new Date(ms)
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  if (ms >= start) return `今天 ${clockText(date)}`
+  if (ms >= start - 86400000) return '昨天'
+  return `${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+function reviewScoreText(line) {
+  const matched = String(line || '').match(/^(\d+(?:\.\d+)?)\s*分/)
+  return matched ? matched[1] : ''
+}
+
+function presentAlbumCard(item = {}, now = new Date()) {
+  const card = toCard(item)
+  const hub = item.hubCard || {}
+  const vehicle = item.vehicle || {}
+  const car = [vehicle.brand, vehicle.series].map((part) => String(part || '').trim()).filter(Boolean).join(' ')
+  const service = String(hub.serviceName || item.serviceName || '').trim()
+  const serviceOk = service && service !== '服务留档' && service !== '—'
+  const titleLine = [car, serviceOk ? service : ''].filter(Boolean).join(' · ') || card.modelLine
+  const when = whenText(card.repairDone ? card.completedAt || card.updatedAt : card.updatedAt, now)
+  let metaLine = when
+  if (card.repairDone) {
+    const score = reviewScoreText(item.reviewLine)
+    metaLine = [when, score ? `车主评价 ${score} 分` : ''].filter(Boolean).join(' · ')
+  } else if (!card.quotePending) {
+    const started = timeOf(hub.createdAt || item.createdAt)
+    const hours = started ? (now.getTime() - started) / 3600000 : 0
+    let duration = ''
+    if (hours > 0.2 && hours < 48) {
+      duration = hours < 10 ? `已进行 ${Math.round(hours * 10) / 10} 小时` : `已进行 ${Math.round(hours)} 小时`
+    }
+    metaLine = [when, duration].filter(Boolean).join(' · ')
+  }
+  const chips = []
+  if (card.quotePending && !card.repairDone) chips.push('等待确认')
+  if (card.repairDone) chips.push('已确认报告')
+  if (card.publicOnSite) chips.push('可公开')
+  return {
+    ...card,
+    plate: dottedPlate(card.plate),
+    titleLine,
+    metaLine,
+    chips,
+    imageCount: Number(item.imageCount) || 0,
+    thumbTone: card.repairDone ? 'ink' : card.quotePending ? 'gray' : 'blue',
+    hostedSiteUrl: item.hostedSiteUrl || '',
+    hasOwner: Boolean(item.hasOwner),
+    status: item.status || '',
+  }
+}
+
 function toCard(item = {}) {
   const hub = item.hubCard || fallbackHub(item)
   const modelLine = String(hub.modelLine || item.serviceName || '').trim()
@@ -113,4 +180,5 @@ function buildWorkbenchHome(list, now = new Date()) {
 module.exports = {
   buildWorkbenchHome,
   toCard,
+  presentAlbumCard,
 }

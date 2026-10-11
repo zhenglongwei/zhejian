@@ -20,7 +20,7 @@ const {
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { buildMerchantAlbumEntryPath } = require('../../../../utils/merchant-album-nav')
 const { openH5Url } = require('../../../../constants/h5-links')
-const { toCard } = require('../../../../utils/merchant-workbench-home')
+const { presentAlbumCard } = require('../../../../utils/merchant-workbench-home')
 
 function matchesListTab(card, tab) {
   if (tab === 'done') return Boolean(card.repairDone)
@@ -33,7 +33,7 @@ Page({
   data: {
     status: 'loading',
     list: [],
-    statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS,
+    statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS.map((tab) => ({ ...tab, count: 0 })),
     tab: 'all',
     keyword: '',
     errorMessage: '',
@@ -108,20 +108,23 @@ Page({
     try {
       const keyword = String(this.data.keyword || '').trim()
       const raw = await fetchMerchantServiceAlbumList({
-        tab: this.data.tab,
+        tab: 'all',
         q: keyword || undefined,
       })
-      const list = (raw || [])
-        .map((item) => ({
-          ...toCard(item),
-          reviewLine: item.reviewLine || '',
-          hostedSiteUrl: item.hostedSiteUrl || '',
-          hasOwner: Boolean(item.hasOwner),
-          status: item.status || '',
-        }))
-        .filter((card) => matchesListTab(card, this.data.tab))
+      const cards = (raw || []).map((item) => presentAlbumCard(item))
+      const counts = {
+        all: cards.length,
+        active: cards.filter((card) => !card.repairDone).length,
+        confirm: cards.filter((card) => card.quotePending && !card.repairDone).length,
+        done: cards.filter((card) => card.repairDone).length,
+      }
+      const list = cards.filter((card) => matchesListTab(card, this.data.tab))
       this.setData({
         list,
+        statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS.map((tab) => ({
+          ...tab,
+          count: counts[tab.key] || 0,
+        })),
         status: list.length ? 'normal' : 'empty',
       })
     } catch (e) {

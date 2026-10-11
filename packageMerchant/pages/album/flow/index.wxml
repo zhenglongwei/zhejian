@@ -899,7 +899,7 @@
                 <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
                   <view class="merchant-flow-page__sheet-title-row">
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
-                    <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
+                    <text class="text-body merchant-flow-page__sheet-title">报价单</text>
                   </view>
                   <text wx:if="{{quoteDraftHint}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
@@ -1103,7 +1103,7 @@
                 <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
                   <view class="merchant-flow-page__sheet-title-row">
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
-                    <text class="text-body merchant-flow-page__sheet-title">{{isAddonQuote ? '项目与费用' : '方案与费用'}}</text>
+                    <text class="text-body merchant-flow-page__sheet-title">报价单</text>
                   </view>
                   <text wx:if="{{quoteDraftHint && !isAddonQuote}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
@@ -1238,7 +1238,7 @@
                   >发送车主确认</ui-button>
                 </block>
                 <block wx:else>
-                  <text class="text-caption text-secondary merchant-flow-page__await-hint">等待车主确认</text>
+                  <text class="text-caption text-secondary merchant-flow-page__await-hint">等待确认</text>
                   <ui-button
                     type="secondary"
                     block="{{true}}"
@@ -1265,6 +1265,7 @@
             </block>
 
             <block wx:elif="{{activeKind === 'repair_report'}}">
+              <text class="text-body merchant-flow-page__label">交车报告</text>
               <text wx:if="{{ownerRejectReason && !confirmAwaitingOwner}}" class="text-caption text-secondary">车主未同意。{{ownerRejectReason}}</text>
               <view class="merchant-flow-page__doc-block">
                 <text class="text-caption text-secondary">已施工项目</text>
@@ -1314,7 +1315,7 @@
                   >发送车主确认</ui-button>
                 </block>
                 <block wx:else>
-                  <text class="text-caption text-secondary merchant-flow-page__await-hint">等待车主确认</text>
+                  <text class="text-caption text-secondary merchant-flow-page__await-hint">等车主确认交车</text>
                   <ui-button
                     type="secondary"
                     block="{{true}}"
