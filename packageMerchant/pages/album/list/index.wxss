@@ -8,5 +8,9 @@
 
 .merchant-list-fab {
   padding-top: var(--space-md);
-  padding-bottom: var(--space-lg);
+  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
+}
+
+.mch-tab-spacer {
+  height: 24rpx;
 }

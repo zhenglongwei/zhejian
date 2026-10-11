@@ -1,0 +1,48 @@
+page {
+  background: var(--color-mch-bg);
+}
+
+.mch-store {
+  padding: 32rpx 32rpx calc(160rpx + env(safe-area-inset-bottom));
+  color: var(--color-mch-ink);
+}
+
+.mch-store__head {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-mch-card);
+  padding: 32rpx;
+  box-shadow: var(--shadow-mch-card);
+}
+
+.mch-store__name {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.mch-store__addr {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--color-mch-muted);
+  font-size: 24rpx;
+}
+
+.mch-store__actions {
+  display: flex;
+  gap: 32rpx;
+  margin-top: 24rpx;
+}
+
+.mch-store__link {
+  color: var(--color-mch-blue);
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.mch-store__row {
+  margin-top: 16rpx;
+  background: var(--color-bg-card);
+  border-radius: 28rpx;
+  padding: 28rpx 32rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}

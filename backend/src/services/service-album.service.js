@@ -1490,6 +1490,16 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       usesFlowTimeline: Boolean(view.usesFlowTimeline),
       hosted: host.hosted,
       hostedSiteUrl: host.hostedSiteUrl,
+      hubCard: require('../utils/merchant-hub-card').buildMerchantHubCard({
+        status: view.status,
+        flowNodes: view.flowNodes,
+        vehicle: view.vehicle,
+        serviceName: view.serviceName,
+        publicCaseStatus: view.publicCaseStatus,
+        createdAt: view.createdAt,
+        completedAt: view.completedAt,
+        updatedAt: view.updatedAt,
+      }),
     }
   })
 }

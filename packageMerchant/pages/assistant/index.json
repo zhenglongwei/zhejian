@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "AI 助手",
+  "usingComponents": {
+    "merchant-tab-bar": "/components/merchant-tab-bar/index",
+    "ui-empty": "/components/empty/index"
+  }
+}

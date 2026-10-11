@@ -52,6 +52,7 @@ function buildFingerprint(album) {
         b: vehicle.vehicleBrand,
         s: vehicle.vehicleSeries,
         y: vehicle.vehicleYear,
+        m: text(draft.mileageKm),
       }),
     )
     .digest('hex')
@@ -81,15 +82,14 @@ async function runGenerateLlm(facts) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    '你是汽修店员的接车助手。根据主诉和车型给短意见，不要百科，不要编没听到的损伤。',
-    '四块不许互相复述。',
+    '你是汽修店员的接车助手。根据主诉、车型年款和当前里程给短意见，不要百科，不要编没听到的损伤。',
+    '三块不许互相复述。不要写怎么拍、不要写环车留证。',
     'askOwner：最多 4 条。每条一个短标题，options 2到4个可勾选项（短词，如「冷车启动」「过减速带」）。没有把握就不问。',
-    'diagnosis：最多三句，只说最可能什么问题。不要列部位清单，不要写怎么拍。',
-    'photoTips：进场环车留证。title 必须是下列之一：里程、油量、漆面、玻璃、轮胎、灯光、随车物品。写外表、仪表、随车物品怎么拍。禁止写机脚胶、摆臂、球头、衬套、吊耳、防尘套、半轴、举升、拆检。那些只能写在 checkpoints。最多 7 条，不必全写。',
-    'checkpoints：举升后检测顺序，按优先级从前到后。每条 partName + 一句 why（为什么先查）。不要写怎么拍，不要重复 diagnosis。最多 8 条。',
-    '车型年款按本车写。不要写模型名、不要写 AI。',
+    'diagnosis：最多三句，只说最可能什么问题。不要列部位清单。',
+    'checkpoints：举升后检测顺序，按优先级从前到后，结合年款和里程考虑耗材周期。每条 partName + 一句 why。不要写怎么拍，不要重复 diagnosis。最多 8 条。',
+    '车型年款、里程按本车写。不要写模型名、不要写 AI。',
     `本单：${JSON.stringify(facts)}`,
-    '输出 JSON：{"askOwner":[{"title","options":["",""]}],"diagnosis":"","photoTips":[{"title","body"}],"checkpoints":[{"partName","why","priority":1}]}',
+    '输出 JSON：{"askOwner":[{"title","options":["",""]}],"diagnosis":"","checkpoints":[{"partName","why","priority":1}]}',
   ].join('\n')
 
   for (const engine of engines) {
@@ -149,6 +149,7 @@ async function runIntakeAdviceJob(albumId) {
       vehicleBrand: vehicle.vehicleBrand,
       vehicleSeries: vehicle.vehicleSeries,
       vehicleYear: vehicle.vehicleYear,
+      mileageKm: text(draft.mileageKm),
     })
     await patchIntakeNode(albumId, (item) => ({
       ...item,
@@ -157,7 +158,7 @@ async function runIntakeAdviceJob(albumId) {
             status: 'ready',
             fingerprint,
             diagnosis: parsed.diagnosis,
-            photoTips: parsed.photoTips,
+            photoTips: [],
             askOwner: parsed.askOwner,
             checkpoints: parsed.checkpoints,
             errorMessage: '',
@@ -186,9 +187,20 @@ async function queueIntakeAdviceIfNeeded(album, merchantId) {
     (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
   )
   if (!intake) return { queued: false }
-  const complaint = text(intake.photoDraft && intake.photoDraft.chiefComplaint)
+  const draft = (intake && intake.photoDraft) || {}
+  const complaint = text(draft.chiefComplaint)
   if (!complaint) {
     const err = new Error('先写问诊登记')
+    err.status = 400
+    throw err
+  }
+  if (!text(draft.odometerUrl)) {
+    const err = new Error('请拍里程表')
+    err.status = 400
+    throw err
+  }
+  if (!text(draft.mileageKm)) {
+    const err = new Error('请填写当前里程')
     err.status = 400
     throw err
   }

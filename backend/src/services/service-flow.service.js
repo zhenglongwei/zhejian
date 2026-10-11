@@ -859,7 +859,23 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     { ...node, photoDraft: incomingDraft },
     nodes,
   )
-  if (photoCount < 1) {
+  if (node.kind === 'intake') {
+    if (!String(incomingDraft.chiefComplaint || '').trim()) {
+      const err = new Error('先写问诊登记')
+      err.status = 400
+      throw err
+    }
+    if (!String(incomingDraft.odometerUrl || '').trim()) {
+      const err = new Error('请拍里程表')
+      err.status = 400
+      throw err
+    }
+    if (!String(incomingDraft.mileageKm || '').trim()) {
+      const err = new Error('请填写当前里程')
+      err.status = 400
+      throw err
+    }
+  } else if (photoCount < 1) {
     const err = new Error(
       node.kind === 'delivery_photos'
         ? '请指定整车外观（从施工图选择或补拍）'

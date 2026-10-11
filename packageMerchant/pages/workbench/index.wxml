@@ -1,170 +1,146 @@
-<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
-  <block wx:if="{{status === 'loading'}}">
-    <view class="merchant-hub__pad">
-      <ui-skeleton rows="{{2}}" title="{{true}}" avatar="{{false}}" />
-      <view class="merchant-hub__sk-gap">
-        <ui-skeleton rows="{{4}}" title="{{false}}" />
+<view class="mch-home" style="padding-top: {{statusBarHeight}}px;">
+    <block wx:if="{{status === 'loading'}}">
+      <view class="merchant-hub__pad">
+        <ui-skeleton rows="{{2}}" title="{{true}}" avatar="{{false}}" />
+        <view class="merchant-hub__sk-gap">
+          <ui-skeleton rows="{{4}}" title="{{false}}" />
+        </view>
       </view>
-    </view>
-  </block>
+    </block>
 
-  <block wx:elif="{{status === 'pending'}}">
-    <view class="merchant-hub__gate">
-      <ui-empty
-        theme="album"
-        title="{{gatePending.title}}"
-        description="{{gatePending.description}}"
-        actionText="{{archiveIntent ? '开通后继续' : '进入工作台'}}"
-        bind:action="onQuickOpen"
-      />
-      <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
-        <text class="text-caption text-link">切换为车主</text>
-      </view>
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'none'}}">
-    <view class="merchant-hub__gate">
-      <ui-empty
-        theme="album"
-        title="{{gateNone.title}}"
-        description="{{gateNone.description}}"
-        actionText="一键开通"
-        bind:action="onQuickOpen"
-      />
-      <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
-        <text class="text-caption text-link">切换为车主</text>
-      </view>
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'guest'}}">
-    <view class="merchant-hub__gate">
-      <ui-empty
-        theme="album"
-        title="{{gateGuest.title}}"
-        description="{{gateGuest.description}}"
-        actionText="微信登录"
-        bind:action="onGuestLogin"
-      />
-      <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
-        <text class="text-caption text-link">切换为车主</text>
-      </view>
-    </view>
-  </block>
-
-  <block wx:else>
-      <view class="merchant-hub">
-      <view class="merchant-hub__folio surface-album-folio">
-        <ui-merchant-store-header
-          storeName="{{profile.storeName}}"
-          address="{{profile.address}}"
-          overviewLine="{{overviewLine}}"
-          planTag="{{planTag}}"
-          canManageStores="{{canManageStores}}"
-          showMessageEntry="{{false}}"
-          bind:openstores="onOpenStoreList"
-          bind:overviewtap="onOverviewTap"
-          bind:plantagtap="onPlanTagTap"
+    <block wx:elif="{{status === 'pending'}}">
+      <view class="merchant-hub__gate">
+        <ui-empty
+          theme="album"
+          title="{{gatePending.title}}"
+          description="{{gatePending.description}}"
+          actionText="{{archiveIntent ? '开通后继续' : '进入工作台'}}"
+          bind:action="onQuickOpen"
         />
+        <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
+          <text class="text-caption text-link">切换为车主</text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:elif="{{status === 'none'}}">
+      <view class="merchant-hub__gate">
+        <ui-empty
+          theme="album"
+          title="{{gateNone.title}}"
+          description="{{gateNone.description}}"
+          actionText="一键开通"
+          bind:action="onQuickOpen"
+        />
+        <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
+          <text class="text-caption text-link">切换为车主</text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:elif="{{status === 'guest'}}">
+      <view class="merchant-hub__gate">
+        <ui-empty
+          theme="album"
+          title="{{gateGuest.title}}"
+          description="{{gateGuest.description}}"
+          actionText="微信登录"
+          bind:action="onGuestLogin"
+        />
+        <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
+          <text class="text-caption text-link">切换为车主</text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="mch-top" style="padding-right: {{capsulePad}}px;">
+        <view>
+          <text class="mch-kicker">服务相册 · 商家端</text>
+          <view class="mch-brand">{{profile.storeName}}</view>
+        </view>
+        <view class="mch-bell" bindtap="onOpenMessage">消息</view>
       </view>
 
-      <view class="merchant-hub__main surface-album-panel">
-        <view class="merchant-hub__section-head">
-          <view class="surface-album-section-title-row">
-            <view class="surface-album-section-accent" aria-hidden="true" />
-            <text class="merchant-hub__section-title text-h3">{{albumSectionTitle}}</text>
-          </view>
-          <view class="merchant-hub__section-links">
-            <view class="merchant-hub__section-link" bindtap="onAlbumList">
-              <text class="merchant-hub__section-link-text text-caption text-link">全部</text>
-              <text wx:if="{{albumSectionBadge}}" class="merchant-hub__link-badge text-caption">{{albumSectionBadge}}</text>
-            </view>
-          </view>
-        </view>
-
-        <block wx:if="{{albumHeroCards.length}}">
-          <view class="merchant-hub__album-stack">
-            <ui-album-card
-              wx:for="{{albumHeroCards}}"
-              wx:key="albumId"
-              item="{{item}}"
-              audience="merchant"
-              showProgress="{{true}}"
-              showHeaderActions="{{false}}"
-              embedded="{{true}}"
-              data-id="{{item.albumId}}"
-              bind:tap="onAlbumCardTap"
-            />
-          </view>
-        </block>
-
-        <block wx:else>
-          <ui-empty
-            theme="album"
-            title="暂无服务相册"
-            description="{{albumEmptyHint}}"
-            actionText="新建服务相册"
-            bind:action="onCreateAlbum"
-          />
-        </block>
-
-        <block wx:if="{{todoSummary}}">
-          <view class="surface-album-inset-divider" />
-          <view class="merchant-hub__todo surface-album-todo">
-            <text class="merchant-hub__todo-headline text-body">{{todoSummary.headline}}</text>
-            <view class="merchant-hub__todo-list">
-              <view
-                wx:for="{{todoSummary.items}}"
-                wx:key="key"
-                class="merchant-hub__todo-item"
-                data-action="{{item.action}}"
-                bindtap="onTodoItemTap"
-              >
-                <text class="surface-album-todo-dot" />
-                <text class="text-caption">{{item.label}}</text>
-                <text class="merchant-hub__todo-arrow text-caption">›</text>
-              </view>
-            </view>
-          </view>
-        </block>
-
-        <block wx:if="{{geoOpportunity}}">
-          <view class="surface-album-inset-divider" />
-          <view class="merchant-hub__geo surface-album-hint-strip" bindtap="onAlbumList">
-            <text class="text-caption text-secondary">{{geoOpportunity.hint}}</text>
-          </view>
-        </block>
-
-        <view class="surface-album-inset-divider" />
-        <view class="merchant-hub__dock">
-          <view
-            wx:for="{{hubDock}}"
-            wx:key="key"
-            class="merchant-hub__dock-item"
-            data-key="{{item.key}}"
-            bindtap="onDockTap"
-          >
-            <view class="merchant-hub__dock-well surface-album-well">
-              <image class="merchant-hub__dock-icon nav-icon-tone-album" src="{{item.icon}}" mode="aspectFit" />
-              <text wx:if="{{item.badge}}" class="merchant-hub__dock-badge">{{item.badge}}</text>
-            </view>
-            <text class="merchant-hub__dock-label text-caption">{{item.label}}</text>
-          </view>
-        </view>
-
-        <view wx:if="{{hubMoreLinks.length}}" class="merchant-hub__more">
-          <block wx:for="{{hubMoreLinks}}" wx:key="key">
-            <text wx:if="{{index > 0}}" class="merchant-hub__more-sep text-caption text-tertiary">·</text>
-            <text
-              class="merchant-hub__more-link text-caption text-link"
-              data-key="{{item.key}}"
-              bindtap="onMoreLinkTap"
-            >{{item.label}}</text>
+      <view class="mch-hero">
+        <view class="mch-hero__copy">
+          <block wx:if="{{home.heroCount}}">
+            <view class="mch-hero__title">今天，有 <text class="mch-hero__em">{{home.heroCount}} 台车</text></view>
+            <view class="mch-hero__title">等待继续服务</view>
           </block>
+          <view wx:else class="mch-hero__title">今天没有车在服务</view>
+          <view class="mch-hero__desc">记录过程，沉淀信任，让每一次维修都成为门店的数字口碑。</view>
+          <view class="mch-hero__btn" bindtap="onCreateAlbum">+ 新建服务相册</view>
         </view>
       </view>
-    </view>
-  </block>
-</ui-tool-page-shell>
+
+      <view class="mch-metrics">
+        <view class="mch-metric">
+          <text class="mch-metric__label">进行中</text>
+          <text class="mch-metric__num">{{home.activeCountText}}</text>
+          <text class="mch-metric__hint mch-metric__hint--green">本店进行中</text>
+        </view>
+        <view class="mch-metric">
+          <text class="mch-metric__label">待确认</text>
+          <text class="mch-metric__num">{{home.pendingCountText}}</text>
+          <text class="mch-metric__hint">{{home.pendingHint}}</text>
+        </view>
+        <view class="mch-metric">
+          <text class="mch-metric__label">本月案例</text>
+          <text class="mch-metric__num">{{home.monthCountText}}</text>
+          <text class="mch-metric__hint">{{home.monthPublicText}}</text>
+        </view>
+      </view>
+
+      <view class="mch-section-head">
+        <view>
+          <text class="mch-kicker">今日进度</text>
+          <view class="mch-section-title">正在服务</view>
+        </view>
+        <text class="mch-more" bindtap="onAlbumList">查看全部</text>
+      </view>
+
+      <block wx:if="{{home.featured}}">
+        <view class="mch-order" data-id="{{home.featured.albumId}}" bindtap="onHomeAlbumTap">
+          <view class="mch-order__top">
+            <view class="mch-order__avatar" />
+            <view class="mch-order__main">
+              <text class="mch-order__plate">{{home.featured.plate}}</text>
+              <text class="mch-order__model">{{home.featured.modelLine}}</text>
+            </view>
+            <text class="mch-pill mch-pill--{{home.featured.pillTone}}">{{home.featured.pill}}</text>
+          </view>
+          <view class="mch-track"><view class="mch-track__bar" style="width: {{home.featured.progress}}%;" /></view>
+          <view class="mch-steps">
+            <view
+              wx:for="{{home.featured.steps}}"
+              wx:key="label"
+              class="mch-step {{item.state === 'done' || item.state === 'current' ? 'is-on' : ''}}"
+            >
+              <text wx:if="{{item.state === 'done'}}" class="mch-step__mark">✓</text>
+              <text wx:else class="mch-step__dot" />
+              <text>{{item.label}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+      <view wx:else class="mch-empty">暂无服务相册。点上方按钮新建一本。</view>
+
+      <view
+        wx:for="{{home.compact}}"
+        wx:key="albumId"
+        class="mch-compact"
+        data-id="{{item.albumId}}"
+        bindtap="onHomeAlbumTap"
+      >
+        <view class="mch-compact__mark mch-compact__mark--{{item.pillTone}}" />
+        <view class="mch-compact__main">
+          <text class="mch-compact__plate">{{item.plate}}</text>
+          <text class="mch-compact__sub">{{item.subLine}}</text>
+        </view>
+        <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
+      </view>
+    </block>
+</view>
+<merchant-tab-bar wx:if="{{status === 'normal'}}" active="home" />
 <privacy-authorize-popup id="privacyAuthorizePopup" />

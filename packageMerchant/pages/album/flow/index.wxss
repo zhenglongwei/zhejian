@@ -609,6 +609,32 @@
   margin-bottom: var(--space-sm);
 }
 
+.merchant-flow-page__inspect-advice {
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__inspect-advice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__inspect-advice-title {
+  font-weight: 600;
+}
+
+.merchant-flow-page__inspect-advice-head + view {
+  margin-top: var(--space-md);
+}
+
+.merchant-flow-page__inspect-advice .merchant-flow-page__advice-sec:last-child {
+  margin-bottom: 0;
+}
+
 .merchant-flow-page__finding-empty {
   display: block;
   margin-bottom: var(--space-sm);

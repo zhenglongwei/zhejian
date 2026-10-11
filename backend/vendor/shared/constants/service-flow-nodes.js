@@ -92,7 +92,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车',
     legacyStageIds: ['stage_1'],
-    photoTips: '连拍进场外观，把里程表拍进去',
+    photoTips: '漆面、玻璃、轮胎、灯光、随车物品',
     captionPlaceholder: '本图说明（选填）',
     description: '',
   },
@@ -207,7 +207,7 @@ function emptyPhotoDraft() {
 
 /**
  * 接车步草稿工厂
- * 接车只承载留证：问诊登记 / 品牌车型 / 连拍 / 接车结果读数。
+ * 接车只承载留证：问诊登记 / 里程表+当前里程 / 外观灯光选传。
  * **不承载 findings**（部位与故障判定属于检测节点）
  */
 function emptyIntakeDraft() {

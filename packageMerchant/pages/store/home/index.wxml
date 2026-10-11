@@ -1,0 +1,14 @@
+<view class="mch-store">
+  <view class="mch-store__head">
+    <view class="mch-store__name">{{storeName}}</view>
+    <text wx:if="{{address}}" class="mch-store__addr">{{address}}</text>
+    <view class="mch-store__actions">
+      <text class="mch-store__link" bindtap="onEdit">编辑</text>
+      <text class="mch-store__link" bindtap="onSwitchOwner">切换为车主</text>
+    </view>
+  </view>
+  <view class="mch-store__row" bindtap="onEdit">门店资料</view>
+  <view wx:if="{{canManageStaff}}" class="mch-store__row" bindtap="onStaff">账号管理</view>
+  <view class="mch-store__row" bindtap="onServices">擅长服务</view>
+</view>
+<merchant-tab-bar active="store" />

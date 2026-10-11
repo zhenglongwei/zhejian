@@ -469,6 +469,7 @@ Page({
     notifyConfirmDisabled: false,
     showQuoteAiCheck: false,
     adviceOpen: false,
+    inspectAdviceOpen: true,
     quoteNotifyReady: true,
     quoteAssist: null,
     intakeAdvice: null,
@@ -756,11 +757,60 @@ Page({
     return Object.keys(byKey).map((k) => byKey[k])
   },
 
+  hydrateIntakePhotos(photoDraft, sections) {
+    const first = (sections && sections[0]) || {}
+    let odoUrl = String((photoDraft && photoDraft.odometerUrl) || first.odometerUrl || '').trim()
+    let odoId = String((photoDraft && photoDraft.odometerImageId) || first.odometerImageId || '').trim()
+    const odoReading = ((photoDraft && photoDraft.intakeResults) || []).find(
+      (row) => row && row.category === 'odometer',
+    )
+    if (!odoUrl && odoReading && odoReading.images && odoReading.images[0]) {
+      odoUrl = String(odoReading.images[0].url || '').trim()
+      odoId = String(odoReading.images[0].imageId || odoReading.images[0].id || '').trim()
+    }
+    const seen = {}
+    const appearance = []
+    const take = (img, preferOdo) => {
+      const url = String((img && img.url) || '').trim()
+      if (!url) return
+      const key = mediaKey(url)
+      if (!key || seen[key]) return
+      seen[key] = true
+      if (preferOdo && !odoUrl) {
+        odoUrl = url
+        odoId = String((img && (img.imageId || img.id)) || '')
+        return
+      }
+      if (key === mediaKey(odoUrl)) return
+      appearance.push({
+        url,
+        imageId: String((img && (img.imageId || img.id)) || ''),
+      })
+    }
+    ;(first.images || []).forEach((img) => take(img, false))
+    ;((photoDraft && photoDraft.intakeResults) || []).forEach((row) => {
+      ;(row && row.images ? row.images : []).forEach((img) => take(img, row.category === 'odometer'))
+    })
+    ;((photoDraft && photoDraft.pendingImages) || []).forEach((img) => take(img, false))
+    return {
+      sections: (sections || []).map((row, index) =>
+        index === 0
+          ? { ...row, images: appearance, odometerUrl: odoUrl, odometerImageId: odoId }
+          : row,
+      ),
+      odometerUrl: odoUrl,
+      odometerImageId: odoId,
+      mileageKm: parseMileageKm(
+        (photoDraft && photoDraft.mileageKm) || (odoReading && odoReading.reading) || '',
+      ),
+    }
+  },
+
   buildSections(album, node, photoDraft = {}, flowNodes = []) {
     const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
     const strictFindings = Object.prototype.hasOwnProperty.call(photoDraft, 'findings')
 
-    // 接车＝留证：照片 + 主诉/里程/车型 + 环车清单勾选，**不做**故障判定
+    // 接车＝留证：问诊 + 里程表槽 + 外观灯光选传，**不做**故障判定
     if (node && node.kind === 'intake') {
       const meta = STAGE_LABELS.stage_1
       const stage = (album.nodes || []).find((n) => n.id === 'stage_1') || { images: [] }
@@ -1151,7 +1201,7 @@ Page({
 
   buildPhotoDraftPayload() {
     const kind = this.data.activeNode && this.data.activeNode.kind
-    // 接车＝留证：主诉 / 里程 / 对外车型 / 仪表 / 环车清单勾选
+    // 接车＝留证：问诊 / 当前里程 / 里程表槽；外观图走相册节点
     if (kind === 'intake') {
       return {
         chiefComplaint: this.data.chiefComplaint,
@@ -1162,8 +1212,8 @@ Page({
         vehicleYear: String(this.data.vehicleYear || '').trim(),
         odometerUrl: String(this.data.odometerUrl || '').trim(),
         odometerImageId: String(this.data.odometerImageId || '').trim(),
-        intakeResults: (this.data.intakeResults || []).map((row) => normalizeIntakeResult(row)),
-        pendingImages: normalizePendingImages(this.data.pendingImages),
+        intakeResults: [],
+        pendingImages: [],
       }
     }
     // 检测＝细查：部位 findings + 结论（结论进检测报告）
@@ -1304,6 +1354,16 @@ Page({
         if (isIntakePhotoStep) {
           chiefComplaint = photoDraft.chiefComplaint || ''
           walkaround = Array.isArray(photoDraft.walkaround) ? photoDraft.walkaround : []
+          const hydrated = this.hydrateIntakePhotos(photoDraft, sections)
+          sections = hydrated.sections
+          photoDraft = {
+            ...photoDraft,
+            odometerUrl: hydrated.odometerUrl,
+            odometerImageId: hydrated.odometerImageId,
+            mileageKm: hydrated.mileageKm || photoDraft.mileageKm,
+            pendingImages: [],
+            intakeResults: [],
+          }
         }
         // findings / 结论记在检测步（结论进检测报告）
         if (isInspectionPhotoStep) {
@@ -1560,6 +1620,10 @@ Page({
       ]
         .filter(Boolean)
         .join(' · ')
+      const intakeAdvice = this.decorateIntakeAdvice(
+        (flowNodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
+          .intakeAdvice,
+      )
 
       this.setData({
         status: 'ready',
@@ -1594,10 +1658,10 @@ Page({
         notifyOwnerLabel: '通知车主',
         notifyConfirmDisabled: false,
         quoteAssist: this.decorateQuoteAssist(this._pendingQuoteAssist),
-        intakeAdvice: this.decorateIntakeAdvice(
-          (flowNodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
-            .intakeAdvice,
-        ),
+        intakeAdvice,
+        inspectAdviceOpen: options.silent
+          ? this.data.inspectAdviceOpen
+          : Boolean(isInspectionPhotoStep && intakeAdvice && intakeAdvice.hasContent),
         checkpointMisses: this.computeCheckpointMisses(
           flowNodes,
           findings,
@@ -3069,7 +3133,7 @@ Page({
     if (this.data.readOnly || this.data.organizingPhotos) return
     const node = this.data.activeNode
     const rawKind = (node && node.kind) || ''
-    if (rawKind === 'delivery_photos' || rawKind === 'work') return
+    if (rawKind === 'delivery_photos' || rawKind === 'work' || rawKind === 'intake') return
     const kind =
       rawKind === 'intake_inspection' ? 'inspection' : rawKind
     const pending = this.collectPendingForOrganize(kind)
@@ -3432,9 +3496,14 @@ Page({
           const uploaded = await uploadImage(file.tempFilePath)
           const url = uploaded && (uploaded.url || uploaded)
           if (!url) throw new Error('上传失败')
+          const odometerImageId = (uploaded && (uploaded.id || uploaded.imageId)) || ''
+          const sections = (this.data.sections || []).map((row, index) =>
+            index === 0 ? { ...row, odometerUrl: url, odometerImageId } : row,
+          )
           this.setData({
+            sections,
             odometerUrl: url,
-            odometerImageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+            odometerImageId,
             odometerOcrBusy: true,
             autoSaveLabel: '保存中…',
           })
@@ -3474,14 +3543,84 @@ Page({
 
   onRemoveOdometer() {
     if (this.data.readOnly) return
+    const sections = (this.data.sections || []).map((row, index) =>
+      index === 0 ? { ...row, odometerUrl: '', odometerImageId: '' } : row,
+    )
     this.setData(
       {
+        sections,
         odometerUrl: '',
         odometerImageId: '',
         autoSaveLabel: '保存中…',
       },
       () => this.scheduleAutoSavePhotos(),
     )
+  },
+
+  onMileageKmInput(e) {
+    if (this.data.readOnly) return
+    this.setData({ mileageKm: String((e.detail && e.detail.value) || '') })
+    this.scheduleAutoSavePhotos()
+  },
+
+  onAddIntakeWalkaround() {
+    if (this.data.readOnly) return
+    const section = (this.data.sections || [])[0] || { images: [] }
+    const remain = Math.max(0, 12 - (section.images || []).length)
+    if (remain < 1) {
+      wx.showToast({ title: '一次最多 12 张', icon: 'none' })
+      return
+    }
+    pickLocalImages({
+      count: remain,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const files = res.tempFiles || []
+        if (!files.length) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploadedList = []
+          for (let i = 0; i < files.length; i += 1) {
+            const uploaded = await uploadImage(files[i].tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (!url) continue
+            uploadedList.push({
+              url,
+              imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+            })
+          }
+          if (!uploadedList.length) throw new Error('上传失败')
+          const sections = (this.data.sections || []).map((row, index) =>
+            index === 0 ? { ...row, images: (row.images || []).concat(uploadedList) } : row,
+          )
+          this.setData({ sections, autoSaveLabel: '保存中…' })
+          this.scheduleAutoSavePhotos()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
+  onPreviewIntakeWalkaround(e) {
+    const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '')
+    const urls = ((this.data.sections[0] && this.data.sections[0].images) || []).map((img) => img.url)
+    if (!url) return
+    wx.previewImage({ current: url, urls: urls.length ? urls : [url] })
+  },
+
+  onRemoveIntakeWalkaround(e) {
+    if (this.data.readOnly) return
+    const index = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const sections = (this.data.sections || []).map((row, si) => {
+      if (si !== 0) return row
+      return { ...row, images: (row.images || []).filter((_, i) => i !== index) }
+    })
+    this.setData({ sections, autoSaveLabel: '保存中…' }, () => this.scheduleAutoSavePhotos())
   },
 
   /** 接车 · 环车清单勾选：只记「拍没拍到」，不做故障判定 */
@@ -3823,6 +3962,12 @@ Page({
           pushImg(row.url, row.partName || '交车图')
         })
         sectionMap[section.stageId] = images
+      } else if (this.data.isIntakePhotoStep) {
+        const odo = String(this.data.odometerUrl || '').trim()
+        const rest = (section.images || []).filter((img) => mediaKey(img && img.url) !== mediaKey(odo))
+        sectionMap[section.stageId] = odo
+          ? [{ url: odo, caption: '仪表', imageId: this.data.odometerImageId || '' }].concat(rest)
+          : rest
       } else {
         sectionMap[section.stageId] = section.images
       }
@@ -3944,12 +4089,7 @@ Page({
     const status = String(raw.status || '')
     const diagnosis = String(raw.diagnosis || '').trim()
     const prevAsk = (this.data.intakeAdvice && this.data.intakeAdvice.askOwner) || []
-    const photoTips = (Array.isArray(raw.photoTips) ? raw.photoTips : [])
-      .map((row, index) => {
-        const item = this.decorateBriefItem(row)
-        return { ...item, seq: String(index + 1) }
-      })
-      .filter((row) => row.hasTitle || row.hasBody)
+    const photoTips = []
     const askOwner = (Array.isArray(raw.askOwner) ? raw.askOwner : [])
       .map((row, qi) => {
         const title = String((row && (row.title || row.partName)) || '').trim()
@@ -3971,6 +4111,7 @@ Page({
           hasBody: Boolean(body) && !options.length,
           options,
           hasOptions: options.length > 0,
+          optionText: options.map((opt) => opt.label).join('、'),
         }
       })
       .filter((row) => row.hasTitle || row.hasBody || row.hasOptions)
@@ -4014,7 +4155,12 @@ Page({
     return base ? `${base}；${picks.join('；')}` : picks.join('；')
   },
 
+  onToggleInspectAdvice() {
+    this.setData({ inspectAdviceOpen: !this.data.inspectAdviceOpen })
+  },
+
   onToggleAskOption(e) {
+    if (this.data.isInspectionPhotoStep) return
     const q = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.q)
     const o = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.o)
     const advice = this.data.intakeAdvice
@@ -4837,8 +4983,20 @@ Page({
       this._photoSaveTimer = null
     }
     const kind = this.data.activeNode && this.data.activeNode.kind
-    // 完工照：外观可从施工图引用，不要求再往 stage_6 落一份实体图
-    if (kind !== 'delivery_photos') {
+    if (kind === 'intake') {
+      if (!String(this.data.chiefComplaint || '').trim()) {
+        wx.showToast({ title: '先写问诊登记', icon: 'none' })
+        return
+      }
+      if (!String(this.data.odometerUrl || '').trim()) {
+        wx.showToast({ title: '请拍里程表', icon: 'none' })
+        return
+      }
+      if (!parseMileageKm(this.data.mileageKm)) {
+        wx.showToast({ title: '请填写当前里程', icon: 'none' })
+        return
+      }
+    } else if (kind !== 'delivery_photos') {
       const total = this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0)
       if (total < 1) {
         wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
@@ -4846,7 +5004,7 @@ Page({
       }
     }
     if (
-      (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection' || kind === 'intake') &&
+      (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
       wx.showToast({ title: '先处理未归组的图', icon: 'none' })
@@ -5067,6 +5225,14 @@ Page({
     if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
     if (!String(this.data.chiefComplaint || '').trim()) {
       wx.showToast({ title: '先写问诊登记', icon: 'none' })
+      return
+    }
+    if (!String(this.data.odometerUrl || '').trim()) {
+      wx.showToast({ title: '请拍里程表', icon: 'none' })
+      return
+    }
+    if (!parseMileageKm(this.data.mileageKm)) {
+      wx.showToast({ title: '请填写当前里程', icon: 'none' })
       return
     }
     if (!String(this.data.vehicleBrand || '').trim() || !String(this.data.vehicleSeries || '').trim()) {

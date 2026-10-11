@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "门店",
+  "usingComponents": {
+    "merchant-tab-bar": "/components/merchant-tab-bar/index"
+  }
+}

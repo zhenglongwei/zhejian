@@ -168,7 +168,7 @@ function parseIntakeAdvicePayload(raw) {
   const diagnosis = text(parsed.diagnosis || parsed.summary).slice(0, 160)
   return {
     diagnosis,
-    photoTips: parseWalkaroundPhotoTips(parsed.photoTips || parsed.photos),
+    photoTips: [],
     askOwner: parseAskOwner(parsed.askOwner || parsed.questions),
     checkpoints: parseCheckpoints(parsed.checkpoints || parsed.inspectPoints),
   }
@@ -196,9 +196,7 @@ function sanitizeIntakeAdviceForView(advice) {
   return {
     status,
     diagnosis: text(advice.diagnosis),
-    photoTips: parseWalkaroundPhotoTips(advice.photoTips, {
-      allowDefault: status === 'ready',
-    }),
+    photoTips: [],
     askOwner: Array.isArray(advice.askOwner) ? advice.askOwner : [],
     checkpoints: Array.isArray(advice.checkpoints) ? advice.checkpoints : [],
     waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
@@ -211,7 +209,6 @@ function intakeAdviceHasContent(advice) {
   if (!advice || typeof advice !== 'object') return false
   return Boolean(
     text(advice.diagnosis) ||
-      (advice.photoTips && advice.photoTips.length) ||
       (advice.askOwner && advice.askOwner.length) ||
       (advice.checkpoints && advice.checkpoints.length),
   )

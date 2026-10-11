@@ -1,0 +1,8 @@
+<view class="mch-assist">
+  <ui-empty
+    theme="album"
+    title="暂无新意见"
+    description="进行中的服务相册有新意见时，会列在这里。"
+  />
+</view>
+<merchant-tab-bar active="ai" />

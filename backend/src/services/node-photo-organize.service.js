@@ -442,6 +442,11 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     err.status = 400
     throw err
   }
+  if (kind === 'intake') {
+    const err = new Error('接车照不归组')
+    err.status = 400
+    throw err
+  }
 
   const pending = Array.isArray(payload.pendingImages) ? payload.pendingImages : []
   if (!pending.length) {

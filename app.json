@@ -69,6 +69,8 @@
       "name": "merchant",
       "pages": [
         "pages/workbench/index",
+        "pages/assistant/index",
+        "pages/store/home/index",
         "pages/store-picker/index",
         "pages/onboarding/index",
         "pages/plan-select/index",

@@ -4,6 +4,7 @@
     "ui-list-page-shell": "/components/list-page-shell/index",
     "ui-button": "/components/button/index",
     "ui-album-card": "/components/album-card/index",
-    "ui-search-bar": "/components/search-bar/index"
+    "ui-search-bar": "/components/search-bar/index",
+    "merchant-tab-bar": "/components/merchant-tab-bar/index"
   }
 }

@@ -37,6 +37,7 @@ const {
   filterMerchantGeoOpportunity,
 } = require('../../../constants/merchant-hub')
 const { buildMerchantAlbumEntryPath } = require('../../../utils/merchant-album-nav')
+const { buildWorkbenchHome } = require('../../../utils/merchant-workbench-home')
 const {
   hasWechatArchiveIntent,
   redirectToWechatArchive,
@@ -87,6 +88,27 @@ Page({
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     opening: false,
+    statusBarHeight: 20,
+    capsulePad: 16,
+    albumRows: [],
+    home: buildWorkbenchHome([]),
+  },
+
+  onLoad() {
+    const sys = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+    let capsulePad = 16
+    try {
+      const menu = wx.getMenuButtonBoundingClientRect()
+      if (menu && menu.left && sys.windowWidth) {
+        capsulePad = Math.max(16, sys.windowWidth - menu.left + 8)
+      }
+    } catch (e) {
+      capsulePad = 96
+    }
+    this.setData({
+      statusBarHeight: sys.statusBarHeight || 20,
+      capsulePad,
+    })
   },
 
   onShow() {
@@ -189,6 +211,8 @@ Page({
     let canManageStores = false
     let geoOpportunity = null
     let albumHeroCards = []
+    let albumRows = []
+    let home = buildWorkbenchHome([])
     let planTag = null
 
     try {
@@ -246,6 +270,8 @@ Page({
         quietMerchantHubAlbumTags(enrichMerchantAlbumListItem(item))
       )
       albumHeroCards = heroes
+      albumRows = albumList || []
+      home = buildWorkbenchHome(albumRows)
     } catch (e) {
       // keep defaults
     }
@@ -260,6 +286,8 @@ Page({
       todoSummary,
       overviewLine,
       albumHeroCards,
+      albumRows,
+      home,
       albumSectionBadge: buildAlbumSectionBadge(todos),
       hubDock: buildMerchantHubDock(todos),
       hubMoreLinks: buildMerchantHubMoreLinks(canManageStaff, todos),
@@ -358,6 +386,17 @@ Page({
     })
   },
 
+  onOpenMessage() {
+    this._navigateTo('/packageMerchant/pages/message/index')
+  },
+
+  onHomeAlbumTap(e) {
+    const id = e.currentTarget.dataset.id
+    if (!id) return
+    const item = (this.data.albumRows || []).find((row) => row.albumId === id) || { albumId: id }
+    this._navigateTo(buildMerchantAlbumEntryPath(id, item))
+  },
+
   onAlbumCardTap(e) {
     const id = (e.detail && e.detail.id) || ''
     if (!id) return
@@ -422,10 +461,8 @@ Page({
     this._navigateTo('/packageMerchant/pages/album/create/index')
   },
 
-  onAlbumList(e) {
-    const tab =
-      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) || 'all'
-    this._navigateTo(`/packageMerchant/pages/album/list/index?tab=${tab}`)
+  onAlbumList() {
+    wx.redirectTo({ url: '/packageMerchant/pages/album/list/index' })
   },
 
   onServiceList() {

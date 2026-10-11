@@ -101,6 +101,29 @@ page {
   --color-album-caption-bar: rgba(255, 255, 255, 0.96);
 
   /**
+   * 商家端壳层（2026-10-11 · 工作台原型）
+   * 只用于商家四格与工作台，不替换全站 --color-primary。
+   */
+  --color-mch-blue: #1269f2;
+  --color-mch-blue-dark: #074bb8;
+  --color-mch-blue-soft: #eaf2ff;
+  --color-mch-ink: #13233e;
+  --color-mch-muted: #718096;
+  --color-mch-line: #e7ebf2;
+  --color-mch-bg: #f5f7fb;
+  --color-mch-green: #14a879;
+  --color-mch-green-soft: #e7f8f1;
+  --color-mch-amber: #b66b00;
+  --color-mch-amber-soft: #fff3d9;
+  --color-mch-hero-start: #0b55ca;
+  --color-mch-hero-mid: #087ced;
+  --color-mch-hero-end: #12a2f3;
+  --radius-mch-card: 40rpx;
+  --radius-mch-hero: 48rpx;
+  --shadow-mch-card: 0 16rpx 48rpx rgba(35, 61, 99, 0.06);
+  --shadow-mch-hero: 0 28rpx 70rpx rgba(7, 93, 208, 0.25);
+
+  /**
    * 功能色
    * 全站功能主语义控制在 success / warning / danger / info 四类。
    */
@@ -316,6 +339,9 @@ page {
 | `--color-nav-icon-well` | `#f2f3f5` | 我的/设置菜单图标底块 |
 | `--color-album-toolbar-bg` | `rgba(248,250,252,0.92)` | 节点 Tab 底栏半透明底 |
 | `--color-album-caption-bar` | `rgba(255,255,255,0.96)` | 框内短文案条底 |
+| `--color-mch-blue` | `#1269f2` | 商家端主色、底栏选中、主按钮 |
+| `--color-mch-bg` | `#f5f7fb` | 商家端页面底 |
+| `--color-mch-hero-start` / `mid` / `end` | `#0b55ca` / `#087ced` / `#12a2f3` | 工作台头图渐变 |
 | `--color-album-immersive-caption-bg` | `rgba(22,20,18,0.88)` | 沉浸大图门店说明底条（高对比） |
 | `--color-bg-immersive` | `#000` | 沉浸翻页全屏底 |
 | `--color-album-immersive-border` | `rgba(255,255,255,0.14)` | 沉浸面板描边 |

@@ -36,6 +36,41 @@
     </view>
   </view>
 </template>
+<template name="intakeAdvicePanel">
+  <view wx:if="{{advice.hasAskOwner}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">建议进一步了解</text>
+    <view wx:for="{{advice.askOwner}}" wx:key="title" class="merchant-flow-page__advice-ask">
+      <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+      <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+      <view wx:if="{{item.hasOptions && !askReadonly}}" class="merchant-flow-page__advice-chips">
+        <view
+          wx:for="{{item.options}}"
+          wx:for-item="opt"
+          wx:key="label"
+          class="merchant-flow-page__advice-chip {{opt.picked ? 'is-on' : ''}}"
+          data-q="{{opt.q}}"
+          data-o="{{opt.o}}"
+          bindtap="onToggleAskOption"
+        >{{opt.label}}</view>
+      </view>
+      <text wx:elif="{{item.hasOptions}}" class="merchant-flow-page__advice-ask-body">{{item.optionText}}</text>
+    </view>
+  </view>
+  <view wx:if="{{advice.hasDiagnosis}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">初步诊断</text>
+    <text class="merchant-flow-page__advice-lead">{{advice.diagnosis}}</text>
+  </view>
+  <view wx:if="{{advice.hasCheckpoints}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">检测顺序</text>
+    <view wx:for="{{advice.checkpoints}}" wx:key="seq" class="merchant-flow-page__advice-step">
+      <text class="merchant-flow-page__advice-step-num merchant-flow-page__advice-step-num--check">{{item.seq}}</text>
+      <view class="merchant-flow-page__advice-step-main">
+        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-step-title">{{item.title}}</text>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-step-body">{{item.body}}</text>
+      </view>
+    </view>
+  </view>
+</template>
 <template name="aiFieldHint">
   <view wx:if="{{hint && !hint.applied}}" class="merchant-flow-page__ai-hint">
     <view class="merchant-flow-page__ai-hint-body">
@@ -108,14 +143,6 @@
                   bindinput="onChiefComplaintInput"
                 />
                 <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
-                <ui-button
-                  wx:if="{{showQuoteAiCheck && !readOnly}}"
-                  type="secondary"
-                  block="{{true}}"
-                  loading="{{confirming && !adviceOpen}}"
-                  disabled="{{confirming && !adviceOpen}}"
-                  bind:btntap="onToggleAdvice"
-                >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
               </view>
 
               <view
@@ -262,6 +289,15 @@
                 <block wx:if="{{section.findingMode}}">
                   <text wx:if="{{section.title}}" class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
+                  <view wx:if="{{isInspectionPhotoStep && intakeAdvice.hasContent}}" class="merchant-flow-page__inspect-advice">
+                    <view class="merchant-flow-page__inspect-advice-head" bindtap="onToggleInspectAdvice">
+                      <text class="text-body merchant-flow-page__inspect-advice-title">AI意见</text>
+                      <text class="text-caption text-secondary">{{inspectAdviceOpen ? '收起' : '展开'}}</text>
+                    </view>
+                    <view wx:if="{{inspectAdviceOpen}}">
+                      <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: true}}" />
+                    </view>
+                  </view>
                   <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending">
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>
@@ -580,6 +616,87 @@
                     </block>
                   </view>
                 </block>
+                <block wx:elif="{{isIntakePhotoStep}}">
+                  <text class="text-body merchant-flow-page__label">里程表</text>
+                  <view class="merchant-flow-page__work-thumbs">
+                    <view wx:if="{{odometerUrl}}" class="merchant-flow-page__work-thumb">
+                      <image
+                        class="merchant-flow-page__work-thumb-img image-placeholder"
+                        src="{{odometerUrl}}"
+                        mode="aspectFill"
+                        bindtap="onPreviewOdometer"
+                      />
+                      <text
+                        wx:if="{{!readOnly}}"
+                        class="merchant-flow-page__work-thumb-remove"
+                        catchtap="onRemoveOdometer"
+                      >×</text>
+                    </view>
+                    <view
+                      wx:elif="{{!readOnly}}"
+                      class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                      bindtap="onAddOdometerPhoto"
+                    >
+                      <text class="merchant-flow-page__work-thumb-plus">+</text>
+                    </view>
+                  </view>
+                  <view class="merchant-flow-page__mileage-row">
+                    <view class="merchant-flow-page__mileage-field">
+                      <view class="merchant-flow-page__mileage-input-wrap">
+                        <input
+                          class="merchant-flow-page__mileage-input"
+                          value="{{mileageKm}}"
+                          maxlength="7"
+                          type="number"
+                          placeholder="当前里程"
+                          disabled="{{readOnly}}"
+                          bindinput="onMileageKmInput"
+                        />
+                      </view>
+                      <text class="text-caption text-secondary merchant-flow-page__mileage-unit">km</text>
+                    </view>
+                  </view>
+                  <text class="text-body merchant-flow-page__label">车辆外观、灯光等</text>
+                  <text class="text-caption text-secondary merchant-flow-page__finding-tips">漆面、玻璃、轮胎、灯光、随车物品</text>
+                  <view class="merchant-flow-page__work-thumbs">
+                    <view
+                      wx:for="{{section.images}}"
+                      wx:for-item="shot"
+                      wx:for-index="imgIndex"
+                      wx:key="url"
+                      class="merchant-flow-page__work-thumb"
+                    >
+                      <image
+                        class="merchant-flow-page__work-thumb-img image-placeholder"
+                        src="{{shot.url}}"
+                        mode="aspectFill"
+                        data-url="{{shot.url}}"
+                        bindtap="onPreviewIntakeWalkaround"
+                      />
+                      <text
+                        wx:if="{{!readOnly}}"
+                        class="merchant-flow-page__work-thumb-remove"
+                        data-index="{{imgIndex}}"
+                        catchtap="onRemoveIntakeWalkaround"
+                      >×</text>
+                    </view>
+                    <view
+                      wx:if="{{!readOnly && section.images.length < 12}}"
+                      class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                      bindtap="onAddIntakeWalkaround"
+                    >
+                      <text class="merchant-flow-page__work-thumb-plus">+</text>
+                    </view>
+                  </view>
+                  <ui-button
+                    wx:if="{{showQuoteAiCheck && !readOnly}}"
+                    type="secondary"
+                    block="{{true}}"
+                    loading="{{confirming && !adviceOpen}}"
+                    disabled="{{confirming && !adviceOpen}}"
+                    bind:btntap="onToggleAdvice"
+                  >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
+                </block>
                 <ui-album-node
                   wx:elif="{{!isDeliveryPhotoStep}}"
                   mode="edit"
@@ -591,67 +708,6 @@
                   enableCaption="{{false}}"
                   data-index="{{sectionIndex}}"
                   bind:imageschange="onSectionImagesChange"
-                />
-                <ui-button
-                  wx:if="{{!readOnly && isIntakePhotoStep && !section.findingMode && (section.images.length || pendingImages.length)}}"
-                  type="ghost"
-                  block="{{true}}"
-                  loading="{{organizingPhotos}}"
-                  disabled="{{organizingPhotos}}"
-                  bind:btntap="onOrganizePhotos"
-                >生成接车结果</ui-button>
-                <view wx:if="{{isIntakePhotoStep && intakeResults.length}}" class="merchant-flow-page__intake-results">
-                  <text class="text-body merchant-flow-page__label">接车结果</text>
-                  <view
-                    wx:for="{{intakeResults}}"
-                    wx:for-item="row"
-                    wx:key="category"
-                    class="merchant-flow-page__intake-result {{row.needsVerify ? 'merchant-flow-page__intake-result--verify' : ''}}"
-                  >
-                    <text class="text-caption merchant-flow-page__intake-result-label">{{row.label}}{{row.needsVerify ? ' · 请核对' : ''}}</text>
-                    <view wx:if="{{row.needsVerify}}" class="merchant-flow-page__mileage-row">
-                      <view class="merchant-flow-page__mileage-field">
-                        <view class="merchant-flow-page__mileage-input-wrap">
-                          <input
-                            class="merchant-flow-page__mileage-input"
-                            value="{{row.reading}}"
-                            maxlength="16"
-                            placeholder="{{row.category === 'odometer' ? '例：86500' : '例：1/4'}}"
-                            disabled="{{readOnly}}"
-                            data-category="{{row.category}}"
-                            bindinput="onIntakeReadingInput"
-                          />
-                        </view>
-                        <text wx:if="{{row.unit}}" class="text-caption text-secondary merchant-flow-page__mileage-unit">{{row.unit}}</text>
-                      </view>
-                    </view>
-                    <view class="merchant-flow-page__work-thumbs">
-                      <view
-                        wx:for="{{row.images}}"
-                        wx:for-item="shot"
-                        wx:key="url"
-                        class="merchant-flow-page__work-thumb"
-                      >
-                        <image
-                          class="merchant-flow-page__work-thumb-img image-placeholder"
-                          src="{{shot.url}}"
-                          mode="aspectFill"
-                        />
-                      </view>
-                    </view>
-                  </view>
-                </view>
-                <flow-unmatched-photos
-                  wx:if="{{isIntakePhotoStep && !section.findingMode && !organizingPhotos}}"
-                  images="{{pendingImages}}"
-                  label="未归组"
-                  canAssign="{{intakeResults.length > 0}}"
-                  canPromote="{{true}}"
-                  readOnly="{{readOnly}}"
-                  bind:preview="onPreviewPendingPhoto"
-                  bind:assign="onOpenAssignPending"
-                  bind:promote="onPromotePendingToFinding"
-                  bind:remove="onRemovePendingPhoto"
                 />
                 <template is="aiFieldHint" data="{{hint: section.photoHint}}" />
               </view>
@@ -1331,48 +1387,7 @@
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
         <block wx:elif="{{intakeAdvice.hasContent}}">
-          <view wx:if="{{intakeAdvice.hasAskOwner}}" class="merchant-flow-page__advice-sec">
-            <text class="merchant-flow-page__advice-sec-title">建议进一步了解</text>
-            <view wx:for="{{intakeAdvice.askOwner}}" wx:key="title" class="merchant-flow-page__advice-ask">
-              <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
-              <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
-              <view wx:if="{{item.hasOptions}}" class="merchant-flow-page__advice-chips">
-                <view
-                  wx:for="{{item.options}}"
-                  wx:for-item="opt"
-                  wx:key="label"
-                  class="merchant-flow-page__advice-chip {{opt.picked ? 'is-on' : ''}}"
-                  data-q="{{opt.q}}"
-                  data-o="{{opt.o}}"
-                  bindtap="onToggleAskOption"
-                >{{opt.label}}</view>
-              </view>
-            </view>
-          </view>
-          <view wx:if="{{intakeAdvice.hasDiagnosis}}" class="merchant-flow-page__advice-sec">
-            <text class="merchant-flow-page__advice-sec-title">初步诊断</text>
-            <text class="merchant-flow-page__advice-lead">{{intakeAdvice.diagnosis}}</text>
-          </view>
-          <view wx:if="{{intakeAdvice.hasPhotoTips}}" class="merchant-flow-page__advice-sec">
-            <text class="merchant-flow-page__advice-sec-title">先做环车检查，避免后续纠纷</text>
-            <view wx:for="{{intakeAdvice.photoTips}}" wx:key="seq" class="merchant-flow-page__advice-step">
-              <text class="merchant-flow-page__advice-step-num">{{item.seq}}</text>
-              <view class="merchant-flow-page__advice-step-main">
-                <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-step-title">{{item.title}}</text>
-                <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-step-body">{{item.body}}</text>
-              </view>
-            </view>
-          </view>
-          <view wx:if="{{intakeAdvice.hasCheckpoints}}" class="merchant-flow-page__advice-sec">
-            <text class="merchant-flow-page__advice-sec-title">检测顺序</text>
-            <view wx:for="{{intakeAdvice.checkpoints}}" wx:key="seq" class="merchant-flow-page__advice-step">
-              <text class="merchant-flow-page__advice-step-num merchant-flow-page__advice-step-num--check">{{item.seq}}</text>
-              <view class="merchant-flow-page__advice-step-main">
-                <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-step-title">{{item.title}}</text>
-                <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-step-body">{{item.body}}</text>
-              </view>
-            </view>
-          </view>
+          <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: false}}" />
         </block>
         <block wx:elif="{{quoteAssist.hasContent}}">
           <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
