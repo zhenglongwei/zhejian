@@ -235,11 +235,243 @@
       <view class="ov-work__bar" style="padding-top: {{statusBarHeight}}px;">
         <view class="ov-work__row" style="padding-right: {{capsulePad}}px;">
           <text class="ov-back" bindtap="onCloseWork">‹</text>
-          <text class="ov-work__title">{{workTitle}}</text>
+          <view class="ov-nav__text">
+            <text class="ov-kicker">服务节点详情</text>
+            <text class="ov-work__title">{{stageBoard.title}}</text>
+          </view>
         </view>
       </view>
-      <scroll-view scroll-y class="ov-work__body" show-scrollbar="{{false}}">
-          <view class="merchant-flow-page__active">
+      <view wx:if="{{stageBoard}}" class="st-tabs">
+        <view
+          wx:for="{{stageBoard.tabs}}"
+          wx:key="key"
+          class="st-tab st-tab--{{item.mark}}"
+          data-key="{{item.key}}"
+          bindtap="onPickStage"
+        >
+          <view class="st-tab__dot">
+            <image wx:if="{{item.mark === 'before'}}" src="/assets/mch/check-white.png" mode="aspectFit" />
+            <text wx:else>{{item.index}}</text>
+          </view>
+          <text class="st-tab__name">{{item.short}}</text>
+        </view>
+      </view>
+      <scroll-view scroll-y class="ov-work__body {{stageBoard.state === 'current' ? '' : 'ov-work__body--bar'}}" show-scrollbar="{{false}}">
+          <view wx:if="{{stageBoard}}" class="st-vehicle">
+            <view class="st-vehicle__icon"><image src="/assets/mch/car-blue.png" mode="aspectFit" /></view>
+            <view class="st-vehicle__text">
+              <text class="st-vehicle__plate">{{stageBoard.vehicle.plate}}</text>
+              <text class="st-vehicle__line">{{stageBoard.vehicle.line}}</text>
+            </view>
+            <text class="st-pill">{{stageBoard.vehicle.pill}}</text>
+          </view>
+
+          <block wx:if="{{stageBoard.intake}}">
+            <view class="st-card">
+              <view class="st-card__head">
+                <view>
+                  <text class="st-kicker">VEHICLE CONDITION</text>
+                  <text class="st-card__title">车辆入店留证</text>
+                </view>
+                <text wx:if="{{stageBoard.intake.photoCount}}" class="st-count">{{stageBoard.intake.photoCount}} 张</text>
+              </view>
+              <view class="st-photos">
+                <view
+                  wx:for="{{stageBoard.intake.photos}}"
+                  wx:key="url"
+                  class="st-photo"
+                  data-url="{{item.url}}"
+                  bindtap="onPreviewStagePhoto"
+                >
+                  <image src="{{item.url}}" mode="aspectFill" />
+                  <text class="st-photo__cap">{{item.caption}}</text>
+                  <text class="st-photo__badge">已留证</text>
+                </view>
+              </view>
+              <view wx:if="{{stageBoard.intake.advice}}" class="st-note">
+                <image src="/assets/mch/check-blue.png" mode="aspectFit" />
+                <view>
+                  <text class="st-note__title">AI 影像检查</text>
+                  <text class="st-note__body">{{stageBoard.intake.advice}}</text>
+                </view>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.intake.complaint || stageBoard.intake.cells.length}}" class="st-card">
+              <view class="st-card__head">
+                <view>
+                  <text class="st-kicker">CUSTOMER REQUEST</text>
+                  <text class="st-card__title">车主诉求</text>
+                </view>
+              </view>
+              <text wx:if="{{stageBoard.intake.complaint}}" class="st-quote">{{stageBoard.intake.complaint}}</text>
+              <view wx:if="{{stageBoard.intake.cells.length}}" class="st-grid">
+                <view wx:for="{{stageBoard.intake.cells}}" wx:key="label">
+                  <text>{{item.label}}</text>
+                  <text>{{item.value}}</text>
+                </view>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.intake.confirmed}}" class="st-confirm">
+              <image src="/assets/mch/check-green.png" mode="aspectFit" />
+              <view>
+                <text>{{stageBoard.intake.confirmed.title}}</text>
+                <text wx:if="{{stageBoard.intake.confirmed.sub}}">{{stageBoard.intake.confirmed.sub}}</text>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.intake.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
+          </block>
+
+          <block wx:if="{{stageBoard.inspect}}">
+            <view class="st-hero st-hero--inspect">
+              <text class="st-kicker st-kicker--light">AI ASSISTED INSPECTION</text>
+              <text class="st-hero__title">{{stageBoard.inspect.headline}}</text>
+              <text wx:if="{{stageBoard.inspect.sub}}" class="st-hero__sub">{{stageBoard.inspect.sub}}</text>
+              <view wx:if="{{stageBoard.inspect.pills.length}}" class="st-pills">
+                <text wx:for="{{stageBoard.inspect.pills}}" wx:key="text" class="st-pill st-pill--{{item.tone}}">{{item.text}}</text>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.inspect.items.length}}" class="st-card">
+              <view class="st-card__head">
+                <view>
+                  <text class="st-kicker">ABNORMAL ITEMS</text>
+                  <text class="st-card__title">异常项目</text>
+                </view>
+              </view>
+              <view wx:for="{{stageBoard.inspect.items}}" wx:key="no" class="st-fault">
+                <text class="st-fault__no st-fault__no--{{item.tone}}">{{item.no}}</text>
+                <view class="st-fault__main">
+                  <view class="st-fault__row">
+                    <text class="st-fault__name">{{item.name}}</text>
+                    <text class="st-pill st-pill--{{item.tone}}">{{item.tag}}</text>
+                  </view>
+                  <text wx:if="{{item.body}}" class="st-fault__body">{{item.body}}</text>
+                  <view wx:if="{{item.shots.length}}" class="st-fault__shots">
+                    <image wx:for="{{item.shots}}" wx:for-item="shot" wx:key="*this" src="{{shot}}" mode="aspectFill" data-url="{{shot}}" bindtap="onPreviewStagePhoto" />
+                  </view>
+                </view>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.inspect.advice}}" class="st-ai">
+              <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+              <view>
+                <text class="st-ai__title">AI 检测意见</text>
+                <text class="st-ai__body">{{stageBoard.inspect.advice}}</text>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.inspect.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
+          </block>
+
+          <block wx:if="{{stageBoard.quote}}">
+            <view wx:if="{{stageBoard.quote.amount}}" class="st-hero st-hero--quote">
+              <text class="st-hero__label">本次维修报价</text>
+              <view class="st-figure"><text>¥</text><text>{{stageBoard.quote.amount}}</text></view>
+              <text class="st-hero__sub">包含配件、辅料与施工服务费</text>
+              <view wx:if="{{stageBoard.quote.note}}" class="st-hero__foot"><text>{{stageBoard.quote.note}}</text></view>
+            </view>
+            <view wx:if="{{stageBoard.quote.lines.length}}" class="st-card">
+              <view class="st-card__head">
+                <view>
+                  <text class="st-kicker">QUOTE DETAILS</text>
+                  <text class="st-card__title">报价明细</text>
+                </view>
+              </view>
+              <view wx:for="{{stageBoard.quote.lines}}" wx:key="name" class="st-line">
+                <view>
+                  <text class="st-line__name">{{item.name}}</text>
+                  <text wx:if="{{item.note}}" class="st-line__note">{{item.note}}</text>
+                </view>
+                <text class="st-line__amt">{{item.amount}}</text>
+              </view>
+              <view class="st-line__sum">{{stageBoard.quote.totalText}}</view>
+            </view>
+            <view wx:if="{{stageBoard.quote.advice}}" class="st-ai">
+              <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+              <view>
+                <text class="st-ai__title">AI 报价校验</text>
+                <text class="st-ai__body">{{stageBoard.quote.advice}}</text>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.quote.owner}}" class="st-owner">
+              <view>
+                <text>车主确认</text>
+                <text>{{stageBoard.quote.owner.title}}</text>
+                <text>{{stageBoard.quote.owner.sub}}</text>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.quote.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
+          </block>
+
+          <block wx:if="{{stageBoard.work}}">
+            <view class="st-hero st-hero--work">
+              <text class="st-kicker st-kicker--light">WORK IN PROGRESS</text>
+              <text class="st-hero__title">{{stageBoard.work.headline}}</text>
+              <text wx:if="{{stageBoard.work.sub}}" class="st-hero__sub">{{stageBoard.work.sub}}</text>
+            </view>
+            <view wx:if="{{stageBoard.work.tasks.length}}" class="st-card">
+              <view class="st-card__head">
+                <view>
+                  <text class="st-kicker">WORK ORDER</text>
+                  <text class="st-card__title">工序记录</text>
+                </view>
+              </view>
+              <view wx:for="{{stageBoard.work.tasks}}" wx:key="name" class="st-task">
+                <text class="st-task__dot st-task__dot--{{item.tone}}"></text>
+                <view>
+                  <text class="st-task__name">{{item.name}}</text>
+                  <text wx:if="{{item.note}}" class="st-task__note">{{item.note}}</text>
+                </view>
+                <text class="st-pill st-pill--{{item.tone}}">{{item.status}}</text>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.work.fault}}" class="st-faultbox">
+              <text class="st-faultbox__kicker">施工中新发现</text>
+              <text class="st-faultbox__title">{{stageBoard.work.fault.title}}</text>
+              <text wx:if="{{stageBoard.work.fault.body}}" class="st-faultbox__body">{{stageBoard.work.fault.body}}</text>
+              <text wx:if="{{stageBoard.work.fault.amount}}" class="st-faultbox__amt">补充报价 {{stageBoard.work.fault.amount}}</text>
+            </view>
+            <view wx:if="{{stageBoard.work.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
+          </block>
+
+          <block wx:if="{{stageBoard.finish}}">
+            <view class="st-hero st-hero--finish">
+              <text class="st-kicker st-kicker--light">READY FOR DELIVERY</text>
+              <text class="st-hero__title">{{stageBoard.finish.headline}}</text>
+              <text wx:if="{{stageBoard.finish.sub}}" class="st-hero__sub">{{stageBoard.finish.sub}}</text>
+            </view>
+            <view wx:if="{{stageBoard.finish.before || stageBoard.finish.after}}" class="st-card">
+              <view class="st-card__head">
+                <view>
+                  <text class="st-kicker">DELIVERY REPORT</text>
+                  <text class="st-card__title">交车报告</text>
+                </view>
+              </view>
+              <view class="st-compare">
+                <view wx:if="{{stageBoard.finish.before}}" class="st-compare__shot" data-url="{{stageBoard.finish.before.url}}" bindtap="onPreviewStagePhoto">
+                  <image src="{{stageBoard.finish.before.url}}" mode="aspectFill" />
+                  <text>{{stageBoard.finish.before.caption}}</text>
+                </view>
+                <view wx:if="{{stageBoard.finish.after}}" class="st-compare__shot" data-url="{{stageBoard.finish.after.url}}" bindtap="onPreviewStagePhoto">
+                  <image src="{{stageBoard.finish.after.url}}" mode="aspectFill" />
+                  <text>{{stageBoard.finish.after.caption}}</text>
+                </view>
+              </view>
+            </view>
+            <view wx:if="{{stageBoard.finish.warranty}}" class="st-warranty">
+              <text>本次服务保障</text>
+              <text>{{stageBoard.finish.warranty}}</text>
+            </view>
+            <view class="st-steps">
+              <view wx:for="{{stageBoard.finish.steps}}" wx:key="no" class="st-step {{item.done ? 'is-done' : ''}} {{item.muted ? 'is-muted' : ''}}">
+                <text class="st-step__no">{{item.done ? '✓' : item.no}}</text>
+                <view>
+                  <text class="st-step__title">{{item.title}}</text>
+                  <text class="st-step__sub">{{item.sub}}</text>
+                </view>
+              </view>
+            </view>
+          </block>
+
+          <view wx:if="{{!stageBoard || stageBoard.state === 'current'}}" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">问诊登记</text>
@@ -1438,8 +1670,11 @@
             </block>
           </view>
       </scroll-view>
+      <view wx:if="{{stageBoard && stageBoard.state !== 'current'}}" class="st-bar">
+        <view class="st-bar__btn" bindtap="onPreviewStage">预览记录</view>
+      </view>
     </view>
-    <view wx:if="{{doneView}}" class="ov-work">
+    <view wx:if="{{doneView}}" class="ov-work ov-work--top">
       <view class="ov-work__bar" style="padding-top: {{statusBarHeight}}px;">
         <view class="ov-work__row" style="padding-right: {{capsulePad}}px;">
           <text class="ov-back" bindtap="onCloseDone">‹</text>

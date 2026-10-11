@@ -34,6 +34,7 @@ const {
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview } = require('../../../../utils/merchant-album-overview')
+const { buildMerchantStageBoard, stageKeyOf } = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
@@ -354,6 +355,8 @@ Page({
     overview: null,
     workOpen: false,
     workTitle: '',
+    stageKey: '',
+    stageBoard: null,
     doneView: null,
     statusBarHeight: 20,
     capsulePad: 16,
@@ -1776,6 +1779,10 @@ Page({
         deliveryExteriorUrl,
         deliveryPickMode,
         overview: buildMerchantAlbumOverview(album, flowNodes),
+        stageBoard:
+          this.data.workOpen && this.data.stageKey
+            ? buildMerchantStageBoard(album, flowNodes, this.data.stageKey)
+            : null,
       })
       this._focusNodeId = ''
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
@@ -1814,7 +1821,54 @@ Page({
   },
 
   onCloseWork() {
-    this.setData({ workOpen: false })
+    this.setData({ workOpen: false, stageKey: '', stageBoard: null })
+  },
+
+  resolveStageKey(id) {
+    const overview = this.data.overview || {}
+    const row = (overview.rows || []).find((item) => item && item.nodeId === id)
+    if (row) return stageKeyOf(row.key) || 'intake'
+    const doc = (overview.docs || []).find((item) => item && item.nodeId === id)
+    const title = String((doc && doc.title) || '')
+    if (title === '检测报告') return 'inspect'
+    if (title === '报价单') return 'quote'
+    if (title === '维修工单') return 'work'
+    if (title === '交车报告') return 'finish'
+    return 'intake'
+  },
+
+  openStage(stageKey) {
+    const key = stageKeyOf(stageKey) || stageKey || 'intake'
+    this.setData({
+      workOpen: true,
+      doneView: null,
+      stageKey: key,
+      stageBoard: buildMerchantStageBoard(this._album || {}, this._flowNodes || [], key),
+    })
+  },
+
+  onPickStage(e) {
+    const key = String((e.currentTarget.dataset && e.currentTarget.dataset.key) || '')
+    if (!key || key === this.data.stageKey) return
+    this.openStage(key)
+  },
+
+  onPreviewStage() {
+    const id = String((this.data.stageBoard && this.data.stageBoard.previewNodeId) || '')
+    if (!id) {
+      wx.showToast({ title: '还没有可预览的记录', icon: 'none' })
+      return
+    }
+    this.openDoneReview(id)
+  },
+
+  onPreviewStagePhoto(e) {
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '')
+    const urls = String((e.currentTarget.dataset && e.currentTarget.dataset.urls) || '')
+      .split('|')
+      .filter(Boolean)
+    if (!url) return
+    wx.previewImage({ current: url, urls: urls.length ? urls : [url] })
   },
 
   onCloseDone() {
@@ -1831,17 +1885,8 @@ Page({
   },
 
   onOpenOverview(e) {
-    const state = String((e.currentTarget.dataset && e.currentTarget.dataset.state) || '')
     const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
-    if (state === 'todo') {
-      wx.showToast({ title: '还没到这一步', icon: 'none' })
-      return
-    }
-    if (state === 'done') {
-      this.openDoneReview(id)
-      return
-    }
-    this.setData({ workOpen: true, workTitle: this.workTitleFor(id), doneView: null })
+    this.openStage(this.resolveStageKey(id))
   },
 
   openDoneReview(nodeId) {
@@ -1850,7 +1895,6 @@ Page({
     const preview = mapCompletedStepPreview({ id: nodeId, summary: '' }, node, this._album || {})
     if (preview.detailKind === 'doc_sheet' && preview.sheetDoc) {
       this.setData({
-        workOpen: false,
         doneView: {
           mode: 'doc',
           title: preview.sheetDoc.title || this.workTitleFor(nodeId),
@@ -1863,7 +1907,6 @@ Page({
       .map((img) => (typeof img === 'string' ? { url: img } : { url: String((img && img.url) || '') }))
       .filter((img) => img.url)
     this.setData({
-      workOpen: false,
       doneView: {
         mode: 'photos',
         title: this.workTitleFor(nodeId),

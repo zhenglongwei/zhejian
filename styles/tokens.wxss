@@ -67,6 +67,7 @@ page {
   --color-mch-line: var(--color-border);
   --color-mch-bg: var(--color-bg-page);
   --color-mch-green: #14a879;
+  --color-mch-green-deep: #0b6c59;
   --color-mch-green-soft: #e7f8f1;
   --color-mch-amber: #b66b00;
   --color-mch-amber-soft: #fff3d9;
@@ -193,6 +194,9 @@ page {
 
   --font-price-sm: 28rpx;
   --font-price-sm-lh: 36rpx;
+
+  --font-mch-figure: 64rpx;
+  --font-mch-figure-lh: 72rpx;
 
   /**
    * 字重

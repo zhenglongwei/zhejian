@@ -1,0 +1,10 @@
+{
+  "description": "This AI-driven SaaS platform streamlines auto repair processes for workshops, enabling detailed documentation and customer engagement through transparent case management.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
