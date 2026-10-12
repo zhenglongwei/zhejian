@@ -1,48 +1,4 @@
-const CHECKS = [
-  {
-    key: 'intro',
-    label: '门店介绍',
-    done(profile) {
-      return Boolean(String(profile.intro || '').trim())
-    },
-  },
-  {
-    key: 'services',
-    label: '擅长服务',
-    done(profile) {
-      return serviceNames(profile).length > 0
-    },
-  },
-  {
-    key: 'tech',
-    label: '技师资质',
-    done(profile) {
-      return (profile.technicians || []).some((item) => String(item && item.name || '').trim())
-    },
-  },
-  {
-    key: 'address',
-    label: '地址',
-    done(profile) {
-      return Boolean(String(profile.address || '').trim())
-    },
-  },
-  {
-    key: 'hours',
-    label: '营业时间',
-    done(profile) {
-      return Boolean(String(profile.businessHours || '').trim())
-    },
-  },
-  {
-    key: 'facade',
-    label: '门头照片',
-    done(profile) {
-      const photos = profile.photos || {}
-      return Boolean(String(photos.facadeUrl || '').trim())
-    },
-  },
-]
+const { scoreBasicProfile, certSummary } = require('./merchant-basic-profile')
 
 function serviceNames(profile = {}) {
   return (profile.services || [])
@@ -62,11 +18,9 @@ function clip(text, max) {
 function buildStoreHomeModel(profile = {}, options = {}) {
   const trust = profile.publisherTrust || {}
   const verified = trust.authStatus === 'verified' || profile.authStatus === 'verified'
-  const filled = CHECKS.filter((item) => item.done(profile))
-  const missing = CHECKS.filter((item) => !item.done(profile))
-  const percent = Math.round((filled.length / CHECKS.length) * 100)
+  const basic = scoreBasicProfile(profile)
   const names = serviceNames(profile)
-  const techCount = (profile.technicians || []).filter((item) => String(item && item.name || '').trim()).length
+  const cert = certSummary(profile)
   const intro = String(profile.intro || '').trim()
   return {
     storeName: profile.storeName || '门店',
@@ -74,16 +28,16 @@ function buildStoreHomeModel(profile = {}, options = {}) {
     address: String(profile.address || '').trim(),
     verified,
     authLabel: verified ? '已认证' : trust.authStatusLabel || '未认证',
-    percent,
-    missingCount: missing.length,
-    missingLine: missing.length ? `还缺${missing.map((item) => item.label).slice(0, 3).join('、')}` : '',
-    complete: missing.length === 0,
-    introValue: clip(intro, 22) || '待补充',
-    introDone: Boolean(intro),
+    percent: basic.score,
+    missingCount: basic.missingCount,
+    missingLine: basic.missingLine,
+    complete: basic.complete,
+    introValue: clip(intro, 22) || basic.missingLine || '待补充',
+    introDone: basic.complete,
     serviceValue: names.length ? clip(names.join(' · '), 22) : '服务方案',
     serviceDone: names.length > 0,
-    techValue: techCount ? `${techCount} 位技师` : '待补充',
-    techDone: techCount > 0,
+    techValue: cert.value,
+    techDone: cert.done,
     publicCaseCount: Number(options.publicCaseCount) || 0,
     monthViewCount: Number(options.monthViewCount) || 0,
   }
@@ -102,7 +56,6 @@ function monthViewTotal(summary = {}) {
 }
 
 module.exports = {
-  CHECKS,
   buildStoreHomeModel,
   countPublicAlbums,
   monthViewTotal,

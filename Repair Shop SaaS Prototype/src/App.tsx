@@ -168,7 +168,7 @@ const timeline = [
   { name: "完工交车", time: "待开始", desc: "完工检测、交车报告与车主确认" },
 ];
 
-function AlbumDetail({ onBack, onDocument, onStage }: { onBack: () => void; onDocument: (name: string) => void; onStage: (stage: string) => void }) {
+function AlbumDetail({ onBack, onDocument, onStage, onSupplement }: { onBack: () => void; onDocument: (name: string) => void; onStage: (stage: string) => void; onSupplement: () => void }) {
   return (
     <>
       <Header title="粤 B·7K52M" subtitle="维修相册详情" back onBack={onBack} />
@@ -207,7 +207,7 @@ function AlbumDetail({ onBack, onDocument, onStage }: { onBack: () => void; onDo
                 <div className="timeline-content">
                   <button className="timeline-title" onClick={() => onStage(item.name)}><strong>{item.name}</strong><span>{item.time}　查看 <Icon name="chevron" size={12} /></span></button>
                   <p>{item.desc}</p>
-                  {item.ai && <div className="ai-note"><span><Icon name="spark" size={15} /></span><p><strong>AI 技师意见</strong>{item.ai}</p>{item.active && <button>采纳并补充报价 <Icon name="arrow" size={14} /></button>}</div>}
+                  {item.ai && <div className="ai-note"><span><Icon name="spark" size={15} /></span><p><strong>AI 技师意见</strong>{item.ai}</p>{item.active && <button onClick={onSupplement}>采纳并补充报价 <Icon name="arrow" size={14} /></button>}</div>}
                   {item.active && (
                     <div className="evidence-row">
                       <div className="evidence-photo photo-one"><span>施工前</span></div>
@@ -221,7 +221,7 @@ function AlbumDetail({ onBack, onDocument, onStage }: { onBack: () => void; onDo
           </div>
         </section>
       </main>
-      <div className="detail-action"><button className="secondary-button"><Icon name="phone" size={18} />联系车主</button><PrimaryButton icon="plus">补充施工记录</PrimaryButton></div>
+      <div className="detail-action"><button className="secondary-button"><Icon name="phone" size={18} />联系车主</button><PrimaryButton icon="plus" onClick={onSupplement}>补充施工记录</PrimaryButton></div>
     </>
   );
 }
@@ -399,29 +399,143 @@ function AiAssistant() {
   );
 }
 
-function Profile() {
+function Profile({ onOpen }: { onOpen: (page: string) => void }) {
   return (
     <><Header title="门店资料" subtitle="公开信息越完整，越容易被 AI 发现" /><main className="page generic-page profile-page">
       <section className="store-card">
         <div className="store-logo">驰援</div><div className="store-main"><div><h2>驰援汽车服务中心</h2><StatusPill tone="green">已认证</StatusPill></div><p><Icon name="location" size={14} />深圳市南山区科技园科苑路 18 号</p></div>
-        <button className="icon-button"><Icon name="edit" size={18} /></button>
+        <button className="icon-button" onClick={() => onOpen("基础信息")}><Icon name="edit" size={18} /></button>
       </section>
       <section className="profile-completion">
         <div className="completion-ring"><strong>76</strong><span>%</span></div>
         <div><span className="section-kicker">资料完善度</span><h3>再补充 3 项，提升 AI 推荐概率</h3><p>完善擅长车型、技师资质与服务保障</p></div>
       </section>
       <section className="data-card">
-        <div className="section-heading"><div><span className="section-kicker">公开名片</span><h2>门店信息</h2></div><button className="text-button">预览公开页 <Icon name="chevron" size={15} /></button></div>
+        <div className="section-heading"><div><span className="section-kicker">公开名片</span><h2>门店信息</h2></div><button className="text-button" onClick={() => onOpen("公开主页")}>预览公开页 <Icon name="chevron" size={15} /></button></div>
         {[
           ["门店介绍", "专注德系车辆维修保养 12 年", true],
           ["擅长服务", "发动机维修 · 底盘 · 制动系统", true],
           ["技师资质", "待补充 2 位技师认证", false],
           ["服务保障", "配件质保信息待完善", false],
-        ].map(([title, value, done]) => <button className="profile-row" key={title as string}><span className={done ? "row-icon done" : "row-icon"}>{done ? <Icon name="check" size={14} /> : <Icon name="plus" size={14} />}</span><div><strong>{title}</strong><p>{value}</p></div><Icon name="chevron" size={17} /></button>)}
+        ].map(([title, value, done]) => <button className="profile-row" key={title as string} onClick={() => onOpen(title as string)}><span className={done ? "row-icon done" : "row-icon"}>{done ? <Icon name="check" size={14} /> : <Icon name="plus" size={14} />}</span><div><strong>{title}</strong><p>{value}</p></div><Icon name="chevron" size={17} /></button>)}
       </section>
       <section className="public-stats"><div><Icon name="album" /><strong>19</strong><span>公开案例</span></div><div><Icon name="share" /><strong>126</strong><span>本月被查看</span></div><div><Icon name="spark" /><strong>8</strong><span>AI 来源咨询</span></div></section>
     </main></>
   );
+}
+
+function FieldBlock({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return <div className="profile-field"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}<Icon name="chevron" size={15} /></div>;
+}
+
+function ProfileSubPage({ page, onBack }: { page: string; onBack: () => void }) {
+  const content: Record<string, ReactNode> = {
+    "基础信息": <>
+      <section className="profile-edit-hero"><div className="store-logo">驰援</div><div><strong>门店头像与门头照片</strong><span>真实清晰的照片更容易获得车主信任</span></div><button><Icon name="camera" size={16} />更换</button></section>
+      <section className="sub-card"><div className="sub-title"><span className="section-kicker">BASIC INFORMATION</span><h2>基础资料</h2></div>
+        <FieldBlock label="门店名称" value="驰援汽车服务中心" /><FieldBlock label="联系电话" value="0755-8652 8866" /><FieldBlock label="营业时间" value="周一至周日 08:30–19:00" /><FieldBlock label="门店地址" value="深圳市南山区科技园科苑路 18 号" />
+      </section>
+      <section className="map-placeholder"><Icon name="location" size={25} /><strong>门店地图位置</strong><span>深圳市南山区 · 距当前位置 2.6km</span></section>
+    </>,
+    "门店介绍": <>
+      <section className="editor-score"><div><span className="section-kicker">AI READINESS</span><h2>介绍质量良好</h2><p>信息清晰、可信，适合被搜索引擎和 AI 理解</p></div><strong>86<span>分</span></strong></section>
+      <section className="sub-card"><div className="sub-title with-action"><div><span className="section-kicker">ABOUT US</span><h2>门店介绍</h2></div><button><Icon name="spark" size={14} />AI 润色</button></div>
+        <div className="text-editor">驰援汽车服务中心成立于 2013 年，专注德系车辆维修保养 12 年。门店拥有 6 位专业技师，坚持透明报价、过程留证、旧件展示，为每一位车主提供可追溯的维修服务。<span>82 / 300</span></div>
+      </section>
+      <section className="sub-card"><div className="sub-title"><span className="section-kicker">PHOTOS</span><h2>门店环境</h2></div><div className="shop-photo-grid"><div><span>门头</span></div><div><span>工位</span></div><div><span>休息区</span></div><button><Icon name="plus" /><span>添加照片</span></button></div></section>
+      <div className="seo-tip"><Icon name="spark" /><p><strong>AI 收录建议</strong>增加“宝马专修”“深圳南山”等服务与地域关键词，可以提升相关问题中的推荐概率。</p></div>
+    </>,
+    "擅长服务": <>
+      <section className="specialty-hero"><Icon name="car" size={36} /><div><span>已配置</span><strong>4 个品牌 · 8 项服务</strong><p>用于公开主页展示和 AI 精准匹配</p></div></section>
+      <section className="sub-card"><div className="sub-title with-action"><div><span className="section-kicker">BRANDS</span><h2>擅长品牌</h2></div><button><Icon name="plus" size={14} />添加</button></div><div className="brand-chips"><span><b>BMW</b>宝马<i>×</i></span><span><b>VW</b>大众<i>×</i></span><span><b>AUDI</b>奥迪<i>×</i></span><span><b>BENZ</b>奔驰<i>×</i></span></div></section>
+      <section className="sub-card"><div className="sub-title with-action"><div><span className="section-kicker">SERVICES</span><h2>服务能力</h2></div><button><Icon name="plus" size={14} />添加</button></div>
+        <div className="service-skills">{["发动机维修","底盘悬挂","制动系统","变速箱养护","空调系统","电气诊断","常规保养","新能源三电检测"].map((item, i) => <button className={i < 5 ? "selected" : ""} key={item}>{i < 5 && <Icon name="check" size={12} />}{item}</button>)}</div>
+      </section>
+      <section className="experience-card"><div><span>累计相关案例</span><strong>286</strong></div><div><span>平均评分</span><strong>4.9</strong></div><div><span>返修率</span><strong>0.8%</strong></div></section>
+    </>,
+    "技师资质": <>
+      <section className="certification-banner"><Icon name="shield" size={27} /><div><strong>认证技师让专业能力更可信</strong><span>资质经平台审核后将在公开主页展示</span></div></section>
+      <section className="sub-card"><div className="sub-title with-action"><div><span className="section-kicker">TECHNICIANS</span><h2>技师团队</h2></div><button><Icon name="plus" size={14} />添加技师</button></div>
+        <article className="technician"><div className="tech-avatar">陈</div><div><div><strong>陈海峰</strong><StatusPill tone="green">已认证</StatusPill></div><span>技术总监 · 15 年从业经验</span><p>宝马高级诊断技师 · 国家高级汽车维修工</p></div><Icon name="chevron" /></article>
+        <article className="technician"><div className="tech-avatar second">李</div><div><div><strong>李志强</strong><StatusPill tone="amber">待完善</StatusPill></div><span>机电技师 · 8 年从业经验</span><p>还需上传职业资格证书</p></div><Icon name="chevron" /></article>
+      </section>
+      <section className="credential-card"><div className="credential-icon"><Icon name="shield" /></div><div><span>门店资质</span><strong>机动车维修经营备案</strong><small>证件有效期至 2027-08-16</small></div><StatusPill tone="green">审核通过</StatusPill></section>
+    </>,
+    "服务保障": <>
+      <section className="warranty-hero"><Icon name="shield" size={32} /><div><span className="section-kicker">SERVICE PROMISE</span><h2>把承诺写清楚，让车主更放心</h2><p>保障条款将自动写入报价单与交车报告</p></div></section>
+      <section className="sub-card"><div className="sub-title"><span className="section-kicker">WARRANTY POLICY</span><h2>质保政策</h2></div>
+        <FieldBlock label="原厂品质配件" value="12 个月 / 20,000km" hint="以先到者为准" /><FieldBlock label="品牌配件" value="6 个月 / 10,000km" hint="以先到者为准" /><FieldBlock label="施工质量" value="3 个月 / 5,000km" />
+      </section>
+      <section className="sub-card"><div className="sub-title"><span className="section-kicker">OUR PROMISE</span><h2>服务承诺</h2></div>
+        <div className="promise-list">{["维修前明确报价，未经确认不施工","维修过程关键节点拍照留证","更换旧件支持车主查看或带走","质保期内同类问题免费复检"].map(item => <div key={item}><Icon name="check" size={13} /><span>{item}</span><button><Icon name="edit" size={13} /></button></div>)}</div>
+      </section>
+    </>,
+    "公开主页": <PublicStorePage />,
+  };
+  return <><Header title={page} subtitle={page === "公开主页" ? "车主与 AI 可检索的门店主页" : "门店资料完善"} back onBack={onBack} /><main className="page profile-sub-page">{content[page]}</main>{page !== "公开主页" && <div className="single-bottom-action"><PrimaryButton>保存并更新公开资料</PrimaryButton></div>}</>;
+}
+
+function PublicStorePage() {
+  return <>
+    <section className="public-cover"><div className="public-cover-grid" /><div className="public-store-logo">驰援</div><div className="public-store-heading"><div><h2>驰援汽车服务中心</h2><StatusPill tone="green">平台认证</StatusPill></div><p><Icon name="location" size={13} />深圳市南山区科技园 · 距您 2.6km</p></div></section>
+    <div className="public-rating"><div><strong>4.9</strong><span>综合评分</span></div><div><strong>12年</strong><span>服务经验</span></div><div><strong>1,286</strong><span>累计服务</span></div><div><strong>0.8%</strong><span>返修率</span></div></div>
+    <section className="sub-card public-about"><div className="sub-title"><span className="section-kicker">ABOUT</span><h2>专业、透明、可追溯</h2></div><p>专注德系车辆维修保养 12 年，坚持透明报价、过程留证、旧件展示。每一单服务均生成可追溯的维修相册。</p><div className="public-tags"><span>宝马专修</span><span>透明维修</span><span>原厂诊断</span><span>过程留证</span></div></section>
+    <section className="sub-card"><div className="sub-title with-action"><div><span className="section-kicker">VERIFIED CASES</span><h2>真实维修案例</h2></div><button>全部 19 个 <Icon name="chevron" size={13} /></button></div><div className="public-cases"><article><div className="case-visual one"><span>宝马 3系</span></div><strong>发动机渗油维修</strong><small>全程 18 条留证 · 车主已确认</small></article><article><div className="case-visual two"><span>奥迪 A4L</span></div><strong>制动系统养护</strong><small>全程 14 条留证 · 评分 5.0</small></article></div></section>
+    <section className="public-contact"><button><Icon name="phone" />电话咨询</button><button><Icon name="location" />导航到店</button></section>
+  </>;
+}
+
+function SupplementFlow({ onBack }: { onBack: () => void }) {
+  const [step, setStep] = useState(0);
+  const steps = ["故障留证", "补充报价", "车主确认"];
+  return <><Header title="补充施工记录" subtitle="关联新发现故障 · 全程可追溯" back onBack={onBack} /><main className="page supplement-page">
+    <div className="supplement-steps">{steps.map((item, index) => <button className={index === step ? "active" : index < step ? "done" : ""} key={item} onClick={() => setStep(index)}><i>{index < step ? <Icon name="check" size={11} /> : index + 1}</i><span>{item}</span>{index < 2 && <b />}</button>)}</div>
+    <VehicleBar />
+    {step === 0 && <FaultRecord />}
+    {step === 1 && <SupplementQuote />}
+    {step === 2 && <OwnerApproval />}
+  </main><div className="supplement-action"><button className="secondary-button" onClick={step === 0 ? onBack : () => setStep(step - 1)}>{step === 0 ? "保存草稿" : "上一步"}</button><PrimaryButton onClick={() => step < 2 ? setStep(step + 1) : onBack}>{step === 0 ? "生成补充报价" : step === 1 ? "发送车主确认" : "返回维修相册"}<Icon name="arrow" size={16} /></PrimaryButton></div></>;
+}
+
+function FaultRecord() {
+  return <>
+    <div className="context-link"><Icon name="file" size={16} /><div><span>关联原施工项目</span><strong>更换气门室盖垫 · 工单 #052801</strong></div><Icon name="chevron" size={15} /></div>
+    <section className="sub-card fault-form"><div className="sub-title"><span className="section-kicker">NEW ISSUE</span><h2>新发现故障</h2></div>
+      <label><span>故障名称</span><input defaultValue="节温器座轻微渗漏" /></label>
+      <label><span>故障说明</span><textarea defaultValue="拆卸气门室盖后视野更清晰，发现节温器座周边存在冷却液结晶和轻微渗漏痕迹。" /></label>
+      <div className="severity-select"><span>建议处理等级</span><div><button className="active">建议本次处理</button><button>建议观察</button><button>紧急处理</button></div></div>
+    </section>
+    <section className="sub-card"><div className="sub-title with-action"><div><span className="section-kicker">EVIDENCE</span><h2>现场留证</h2></div><span className="required-mark">至少 2 张</span></div><div className="fault-photo-grid"><div className="fault-photo close"><span>渗漏点近景</span><b><Icon name="check" size={10} />已标记</b></div><div className="fault-photo position"><span>部件位置</span></div><button><Icon name="camera" /><span>继续拍摄</span></button></div></section>
+    <div className="stage-ai-panel"><span><Icon name="spark" size={18} /></span><div><strong>AI 已复核故障描述</strong><p>照片特征与节温器座渗漏一致。建议趁当前拆装状态一并更换，可避免后续重复拆装并节省约 ¥300 工时。</p></div></div>
+  </>;
+}
+
+function SupplementQuote() {
+  return <>
+    <section className="supplement-reason"><span><Icon name="shield" size={16} />追加原因</span><strong>施工中新发现：节温器座轻微渗漏</strong><p>已关联 3 张现场照片和 AI 复核意见，车主可在报价单中查看。</p></section>
+    <section className="sub-card quote-card"><div className="sub-title with-action"><div><span className="section-kicker">ADDITIONAL QUOTE</span><h2>补充报价明细</h2></div><button><Icon name="plus" size={14} />添加项目</button></div>
+      <div className="quote-line"><div><i>配</i><span><strong>节温器总成</strong><small>品牌件 · 质保 12 个月</small></span></div><b>¥520</b></div>
+      <div className="quote-line"><div><i>料</i><span><strong>冷却液补充</strong><small>原车规格 · 1L</small></span></div><b>¥80</b></div>
+      <div className="quote-line"><div><i>工</i><span><strong>补充施工工时</strong><small>合并施工已减免重复拆装费</small></span></div><b>¥80</b></div>
+      <div className="saving-note"><Icon name="spark" size={15} /><span>合并施工已为车主节省约 ¥300</span></div>
+      <div className="supplement-total"><span>本次补充报价</span><strong>¥680</strong></div>
+    </section>
+    <section className="price-compare"><div><span>原报价</span><strong>¥2,860</strong></div><Icon name="plus" /><div><span>补充报价</span><strong>¥680</strong></div><Icon name="arrow" /><div className="new-total"><span>更新后合计</span><strong>¥3,540</strong></div></section>
+    <div className="stage-ai-panel compact"><span><Icon name="spark" size={18} /></span><div><strong>AI 报价校验通过</strong><p>项目与新故障匹配，价格处于本地合理区间，已清楚说明追加原因和合并施工优惠。</p></div></div>
+  </>;
+}
+
+function OwnerApproval() {
+  return <>
+    <section className="approval-status"><div className="send-pulse"><Icon name="phone" size={23} /></div><span className="section-kicker">WAITING FOR APPROVAL</span><h2>补充报价已发送给王先生</h2><p>已通过微信服务通知送达，等待车主查看并确认</p><StatusPill tone="amber"><Icon name="clock" size={10} />等待确认</StatusPill></section>
+    <section className="sub-card approval-summary"><div className="sub-title"><span className="section-kicker">SENT DOCUMENT</span><h2>车主看到的内容</h2></div>
+      <div className="approval-fault"><div className="mini-fault-photo" /><div><span>施工中新发现</span><strong>节温器座轻微渗漏</strong><small>含 3 张现场留证照片</small></div></div>
+      <div className="approval-price"><span>原报价 ¥2,860</span><span>补充 ¥680</span><strong>总计 ¥3,540</strong></div>
+      <div className="approval-includes"><span><Icon name="check" />故障原因说明</span><span><Icon name="check" />补充报价明细</span><span><Icon name="check" />AI 参考意见</span><span><Icon name="check" />质保承诺</span></div>
+    </section>
+    <section className="approval-timeline"><div className="done"><i><Icon name="check" size={11} /></i><span><strong>补充报价已发送</strong><small>11:32</small></span></div><b /><div className="current"><i>2</i><span><strong>等待车主确认</strong><small>确认前不会开始新增施工</small></span></div><b /><div><i>3</i><span><strong>确认后更新工单</strong><small>自动加入维修施工流程</small></span></div></section>
+    <button className="remind-owner"><Icon name="phone" size={16} /><span><strong>联系或提醒车主</strong><small>建议等待 10 分钟后再提醒</small></span><Icon name="chevron" size={16} /></button>
+  </>;
 }
 
 function CreateModal({ onClose }: { onClose: () => void }) {
@@ -465,19 +579,21 @@ export default function App() {
   const [tab, setTab] = useState("home");
   const [detail, setDetail] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
+  const [supplement, setSupplement] = useState(false);
+  const [profilePage, setProfilePage] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [document, setDocument] = useState<string | null>(null);
 
-  const changeTab = (id: string) => { setTab(id); setDetail(false); setStage(null); };
+  const changeTab = (id: string) => { setTab(id); setDetail(false); setStage(null); setSupplement(false); setProfilePage(null); };
   return (
     <div className="app-shell">
       <div className="phone-frame">
         <div className="status-bar"><span>9:41</span><div><i /><i /><b>▰</b></div></div>
-        {stage ? <ProcessPage initialStage={stage} onBack={() => setStage(null)} /> : detail ? <AlbumDetail onBack={() => setDetail(false)} onDocument={setDocument} onStage={setStage} /> : <>
+        {supplement ? <SupplementFlow onBack={() => setSupplement(false)} /> : profilePage ? <ProfileSubPage page={profilePage} onBack={() => setProfilePage(null)} /> : stage ? <ProcessPage initialStage={stage} onBack={() => setStage(null)} /> : detail ? <AlbumDetail onBack={() => setDetail(false)} onDocument={setDocument} onStage={setStage} onSupplement={() => setSupplement(true)} /> : <>
           {tab === "home" && <Home onCreate={() => setCreateOpen(true)} onOpen={() => setDetail(true)} />}
           {tab === "albums" && <Albums onOpen={() => setDetail(true)} />}
           {tab === "ai" && <AiAssistant />}
-          {tab === "profile" && <Profile />}
+          {tab === "profile" && <Profile onOpen={setProfilePage} />}
           <BottomNav active={tab} onChange={changeTab} />
         </>}
         {createOpen && <CreateModal onClose={() => setCreateOpen(false)} />}

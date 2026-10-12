@@ -55,13 +55,13 @@
         <text class="mch-store__preview" bindtap="onPreview">预览公开页</text>
       </view>
 
-      <view class="mch-row" bindtap="onEdit">
+      <view class="mch-row" bindtap="onIntro">
         <view class="mch-row__well {{home.introDone ? 'is-done' : ''}}">
           <image wx:if="{{home.introDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
           <text wx:else class="mch-row__plus">+</text>
         </view>
         <view class="mch-row__body">
-          <text class="mch-row__title">门店介绍</text>
+          <text class="mch-row__title">基础资料</text>
           <text class="mch-row__value">{{home.introValue}}</text>
         </view>
         <text class="mch-row__chev">›</text>
@@ -77,13 +77,13 @@
         </view>
         <text class="mch-row__chev">›</text>
       </view>
-      <view class="mch-row" bindtap="onEdit">
+      <view class="mch-row" bindtap="onTech">
         <view class="mch-row__well {{home.techDone ? 'is-done' : ''}}">
           <image wx:if="{{home.techDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
           <text wx:else class="mch-row__plus">+</text>
         </view>
         <view class="mch-row__body">
-          <text class="mch-row__title">技师资质</text>
+          <text class="mch-row__title">资质证明</text>
           <text class="mch-row__value">{{home.techValue}}</text>
         </view>
         <text class="mch-row__chev">›</text>

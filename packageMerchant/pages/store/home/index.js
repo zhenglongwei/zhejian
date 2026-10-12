@@ -89,7 +89,15 @@ Page({
   },
 
   onEdit() {
-    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index' })
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index?section=basic' })
+  },
+
+  onIntro() {
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index?section=basic' })
+  },
+
+  onTech() {
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index?section=cert' })
   },
 
   onStaff() {
@@ -97,7 +105,7 @@ Page({
   },
 
   onServices() {
-    wx.navigateTo({ url: '/packageMerchant/pages/service/list/index' })
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index?section=skill' })
   },
 
   onSwitchStore() {

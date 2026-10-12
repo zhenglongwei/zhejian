@@ -1363,6 +1363,20 @@
             </block>
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
+              <view wx:if="{{isAddonQuote}}" class="sup-steps">
+                <view class="sup-step {{addonDiscoveryReady || confirmAwaitingOwner ? 'is-before' : 'is-on'}}">
+                  <text class="sup-step__dot">{{addonDiscoveryReady || confirmAwaitingOwner ? '✓' : '1'}}</text>
+                  <text>故障留证</text>
+                </view>
+                <view class="sup-step {{confirmAwaitingOwner ? 'is-before' : addonDiscoveryReady ? 'is-on' : ''}}">
+                  <text class="sup-step__dot">{{confirmAwaitingOwner ? '✓' : '2'}}</text>
+                  <text>补充报价</text>
+                </view>
+                <view class="sup-step {{confirmAwaitingOwner ? 'is-on' : ''}}">
+                  <text class="sup-step__dot">3</text>
+                  <text>车主确认</text>
+                </view>
+              </view>
               <view
                 wx:if="{{isAddonQuote && !addonDiscoveryReady && !confirmAwaitingOwner}}"
                 class="merchant-flow-page__sheet"
@@ -1370,9 +1384,10 @@
                 <view class="merchant-flow-page__sheet-section">
                   <view class="merchant-flow-page__sheet-title-row">
                     <view class="merchant-flow-page__sheet-rail" />
-                    <text class="text-body merchant-flow-page__sheet-title">新发现</text>
+                    <text class="text-body merchant-flow-page__sheet-title">新发现故障</text>
                   </view>
-                  <text class="text-caption text-secondary">拍下故障，写一句看见什么</text>
+                  <text class="st-kicker">NEW ISSUE</text>
+                  <text class="text-caption text-secondary">故障说明</text>
                   <view class="merchant-flow-page__work-thumbs">
                     <view
                       wx:for="{{addonDiscoveryImages}}"

@@ -43,6 +43,23 @@ async function resolveStoreActor(userId) {
   }
 }
 
+async function countStoreCaseStars(storeId) {
+  const id = String(storeId || '').trim()
+  if (!id) return 0
+  assertPrismaDelegate('userFavorite', '星标')
+  const cases = await prisma.publicCase.findMany({
+    where: { storeId: id },
+    select: { id: true },
+  })
+  if (!cases.length) return 0
+  return prisma.userFavorite.count({
+    where: {
+      targetType: 'case',
+      targetId: { in: cases.map((item) => item.id) },
+    },
+  })
+}
+
 async function listCaseStars(caseId, options = {}) {
   assertPrismaDelegate('userFavorite', '星标')
   const id = await assertPublicCaseExists(caseId)
@@ -95,6 +112,7 @@ async function toggleCaseStar(userId, caseId) {
 }
 
 module.exports = {
+  countStoreCaseStars,
   listCaseStars,
   toggleCaseStar,
 }

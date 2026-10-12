@@ -1,5 +1,6 @@
 const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../../services/merchant')
-const { updateStoreDisplayProfile } = require('../../../../services/merchant-store')
+const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
+const { updateStoreDisplayProfile, polishStoreIntro } = require('../../../../services/merchant-store')
 const { uploadImage } = require('../../../../utils/media-upload')
 const { isMerchantOwner } = require('../../../../utils/auth')
 const { ONBOARDING_BASE_QUALIFICATION_OPTIONS } = require('../../../../constants/onboarding')
@@ -23,7 +24,8 @@ const {
   joinTags,
   createEmptyBrandAuthItem,
 } = require('../../../../utils/merchant-store-form')
-const { buildBusinessHoursEditorState } = require('../../../../utils/business-hours')
+const { buildBusinessHoursEditorState, formatBusinessHours } = require('../../../../utils/business-hours')
+const { scoreBasicProfile, photoAdvice } = require('../../../../utils/merchant-basic-profile')
 const { createBusinessHoursPageHandlers } = require('../../../../utils/business-hours-page')
 
 function buildEquipmentTagViews(selected) {
@@ -43,6 +45,13 @@ function buildEquipmentTagViews(selected) {
     .filter((name) => EQUIPMENT_PRESETS.indexOf(name) < 0)
     .map((name) => ({ name, selected: true }))
   return presetViews.concat(customViews)
+}
+
+function brandNames(text) {
+  return String(text || '')
+    .split(/[,，、\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function formatToday() {
@@ -73,12 +82,144 @@ Page({
     qualificationLabel: '',
     switchColor: DESIGN_TOKENS.COLOR_PRIMARY,
     today: formatToday(),
+    section: 'basic',
+    showBasic: true,
+    showHours: true,
+    showIntro: true,
+    showEnv: true,
+    showScore: true,
+    showSkill: false,
+    showTech: false,
+    showPublic: false,
+    profileScore: 0,
+    profileScoreLabel: '',
+    profileGaps: [],
+    gapNote: {},
+    photoTips: [],
+    photoAdviceOn: false,
+    brandList: [],
+    brandDraft: '',
+    albumCount: 0,
+    caseStarCount: 0,
   },
 
   ...createBusinessHoursPageHandlers(),
 
-  onLoad() {
+  syncBusinessHours() {
+    const text = formatBusinessHours({
+      daily: this.data.businessHoursDaily,
+      temporaryClosures: this.data.businessHoursClosures,
+    })
+    this.setData({
+      'form.businessHours': text,
+      businessHoursPreview: text,
+    }, () => this.refreshBasicCoach())
+  },
+
+  onLoad(options) {
+    const raw = String((options && options.section) || '')
+    const section = raw === 'tech' || raw === 'cert' ? 'cert' : raw === 'skill' ? 'skill' : 'basic'
+    const isBasic = section === 'basic'
+    const isSkill = section === 'skill'
+    this.setData({
+      section,
+      showBasic: isBasic,
+      showHours: isBasic,
+      showIntro: isBasic,
+      showEnv: isBasic,
+      showScore: isBasic,
+      showSkill: isSkill,
+      showTech: section === 'cert',
+      showPublic: section === 'cert',
+    })
+    const titles = { basic: '基础资料', skill: '擅长服务', cert: '资质证明' }
+    wx.setNavigationBarTitle({ title: titles[section] })
     this.initPage()
+  },
+
+  refreshBasicCoach() {
+    const form = this.data.form || {}
+    const scored = scoreBasicProfile(form)
+    const photos = photoAdvice(form, this._photoMeta || {})
+    const gapNote = {}
+    ;(scored.gaps || []).forEach((item) => {
+      gapNote[item.key] = item.note
+    })
+    this.setData({
+      profileScore: scored.score,
+      profileScoreLabel: scored.label,
+      profileGaps: scored.gaps || [],
+      gapNote,
+      photoTips: photos.lines,
+    })
+    this.probePhotos(form)
+  },
+
+  probePhotos(form) {
+    const slots = [
+      form.facadePhotoUrl,
+      (form.workshopPhotoUrls || [])[0],
+      (form.receptionPhotoUrls || [])[0],
+    ].filter(Boolean)
+    this._photoMeta = this._photoMeta || {}
+    slots.forEach((url) => {
+      if (this._photoMeta[url]) return
+      this._photoMeta[url] = { pending: true }
+      wx.getImageInfo({
+        src: url,
+        success: (info) => {
+          this._photoMeta[url] = { width: info.width, height: info.height }
+          const next = photoAdvice(this.data.form || {}, this._photoMeta)
+          this.setData({ photoTips: next.lines })
+        },
+        fail: () => {
+          this._photoMeta[url] = { width: 0, height: 0 }
+        },
+      })
+    })
+  },
+
+  introFacts() {
+    const form = this.data.form || {}
+    const techs = (form.technicians || []).filter((item) => String(item && item.name || '').trim())
+    return {
+      storeName: form.storeName,
+      address: form.address,
+      businessHours: form.businessHours || this.data.businessHoursPreview,
+      currentIntro: form.intro,
+      services: form.services || [],
+      specialtyBrands: brandNames(form.specialtyBrandsText),
+      establishedOn: form.licenseEstablishedOn,
+      technicianCount: techs.length,
+      technicianRoles: techs.map((item) => {
+        const role = String(item.role || '').trim()
+        const years = String(item.years || '').trim()
+        return [role, years ? `${years}年` : ''].filter(Boolean).join(' ')
+      }).filter(Boolean),
+    }
+  },
+
+  async onPolish() {
+    if (this._polishing) return
+    this._polishing = true
+    try {
+      const intro = await polishStoreIntro(this.introFacts())
+      if (!intro) {
+        wx.showToast({ title: '没有生成介绍', icon: 'none' })
+        return
+      }
+      this.setData({ 'form.intro': intro }, () => this.refreshBasicCoach())
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '润色失败', icon: 'none' })
+    } finally {
+      this._polishing = false
+    }
+  },
+
+  onPhotoAdvice() {
+    const photos = photoAdvice(this.data.form || {}, this._photoMeta || {})
+    this.setData({ photoAdviceOn: true, photoTips: photos.lines })
+    this.probePhotos(this.data.form || {})
   },
 
   async initPage() {
@@ -114,6 +255,9 @@ Page({
         businessHoursDaily: daily,
         businessHoursClosures: hours.businessHoursClosures,
         businessHoursPreview: hours.businessHoursPreview,
+        brandList: brandNames(form.specialtyBrandsText),
+        albumCount: Number(profile.albumCount) || 0,
+        caseStarCount: Number(profile.caseStarCount) || 0,
         showClosureForm: false,
         closureDraft: hours.closureDraft,
         storeId: profile.storeId || '',
@@ -124,6 +268,8 @@ Page({
       if (typeof this.syncBusinessHours === 'function') {
         this.syncBusinessHours()
       }
+      this.refreshBasicCoach()
+      if (profile.albumCount == null) this.loadAlbumCount()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
       setTimeout(() => wx.navigateBack(), 1500)
@@ -132,13 +278,56 @@ Page({
 
   onInput(e) {
     const { field } = e.currentTarget.dataset
-    this.setData({ [`form.${field}`]: e.detail.value })
+    this.setData({ [`form.${field}`]: e.detail.value }, () => this.refreshBasicCoach())
   },
 
   updateServices(services) {
     this.setData({
       'form.services': services,
       serviceTags: buildServiceTagViews(services),
+    })
+  },
+
+  async loadAlbumCount() {
+    try {
+      const albums = await fetchMerchantServiceAlbumList({ tab: 'all' })
+      const list = Array.isArray(albums) ? albums : (albums && albums.list) || []
+      this.setData({ albumCount: list.length })
+    } catch (e) {
+      this.setData({ albumCount: 0 })
+    }
+  },
+
+  onBrandDraft(e) {
+    this.setData({ brandDraft: e.detail.value })
+  },
+
+  onAddBrand() {
+    const name = String(this.data.brandDraft || '').trim()
+    if (!name) return
+    const list = brandNames(this.data.form.specialtyBrandsText)
+    if (list.indexOf(name) >= 0) {
+      this.setData({ brandDraft: '' })
+      return
+    }
+    if (list.length >= 12) {
+      wx.showToast({ title: '品牌最多 12 个', icon: 'none' })
+      return
+    }
+    list.push(name)
+    this.setData({
+      brandDraft: '',
+      brandList: list,
+      'form.specialtyBrandsText': list.join('、'),
+    })
+  },
+
+  onRemoveBrand(e) {
+    const name = e.currentTarget.dataset.name
+    const list = brandNames(this.data.form.specialtyBrandsText).filter((item) => item !== name)
+    this.setData({
+      brandList: list,
+      'form.specialtyBrandsText': list.join('、'),
     })
   },
 
@@ -380,7 +569,7 @@ Page({
     wx.showLoading({ title: '上传中', mask: true })
     try {
       const url = await uploadImage(temp)
-      this.setData({ [`form.${field}`]: url })
+      this.setData({ [`form.${field}`]: url }, () => this.refreshBasicCoach())
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
     } finally {
@@ -413,7 +602,7 @@ Page({
       }
       this.setData({
         'form.receptionPhotoUrls': current.concat(urls),
-      })
+      }, () => this.refreshBasicCoach())
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
     } finally {
@@ -425,7 +614,7 @@ Page({
     const { index } = e.currentTarget.dataset
     const list = this.receptionPhotoList().slice()
     list.splice(Number(index), 1)
-    this.setData({ 'form.receptionPhotoUrls': list })
+    this.setData({ 'form.receptionPhotoUrls': list }, () => this.refreshBasicCoach())
   },
 
   onAddBrandAuth() {
@@ -503,7 +692,7 @@ Page({
       }
       this.setData({
         'form.workshopPhotoUrls': current.concat(urls),
-      })
+      }, () => this.refreshBasicCoach())
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
     } finally {
@@ -515,7 +704,7 @@ Page({
     const { index } = e.currentTarget.dataset
     const list = this.workshopPhotoList().slice()
     list.splice(Number(index), 1)
-    this.setData({ 'form.workshopPhotoUrls': list })
+    this.setData({ 'form.workshopPhotoUrls': list }, () => this.refreshBasicCoach())
   },
 
   onPublishFlag(e) {

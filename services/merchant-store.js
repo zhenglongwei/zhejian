@@ -3,7 +3,7 @@
  * API: PUT /api/v1/merchant/store
  */
 const { ENV } = require('./config')
-const { put } = require('./request')
+const { post, put } = require('./request')
 const { cacheMerchantProfile } = require('./merchant')
 
 function delay(ms = 200) {
@@ -34,6 +34,20 @@ async function updateStoreDisplayProfile(form) {
   return profile
 }
 
+async function polishStoreIntro(facts) {
+  if (ENV.mode === 'mock') {
+    const err = new Error('演示环境未连接润色')
+    throw err
+  }
+  const data = await post('/merchant/store/intro-polish', facts, {
+    showLoading: true,
+    loadingText: '润色中',
+    timeout: 50000,
+  })
+  return String((data && data.intro) || '').trim()
+}
+
 module.exports = {
   updateStoreDisplayProfile,
+  polishStoreIntro,
 }

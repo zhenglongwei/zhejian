@@ -19,6 +19,7 @@ const {
 } = require('../utils/store-capability')
 const { resolveStoreCapabilityJson } = require('../utils/store-capability-load')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+const { countStoreCaseStars } = require('./archive-star.service')
 const {
   ACCOUNT_TYPE,
   AUTH_STATUS,
@@ -286,10 +287,20 @@ async function getOnboardingProfile(userId, options = {}) {
   })
   if (!found) return null
   const capabilityJson = await resolveStoreCapabilityJson(found.store)
-  return formatOnboardingProfile(found.merchant, {
+  const profile = formatOnboardingProfile(found.merchant, {
     ...found.store,
     capabilityJson,
   })
+  const countedStoreId = found.store.id
+  const [albumCount, caseStarCount] = await Promise.all([
+    prisma.album.count({ where: { storeId: countedStoreId } }).catch(() => 0),
+    countStoreCaseStars(countedStoreId).catch(() => 0),
+  ])
+  return {
+    ...profile,
+    albumCount,
+    caseStarCount,
+  }
 }
 
 async function listWorkbenchStoreEntries(userId) {

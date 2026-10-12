@@ -2901,3 +2901,61 @@
   background: var(--color-primary);
   border-color: var(--color-primary);
 }
+
+.sup-steps {
+  display: flex;
+  margin-bottom: 24rpx;
+  padding: 8rpx 0 16rpx;
+}
+
+.sup-step {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  color: var(--color-mch-meta);
+  font-size: var(--font-mch-micro);
+  line-height: var(--font-mch-micro-lh);
+}
+
+.sup-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 20rpx;
+  left: calc(50% + 24rpx);
+  width: calc(100% - 48rpx);
+  height: 2rpx;
+  background: var(--color-mch-rail);
+}
+
+.sup-step__dot {
+  position: relative;
+  z-index: 1;
+  width: 42rpx;
+  height: 42rpx;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-mch-dot);
+  color: var(--color-mch-dot-ink);
+  font-size: var(--font-mch-micro);
+}
+
+.sup-step.is-before .sup-step__dot {
+  background: var(--color-mch-green);
+  color: var(--color-text-inverse);
+}
+
+.sup-step.is-on {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sup-step.is-on .sup-step__dot {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: 0 0 0 8rpx var(--color-primary-light);
+}
