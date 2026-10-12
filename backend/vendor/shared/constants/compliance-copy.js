@@ -7,7 +7,7 @@ const AUTHORIZATION_CONSENT = {
     authType: 'login',
     version: LEGAL_VERSION,
     text:
-      '我已阅读并同意《用户服务协议》《隐私政策》及《用户隐私保护指引》',
+      '我已阅读并同意《用户服务协议》、《隐私政策》及微信《用户隐私保护指引》',
   },
   consult_transfer: {
     authType: 'consult_transfer',
