@@ -1,6 +1,6 @@
 const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../../services/merchant')
 const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
-const { updateStoreDisplayProfile, polishStoreIntro } = require('../../../../services/merchant-store')
+const { updateStoreDisplayProfile, polishStoreIntro, adviseStorePhotos } = require('../../../../services/merchant-store')
 const { uploadImage } = require('../../../../utils/media-upload')
 const { isMerchantOwner } = require('../../../../utils/auth')
 const { ONBOARDING_BASE_QUALIFICATION_OPTIONS } = require('../../../../constants/onboarding')
@@ -140,7 +140,6 @@ Page({
   refreshBasicCoach() {
     const form = this.data.form || {}
     const scored = scoreBasicProfile(form)
-    const photos = photoAdvice(form, this._photoMeta || {})
     const gapNote = {}
     ;(scored.gaps || []).forEach((item) => {
       gapNote[item.key] = item.note
@@ -150,7 +149,6 @@ Page({
       profileScoreLabel: scored.label,
       profileGaps: scored.gaps || [],
       gapNote,
-      photoTips: photos.lines,
     })
     this.probePhotos(form)
   },
@@ -169,8 +167,6 @@ Page({
         src: url,
         success: (info) => {
           this._photoMeta[url] = { width: info.width, height: info.height }
-          const next = photoAdvice(this.data.form || {}, this._photoMeta)
-          this.setData({ photoTips: next.lines })
         },
         fail: () => {
           this._photoMeta[url] = { width: 0, height: 0 }
@@ -216,10 +212,59 @@ Page({
     }
   },
 
-  onPhotoAdvice() {
-    const photos = photoAdvice(this.data.form || {}, this._photoMeta || {})
-    this.setData({ photoAdviceOn: true, photoTips: photos.lines })
-    this.probePhotos(this.data.form || {})
+  photoAdvicePayload() {
+    const form = this.data.form || {}
+    const meta = this._photoMeta || {}
+    const missing = []
+    const images = []
+    const push = (slot, url) => {
+      const src = String(url || '').trim()
+      if (!src) {
+        if (missing.indexOf(slot) < 0) missing.push(slot)
+        return
+      }
+      if (!/^https?:\/\//i.test(src)) return
+      if (images.length >= 6) return
+      const size = meta[src] || {}
+      images.push({
+        slot,
+        url: src,
+        width: size.width || 0,
+        height: size.height || 0,
+      })
+    }
+    push('facade', form.facadePhotoUrl)
+    ;(form.workshopPhotoUrls || []).slice(0, 2).forEach((url) => push('workshop', url))
+    ;(form.receptionPhotoUrls || []).slice(0, 2).forEach((url) => push('reception', url))
+    if (!(form.workshopPhotoUrls || []).some((url) => String(url || '').trim())) missing.push('workshop')
+    if (!(form.receptionPhotoUrls || []).some((url) => String(url || '').trim())) missing.push('reception')
+    const slotName = { facade: '门头', workshop: '工位', reception: '接待区' }
+    return {
+      missing: missing.map((key) => slotName[key]).filter(Boolean),
+      images: images.map((item) => ({ ...item, slot: slotName[item.slot] || item.slot })),
+    }
+  },
+
+  async onPhotoAdvice() {
+    if (this._photoAdvising) return
+    this._photoAdvising = true
+    const local = photoAdvice(this.data.form || {}, this._photoMeta || {})
+    const payload = this.photoAdvicePayload()
+    try {
+      if (!payload.images.length) {
+        this.setData({ photoAdviceOn: true, photoTips: local.lines })
+        return
+      }
+      const lines = await adviseStorePhotos(payload)
+      this.setData({
+        photoAdviceOn: true,
+        photoTips: lines.length ? lines : local.lines,
+      })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '收录建议失败', icon: 'none' })
+    } finally {
+      this._photoAdvising = false
+    }
   },
 
   async initPage() {

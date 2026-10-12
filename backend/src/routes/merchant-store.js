@@ -3,6 +3,7 @@ const { ok } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const { updateStoreDisplayProfile } = require('../services/merchant-store.service')
 const { polishMerchantIntro } = require('../services/merchant-intro-polish.service')
+const { adviseStorePhotos } = require('../services/merchant-photo-advice.service')
 const { listMerchantStoresForUser } = require('../services/merchant-context.service')
 
 const router = express.Router()
@@ -24,6 +25,15 @@ router.post('/store/intro-polish', requireAuth(['merchant']), async (req, res, n
   try {
     const intro = await polishMerchantIntro(req.body || {})
     return ok(res, { intro })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/store/photo-advice', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const lines = await adviseStorePhotos(req.body || {})
+    return ok(res, { lines })
   } catch (e) {
     next(e)
   }

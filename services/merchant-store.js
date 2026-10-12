@@ -47,7 +47,21 @@ async function polishStoreIntro(facts) {
   return String((data && data.intro) || '').trim()
 }
 
+async function adviseStorePhotos(payload) {
+  if (ENV.mode === 'mock') {
+    const err = new Error('演示环境未连接识图')
+    throw err
+  }
+  const data = await post('/merchant/store/photo-advice', payload, {
+    showLoading: true,
+    loadingText: '看照片',
+    timeout: 60000,
+  })
+  return Array.isArray(data && data.lines) ? data.lines : []
+}
+
 module.exports = {
   updateStoreDisplayProfile,
   polishStoreIntro,
+  adviseStorePhotos,
 }
