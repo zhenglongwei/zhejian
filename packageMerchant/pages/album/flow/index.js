@@ -33,7 +33,7 @@ const {
 } = require('../../../../constants/service-flow-nodes')
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
-const { buildMerchantAlbumOverview } = require('../../../../utils/merchant-album-overview')
+const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
 const { buildMerchantStageBoard, stageKeyOf } = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
@@ -353,6 +353,8 @@ Page({
     errorMessage: '',
     showOverview: true,
     overview: null,
+    docBrief: null,
+    briefSending: false,
     workOpen: false,
     workTitle: '',
     stageKey: '',
@@ -1894,6 +1896,55 @@ Page({
   onOpenOverview(e) {
     const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     this.openStage(this.resolveStageKey(id))
+  },
+
+  onOpenDoc(e) {
+    const title = String((e.currentTarget.dataset && e.currentTarget.dataset.title) || '')
+    if (!title) return
+    this.setData({
+      docBrief: buildMerchantDocBrief(this._album || {}, this._flowNodes || [], title),
+    })
+  },
+
+  onCloseDoc() {
+    if (this.data.briefSending) return
+    this.setData({ docBrief: null })
+  },
+
+  onBriefFull() {
+    const brief = this.data.docBrief
+    if (!brief) return
+    this.setData({ docBrief: null })
+    this.openStage(brief.stageKey)
+  },
+
+  async onBriefSend() {
+    const brief = this.data.docBrief
+    if (!brief || this.data.briefSending) return
+    if (!brief.canSend || !brief.nodeId) {
+      const already = brief.status === '已确认' || brief.status === '待确认'
+      wx.showToast({ title: already ? '已经发给车主' : '还不能发给车主', icon: 'none' })
+      return
+    }
+    const node = (this._flowNodes || []).find((item) => item && item.id === brief.nodeId)
+    const payload = node && node.document && node.document.payload
+    if (!payload) {
+      wx.showToast({ title: '还不能发给车主', icon: 'none' })
+      return
+    }
+    this.setData({ briefSending: true })
+    try {
+      await updateMerchantFlowNode(this.albumId, brief.nodeId, {
+        document: { status: 'pending_confirm', payload },
+      })
+      wx.showToast({ title: '已发送车主', icon: 'success' })
+      this.setData({ docBrief: null })
+      await this.loadFlow({ silent: true })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
+    } finally {
+      this.setData({ briefSending: false })
+    }
   },
 
   openDoneReview(nodeId) {

@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { buildMerchantAlbumOverview } = require('./merchant-album-overview')
+const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('./merchant-album-overview')
 
 function node(partial) {
   return {
@@ -62,4 +62,44 @@ test('施工中的详情用真实车牌和四张单据', () => {
   assert.equal(view.rows[3].shots.length, 1)
   assert.equal(view.rows[4].state, 'todo')
   assert.equal(view.action, '补充施工记录')
+})
+
+test('单据简要层用真实项目，未确认不盖存证章', () => {
+  const album = {
+    storeName: '驰援汽车服务中心',
+    serviceName: '发动机渗油维修',
+    vehicle: { plate: '粤B7K52M', brand: '宝马', series: '3系', mileage: 68420 },
+  }
+  const nodes = [
+    node({
+      kind: 'inspection_report',
+      sortOrder: 2,
+      document: {
+        status: 'delivered',
+        payload: { findings: [{ partName: '气门室盖垫', result: '需处理' }] },
+      },
+    }),
+    node({
+      kind: 'quote_confirm',
+      sortOrder: 3,
+      document: {
+        status: 'draft',
+        payload: { lines: [{ name: '更换气门室盖垫', amount: 1680 }, { name: '施工服务费', amount: 600 }] },
+      },
+    }),
+    node({ id: 'work', kind: 'work', sortOrder: 4, status: 'locked' }),
+  ]
+  const report = buildMerchantDocBrief(album, nodes, '检测报告')
+  assert.equal(report.lines[0].name, '气门室盖垫')
+  assert.equal(report.lines[0].amount, '')
+  assert.equal(report.sealed, true)
+  assert.equal(report.vehicleLine, '粤B·7K52M / 68,420km')
+  const quote = buildMerchantDocBrief(album, nodes, '报价单')
+  assert.equal(quote.totalText, '¥2,280')
+  assert.equal(quote.sealed, false)
+  assert.equal(quote.canSend, true)
+  const pending = buildMerchantDocBrief(album, nodes, '交车报告')
+  assert.equal(pending.emptyText, '还没有这份内容')
+  assert.equal(pending.sealed, false)
+  assert.equal(pending.canSend, false)
 })

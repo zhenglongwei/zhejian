@@ -263,6 +263,99 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
   }
 }
 
+function pricedLines(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((line) => {
+      const name = String((line && (line.name || line.partName)) || '').trim()
+      if (!name) return null
+      const amount = moneyText(line && line.amount)
+      return { name, amount }
+    })
+    .filter(Boolean)
+    .slice(0, 6)
+}
+
+function findingLines(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((row) => {
+      const name = String((row && (row.partName || row.name)) || '').trim()
+      if (!name) return null
+      return { name, amount: '' }
+    })
+    .filter(Boolean)
+    .slice(0, 6)
+}
+
+function briefLines(title, nodes, node) {
+  const payload = (node && node.document && node.document.payload) || {}
+  if (title === '检测报告') {
+    const fromDoc = Array.isArray(payload.findings) ? payload.findings : []
+    return findingLines(fromDoc.length ? fromDoc : findingsOf(nodes))
+  }
+  if (title === '报价单') return pricedLines(payload.lines)
+  if (title === '交车报告') return pricedLines(payload.workItems)
+  const quote = nodes.find((item) => item && item.kind === 'quote_confirm')
+  const quoteLines = quote && quote.document && quote.document.payload && quote.document.payload.lines
+  const priced = pricedLines(quoteLines)
+  if (priced.length) return priced
+  return findingLines(findingsOf([node]))
+}
+
+function lineTotal(lines) {
+  return (lines || []).reduce((sum, line) => {
+    const n = Number(String((line && line.amount) || '').replace(/[^\d.]/g, ''))
+    return sum + (Number.isFinite(n) ? n : 0)
+  }, 0)
+}
+
+/**
+ * 详情页顶部四张单据的简要弹层。金额和项目只取已有记录。
+ */
+function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
+  const overview = buildMerchantAlbumOverview(album, flowNodes)
+  const tile = (overview.docs || []).find((item) => item && item.title === title) || {
+    title,
+    label: '待生成',
+    tone: 'muted',
+    nodeId: '',
+  }
+  const nodes = Array.isArray(flowNodes) ? flowNodes : []
+  const node = nodes.find((item) => item && item.id && item.id === tile.nodeId) || null
+  const payload = (node && node.document && node.document.payload) || {}
+  const status = String((node && node.document && node.document.status) || '')
+  const vehicle = album.vehicle || {}
+  const mileage = Number(vehicle.mileage)
+  const mileageText = Number.isFinite(mileage) && mileage > 0 ? `${mileage.toLocaleString('zh-CN')}km` : ''
+  const lines = tile.label === '待生成' ? [] : briefLines(title, nodes, node)
+  const total = lineTotal(lines)
+  const serviceName = String(album.serviceName || '').trim()
+  const storeName = String(album.storeName || '').trim()
+  const period = String((payload.warranty && payload.warranty.period) || payload.warrantyPeriod || '').trim()
+  const quoteReady = title === '报价单' && lines.length > 0 && lines.every((line) => line.amount)
+  const repairReady = title === '交车报告' && lines.length > 0 && Boolean(period)
+  const canSend = (status === '' || status === 'draft') && (quoteReady || repairReady)
+  const stageKey = title === '检测报告' ? 'inspect' : title === '报价单' ? 'quote' : title === '维修工单' ? 'work' : 'finish'
+  return {
+    title: tile.title || title,
+    plate: overview.plate,
+    vehicleName: overview.vehicleName,
+    storeName,
+    mark: storeName.slice(0, 2) || '门店',
+    status: tile.label || '待生成',
+    statusTone: tile.tone || 'muted',
+    vehicleLine: [overview.plate, mileageText].filter(Boolean).join(' / '),
+    serviceName,
+    lines,
+    totalText: total > 0 ? moneyText(total) : '',
+    sealed: (status === 'confirmed' || status === 'delivered') && lines.length > 0,
+    emptyText: lines.length ? '' : '还没有这份内容',
+    canSend,
+    nodeId: tile.nodeId || '',
+    stageKey,
+  }
+}
+
 module.exports = {
   buildMerchantAlbumOverview,
+  buildMerchantDocBrief,
 }
