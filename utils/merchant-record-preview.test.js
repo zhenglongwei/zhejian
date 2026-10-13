@@ -2,16 +2,15 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { readStageGate, stagePrimary, buildRecordPreview } = require('./merchant-record-preview')
 
-test('确认后才出现生成，生成后才出现发送', () => {
+test('节点页底部同时有预览和生成，生成后才变成发送', () => {
   const fresh = { confirmed: false, generated: false, sent: false }
-  assert.equal(stagePrimary('inspect', 'current', fresh).label, '')
-  const confirmed = { confirmed: true, generated: false, sent: false, versions: [{ id: 'rv_1' }] }
-  assert.equal(stagePrimary('inspect', 'current', confirmed).label, '生成检测报告')
-  assert.equal(stagePrimary('quote', 'current', confirmed).label, '生成报价单')
-  assert.equal(stagePrimary('intake', 'current', confirmed).label, '保存并开始检测')
-  const generated = { confirmed: true, generated: true, sent: false }
-  assert.equal(stagePrimary('finish', 'current', generated).label, '发送给车主')
-  assert.equal(stagePrimary('inspect', 'current', { confirmed: true, generated: true, sent: true }).label, '')
+  assert.equal(stagePrimary('inspect', 'done', fresh).label, '生成检测报告')
+  assert.equal(stagePrimary('inspect', 'current', fresh).action, 'generate')
+  assert.equal(stagePrimary('quote', 'todo', fresh).label, '生成报价单')
+  assert.equal(stagePrimary('work', 'current', fresh).label, '生成维修工单')
+  assert.equal(stagePrimary('intake', 'current', fresh).label, '保存并开始检测')
+  assert.equal(stagePrimary('finish', 'current', { generated: true, sent: false }).label, '发送给车主')
+  assert.equal(stagePrimary('inspect', 'done', { generated: true, sent: true }).label, '')
 })
 
 test('预览只用已有记录，不编健康分', () => {

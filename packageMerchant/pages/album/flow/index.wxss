@@ -2466,7 +2466,28 @@
   line-height: var(--font-mch-kicker-lh);
 }
 
-.st-count,
+.st-count {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  color: var(--color-mch-meta);
+  font-size: var(--font-mch-micro);
+  line-height: var(--font-mch-micro-lh);
+}
+
+.st-count image {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.st-card__hint {
+  display: block;
+  margin-top: 6rpx;
+  color: var(--color-mch-meta);
+  font-size: var(--font-mch-micro);
+  line-height: var(--font-mch-micro-lh);
+}
+
 .st-line__note,
 .st-task__note,
 .st-step__sub,
@@ -2491,6 +2512,15 @@
 .st-fault__shots {
   display: flex;
   gap: 12rpx;
+}
+
+.st-photos--intake {
+  flex-wrap: wrap;
+}
+
+.st-photos--intake .st-photo {
+  flex: none;
+  width: calc((100% - 24rpx) / 3);
 }
 
 .st-photo,
@@ -2524,6 +2554,71 @@
   color: var(--color-text-inverse);
   font-size: var(--font-mch-micro);
   line-height: var(--font-mch-micro-lh);
+}
+
+.st-photo--add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  border: 2rpx dashed var(--color-border);
+  background: var(--color-bg-page);
+  color: var(--color-mch-meta);
+  font-size: var(--font-mch-micro);
+  line-height: var(--font-mch-micro-lh);
+}
+
+.st-photo--add image {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.st-mileage {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 16rpx;
+  color: var(--color-mch-meta);
+  font-size: var(--font-mch-kicker);
+  line-height: var(--font-mch-kicker-lh);
+}
+
+.st-mileage input {
+  flex: 1;
+  height: 64rpx;
+  padding: 0 16rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-size: var(--font-mch-kicker);
+}
+
+.st-edit {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  color: var(--color-primary);
+  font-size: var(--font-mch-kicker);
+  line-height: var(--font-mch-kicker-lh);
+}
+
+.st-edit image {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.st-quote-input {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  border-left: 6rpx solid var(--color-primary);
+  border-radius: 0 16rpx 16rpx 0;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-size: var(--font-mch-kicker);
+  line-height: var(--font-mch-kicker-lh);
 }
 
 .st-photo__badge {

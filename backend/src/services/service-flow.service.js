@@ -865,8 +865,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       err.status = 400
       throw err
     }
-    if (!String(incomingDraft.odometerUrl || '').trim()) {
-      const err = new Error('请拍里程表')
+    if (photoCount < 1) {
+      const err = new Error('请先拍留证')
       err.status = 400
       throw err
     }

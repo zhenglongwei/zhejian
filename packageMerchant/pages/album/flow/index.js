@@ -364,6 +364,8 @@ Page({
     stagePrimary: '',
     stagePrimaryAction: '',
     recordPreview: null,
+    intakeEditing: false,
+    intakePile: [],
     doneView: null,
     statusBarHeight: 20,
     capsulePad: 16,
@@ -1238,7 +1240,9 @@ Page({
         odometerUrl: String(this.data.odometerUrl || '').trim(),
         odometerImageId: String(this.data.odometerImageId || '').trim(),
         intakeResults: [],
-        pendingImages: [],
+        pendingImages: normalizePendingImages(
+          (((this.data.sections || [])[0] || {}).images) || [],
+        ),
       }
     }
     // 检测＝细查：部位 findings + 结论（结论进检测报告）
@@ -1852,11 +1856,91 @@ Page({
     this.setData({
       workOpen: true,
       doneView: null,
-      stageEditor: stageBoard.state === 'current',
+      stageEditor: stageBoard.state === 'current' && stageBoard.selectedKey !== 'intake',
+      intakeEditing: false,
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stagePrimary: primary.label,
       stagePrimaryAction: primary.action,
+      intakePile: this.collectIntakePile(stageBoard),
+    })
+  },
+
+  onToggleIntakeEdit() {
+    if (this.data.readOnly) return
+    this.setData({ intakeEditing: !this.data.intakeEditing })
+  },
+
+  collectIntakePile(stageBoard) {
+    const board = stageBoard || this.data.stageBoard || {}
+    const saved = (board.intake && board.intake.photos) || []
+    const section = ((this.data.sections || [])[0] || {}).images || []
+    const seen = {}
+    const pile = []
+    const push = (url) => {
+      const clean = String(url || '').trim()
+      const key = clean.replace(/[?#].*$/, '')
+      if (!key || seen[key]) return
+      seen[key] = true
+      pile.push({ url: clean })
+    }
+    saved.forEach((item) => push(item && item.url))
+    push(this.data.odometerUrl)
+    section.forEach((item) => push(item && (item.url || item)))
+    return pile
+  },
+
+  onIntakeShoot() {
+    if (this.data.readOnly) return
+    const remain = Math.max(0, 12 - this.collectIntakePile().length)
+    if (remain < 1) {
+      wx.showToast({ title: '最多 12 张', icon: 'none' })
+      return
+    }
+    pickLocalImages({
+      count: remain,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const files = (res && res.tempFiles) || []
+        if (!files.length) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploadedList = []
+          for (let i = 0; i < files.length; i += 1) {
+            const uploaded = await uploadImage(files[i].tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (!url) continue
+            uploadedList.push({
+              url,
+              imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+            })
+          }
+          if (!uploadedList.length) throw new Error('上传失败')
+          const sections = (this.data.sections || []).map((row, index) =>
+            index === 0 ? { ...row, images: (row.images || []).concat(uploadedList) } : row,
+          )
+          const seen = {}
+          const intakePile = []
+          const push = (url) => {
+            const clean = String(url || '').trim()
+            const key = clean.replace(/[?#].*$/, '')
+            if (!key || seen[key]) return
+            seen[key] = true
+            intakePile.push({ url: clean })
+          }
+          ;(((this.data.stageBoard || {}).intake || {}).photos || []).forEach((item) => push(item && item.url))
+          push(this.data.odometerUrl)
+          ;(((sections[0] || {}).images) || []).forEach((item) => push(item && (item.url || item)))
+          this.setData({ sections, intakePile, autoSaveLabel: '保存中…' })
+          await this.persistPhotos()
+          await this.persistPhotoDraft()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
     })
   },
 

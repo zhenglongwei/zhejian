@@ -271,12 +271,16 @@
                 <view>
                   <text class="st-kicker">VEHICLE CONDITION</text>
                   <text class="st-card__title">车辆入店留证</text>
+                  <text class="st-card__hint">里程表、油量表、环车外观、灯光、随车物品、轮胎</text>
                 </view>
-                <text wx:if="{{stageBoard.intake.photoCount}}" class="st-count">{{stageBoard.intake.photoCount}} 张</text>
+                <view wx:if="{{intakePile.length}}" class="st-count">
+                  <image src="/assets/mch/camera-gray.png" mode="aspectFit" />
+                  <text>{{intakePile.length}} 张</text>
+                </view>
               </view>
-              <view class="st-photos">
+              <view class="st-photos st-photos--intake">
                 <view
-                  wx:for="{{stageBoard.intake.photos}}"
+                  wx:for="{{intakePile}}"
                   wx:key="url"
                   class="st-photo"
                   data-url="{{item.url}}"
@@ -286,6 +290,25 @@
                   <text class="st-photo__cap">{{item.caption}}</text>
                   <text class="st-photo__badge">已留证</text>
                 </view>
+                <view
+                  wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                  class="st-photo st-photo--add"
+                  bindtap="onIntakeShoot"
+                >
+                  <image src="/assets/mch/camera-gray.png" mode="aspectFit" />
+                  <text>继续拍摄</text>
+                </view>
+              </view>
+              <view wx:if="{{stageBoard.state === 'current' && !readOnly}}" class="st-mileage">
+                <text>当前里程</text>
+                <input
+                  value="{{mileageKm}}"
+                  type="number"
+                  maxlength="7"
+                  placeholder="公里数"
+                  bindinput="onMileageKmInput"
+                />
+                <text>km</text>
               </view>
               <view wx:if="{{stageBoard.intake.advice}}" class="st-note">
                 <image src="/assets/mch/check-blue.png" mode="aspectFit" />
@@ -295,14 +318,28 @@
                 </view>
               </view>
             </view>
-            <view wx:if="{{stageBoard.intake.complaint || stageBoard.intake.cells.length}}" class="st-card">
+            <view wx:if="{{stageBoard.state === 'current' || stageBoard.intake.complaint || stageBoard.intake.cells.length}}" class="st-card">
               <view class="st-card__head">
                 <view>
                   <text class="st-kicker">CUSTOMER REQUEST</text>
                   <text class="st-card__title">车主诉求</text>
                 </view>
+                <view wx:if="{{stageBoard.state === 'current' && !readOnly}}" class="st-edit" catchtap="onToggleIntakeEdit">
+                  <image src="/assets/mch/pencil-blue.png" mode="aspectFit" />
+                  <text>{{intakeEditing ? '收起' : '编辑'}}</text>
+                </view>
               </view>
-              <text wx:if="{{stageBoard.intake.complaint}}" class="st-quote">{{stageBoard.intake.complaint}}</text>
+              <textarea
+                wx:if="{{intakeEditing}}"
+                class="st-quote-input"
+                value="{{chiefComplaint}}"
+                maxlength="300"
+                auto-height="{{true}}"
+                placeholder="车主怎么描述的"
+                disabled="{{readOnly}}"
+                bindinput="onChiefComplaintInput"
+              />
+              <text wx:elif="{{stageBoard.intake.complaint}}" class="st-quote">“{{stageBoard.intake.complaint}}”</text>
               <view wx:if="{{stageBoard.intake.cells.length}}" class="st-grid">
                 <view wx:for="{{stageBoard.intake.cells}}" wx:key="label">
                   <text>{{item.label}}</text>

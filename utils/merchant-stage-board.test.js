@@ -23,8 +23,12 @@ function nodes() {
         fuelReading: '约 45%',
         intakeResults: [{ category: 'belongings', reading: '钥匙 1 把' }],
       },
-      previewImages: [{ url: 'https://img/odo.jpg' }, { url: 'https://img/front.jpg', caption: '左前' }],
-      intakeAdvice: { diagnosis: '左前有划痕' },
+      previewImages: [
+        { url: 'https://img/odo.jpg' },
+        { url: 'https://img/front.jpg', caption: '左前', observation: '左前杠有一道划痕' },
+        { url: 'https://img/tire.jpg', caption: '轮胎' },
+      ],
+      intakeAdvice: { diagnosis: '重点检查悬挂衬套老化、球头间隙' },
     },
     {
       id: 'ins',
@@ -86,8 +90,10 @@ test('接车只展示已有照片、诉求和识别结论', () => {
   const board = buildMerchantStageBoard(album(), nodes(), 'intake')
   assert.equal(board.title, '接车建档')
   assert.equal(board.intake.complaint, '地面有油迹')
-  assert.equal(board.intake.advice, '左前有划痕')
-  assert.equal(board.intake.photos[0].caption, '仪表里程')
+  assert.equal(board.intake.advice, '左前杠有一道划痕')
+  assert.equal(board.intake.advice.includes('衬套'), false)
+  assert.equal(board.intake.photos.length, 3)
+  assert.equal(board.intake.photos[2].url, 'https://img/tire.jpg')
   assert.ok(board.intake.cells.some((cell) => cell.label === '油量' && cell.value === '约 45%'))
   assert.equal(board.inspect, null)
   assert.equal(board.tabs[0].mark, 'on')

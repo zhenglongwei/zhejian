@@ -38,7 +38,7 @@ function packOf(node) {
 }
 
 function isSentStatus(status) {
-  return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+  return status === 'pending_confirm' || status === 'confirmed'
 }
 
 function readStageGate(flowNodes, stageKey) {
@@ -60,10 +60,8 @@ function readStageGate(flowNodes, stageKey) {
 function stagePrimary(stageKey, state, gate) {
   const current = gate || {}
   if (current.sent) return { label: '', action: '' }
-  if (state !== 'current' && !current.generated) return { label: '', action: '' }
-  if (state === 'current' && !current.confirmed && !current.generated) return { label: '', action: '' }
   if (stageKey === 'intake') {
-    return state === 'current' ? { label: '保存并开始检测', action: 'advance' } : { label: '', action: '' }
+    return state === 'done' ? { label: '', action: '' } : { label: '保存并开始检测', action: 'advance' }
   }
   if (!current.generated) return { label: GENERATE[stageKey] || '生成报告', action: 'generate' }
   return { label: '发送给车主', action: 'send' }

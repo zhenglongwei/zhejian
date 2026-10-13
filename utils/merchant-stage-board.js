@@ -34,8 +34,6 @@ function imagesOf(node) {
 }
 
 function adviceOf(node) {
-  const diagnosis = String((node && node.intakeAdvice && node.intakeAdvice.diagnosis) || '').trim()
-  if (diagnosis) return diagnosis
   const suggestions = node && node.aiReview && node.aiReview.suggestions
   if (!Array.isArray(suggestions)) return ''
   for (let i = 0; i < suggestions.length; i += 1) {
@@ -73,17 +71,43 @@ function firstNode(list, kinds) {
   return list.find((node) => kinds.indexOf(node.kind) >= 0) || null
 }
 
-function intakeRecord(nodes) {
+/** 接车影像检查只认看得见的留证，不把初步诊断当影像结论。 */
+function intakeImageNote(node) {
+  const images = node && Array.isArray(node.previewImages) ? node.previewImages : []
+  const notes = []
+  images.forEach((img) => {
+    if (!img || typeof img === 'string') return
+    const caption = String(img.observation || img.note || '').trim()
+    if (!caption || notes.indexOf(caption) >= 0) return
+    notes.push(caption)
+  })
+  return notes.slice(0, 3).join(' ')
+}
+
+function maskedPhone(album = {}) {
+  const shown = String(album.userPhoneDisplay || album.userPhone || '').trim()
+  const masked = shown.match(/^(\d{3})\*+(\d{4})$/)
+  if (masked) return `${masked[1]} **** ${masked[2]}`
+  if (/^\d{11}$/.test(shown)) return `${shown.slice(0, 3)} **** ${shown.slice(7)}`
+  return shown
+}
+
+function intakeRecord(nodes, album = {}) {
   const photo = firstNode(nodes, ['intake', 'intake_inspection'])
   const draft = (photo && photo.photoDraft) || {}
   const all = imagesOf(photo)
   const odo = String(draft.odometerUrl || '').trim()
   const photos = []
-  if (odo) photos.push({ url: odo, caption: '仪表里程' })
-  all.forEach((img) => {
-    if (img.url === odo || photos.length >= 2) return
-    photos.push({ url: img.url, caption: img.caption || '外观' })
-  })
+  const seen = {}
+  const pushPhoto = (url, caption) => {
+    const clean = String(url || '').trim()
+    const key = clean.replace(/[?#].*$/, '')
+    if (!key || seen[key]) return
+    seen[key] = true
+    photos.push({ url: clean, caption: String(caption || '').trim() })
+  }
+  if (odo) pushPhoto(odo, '仪表里程')
+  all.forEach((img) => pushPhoto(img.url, img.caption))
   const results = Array.isArray(draft.intakeResults) ? draft.intakeResults : []
   const reading = (id) => {
     const row = results.find((item) => item && item.category === id)
@@ -91,12 +115,16 @@ function intakeRecord(nodes) {
   }
   const fuel = String(draft.fuelReading || reading('fuel') || '').trim()
   const belongings = reading('belongings')
+  const phone = maskedPhone(album)
+  const sender = String(album.userName || album.contactName || '').trim()
   const cells = [
+    sender ? { label: '送修人', value: sender } : null,
+    phone ? { label: '联系电话', value: phone } : null,
     belongings ? { label: '随车物品', value: belongings } : null,
     fuel ? { label: '油量', value: fuel } : null,
   ].filter(Boolean)
   const complaint = String(draft.chiefComplaint || '').trim()
-  const advice = adviceOf(photo)
+  const advice = intakeImageNote(photo)
   const done = nodes.length > 0 && nodes.every((node) => node && node._done)
   return {
     photos,
@@ -296,7 +324,7 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
   const albumState = (buckets.find((item) => item.key === selected) || {}).state || 'todo'
   const intakeImages = imagesOf(firstNode(grouped.intake, ['intake', 'intake_inspection']))
   const record = {
-    intake: selected === 'intake' ? intakeRecord(grouped.intake) : null,
+    intake: selected === 'intake' ? intakeRecord(grouped.intake, album) : null,
     inspect: selected === 'inspect' ? inspectRecord(grouped.inspect) : null,
     quote: selected === 'quote' ? quoteRecord(grouped.quote.filter((node) => node.kind === 'quote_confirm')) : null,
     work: selected === 'work' ? workRecord(grouped.work, grouped.quote) : null,
