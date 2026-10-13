@@ -34,7 +34,7 @@ const {
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
-const { buildRecordPreview, readStageGate, stagePrimary } = require('../../../../utils/merchant-record-preview')
+const { buildRecordPreview, stageChrome } = require('../../../../utils/merchant-record-preview')
 const { buildMerchantStageBoard, stageKeyOf } = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
@@ -363,6 +363,7 @@ Page({
     stageEditor: false,
     stagePrimary: '',
     stagePrimaryAction: '',
+    stageShowPreview: false,
     recordPreview: null,
     intakeEditing: false,
     intakePile: [],
@@ -1851,8 +1852,7 @@ Page({
   openStage(stageKey) {
     const key = stageKeyOf(stageKey) || stageKey || 'intake'
     const stageBoard = buildMerchantStageBoard(this._album || {}, this._flowNodes || [], key)
-    const gate = readStageGate(this._flowNodes || [], stageBoard.selectedKey)
-    const primary = stagePrimary(stageBoard.selectedKey, stageBoard.state, gate)
+    const chrome = stageChrome(stageBoard.selectedKey, stageBoard.state)
     this.setData({
       workOpen: true,
       doneView: null,
@@ -1860,8 +1860,9 @@ Page({
       intakeEditing: false,
       stageKey: stageBoard.selectedKey,
       stageBoard,
-      stagePrimary: primary.label,
-      stagePrimaryAction: primary.action,
+      stageShowPreview: chrome.preview,
+      stagePrimary: chrome.label,
+      stagePrimaryAction: chrome.action,
       intakePile: this.collectIntakePile(stageBoard),
     })
   },
@@ -1957,78 +1958,76 @@ Page({
     this.setData({ recordPreview: null })
   },
 
-  async markStagePack(patch) {
-    const gate = readStageGate(this._flowNodes || [], this.data.stageKey)
-    if (!gate.nodeId) {
-      wx.showToast({ title: '这一步还没有记录', icon: 'none' })
-      return false
+  async onSendFromPreview() {
+    if (this.data.confirming) return
+    const key = this.data.stageKey
+    const kind =
+      key === 'inspect' ? 'inspection_report' : key === 'quote' ? 'quote_confirm' : key === 'finish' ? 'repair_report' : ''
+    const node = (this._flowNodes || []).find((item) => item && item.kind === kind && item.document)
+    if (!node) {
+      wx.showToast({ title: '还没有可发的报告', icon: 'none' })
+      return
     }
+    const status = String((node.document && node.document.status) || '')
+    if (status === 'pending_confirm' || status === 'confirmed' || (key === 'inspect' && status === 'delivered')) {
+      wx.showToast({ title: '已经发给车主', icon: 'none' })
+      this.setData({ recordPreview: null })
+      return
+    }
+    const activeKind = this.data.activeNode && this.data.activeNode.kind
+    if ((key === 'quote' || key === 'finish') && activeKind === kind) {
+      this.setData({ recordPreview: null })
+      this.onSendForOwnerConfirm()
+      return
+    }
+    let payload = (node.document && node.document.payload) || {}
+    if (key === 'inspect' && activeKind === 'inspection_report') {
+      try {
+        await this.flushDocDraftSave()
+      } catch (err) {
+        wx.showToast({ title: (err && err.message) || '请先保存当前修改', icon: 'none' })
+        return
+      }
+      payload = this.buildDocPayloadForSave()
+    }
+    if (key === 'inspect') {
+      const gaps = collectInspectionReportGaps(payload)
+      if (gaps.length) {
+        wx.showToast({ title: gaps[0], icon: 'none' })
+        return
+      }
+    }
+    const nextStatus = key === 'inspect' ? 'delivered' : 'pending_confirm'
     this.setData({ confirming: true })
     try {
-      if (gate.usesDocument) {
-        await updateMerchantFlowNode(this.albumId, gate.nodeId, { document: { payload: patch } })
-      } else {
-        await updateMerchantFlowNode(this.albumId, gate.nodeId, { photoDraft: patch })
-      }
+      await updateMerchantFlowNode(this.albumId, node.id, {
+        document: { status: nextStatus, payload },
+      })
+      wx.showToast({ title: '已发给车主', icon: 'success' })
+      this.setData({ recordPreview: null })
       await this.loadFlow({ silent: true })
-      this.openStage(this.data.stageKey)
-      return true
+      this.openStage(key)
     } catch (err) {
-      wx.showToast({ title: (err && err.message) || '没能保存', icon: 'none' })
-      return false
+      wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
     }
   },
 
-  async onConfirmRecordPreview() {
-    const preview = this.data.recordPreview
-    if (!preview || this.data.confirming) return
-    const gate = readStageGate(this._flowNodes || [], this.data.stageKey)
-    const version = {
-      id: `rv_${Date.now()}`,
-      confirmedAt: new Date().toISOString(),
-      title: preview.title,
-      summary: preview.summary || '',
-    }
-    const saved = await this.markStagePack({
-      recordVersions: (gate.versions || []).concat([version]),
-    })
-    if (saved) {
-      this.setData({ recordPreview: null })
-      wx.showToast({ title: '已确认', icon: 'success' })
-    }
-  },
-
-  async onStagePrimary() {
+  onStagePrimary() {
     const action = this.data.stagePrimaryAction
     if (!action || this.data.confirming) return
     if (action === 'advance') {
       this.onConfirmPhotoStep()
       return
     }
-    if (action === 'generate') {
-      const saved = await this.markStagePack({ reportGeneratedAt: new Date().toISOString() })
-      if (saved) wx.showToast({ title: '已生成', icon: 'success' })
-      return
+    if (action === 'addWork') {
+      if (!this.data.isWorkPhotoStep) {
+        wx.showToast({ title: '先做到施工这一步', icon: 'none' })
+        return
+      }
+      this.onAddFindingPhotos()
     }
-    if (action !== 'send') return
-    const kind = this.data.activeNode && this.data.activeNode.kind
-    const key = this.data.stageKey
-    if (key === 'quote' && (kind === 'quote_confirm' || kind === 'addon_quote_confirm')) {
-      this.onSendForOwnerConfirm()
-      return
-    }
-    if (key === 'finish' && kind === 'repair_report') {
-      this.onSendForOwnerConfirm()
-      return
-    }
-    if (key === 'inspect' && (kind === 'inspection_report' || kind === 'inspection')) {
-      this.onNotifyOwnerPlan()
-      return
-    }
-    const saved = await this.markStagePack({ ownerSentAt: new Date().toISOString() })
-    if (saved) wx.showToast({ title: '已交给车主查看', icon: 'success' })
   },
 
   onOpenStageEditor() {
@@ -5363,11 +5362,11 @@ Page({
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'intake') {
       if (!String(this.data.chiefComplaint || '').trim()) {
-        wx.showToast({ title: '先写问诊登记', icon: 'none' })
+        wx.showToast({ title: '先写客户诉求', icon: 'none' })
         return
       }
-      if (!String(this.data.odometerUrl || '').trim()) {
-        wx.showToast({ title: '请拍里程表', icon: 'none' })
+      if (!this.collectIntakePile().length) {
+        wx.showToast({ title: '请先拍留证', icon: 'none' })
         return
       }
       if (!parseMileageKm(this.data.mileageKm)) {

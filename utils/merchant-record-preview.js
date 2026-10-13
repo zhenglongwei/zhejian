@@ -3,13 +3,6 @@
  * 只整理已经记下的内容。
  */
 
-const GENERATE = {
-  inspect: '生成检测报告',
-  quote: '生成报价单',
-  work: '生成维修工单',
-  finish: '生成交车报告',
-}
-
 const RECORD_TITLE = {
   intake: '车辆接收与初始状态记录',
   inspect: '检测记录',
@@ -57,14 +50,15 @@ function readStageGate(flowNodes, stageKey) {
   }
 }
 
-function stagePrimary(stageKey, state, gate) {
-  const current = gate || {}
-  if (current.sent) return { label: '', action: '' }
-  if (stageKey === 'intake') {
-    return state === 'done' ? { label: '', action: '' } : { label: '保存并开始检测', action: 'advance' }
+function stageChrome(stageKey, state) {
+  if (stageKey === 'intake' && state !== 'done') {
+    return { preview: false, label: '保存并开始检测', action: 'advance' }
   }
-  if (!current.generated) return { label: GENERATE[stageKey] || '生成报告', action: 'generate' }
-  return { label: '发送给车主', action: 'send' }
+  if (stageKey === 'work' && state !== 'done') {
+    return { preview: false, label: '添加施工记录', action: 'addWork' }
+  }
+  const preview = stageKey === 'inspect' || stageKey === 'quote' || stageKey === 'finish'
+  return { preview, label: '', action: '' }
 }
 
 function intakeFacts(block) {
@@ -156,6 +150,6 @@ function buildRecordPreview(album = {}, board = {}) {
 
 module.exports = {
   readStageGate,
-  stagePrimary,
+  stageChrome,
   buildRecordPreview,
 }

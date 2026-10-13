@@ -1,16 +1,16 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { readStageGate, stagePrimary, buildRecordPreview } = require('./merchant-record-preview')
+const { readStageGate, stageChrome, buildRecordPreview } = require('./merchant-record-preview')
 
-test('节点页底部同时有预览和生成，生成后才变成发送', () => {
-  const fresh = { confirmed: false, generated: false, sent: false }
-  assert.equal(stagePrimary('inspect', 'done', fresh).label, '生成检测报告')
-  assert.equal(stagePrimary('inspect', 'current', fresh).action, 'generate')
-  assert.equal(stagePrimary('quote', 'todo', fresh).label, '生成报价单')
-  assert.equal(stagePrimary('work', 'current', fresh).label, '生成维修工单')
-  assert.equal(stagePrimary('intake', 'current', fresh).label, '保存并开始检测')
-  assert.equal(stagePrimary('finish', 'current', { generated: true, sent: false }).label, '发送给车主')
-  assert.equal(stagePrimary('inspect', 'done', { generated: true, sent: true }).label, '')
+test('只有检测、报价、完工能预览，接车和施工不能', () => {
+  assert.equal(stageChrome('intake', 'current').preview, false)
+  assert.equal(stageChrome('intake', 'current').label, '保存并开始检测')
+  assert.equal(stageChrome('work', 'current').preview, false)
+  assert.equal(stageChrome('work', 'current').label, '添加施工记录')
+  assert.equal(stageChrome('inspect', 'current').preview, true)
+  assert.equal(stageChrome('inspect', 'current').label, '')
+  assert.equal(stageChrome('quote', 'done').preview, true)
+  assert.equal(stageChrome('finish', 'current').preview, true)
 })
 
 test('预览只用已有记录，不编健康分', () => {

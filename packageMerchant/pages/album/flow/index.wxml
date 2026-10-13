@@ -1725,8 +1725,8 @@
             </block>
           </view>
       </scroll-view>
-      <view wx:if="{{stageBoard}}" class="st-bar">
-        <view class="st-bar__btn" bindtap="onOpenRecordPreview">预览记录</view>
+      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary)}}" class="st-bar">
+        <view wx:if="{{stageShowPreview}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
     </view>
@@ -1784,7 +1784,6 @@
             <text class="rec-preview__label">AI 技师意见</text>
             <text class="rec-preview__copy">{{recordPreview.advice}}</text>
           </view>
-          <view class="rec-preview__seal">确认后按确认时间留存</view>
           <view class="rec-preview__scope">
             <text>车主可见</text>
             <text>节点说明、关键数据、留证照片、技师意见</text>
@@ -1797,7 +1796,7 @@
       </scroll-view>
       <view class="st-bar">
         <view class="st-bar__btn" catchtap="onCloseRecordPreview">返回修改</view>
-        <view class="st-bar__btn st-bar__btn--go" catchtap="onConfirmRecordPreview">确认记录内容</view>
+        <view class="st-bar__btn st-bar__btn--go" catchtap="onSendFromPreview">发给车主</view>
       </view>
     </view>
     <view wx:if="{{doneView}}" class="ov-work ov-work--top">
