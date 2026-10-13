@@ -1234,19 +1234,21 @@ Page({
     const kind = this.data.activeNode && this.data.activeNode.kind
     // 接车＝留证：问诊 / 当前里程 / 里程表槽；外观图走相册节点
     if (kind === 'intake') {
+      const intake = this.intakeNode()
+      const draft = (intake && intake.photoDraft) || {}
+      const fromNode = normalizePendingImages(draft.pendingImages)
+      const pile = normalizePendingImages(this.collectIntakePile())
       return {
-        chiefComplaint: this.data.chiefComplaint,
-        mileageKm: parseMileageKm(this.data.mileageKm),
-        fuelReading: String(this.data.fuelReading || '').trim(),
-        vehicleBrand: String(this.data.vehicleBrand || '').trim(),
-        vehicleSeries: String(this.data.vehicleSeries || '').trim(),
-        vehicleYear: String(this.data.vehicleYear || '').trim(),
-        odometerUrl: String(this.data.odometerUrl || '').trim(),
-        odometerImageId: String(this.data.odometerImageId || '').trim(),
+        chiefComplaint: this.data.chiefComplaint || draft.chiefComplaint,
+        mileageKm: parseMileageKm(this.data.mileageKm || draft.mileageKm),
+        fuelReading: String(this.data.fuelReading || draft.fuelReading || '').trim(),
+        vehicleBrand: String(this.data.vehicleBrand || draft.vehicleBrand || '').trim(),
+        vehicleSeries: String(this.data.vehicleSeries || draft.vehicleSeries || '').trim(),
+        vehicleYear: String(this.data.vehicleYear || draft.vehicleYear || '').trim(),
+        odometerUrl: String(draft.odometerUrl || this.data.odometerUrl || '').trim(),
+        odometerImageId: String(draft.odometerImageId || this.data.odometerImageId || '').trim(),
         intakeResults: [],
-        pendingImages: normalizePendingImages(
-          (((this.data.sections || [])[0] || {}).images) || [],
-        ),
+        pendingImages: fromNode.length ? fromNode : pile,
       }
     }
     // 检测＝细查：部位 findings + 结论（结论进检测报告）
@@ -1880,7 +1882,6 @@ Page({
   collectIntakePile(stageBoard) {
     const board = stageBoard || this.data.stageBoard || {}
     const saved = (board.intake && board.intake.photos) || []
-    const section = ((this.data.sections || [])[0] || {}).images || []
     const seen = {}
     const pile = []
     const push = (url) => {
@@ -1890,9 +1891,7 @@ Page({
       seen[key] = true
       pile.push({ url: clean })
     }
-    saved.forEach((item) => push(item && item.url))
-    push(this.data.odometerUrl)
-    section.forEach((item) => push(item && (item.url || item)))
+    saved.forEach((item) => push(item && (item.url || item)))
     return pile
   },
 
@@ -1923,9 +1922,14 @@ Page({
             })
           }
           if (!uploadedList.length) throw new Error('上传失败')
-          const sections = (this.data.sections || []).map((row, index) =>
-            index === 0 ? { ...row, images: (row.images || []).concat(uploadedList) } : row,
-          )
+          const intake = this.intakeNode()
+          if (!intake) throw new Error('还没有接车记录')
+          const draft = (intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) || {}
+          const pendingImages = normalizePendingImages(draft.pendingImages).concat(uploadedList)
+          await updateMerchantFlowNode(this.albumId, intake.id, {
+            photoDraft: { pendingImages },
+          })
+          intake.photoDraft = { ...draft, pendingImages }
           const seen = {}
           const intakePile = []
           const push = (url) => {
@@ -1935,12 +1939,15 @@ Page({
             seen[key] = true
             intakePile.push({ url: clean })
           }
-          ;(((this.data.stageBoard || {}).intake || {}).photos || []).forEach((item) => push(item && item.url))
-          push(this.data.odometerUrl)
-          ;(((sections[0] || {}).images) || []).forEach((item) => push(item && (item.url || item)))
-          this.setData({ sections, intakePile, autoSaveLabel: '保存中…' })
-          await this.persistPhotos()
-          await this.persistPhotoDraft()
+          this.collectIntakePile().forEach((item) => push(item && item.url))
+          pendingImages.forEach((item) => push(item && item.url))
+          const stageBoard = this.data.stageBoard
+            ? {
+                ...this.data.stageBoard,
+                intake: { ...(this.data.stageBoard.intake || {}), photos: intakePile },
+              }
+            : this.data.stageBoard
+          this.setData({ intakePile, stageBoard, autoSaveLabel: '已保存' })
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -1983,19 +1990,40 @@ Page({
     return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
   },
 
+  intakeDraftFields() {
+    const intake = this.intakeNode()
+    const draft = (intake && intake.photoDraft) || {}
+    const board = (this.data.stageBoard && this.data.stageBoard.intake) || {}
+    const pile =
+      this.data.intakePile && this.data.intakePile.length
+        ? this.data.intakePile
+        : this.collectIntakePile()
+    return {
+      intake,
+      pile,
+      complaint: String(
+        this.data.chiefComplaint || board.complaint || draft.chiefComplaint || '',
+      ).trim(),
+      mileageKm: String(this.data.mileageKm || draft.mileageKm || '').trim(),
+    }
+  },
+
   buildIntakeConfirmPayload() {
+    const fields = this.intakeDraftFields()
     const results = this.data.intakeResults || []
     const reading = (id) => {
       const row = results.find((item) => item && item.category === id)
       return String((row && row.reading) || '').trim()
     }
-    const mileageKm = String(this.data.mileageKm || '').trim()
     return {
-      mileageKm,
+      mileageKm: fields.mileageKm,
       fuelReading: String(this.data.fuelReading || reading('fuel') || '').trim(),
       belongings: reading('belongings'),
-      chiefComplaint: String(this.data.chiefComplaint || '').trim(),
-      photos: this.collectIntakePile().map((url) => ({ url: String(url) })),
+      chiefComplaint: fields.complaint,
+      photos: (fields.pile || [])
+        .map((item) => String((item && item.url) || '').trim())
+        .filter(Boolean)
+        .map((url) => ({ url })),
       confirmCopy: INTAKE_CONFIRM_COPY,
     }
   },
@@ -2026,6 +2054,40 @@ Page({
       return false
     } finally {
       if (!quiet) this.setData({ confirming: false })
+    }
+  },
+
+  async finishIntakeSend(fields) {
+    const intake = fields && fields.intake
+    if (!intake) return
+    this.setData({ confirming: true })
+    try {
+      const sent = await this.sendIntakeConfirm({ quiet: true })
+      if (!sent) {
+        wx.showToast({ title: '没能发给车主', icon: 'none' })
+        return
+      }
+      if (String(intake.status || '') !== 'completed') {
+        const photos = (fields.pile || [])
+          .map((item) => ({ url: String((item && item.url) || '').trim() }))
+          .filter((item) => item.url)
+        await completeMerchantFlowNode(this.albumId, intake.id, {
+          chiefComplaint: fields.complaint,
+          mileageKm: parseMileageKm(fields.mileageKm),
+          photoDraft: {
+            chiefComplaint: fields.complaint,
+            mileageKm: parseMileageKm(fields.mileageKm),
+            pendingImages: photos,
+          },
+        })
+      }
+      wx.showToast({ title: '已发给车主', icon: 'success' })
+      await this.loadFlow({ silent: true })
+      this.openStage('inspect')
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
     }
   },
 
@@ -5507,16 +5569,36 @@ Page({
       this._photoSaveTimer = null
     }
     const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind === 'intake') {
-      if (!String(this.data.chiefComplaint || '').trim()) {
-        wx.showToast({ title: '先写客户诉求', icon: 'none' })
+    if (this.data.stageKey === 'intake') {
+      const fields = this.intakeDraftFields()
+      if (fields.intake && fields.intake.kind === 'intake') {
+        if (!fields.complaint) {
+          wx.showToast({ title: '先写车主诉求', icon: 'none' })
+          return
+        }
+        if (!fields.pile.length) {
+          wx.showToast({ title: '请先拍留证', icon: 'none' })
+          return
+        }
+        if (!parseMileageKm(fields.mileageKm)) {
+          wx.showToast({ title: '请填写当前里程', icon: 'none' })
+          return
+        }
+        await this.finishIntakeSend(fields)
         return
       }
-      if (!this.collectIntakePile().length) {
+    }
+    if (kind === 'intake' || kind === 'intake_inspection') {
+      const fields = this.intakeDraftFields()
+      if (!fields.complaint) {
+        wx.showToast({ title: '先写车主诉求', icon: 'none' })
+        return
+      }
+      if (!fields.pile.length) {
         wx.showToast({ title: '请先拍留证', icon: 'none' })
         return
       }
-      if (!parseMileageKm(this.data.mileageKm)) {
+      if (!parseMileageKm(fields.mileageKm)) {
         wx.showToast({ title: '请填写当前里程', icon: 'none' })
         return
       }

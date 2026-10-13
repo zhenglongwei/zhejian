@@ -57,6 +57,12 @@
         <view class="mch-track">
           <view class="mch-track__bar mch-track__bar--{{item.pillTone}}" style="width: {{item.progress}}%;" />
         </view>
+        <view
+          wx:if="{{!item.repairDone}}"
+          class="mch-card__delete"
+          data-id="{{item.albumId}}"
+          catchtap="onDeleteAlbum"
+        >删除</view>
         <view wx:if="{{item.chips.length}}" class="mch-tags">
           <text wx:for="{{item.chips}}" wx:for-item="chip" wx:key="*this" class="mch-tag">{{chip}}</text>
         </view>

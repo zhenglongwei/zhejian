@@ -1,4 +1,7 @@
-const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
+const {
+  fetchMerchantServiceAlbumList,
+  deleteMerchantServiceAlbum,
+} = require('../../../../services/merchant-service-album')
 const {
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
   normalizeMerchantServiceAlbumListTab,
@@ -165,6 +168,38 @@ Page({
 
   onCloseCreate() {
     this.setData({ createOpen: false })
+  },
+
+  onDeleteAlbum(e) {
+    const id = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || ''
+    if (!id || this._deleting) return
+    const item = (this.data.list || []).find((row) => row.albumId === id)
+    if (item && item.repairDone) {
+      wx.showToast({ title: '已交车的相册不能删除', icon: 'none' })
+      return
+    }
+    wx.showModal({
+      title: '删除这本相册？',
+      content: '删除后不能恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      success: async (res) => {
+        if (!res.confirm) return
+        this._deleting = true
+        wx.showLoading({ title: '删除中', mask: true })
+        try {
+          await deleteMerchantServiceAlbum(id)
+          wx.hideLoading()
+          wx.showToast({ title: '已删除', icon: 'success' })
+          await this.loadList({ silent: true })
+        } catch (err) {
+          wx.hideLoading()
+          wx.showToast({ title: (err && err.message) || '删除失败', icon: 'none' })
+        } finally {
+          this._deleting = false
+        }
+      },
+    })
   },
 
   onCardTap(e) {

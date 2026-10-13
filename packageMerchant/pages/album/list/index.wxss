@@ -126,6 +126,13 @@ page {
   min-width: 0;
 }
 
+.mch-card__delete {
+  margin-top: 12rpx;
+  color: var(--color-danger);
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
 .mch-card__head {
   display: flex;
   align-items: flex-start;

@@ -2812,6 +2812,38 @@ const ALBUM_TEMPLATE_SWITCH_LOCKED = new Set([
   'pending_review',
 ])
 
+async function deleteMerchantServiceAlbum(albumId, storeId, merchantId = '') {
+  const existing = await loadAlbum(albumId)
+  if (!existing) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(existing, storeId, merchantId)
+  if (isServiceAlbumRepairDone(existing.status)) {
+    const err = new Error('已交车的相册不能删除')
+    err.status = 409
+    throw err
+  }
+  const caseStatus = String((existing.publicCase && existing.publicCase.status) || '')
+  if (caseStatus === 'public_approved' || caseStatus === 'notify_window' || caseStatus === 'review_passed') {
+    const err = new Error('已交车的相册不能删除')
+    err.status = 409
+    throw err
+  }
+
+  const id = String(albumId || '').trim()
+  await prisma.$transaction(async (tx) => {
+    await tx.albumImageVisionCache.deleteMany({ where: { albumId: id } })
+    await tx.serviceAlbumFeedback.deleteMany({ where: { albumId: id } })
+    await tx.serviceAlbumReview.deleteMany({ where: { albumId: id } })
+    await tx.serviceAlbumPartVerification.deleteMany({ where: { albumId: id } })
+    await tx.desensitizeTask.deleteMany({ where: { bizId: id } })
+    await tx.album.delete({ where: { id } })
+  })
+  return { deleted: true, albumId: id }
+}
+
 async function switchMerchantServiceAlbumTemplate(
   albumId,
   storeId,
@@ -2908,6 +2940,7 @@ module.exports = {
   createMerchantServiceAlbum,
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
+  deleteMerchantServiceAlbum,
   fetchMerchantAlbumStats,
   submitServiceAlbumAuthorization,
   fetchUserAuthorizations,

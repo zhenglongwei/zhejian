@@ -37,6 +37,7 @@ const {
   parseAmount,
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
+const { planLegacyPhotoFold } = resolveShared('utils/flow-node-photos.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
@@ -141,13 +142,24 @@ function collectNodePhotoList(node, albumNodes = []) {
       push(img, item && item.partName),
     )
   })
-  let stageIds = resolveLegacyStageIdsForFlowNode(node)
-  if (node && node.kind === 'intake_inspection') stageIds = ['stage_1', 'stage_2']
-  stageIds.forEach((stageId) => {
-    const stage = (albumNodes || []).find((n) => n && n.id === stageId)
-    ;(stage && Array.isArray(stage.images) ? stage.images : []).forEach((img) => push(img))
-  })
+  // 接车 / 检测 / 工单只认节点草稿。旧阶段的图在打开进度时并入一次。
+  // 交车仍从工单图勾选，缺的补拍落在交车阶段。
+  if (node && node.kind === 'delivery_photos') {
+    resolveLegacyStageIdsForFlowNode(node).forEach((stageId) => {
+      const stage = (albumNodes || []).find((n) => n && n.id === stageId)
+      ;(stage && Array.isArray(stage.images) ? stage.images : []).forEach((img) => push(img))
+    })
+  }
   return out
+}
+
+async function absorbLegacyStagePhotos(albumId, album, albumNodes) {
+  const raw = sortFlowNodes(readFlowNodesRaw(album))
+  const folded = planLegacyPhotoFold(raw, albumNodes)
+  if (!folded) return album
+  await writeFlowPackage(albumId, (pkg) => ({ ...pkg, flowNodes: folded }))
+  const { loadAlbum } = require('./service-album.service')
+  return loadAlbum(albumId)
 }
 
 function countPhotosForFlowNode(node, albumNodes = []) {
@@ -548,6 +560,8 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   } catch (_) {
     /* ignore */
   }
+  album = await absorbLegacyStagePhotos(albumId, album, nodes)
+  nodes = mapNodesForView(album)
   const {
     resolveCapabilityForMerchant,
     publicNodeAiReviewCapability,
@@ -819,9 +833,10 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
 async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
     require('./service-album.service')
-  const album = await loadAlbum(albumId)
+  let album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   assertAlbumContentEditable(album)
+  album = await absorbLegacyStagePhotos(albumId, album, mapNodesForView(album))
 
   const id = String(nodeId || '').trim()
   const nodes = mapNodesForView(album)

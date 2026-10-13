@@ -2,7 +2,7 @@
  * V2.0 商家服务相册 — API: /api/merchant/service-albums/*
  */
 const { ENV } = require('./config')
-const { get, post, put, patch } = require('./request')
+const { get, post, put, patch, del } = require('./request')
 const { getProfile } = require('./merchant')
 const { getSession } = require('../utils/auth')
 const {
@@ -34,6 +34,13 @@ async function fetchMerchantServiceAlbumList(options = {}) {
     return mockFetchMerchantServiceAlbumList(options)
   }
   return get('/merchant/service-albums', withStore(options))
+}
+
+async function deleteMerchantServiceAlbum(albumId) {
+  if (ENV.mode === 'mock') {
+    return { deleted: true, albumId }
+  }
+  return del(`/merchant/service-albums/${albumId}`, withStore())
 }
 
 async function fetchMerchantServiceAlbum(albumId) {
@@ -436,6 +443,7 @@ async function cancelMerchantAddonPlan(albumId, payload = {}) {
 
 module.exports = {
   fetchMerchantServiceAlbumList,
+  deleteMerchantServiceAlbum,
   fetchMerchantServiceAlbum,
   createMerchantServiceAlbum,
   createMerchantAlbumFromWechat,

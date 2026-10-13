@@ -8,6 +8,7 @@ const {
   createMerchantServiceAlbum,
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
+  deleteMerchantServiceAlbum,
   fetchMerchantCopyQuality,
   getMerchantCaseDraft,
   getMerchantCaseDraftMaskStatus,
@@ -465,6 +466,20 @@ router.post('/service-albums/:albumId', requireAuth(['merchant']), async (req, r
       req.params.albumId,
       storeId,
       req.body || {},
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/service-albums/:albumId', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await deleteMerchantServiceAlbum(
+      req.params.albumId,
+      storeId,
       req.auth.merchantId,
     )
     return ok(res, data)
