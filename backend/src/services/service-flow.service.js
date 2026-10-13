@@ -14,6 +14,7 @@ const {
   emptyDocument,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
+  INTAKE_CONFIRM_COPY,
   ownerFindingResultLabel,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
@@ -696,7 +697,10 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   }
 
   const notifying =
-    payload.document && String(payload.document.status || '') === 'pending_confirm'
+    payload.document &&
+    String(payload.document.status || '') === 'pending_confirm' &&
+    preview.kind !== 'intake' &&
+    preview.kind !== 'intake_inspection'
   // 以「这次是不是发给车主看」为准：凡是发给车主的单据，发出前都过一遍检查。
   // 不按单据类型枚举，新增单据类型自动纳入；类型只决定发前必填校验与检查口径
   if (notifying) {
@@ -771,12 +775,14 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     if (payload.status != null) {
       nextNode.status = String(payload.status || '').trim() || prev.status
     }
-    if (payload.document != null && prev.document) {
+    if (payload.document != null && (prev.document || prev.kind === 'intake' || prev.kind === 'intake_inspection')) {
+      const prevDoc = prev.document || emptyDocument('intake_confirm')
       nextNode.document = {
-        ...prev.document,
+        ...prevDoc,
         ...payload.document,
+        docType: (payload.document && payload.document.docType) || prevDoc.docType || 'intake_confirm',
         payload: {
-          ...(prev.document.payload || {}),
+          ...(prevDoc.payload || {}),
           ...((payload.document && payload.document.payload) || {}),
         },
       }
@@ -1261,7 +1267,8 @@ async function proxyConfirmFlowDocument(
     }
     const kind = nodes[index].kind
     confirmedKind = kind
-    if (kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
+    const intakeConfirm = kind === 'intake' || kind === 'intake_inspection'
+    if (!intakeConfirm && kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
       const err = new Error('该单据无需车主确认')
       err.status = 400
       throw err
@@ -1284,9 +1291,10 @@ async function proxyConfirmFlowDocument(
 
     nodes[index] = {
       ...nodes[index],
-      status: 'completed',
+      status: intakeConfirm ? nodes[index].status : 'completed',
       document: {
         ...prevDoc,
+        docType: prevDoc.docType || (intakeConfirm ? 'intake_confirm' : prevDoc.docType),
         status: 'confirmed',
         confirmedAt: new Date().toISOString(),
         confirmedBy: 'merchant_proxy',
@@ -1297,7 +1305,7 @@ async function proxyConfirmFlowDocument(
 
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       applyQuoteConfirmedSideEffects(nodes, index, id, mergedPayload)
-    } else {
+    } else if (!intakeConfirm) {
       unlockNextNode(nodes, index)
     }
 
@@ -1645,6 +1653,8 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
 /** 车主时间线只含单据节点，不镜像商家拍照步 */
 function isOwnerDocumentKind(kind) {
   return (
+    kind === 'intake' ||
+    kind === 'intake_inspection' ||
     kind === 'inspection_report' ||
     kind === 'quote_confirm' ||
     kind === 'addon_quote_confirm' ||
@@ -1660,6 +1670,9 @@ function isOwnerDocContentReady(node = {}) {
   const doc = node.document || {}
   const docStatus = String(doc.status || '')
   switch (node.kind) {
+    case 'intake':
+    case 'intake_inspection':
+      return docStatus === 'pending_confirm' || docStatus === 'confirmed'
     case 'inspection_report':
       return docStatus === 'delivered' || docStatus === 'confirmed'
     case 'quote_confirm':
@@ -1803,6 +1816,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     requiresOwnerConfirm(node) &&
     String(doc.status || '') === 'pending_confirm'
   const kind = node.kind
+  const intakeSheet = kind === 'intake' || kind === 'intake_inspection'
   const lines = (Array.isArray(payload.lines) ? payload.lines : []).map(mapOwnerFriendlyLine)
   const items = (Array.isArray(payload.items) ? payload.items : []).map(mapOwnerFriendlyLine)
   const findings = (Array.isArray(payload.findings) ? payload.findings : []).map((row) => ({
@@ -1822,7 +1836,11 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   ).trim()
   const vehicleBrand = String(payload.vehicleBrand || vehicle.brand || '').trim()
   const vehicleSeries = String(payload.vehicleSeries || vehicle.series || '').trim()
-  const mileageText = String(payload.mileageText || '').trim()
+  const mileageKm = String(payload.mileageKm || '').trim()
+  const mileageText = String(
+    payload.mileageText || (mileageKm ? `里程 ${mileageKm} km` : ''),
+  ).trim()
+  const intakePhotos = Array.isArray(payload.photos) ? payload.photos : []
   const reportDate = String(
     payload.reportDate || doc.confirmedAt || doc.deliveredAt || '',
   ).trim()
@@ -1841,7 +1859,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   return {
     id: node.id,
     kind,
-    title: isAddonQuote ? '施工中新发现' : node.title || '',
+    title: intakeSheet ? '接车确认单' : isAddonQuote ? '施工中新发现' : node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     cancelledBy,
@@ -1867,12 +1885,17 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
       mileageText,
       plateDisplay,
     }),
-    confirmCopy:
-      kind === 'repair_report'
+    confirmCopy: intakeSheet
+      ? INTAKE_CONFIRM_COPY
+      : kind === 'repair_report'
         ? REPAIR_CONFIRM_COPY
         : kind === 'quote_confirm' || kind === 'addon_quote_confirm'
           ? QUOTE_CONFIRM_COPY
           : String(payload.confirmCopy || ''),
+    sealed: intakeSheet && String(doc.status || '') === 'confirmed',
+    fuelReading: String(payload.fuelReading || '').trim(),
+    belongings: String(payload.belongings || '').trim(),
+    photos: intakePhotos,
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
     chiefComplaint: String(payload.chiefComplaint || ''),
     vehicleBrand,
@@ -1886,7 +1909,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     items: displayItems,
     workItems,
     totalAmount,
-    totalAmountLabel: `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
+    totalAmountLabel: intakeSheet ? '' : `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
     deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
     warrantyPeriod: String(payload.warrantyPeriod || ''),
     warrantyNotes: resolveWarrantyNotes(payload),
@@ -2016,6 +2039,7 @@ function deriveOwnerProgressLabel(docs = [], album = {}) {
   const pending = docs.find((row) => row.needsConfirm)
   if (pending) {
     if (pending.kind === 'repair_report') return '待确认完工'
+    if (pending.kind === 'intake' || pending.kind === 'intake_inspection') return '待确认接车'
     return '待确认方案'
   }
   if (docs.length && docs.every((row) => row.stepState === 'done')) return '已完工'
@@ -2056,7 +2080,7 @@ function buildOwnerFlowView(album, albumNodes = []) {
       return {
         id: node.id,
         kind: node.kind,
-        title: node.title || '',
+        title: node.kind === 'intake' || node.kind === 'intake_inspection' ? '接车确认单' : node.title || '',
         segmentLabel: node.segmentLabel || '',
         statusLabel: '待进行',
         needsConfirm: false,
@@ -2187,7 +2211,8 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
     }
     const kind = nodes[index].kind
     confirmedKind = kind
-    if (kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
+    const intakeConfirm = kind === 'intake' || kind === 'intake_inspection'
+    if (!intakeConfirm && kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
       const err = new Error('该单据无需确认')
       err.status = 400
       throw err
@@ -2218,9 +2243,10 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
     }
     nodes[index] = {
       ...nodes[index],
-      status: 'completed',
+      status: intakeConfirm ? nodes[index].status : 'completed',
       document: {
         ...prevDoc,
+        docType: prevDoc.docType || (intakeConfirm ? 'intake_confirm' : prevDoc.docType),
         status: 'confirmed',
         confirmedAt: new Date().toISOString(),
         confirmedBy: 'owner',
@@ -2229,7 +2255,7 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
     }
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       applyQuoteConfirmedSideEffects(nodes, index, id, mergedPayload)
-    } else {
+    } else if (!intakeConfirm) {
       unlockNextNode(nodes, index)
     }
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
@@ -2289,7 +2315,8 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
     throw err
   }
   const kind = preview.kind
-  if (kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
+  const intakeConfirm = kind === 'intake' || kind === 'intake_inspection'
+  if (!intakeConfirm && kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
     const err = new Error('该单据无需确认')
     err.status = 400
     throw err
@@ -2398,7 +2425,7 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
       const prevDoc = prev.document || emptyDocument('')
       nodes[index] = {
         ...prev,
-        status: 'in_progress',
+        status: intakeConfirm ? prev.status : 'in_progress',
         // 清掉上一次的检查结果：门店改完再提交时要重新查。
         // 否则内容指纹没变就复用旧结论，商家看不到模型介入、也不再等「正在检查」
         aiReview: null,

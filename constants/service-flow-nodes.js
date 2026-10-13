@@ -68,6 +68,7 @@ const QUOTE_CONFIRM_COPY_TEARDOWN =
 
 /** 完工确认 · 车主确认固定文案（协议句，商家不可改） */
 const REPAIR_CONFIRM_COPY = '本人确认上述施工与交车状态，并知悉质保条款。'
+const INTAKE_CONFIRM_COPY = '本人确认以上为车辆进店时的可见状态与随车物品。'
 
 function isValidFindingResult(value) {
   return FINDING_RESULT_OPTIONS.some((row) => row.value === value)
@@ -287,12 +288,13 @@ function resolveLegacyStageIdForFlowNode(node = {}) {
   return ids[0] || ''
 }
 
-/** 需车主确认：仅方案确认、完工确认（及增项方案） */
+/** 需车主确认：接车确认单、方案确认、完工确认（及增项方案） */
 function requiresOwnerConfirm(node = {}) {
+  const docType = (node.document && node.document.docType) || ''
+  if (docType === 'intake_confirm') return true
   const meta = getFlowKindMeta(node.kind)
   if (meta && typeof meta.requiresConfirm === 'boolean') return meta.requiresConfirm
-  const docType = (node.document && node.document.docType) || node.kind
-  return ['quote_confirm', 'repair_report', 'addon_quote_confirm'].includes(docType)
+  return ['quote_confirm', 'repair_report', 'addon_quote_confirm'].includes(docType || node.kind)
 }
 
 module.exports = {
@@ -307,6 +309,7 @@ module.exports = {
   QUOTE_CONFIRM_COPY,
   QUOTE_CONFIRM_COPY_TEARDOWN,
   REPAIR_CONFIRM_COPY,
+  INTAKE_CONFIRM_COPY,
   isValidFindingResult,
   findingAdviceRequired,
   ownerFindingResultLabel,

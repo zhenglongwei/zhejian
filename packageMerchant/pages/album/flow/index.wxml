@@ -310,6 +310,13 @@
                 />
                 <text>km</text>
               </view>
+              <view wx:if="{{intakeDocStatus === 'pending_confirm'}}" class="st-note">
+                <text class="st-note__body">待车主确认</text>
+                <text wx:if="{{!readOnly}}" class="st-edit" catchtap="onProxyIntakeConfirm">代车主确认</text>
+              </view>
+              <view wx:elif="{{intakeDocStatus === 'confirmed'}}" class="st-note">
+                <text class="st-note__body">车主已确认</text>
+              </view>
               <view wx:if="{{stageBoard.intake.advice}}" class="st-note">
                 <image src="/assets/mch/check-blue.png" mode="aspectFit" />
                 <view>

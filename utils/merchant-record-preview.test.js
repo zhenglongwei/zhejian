@@ -2,9 +2,11 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { readStageGate, stageChrome, buildRecordPreview } = require('./merchant-record-preview')
 
-test('只有检测、报价、完工能预览，接车和施工不能', () => {
-  assert.equal(stageChrome('intake', 'current').preview, false)
+test('接车、检测、报价、完工能预览，施工不能', () => {
+  assert.equal(stageChrome('intake', 'current').preview, true)
   assert.equal(stageChrome('intake', 'current').label, '保存并开始检测')
+  assert.equal(stageChrome('intake', 'done').preview, true)
+  assert.equal(stageChrome('intake', 'done').label, '')
   assert.equal(stageChrome('work', 'current').preview, false)
   assert.equal(stageChrome('work', 'current').label, '添加施工记录')
   assert.equal(stageChrome('inspect', 'current').preview, true)

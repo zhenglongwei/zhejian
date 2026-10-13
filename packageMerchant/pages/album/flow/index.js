@@ -27,6 +27,7 @@ const {
   WALKAROUND_PARTS,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
+  INTAKE_CONFIRM_COPY,
   INTAKE_RECORD_CATEGORIES,
   isValidFindingResult,
   findingAdviceRequired,
@@ -367,6 +368,7 @@ Page({
     recordPreview: null,
     intakeEditing: false,
     intakePile: [],
+    intakeDocStatus: '',
     doneView: null,
     statusBarHeight: 20,
     capsulePad: 16,
@@ -1864,6 +1866,7 @@ Page({
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       intakePile: this.collectIntakePile(stageBoard),
+      intakeDocStatus: this.intakeDocumentStatus(),
     })
   },
 
@@ -1958,8 +1961,113 @@ Page({
     this.setData({ recordPreview: null })
   },
 
+  intakeNode() {
+    return (this._flowNodes || []).find(
+      (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
+    )
+  },
+
+  intakeDocumentStatus() {
+    const doc = this.intakeNode() && this.intakeNode().document
+    return String((doc && doc.status) || '')
+  },
+
+  buildIntakeConfirmPayload() {
+    const results = this.data.intakeResults || []
+    const reading = (id) => {
+      const row = results.find((item) => item && item.category === id)
+      return String((row && row.reading) || '').trim()
+    }
+    const mileageKm = String(this.data.mileageKm || '').trim()
+    return {
+      mileageKm,
+      fuelReading: String(this.data.fuelReading || reading('fuel') || '').trim(),
+      belongings: reading('belongings'),
+      chiefComplaint: String(this.data.chiefComplaint || '').trim(),
+      photos: this.collectIntakePile().map((url) => ({ url: String(url) })),
+      confirmCopy: INTAKE_CONFIRM_COPY,
+    }
+  },
+
+  async sendIntakeConfirm() {
+    const node = this.intakeNode()
+    if (!node) {
+      wx.showToast({ title: '还没有接车记录', icon: 'none' })
+      return
+    }
+    if (this.intakeDocumentStatus() === 'confirmed') {
+      wx.showToast({ title: '已经确认', icon: 'none' })
+      this.setData({ recordPreview: null })
+      return
+    }
+    const payload = this.buildIntakeConfirmPayload()
+    if (!payload.photos.length) {
+      wx.showToast({ title: '请先拍留证', icon: 'none' })
+      return
+    }
+    if (!payload.mileageKm) {
+      wx.showToast({ title: '请填写当前里程', icon: 'none' })
+      return
+    }
+    this.setData({ confirming: true })
+    try {
+      await updateMerchantFlowNode(this.albumId, node.id, {
+        document: { docType: 'intake_confirm', status: 'pending_confirm', payload },
+      })
+      wx.showToast({ title: '已发给车主', icon: 'success' })
+      this.setData({ recordPreview: null })
+      await this.loadFlow({ silent: true })
+      this.openStage('intake')
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
+  onProxyIntakeConfirm() {
+    if (this.data.readOnly || this.data.confirming) return
+    if (this.intakeDocumentStatus() !== 'pending_confirm') {
+      wx.showToast({ title: '请先发给车主', icon: 'none' })
+      return
+    }
+    const node = this.intakeNode()
+    if (!node) return
+    wx.showModal({
+      title: '代车主确认',
+      content: '车主当面、电话或微信已同意，但未在手机确认。',
+      confirmText: '继续',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) return
+        this.runIntakeProxyConfirm(node.id)
+      },
+    })
+  },
+
+  async runIntakeProxyConfirm(nodeId) {
+    if (this.data.confirming) return
+    this.setData({ confirming: true })
+    try {
+      await proxyConfirmMerchantFlowNode(this.albumId, nodeId, {
+        document: { payload: { confirmCopy: INTAKE_CONFIRM_COPY } },
+      })
+      wx.showToast({ title: '已代确认', icon: 'success' })
+      await this.loadFlow({ silent: true })
+      this.openStage('intake')
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
   async onSendFromPreview() {
     if (this.data.confirming) return
+    if (this.data.stageKey === 'intake') {
+      await this.sendIntakeConfirm()
+      return
+    }
     const key = this.data.stageKey
     const kind =
       key === 'inspect' ? 'inspection_report' : key === 'quote' ? 'quote_confirm' : key === 'finish' ? 'repair_report' : ''
@@ -5954,6 +6062,20 @@ Page({
 
   async onSendForOwnerConfirm() {
     if (this.data.readOnly || this.data.confirming) return
+    const sendKind = this.data.activeNode && this.data.activeNode.kind
+    if (sendKind === 'quote_confirm' && this.intakeDocumentStatus() !== 'confirmed') {
+      const goOn = await new Promise((resolve) => {
+        wx.showModal({
+          title: '接车确认单还没确认',
+          content: '仍要发送报价单吗？',
+          confirmText: '继续发送',
+          cancelText: '先不发',
+          success: (res) => resolve(Boolean(res.confirm)),
+          fail: () => resolve(false),
+        })
+      })
+      if (!goOn) return
+    }
     try {
       await this.flushDocDraftSave()
     } catch (e) {

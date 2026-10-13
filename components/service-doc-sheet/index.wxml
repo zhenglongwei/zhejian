@@ -8,7 +8,34 @@
     <text wx:if="{{doc.metaLine}}" class="text-caption service-doc-sheet__meta">{{doc.metaLine}}</text>
   </view>
 
-  <block wx:if="{{doc.kind === 'inspection_report'}}">
+  <block wx:if="{{doc.kind === 'intake' || doc.kind === 'intake_inspection'}}">
+    <view wx:if="{{doc.chiefComplaint}}" class="service-doc-sheet__block">
+      <text class="text-caption service-doc-sheet__label">来店原因</text>
+      <text class="text-body service-doc-sheet__complaint">{{doc.chiefComplaint}}</text>
+    </view>
+    <view wx:if="{{doc.mileageText || doc.fuelReading || doc.belongings}}" class="service-doc-sheet__block">
+      <text wx:if="{{doc.mileageText}}" class="service-doc-sheet__note">{{doc.mileageText}}</text>
+      <text wx:if="{{doc.fuelReading}}" class="service-doc-sheet__note">油量 {{doc.fuelReading}}</text>
+      <text wx:if="{{doc.belongings}}" class="service-doc-sheet__note">随车物品 {{doc.belongings}}</text>
+    </view>
+    <view wx:if="{{doc.photos.length}}" class="service-doc-sheet__block">
+      <text class="service-doc-sheet__section">入店照片</text>
+      <view class="service-doc-sheet__line-thumbs">
+        <image
+          wx:for="{{doc.photos}}"
+          wx:key="url"
+          class="service-doc-sheet__line-thumb image-placeholder"
+          src="{{item.url}}"
+          mode="aspectFill"
+          data-url="{{item.url}}"
+          data-urls="{{doc.photos}}"
+          bindtap="onPreviewImage"
+        />
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{doc.kind === 'inspection_report'}}">
     <view wx:if="{{doc.chiefComplaint}}" class="service-doc-sheet__block">
       <text class="text-caption service-doc-sheet__label">进店主诉</text>
       <text class="text-body service-doc-sheet__complaint">{{doc.chiefComplaint}}</text>
@@ -224,7 +251,7 @@
   </view>
 
   <view
-    wx:if="{{doc.confirmCopy && !doc.cancelled && (doc.needsConfirm || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
+    wx:if="{{doc.confirmCopy && !doc.cancelled && (doc.needsConfirm || doc.kind === 'intake' || doc.kind === 'intake_inspection' || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
     class="service-doc-sheet__protocol"
   >
     <text class="service-doc-sheet__protocol-text">{{doc.confirmCopy}}</text>

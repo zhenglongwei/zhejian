@@ -4,7 +4,7 @@
  */
 
 const RECORD_TITLE = {
-  intake: '车辆接收与初始状态记录',
+  intake: '接车确认单',
   inspect: '检测记录',
   quote: '报价记录',
   work: '施工记录',
@@ -51,8 +51,12 @@ function readStageGate(flowNodes, stageKey) {
 }
 
 function stageChrome(stageKey, state) {
-  if (stageKey === 'intake' && state !== 'done') {
-    return { preview: false, label: '保存并开始检测', action: 'advance' }
+  if (stageKey === 'intake') {
+    return {
+      preview: true,
+      label: state === 'done' ? '' : '保存并开始检测',
+      action: state === 'done' ? '' : 'advance',
+    }
   }
   if (stageKey === 'work' && state !== 'done') {
     return { preview: false, label: '添加施工记录', action: 'addWork' }
