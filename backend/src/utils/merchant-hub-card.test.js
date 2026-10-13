@@ -58,6 +58,20 @@ test('补充报价未确认时仍是待确认', () => {
   assert.equal(card.pill, '待确认')
 })
 
+test('等车主确认交车时不能当成可删的进行中', () => {
+  const card = buildMerchantHubCard({
+    status: 'in_progress',
+    flowNodes: [
+      { id: 'n1', kind: 'quote_confirm', status: 'completed', document: { status: 'confirmed' } },
+      { id: 'n2', kind: 'work', status: 'completed' },
+      { id: 'n3', kind: 'repair_report', status: 'in_progress', document: { status: 'pending_confirm' } },
+    ],
+  })
+  assert.equal(card.repairDone, false)
+  assert.equal(card.quotePending, false)
+  assert.equal(card.deliveryPending, true)
+})
+
 test('已完工相册是已交车，五步都完成', () => {
   const card = buildMerchantHubCard({
     status: 'completed',

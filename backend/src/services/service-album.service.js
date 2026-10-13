@@ -2825,6 +2825,18 @@ async function deleteMerchantServiceAlbum(albumId, storeId, merchantId = '') {
     err.status = 409
     throw err
   }
+  const flowNodes = existing.contentPackageJson && Array.isArray(existing.contentPackageJson.flowNodes)
+    ? existing.contentPackageJson.flowNodes
+    : []
+  const waitingDelivery = flowNodes.some((node) => {
+    if (!node || node.kind !== 'repair_report') return false
+    return String((node.document && node.document.status) || '') === 'pending_confirm'
+  })
+  if (waitingDelivery) {
+    const err = new Error('等车主确认交车，不能删除')
+    err.status = 409
+    throw err
+  }
   const caseStatus = String((existing.publicCase && existing.publicCase.status) || '')
   if (caseStatus === 'public_approved' || caseStatus === 'notify_window' || caseStatus === 'review_passed') {
     const err = new Error('已交车的相册不能删除')

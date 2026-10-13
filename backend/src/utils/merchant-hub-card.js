@@ -27,6 +27,11 @@ function isQuotePending(node = {}) {
   return String(docOf(node).status || '') === 'pending_confirm'
 }
 
+function isDeliveryPending(node = {}) {
+  if (String(node.kind || '') !== 'repair_report') return false
+  return String(docOf(node).status || '') === 'pending_confirm'
+}
+
 function resolveSteps(flowNodes) {
   const nodes = Array.isArray(flowNodes) ? flowNodes : []
   if (!nodes.length) return null
@@ -110,6 +115,7 @@ function buildMerchantHubCard(input = {}) {
   const repairDone = isRepairDone(input.status)
   const nodes = Array.isArray(input.flowNodes) ? input.flowNodes : []
   const quotePending = !repairDone && nodes.some(isQuotePending)
+  const deliveryPending = !repairDone && nodes.some(isDeliveryPending)
   const steps = resolveSteps(nodes) || fallbackSteps(repairDone)
   const pill = resolvePill(repairDone, quotePending, steps)
   return {
@@ -120,6 +126,7 @@ function buildMerchantHubCard(input = {}) {
     progress: progressOf(steps),
     steps,
     quotePending,
+    deliveryPending,
     repairDone,
     publicOnSite: input.publicCaseStatus === PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
     createdAt: input.createdAt || '',

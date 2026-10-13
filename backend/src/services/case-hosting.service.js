@@ -1042,6 +1042,18 @@ async function hardDeleteAlbum(albumId, { storeId, merchantId, confirmText }) {
     throw err
   }
   assertMerchantAlbum(album, storeId, merchantId)
+  const flowNodes = album.contentPackageJson && Array.isArray(album.contentPackageJson.flowNodes)
+    ? album.contentPackageJson.flowNodes
+    : []
+  const waitingDelivery = flowNodes.some((node) => {
+    if (!node || node.kind !== 'repair_report') return false
+    return String((node.document && node.document.status) || '') === 'pending_confirm'
+  })
+  if (waitingDelivery) {
+    const err = new Error('等车主确认交车，不能删除')
+    err.status = 409
+    throw err
+  }
 
   try {
     await unhostAlbum(albumId, { storeId, merchantId })

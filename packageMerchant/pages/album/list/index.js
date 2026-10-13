@@ -178,6 +178,10 @@ Page({
       wx.showToast({ title: '已交车的相册不能删除', icon: 'none' })
       return
     }
+    if (item && item.deliveryPending) {
+      wx.showToast({ title: '等车主确认交车，不能删除', icon: 'none' })
+      return
+    }
     wx.showModal({
       title: '删除这本相册？',
       content: '删除后不能恢复。',
