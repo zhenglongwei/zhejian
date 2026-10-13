@@ -1961,6 +1961,10 @@ Page({
     this.setData({ recordPreview: null })
   },
 
+  onAcceptRecordPreview() {
+    this.setData({ recordPreview: null })
+  },
+
   intakeNode() {
     return (this._flowNodes || []).find(
       (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
@@ -1989,39 +1993,33 @@ Page({
     }
   },
 
-  async sendIntakeConfirm() {
+  async sendIntakeConfirm(options = {}) {
+    const quiet = Boolean(options.quiet)
     const node = this.intakeNode()
     if (!node) {
-      wx.showToast({ title: '还没有接车记录', icon: 'none' })
-      return
+      if (!quiet) wx.showToast({ title: '还没有接车记录', icon: 'none' })
+      return false
     }
-    if (this.intakeDocumentStatus() === 'confirmed') {
-      wx.showToast({ title: '已经确认', icon: 'none' })
-      this.setData({ recordPreview: null })
-      return
-    }
+    const status = this.intakeDocumentStatus()
+    if (status === 'confirmed' || status === 'pending_confirm') return true
     const payload = this.buildIntakeConfirmPayload()
-    if (!payload.photos.length) {
-      wx.showToast({ title: '请先拍留证', icon: 'none' })
-      return
-    }
-    if (!payload.mileageKm) {
-      wx.showToast({ title: '请填写当前里程', icon: 'none' })
-      return
-    }
-    this.setData({ confirming: true })
+    if (!payload.photos.length || !payload.mileageKm) return false
+    if (!quiet) this.setData({ confirming: true })
     try {
       await updateMerchantFlowNode(this.albumId, node.id, {
         document: { docType: 'intake_confirm', status: 'pending_confirm', payload },
       })
-      wx.showToast({ title: '已发给车主', icon: 'success' })
-      this.setData({ recordPreview: null })
-      await this.loadFlow({ silent: true })
-      this.openStage('intake')
+      if (!quiet) {
+        wx.showToast({ title: '已发给车主', icon: 'success' })
+        await this.loadFlow({ silent: true })
+        this.openStage('intake')
+      }
+      return true
     } catch (err) {
-      wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
+      if (!quiet) wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
+      return false
     } finally {
-      this.setData({ confirming: false })
+      if (!quiet) this.setData({ confirming: false })
     }
   },
 
@@ -2062,13 +2060,8 @@ Page({
     }
   },
 
-  async onSendFromPreview() {
+  async sendOwnerDocument(key) {
     if (this.data.confirming) return
-    if (this.data.stageKey === 'intake') {
-      await this.sendIntakeConfirm()
-      return
-    }
-    const key = this.data.stageKey
     const kind =
       key === 'inspect' ? 'inspection_report' : key === 'quote' ? 'quote_confirm' : key === 'finish' ? 'repair_report' : ''
     const node = (this._flowNodes || []).find((item) => item && item.kind === kind && item.document)
@@ -2111,7 +2104,9 @@ Page({
       await updateMerchantFlowNode(this.albumId, node.id, {
         document: { status: nextStatus, payload },
       })
-      wx.showToast({ title: '已发给车主', icon: 'success' })
+      const toast =
+        key === 'inspect' ? '已生成检测报告' : key === 'finish' ? '已提醒车主' : '已发给车主'
+      wx.showToast({ title: toast, icon: 'success' })
       this.setData({ recordPreview: null })
       await this.loadFlow({ silent: true })
       this.openStage(key)
@@ -2135,7 +2130,11 @@ Page({
         return
       }
       this.onAddFindingPhotos()
+      return
     }
+    if (action === 'generateReport') this.sendOwnerDocument('inspect')
+    if (action === 'sendQuote') this.sendOwnerDocument('quote')
+    if (action === 'remindDelivery') this.sendOwnerDocument('finish')
   },
 
   onOpenStageEditor() {
@@ -5579,6 +5578,9 @@ Page({
         this.resyncSectionsAfterPersist()
         await this.persistPhotoDraft()
         this.clearLocalFlowDraft()
+        if (kind === 'intake' || kind === 'intake_inspection') {
+          await this.sendIntakeConfirm({ quiet: true })
+        }
         const res = await completeMerchantFlowNode(
           this.albumId,
           this.data.activeNode.id,

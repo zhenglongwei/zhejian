@@ -58,11 +58,23 @@ function stageChrome(stageKey, state) {
       action: state === 'done' ? '' : 'advance',
     }
   }
-  if (stageKey === 'work' && state !== 'done') {
-    return { preview: false, label: '添加施工记录', action: 'addWork' }
+  if (stageKey === 'inspect') {
+    return { preview: true, label: '生成检测报告', action: 'generateReport' }
   }
-  const preview = stageKey === 'inspect' || stageKey === 'quote' || stageKey === 'finish'
-  return { preview, label: '', action: '' }
+  if (stageKey === 'quote') {
+    return { preview: true, label: '发送报价单给车主', action: 'sendQuote' }
+  }
+  if (stageKey === 'work') {
+    return {
+      preview: true,
+      label: state === 'done' ? '' : '添加施工记录',
+      action: state === 'done' ? '' : 'addWork',
+    }
+  }
+  if (stageKey === 'finish') {
+    return { preview: true, label: '提醒车主确认报告', action: 'remindDelivery' }
+  }
+  return { preview: false, label: '', action: '' }
 }
 
 function intakeFacts(block) {
