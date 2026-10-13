@@ -1672,7 +1672,7 @@ function isOwnerDocContentReady(node = {}) {
   switch (node.kind) {
     case 'intake':
     case 'intake_inspection':
-      return docStatus === 'pending_confirm' || docStatus === 'confirmed'
+      return docStatus === 'pending_confirm' || docStatus === 'confirmed' || docStatus === 'delivered'
     case 'inspection_report':
       return docStatus === 'delivered' || docStatus === 'confirmed'
     case 'quote_confirm':
@@ -1859,7 +1859,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   return {
     id: node.id,
     kind,
-    title: intakeSheet ? '接车确认单' : isAddonQuote ? '施工中新发现' : node.title || '',
+    title: intakeSheet ? '接车照片' : isAddonQuote ? '施工中新发现' : node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     cancelledBy,
@@ -1886,7 +1886,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
       plateDisplay,
     }),
     confirmCopy: intakeSheet
-      ? INTAKE_CONFIRM_COPY
+      ? ''
       : kind === 'repair_report'
         ? REPAIR_CONFIRM_COPY
         : kind === 'quote_confirm' || kind === 'addon_quote_confirm'
@@ -2080,7 +2080,7 @@ function buildOwnerFlowView(album, albumNodes = []) {
       return {
         id: node.id,
         kind: node.kind,
-        title: node.kind === 'intake' || node.kind === 'intake_inspection' ? '接车确认单' : node.title || '',
+        title: node.kind === 'intake' || node.kind === 'intake_inspection' ? '接车照片' : node.title || '',
         segmentLabel: node.segmentLabel || '',
         statusLabel: '待进行',
         needsConfirm: false,

@@ -291,7 +291,7 @@
                   <text class="st-photo__badge">已留证</text>
                 </view>
                 <view
-                  wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                  wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
                   class="st-photo st-photo--add"
                   bindtap="onIntakeShoot"
                 >
@@ -299,7 +299,7 @@
                   <text>继续拍摄</text>
                 </view>
               </view>
-              <view wx:if="{{stageBoard.state === 'current' && !readOnly}}" class="st-mileage">
+              <view wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}" class="st-mileage">
                 <text>当前里程</text>
                 <input
                   value="{{mileageKm}}"
@@ -314,8 +314,8 @@
                 <text class="st-note__body">待车主确认</text>
                 <text wx:if="{{!readOnly}}" class="st-edit" catchtap="onProxyIntakeConfirm">代车主确认</text>
               </view>
-              <view wx:elif="{{intakeDocStatus === 'confirmed'}}" class="st-note">
-                <text class="st-note__body">车主已确认</text>
+              <view wx:elif="{{intakeDocStatus === 'confirmed' || intakeDocStatus === 'delivered'}}" class="st-note">
+                <text class="st-note__body">已发给车主</text>
               </view>
               <view wx:if="{{stageBoard.intake.advice}}" class="st-note">
                 <image src="/assets/mch/check-blue.png" mode="aspectFit" />
@@ -331,13 +331,13 @@
                   <text class="st-kicker">CUSTOMER REQUEST</text>
                   <text class="st-card__title">车主诉求</text>
                 </view>
-                <view wx:if="{{stageBoard.state === 'current' && !readOnly}}" class="st-edit" catchtap="onToggleIntakeEdit">
+                <view wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}" class="st-edit" catchtap="onToggleIntakeEdit">
                   <image src="/assets/mch/pencil-blue.png" mode="aspectFit" />
                   <text>{{intakeEditing ? '收起' : '编辑'}}</text>
                 </view>
               </view>
               <textarea
-                wx:if="{{intakeEditing}}"
+                wx:if="{{intakeEditing && !intakeSent}}"
                 class="st-quote-input"
                 value="{{chiefComplaint}}"
                 maxlength="300"

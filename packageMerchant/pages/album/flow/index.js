@@ -369,6 +369,7 @@ Page({
     intakeEditing: false,
     intakePile: [],
     intakeDocStatus: '',
+    intakeSent: false,
     doneView: null,
     statusBarHeight: 20,
     capsulePad: 16,
@@ -1867,11 +1868,12 @@ Page({
       stagePrimaryAction: chrome.action,
       intakePile: this.collectIntakePile(stageBoard),
       intakeDocStatus: this.intakeDocumentStatus(),
+      intakeSent: this.intakeDocumentSent(),
     })
   },
 
   onToggleIntakeEdit() {
-    if (this.data.readOnly) return
+    if (this.data.readOnly || this.data.intakeSent) return
     this.setData({ intakeEditing: !this.data.intakeEditing })
   },
 
@@ -1895,7 +1897,7 @@ Page({
   },
 
   onIntakeShoot() {
-    if (this.data.readOnly) return
+    if (this.data.readOnly || this.data.intakeSent) return
     const remain = Math.max(0, 12 - this.collectIntakePile().length)
     if (remain < 1) {
       wx.showToast({ title: '最多 12 张', icon: 'none' })
@@ -1976,6 +1978,11 @@ Page({
     return String((doc && doc.status) || '')
   },
 
+  intakeDocumentSent() {
+    const status = this.intakeDocumentStatus()
+    return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+  },
+
   buildIntakeConfirmPayload() {
     const results = this.data.intakeResults || []
     const reading = (id) => {
@@ -2000,14 +2007,13 @@ Page({
       if (!quiet) wx.showToast({ title: '还没有接车记录', icon: 'none' })
       return false
     }
-    const status = this.intakeDocumentStatus()
-    if (status === 'confirmed' || status === 'pending_confirm') return true
+    if (this.intakeDocumentSent()) return true
     const payload = this.buildIntakeConfirmPayload()
     if (!payload.photos.length || !payload.mileageKm) return false
     if (!quiet) this.setData({ confirming: true })
     try {
       await updateMerchantFlowNode(this.albumId, node.id, {
-        document: { docType: 'intake_confirm', status: 'pending_confirm', payload },
+        document: { docType: 'intake_confirm', status: 'delivered', payload },
       })
       if (!quiet) {
         wx.showToast({ title: '已发给车主', icon: 'success' })
@@ -2142,7 +2148,20 @@ Page({
     const action = this.data.stagePrimaryAction
     if (!action || this.data.confirming) return
     if (action === 'advance') {
-      this.onConfirmPhotoStep()
+      if (this.intakeDocumentSent()) {
+        this.openStage('inspect')
+        return
+      }
+      wx.showModal({
+        title: '发给车主',
+        content: '发出后不能再改。请核对入店照片、里程和车主诉求。',
+        confirmText: '发送',
+        cancelText: '再看一下',
+        success: (res) => {
+          if (!res.confirm) return
+          this.onConfirmPhotoStep()
+        },
+      })
       return
     }
     if (action === 'addWork') {
@@ -4063,7 +4082,7 @@ Page({
   },
 
   onMileageKmInput(e) {
-    if (this.data.readOnly) return
+    if (this.data.readOnly || this.data.intakeSent) return
     this.setData({ mileageKm: String((e.detail && e.detail.value) || '') })
     this.scheduleAutoSavePhotos()
   },
@@ -5600,7 +5619,11 @@ Page({
         await this.persistPhotoDraft()
         this.clearLocalFlowDraft()
         if (kind === 'intake' || kind === 'intake_inspection') {
-          await this.sendIntakeConfirm({ quiet: true })
+          const sent = await this.sendIntakeConfirm({ quiet: true })
+          if (!sent) {
+            wx.showToast({ title: '没能发给车主', icon: 'none' })
+            return
+          }
         }
         const res = await completeMerchantFlowNode(
           this.albumId,
@@ -5611,8 +5634,12 @@ Page({
           this.applyInlineAiReview(res.review, 'complete')
           return
         }
-        wx.showToast({ title: (res && res.message) || '本步已完成', icon: 'success' })
+        wx.showToast({
+          title: kind === 'intake' || kind === 'intake_inspection' ? '已发给车主' : (res && res.message) || '本步已完成',
+          icon: 'success',
+        })
         await this.loadFlow({ silent: true })
+        if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
       } catch (e) {
         wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
       } finally {
@@ -6086,10 +6113,10 @@ Page({
   async onSendForOwnerConfirm() {
     if (this.data.readOnly || this.data.confirming) return
     const sendKind = this.data.activeNode && this.data.activeNode.kind
-    if (sendKind === 'quote_confirm' && this.intakeDocumentStatus() !== 'confirmed') {
+    if (sendKind === 'quote_confirm' && !this.intakeDocumentSent()) {
       const goOn = await new Promise((resolve) => {
         wx.showModal({
-          title: '接车确认单还没确认',
+          title: '入店照片还没发给车主',
           content: '仍要发送报价单吗？',
           confirmText: '继续发送',
           cancelText: '先不发',

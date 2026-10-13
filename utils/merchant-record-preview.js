@@ -50,13 +50,9 @@ function readStageGate(flowNodes, stageKey) {
   }
 }
 
-function stageChrome(stageKey, state) {
+function stageChrome(stageKey) {
   if (stageKey === 'intake') {
-    return {
-      preview: true,
-      label: state === 'done' ? '' : '保存并开始检测',
-      action: state === 'done' ? '' : 'advance',
-    }
+    return { preview: true, label: '保存并发送给车主', action: 'advance' }
   }
   if (stageKey === 'inspect') {
     return { preview: true, label: '生成检测报告', action: 'generateReport' }
@@ -65,11 +61,7 @@ function stageChrome(stageKey, state) {
     return { preview: true, label: '发送报价单给车主', action: 'sendQuote' }
   }
   if (stageKey === 'work') {
-    return {
-      preview: true,
-      label: state === 'done' ? '' : '添加施工记录',
-      action: state === 'done' ? '' : 'addWork',
-    }
+    return { preview: true, label: '添加施工记录', action: 'addWork' }
   }
   if (stageKey === 'finish') {
     return { preview: true, label: '提醒车主确认报告', action: 'remindDelivery' }

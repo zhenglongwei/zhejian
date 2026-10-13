@@ -288,10 +288,10 @@ function resolveLegacyStageIdForFlowNode(node = {}) {
   return ids[0] || ''
 }
 
-/** 需车主确认：接车确认单、方案确认、完工确认（及增项方案） */
+/** 需车主确认：方案确认、完工确认（及增项方案）。接车照片只发给车主看。 */
 function requiresOwnerConfirm(node = {}) {
   const docType = (node.document && node.document.docType) || ''
-  if (docType === 'intake_confirm') return true
+  if (docType === 'intake_confirm') return false
   const meta = getFlowKindMeta(node.kind)
   if (meta && typeof meta.requiresConfirm === 'boolean') return meta.requiresConfirm
   return ['quote_confirm', 'repair_report', 'addon_quote_confirm'].includes(docType || node.kind)

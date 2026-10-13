@@ -251,7 +251,7 @@
   </view>
 
   <view
-    wx:if="{{doc.confirmCopy && !doc.cancelled && (doc.needsConfirm || doc.kind === 'intake' || doc.kind === 'intake_inspection' || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
+    wx:if="{{doc.confirmCopy && !doc.cancelled && (doc.needsConfirm || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
     class="service-doc-sheet__protocol"
   >
     <text class="service-doc-sheet__protocol-text">{{doc.confirmCopy}}</text>
