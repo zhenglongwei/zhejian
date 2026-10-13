@@ -2092,6 +2092,27 @@ Page({
       payload = this.buildDocPayloadForSave()
     }
     if (key === 'inspect') {
+      const intake = (this._flowNodes || []).find(
+        (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
+      )
+      const inspection = (this._flowNodes || []).find((item) => item && item.kind === 'inspection')
+      const fromIntake = String(
+        (intake && intake.photoDraft && intake.photoDraft.chiefComplaint) ||
+          (intake && intake.document && intake.document.payload && intake.document.payload.chiefComplaint) ||
+          '',
+      ).trim()
+      const fromPhoto =
+        inspection && inspection.photoDraft && Array.isArray(inspection.photoDraft.findings)
+          ? inspection.photoDraft.findings
+          : []
+      payload = {
+        ...payload,
+        chiefComplaint: String(payload.chiefComplaint || '').trim() || fromIntake,
+        findings:
+          Array.isArray(payload.findings) && payload.findings.length ? payload.findings : fromPhoto,
+      }
+    }
+    if (key === 'inspect') {
       const gaps = collectInspectionReportGaps(payload)
       if (gaps.length) {
         wx.showToast({ title: gaps[0], icon: 'none' })
@@ -5711,7 +5732,7 @@ Page({
     if (this.data.readOnly || this.data.confirming) return
     if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
     if (!String(this.data.chiefComplaint || '').trim()) {
-      wx.showToast({ title: '先写问诊登记', icon: 'none' })
+      wx.showToast({ title: '先写车主诉求', icon: 'none' })
       return
     }
     if (!String(this.data.odometerUrl || '').trim()) {

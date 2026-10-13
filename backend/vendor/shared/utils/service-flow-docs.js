@@ -1065,7 +1065,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
 function collectInspectionReportGaps(payload = {}) {
   const gaps = []
   if (!String(payload.chiefComplaint || '').trim()) {
-    gaps.push('请填写问诊登记')
+    gaps.push('请先在接车填写车主诉求')
   }
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   if (!findings.length) {

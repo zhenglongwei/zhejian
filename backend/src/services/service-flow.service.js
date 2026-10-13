@@ -867,7 +867,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   )
   if (node.kind === 'intake') {
     if (!String(incomingDraft.chiefComplaint || '').trim()) {
-      const err = new Error('先写问诊登记')
+      const err = new Error('先写车主诉求')
       err.status = 400
       throw err
     }

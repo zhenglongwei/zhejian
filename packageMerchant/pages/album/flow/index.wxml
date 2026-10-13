@@ -517,7 +517,7 @@
           <view wx:if="{{stageEditor}}" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
-                <text class="text-body merchant-flow-page__label">问诊登记</text>
+                <text class="text-body merchant-flow-page__label">车主诉求</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   style="height: 160rpx;"

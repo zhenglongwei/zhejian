@@ -190,7 +190,7 @@ async function queueIntakeAdviceIfNeeded(album, merchantId) {
   const draft = (intake && intake.photoDraft) || {}
   const complaint = text(draft.chiefComplaint)
   if (!complaint) {
-    const err = new Error('先写问诊登记')
+    const err = new Error('先写车主诉求')
     err.status = 400
     throw err
   }
