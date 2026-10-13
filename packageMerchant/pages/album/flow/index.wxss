@@ -3215,3 +3215,113 @@
   background: var(--color-primary);
   color: var(--color-text-inverse);
 }
+
+.ov-work .stage-bar-only {
+  display: none;
+}
+
+.rec-preview {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-page);
+}
+
+.rec-preview__bar,
+.rec-preview__row {
+  background: var(--color-bg-card);
+}
+
+.rec-preview__row {
+  display: flex;
+  align-items: center;
+  min-height: 88rpx;
+  padding-left: var(--space-sm);
+}
+
+.rec-preview__body {
+  flex: 1;
+  height: 0;
+  padding: var(--space-md);
+  box-sizing: border-box;
+}
+
+.rec-preview__note,
+.rec-preview__seal,
+.rec-preview__scope text:last-child,
+.rec-preview__copy,
+.rec-preview__label {
+  display: block;
+}
+
+.rec-preview__note,
+.rec-preview__seal {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+}
+
+.rec-preview__card {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+}
+
+.rec-preview__title {
+  display: block;
+  margin: var(--space-lg) 0 var(--space-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.rec-preview__block {
+  margin-top: var(--space-md);
+}
+
+.rec-preview__label {
+  margin-bottom: var(--space-xs);
+  color: var(--color-primary);
+  font-size: var(--font-mch-kicker);
+  font-weight: var(--font-weight-semibold);
+}
+
+.rec-preview__copy,
+.rec-preview__scope text:last-child {
+  color: var(--color-text-primary);
+  font-size: var(--font-caption);
+  line-height: 1.5;
+}
+
+.rec-preview__photos {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.rec-preview__photos image {
+  width: 180rpx;
+  height: 140rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-page);
+}
+
+.rec-preview__seal,
+.rec-preview__scope {
+  margin-top: var(--space-md);
+}
+
+.rec-preview__scope text:first-child {
+  display: block;
+  margin-bottom: 4rpx;
+  color: var(--color-text-secondary);
+  font-size: var(--font-mch-kicker);
+}

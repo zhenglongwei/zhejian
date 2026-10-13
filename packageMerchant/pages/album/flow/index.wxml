@@ -255,7 +255,7 @@
           <text class="st-tab__name">{{item.short}}</text>
         </view>
       </view>
-      <scroll-view scroll-y class="ov-work__body {{stageEditor ? '' : 'ov-work__body--bar'}}" show-scrollbar="{{false}}">
+      <scroll-view scroll-y class="ov-work__body ov-work__body--bar" show-scrollbar="{{false}}">
           <view wx:if="{{stageBoard}}" class="st-vehicle">
             <view class="st-vehicle__icon"><image src="/assets/mch/car-blue.png" mode="aspectFit" /></view>
             <view class="st-vehicle__text">
@@ -1106,7 +1106,7 @@
                     disabled="{{confirming && !adviceOpen}}"
                     bind:btntap="onToggleAdvice"
                   >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
-                  <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action merchant-flow-page__step-action--primary">
+                  <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action merchant-flow-page__step-action--primary stage-bar-only">
                     <ui-button
                       type="primary"
                       block="{{true}}"
@@ -1350,14 +1350,15 @@
                   disabled="{{confirming && !adviceOpen}}"
                   bind:btntap="onToggleAdvice"
                 >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
-                <ui-button
-                  wx:if="{{quoteNotifyReady && !notifyConfirmDisabled}}"
-                  type="primary"
-                  block="{{true}}"
-                  loading="{{confirming}}"
-                  disabled="{{confirming}}"
-                  bind:btntap="onNotifyOwnerPlan"
-                >{{notifyOwnerLabel}}</ui-button>
+                <view wx:if="{{quoteNotifyReady && !notifyConfirmDisabled}}" class="stage-bar-only">
+                  <ui-button
+                    type="primary"
+                    block="{{true}}"
+                    loading="{{confirming}}"
+                    disabled="{{confirming}}"
+                    bind:btntap="onNotifyOwnerPlan"
+                  >{{notifyOwnerLabel}}</ui-button>
+                </view>
               </view>
             </block>
 
@@ -1585,14 +1586,15 @@
                     disabled="{{confirming && !adviceOpen}}"
                     bind:btntap="onToggleAdvice"
                   >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
-                  <ui-button
-                    wx:if="{{quoteNotifyReady}}"
-                    type="primary"
-                    block="{{true}}"
-                    loading="{{confirming}}"
-                    disabled="{{notifyConfirmDisabled}}"
-                    bind:btntap="onSendForOwnerConfirm"
-                  >发送车主确认</ui-button>
+                  <view wx:if="{{quoteNotifyReady}}" class="stage-bar-only">
+                    <ui-button
+                      type="primary"
+                      block="{{true}}"
+                      loading="{{confirming}}"
+                      disabled="{{notifyConfirmDisabled}}"
+                      bind:btntap="onSendForOwnerConfirm"
+                    >发送车主确认</ui-button>
+                  </view>
                 </block>
                 <block wx:else>
                   <text class="text-caption text-secondary merchant-flow-page__await-hint">等待确认</text>
@@ -1663,13 +1665,15 @@
                   <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
                 </view>
                 <block wx:if="{{!confirmAwaitingOwner}}">
-                  <ui-button
-                    type="primary"
-                    block="{{true}}"
-                    loading="{{confirming}}"
-                    disabled="{{notifyConfirmDisabled}}"
-                    bind:btntap="onSendForOwnerConfirm"
-                  >发送车主确认</ui-button>
+                  <view class="stage-bar-only">
+                    <ui-button
+                      type="primary"
+                      block="{{true}}"
+                      loading="{{confirming}}"
+                      disabled="{{notifyConfirmDisabled}}"
+                      bind:btntap="onSendForOwnerConfirm"
+                    >发送车主确认</ui-button>
+                  </view>
                 </block>
                 <block wx:else>
                   <text class="text-caption text-secondary merchant-flow-page__await-hint">等车主确认交车</text>
@@ -1684,9 +1688,79 @@
             </block>
           </view>
       </scroll-view>
-      <view wx:if="{{stageBoard && !stageEditor}}" class="st-bar">
-        <view class="st-bar__btn" bindtap="onPreviewStage">预览记录</view>
-        <view wx:if="{{stageBoard.state === 'current'}}" class="st-bar__btn st-bar__btn--go" bindtap="onOpenStageEditor">继续填写</view>
+      <view wx:if="{{stageBoard}}" class="st-bar">
+        <view class="st-bar__btn" bindtap="onOpenRecordPreview">预览记录</view>
+        <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
+      </view>
+    </view>
+    <view wx:if="{{recordPreview}}" class="rec-preview" catchtouchmove="true">
+      <view class="rec-preview__bar" style="padding-top: {{statusBarHeight}}px;">
+        <view class="rec-preview__row" style="padding-right: {{capsulePad}}px;">
+          <text class="ov-back" catchtap="onCloseRecordPreview">‹</text>
+          <view class="ov-nav__text">
+            <text class="ov-kicker">提交前确认</text>
+            <text class="ov-work__title">节点记录预览</text>
+          </view>
+        </view>
+      </view>
+      <scroll-view scroll-y class="rec-preview__body" show-scrollbar="{{false}}">
+        <view class="rec-preview__note">这是车主将看到的记录</view>
+        <view class="rec-preview__card">
+          <view class="doc-brief__store">
+            <text class="doc-brief__mark">{{recordPreview.mark}}</text>
+            <view class="doc-brief__store-text">
+              <text class="doc-brief__store-name">{{recordPreview.storeName}}</text>
+              <text class="doc-brief__store-sub">全程留证</text>
+            </view>
+            <text wx:if="{{recordPreview.status}}" class="doc-brief__pill doc-brief__pill--live">{{recordPreview.status}}</text>
+          </view>
+          <text class="rec-preview__title">{{recordPreview.title}}</text>
+          <view wx:if="{{recordPreview.plate || recordPreview.model}}" class="doc-brief__row">
+            <text>车辆</text>
+            <text>{{recordPreview.plate}}{{recordPreview.model ? ' · ' : ''}}{{recordPreview.model}}</text>
+          </view>
+          <view wx:if="{{recordPreview.summary}}" class="rec-preview__block">
+            <text class="rec-preview__label">节点说明</text>
+            <text class="rec-preview__copy">{{recordPreview.summary}}</text>
+          </view>
+          <view wx:if="{{recordPreview.facts.length}}" class="rec-preview__block">
+            <text class="rec-preview__label">关键数据</text>
+            <view wx:for="{{recordPreview.facts}}" wx:key="label" class="doc-brief__row">
+              <text>{{item.label}}</text>
+              <text>{{item.value}}</text>
+            </view>
+          </view>
+          <view wx:if="{{recordPreview.photos.length}}" class="rec-preview__block">
+            <text class="rec-preview__label">现场留证</text>
+            <view class="rec-preview__photos">
+              <image
+                wx:for="{{recordPreview.photos}}"
+                wx:key="url"
+                src="{{item.url}}"
+                mode="aspectFill"
+                data-url="{{item.url}}"
+                bindtap="onPreviewStagePhoto"
+              />
+            </view>
+          </view>
+          <view wx:if="{{recordPreview.advice}}" class="rec-preview__block">
+            <text class="rec-preview__label">AI 技师意见</text>
+            <text class="rec-preview__copy">{{recordPreview.advice}}</text>
+          </view>
+          <view class="rec-preview__seal">确认后按确认时间留存</view>
+          <view class="rec-preview__scope">
+            <text>车主可见</text>
+            <text>节点说明、关键数据、留证照片、技师意见</text>
+          </view>
+          <view class="rec-preview__scope">
+            <text>隐私已保护</text>
+            <text>内部备注不在这份记录里</text>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="st-bar">
+        <view class="st-bar__btn" catchtap="onCloseRecordPreview">返回修改</view>
+        <view class="st-bar__btn st-bar__btn--go" catchtap="onConfirmRecordPreview">确认记录内容</view>
       </view>
     </view>
     <view wx:if="{{doneView}}" class="ov-work ov-work--top">

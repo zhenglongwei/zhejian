@@ -1514,6 +1514,19 @@ function normalizePhotoDraft(raw = {}) {
       ? raw.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
       : [],
     deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
+    reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
+    ownerSentAt: String(raw.ownerSentAt || '').trim(),
+    recordVersions: Array.isArray(raw.recordVersions)
+      ? raw.recordVersions
+          .map((row) => ({
+            id: String((row && row.id) || '').trim(),
+            confirmedAt: String((row && row.confirmedAt) || '').trim(),
+            title: String((row && row.title) || '').trim(),
+            summary: String((row && row.summary) || '').trim(),
+          }))
+          .filter((row) => row.id)
+          .slice(-20)
+      : [],
   }
 }
 
@@ -1563,6 +1576,15 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   }
   if (patch.deliveryExteriorUrl != null) {
     next.deliveryExteriorUrl = String(patch.deliveryExteriorUrl || '').trim()
+  }
+  if (patch.reportGeneratedAt != null) {
+    next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()
+  }
+  if (patch.ownerSentAt != null) {
+    next.ownerSentAt = String(patch.ownerSentAt || '').trim()
+  }
+  if (patch.recordVersions != null) {
+    next.recordVersions = normalizePhotoDraft({ recordVersions: patch.recordVersions }).recordVersions
   }
   return next
 }
