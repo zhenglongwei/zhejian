@@ -174,7 +174,7 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorF
     ]).join('\n')
   }
   return common.concat([
-    '这是检测。按检查点/部位归组。result 只能是：状态良好、需关注、需处理、仅记录。',
+    '这是检测。按检查点/部位归组。看起来是同一处、同一零件的，收成一组，不要拆开。result 只能是：状态良好、需关注、需处理、仅记录。',
     'advice 写部位上的事实：损伤形态、读数（厚度/电压/液位）、颜色杂质、左右位置。不要写成更换方案，不要描写谁在拍照、图上有什么字。',
     'observation 写给之后报价用的完整观察（可见配件、损伤范围、读数）。包装或铭牌上看不见的规格不要编。',
     '输出 JSON：{"groups":[{"partName","imageSlots","result","advice","observation"}]}',

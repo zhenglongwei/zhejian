@@ -382,7 +382,7 @@
                 </view>
               </view>
             </view>
-            <view wx:if="{{stageBoard.inspect.advice}}" class="st-ai">
+            <view wx:if="{{stageBoard.inspect.advice && stageBoard.state !== 'current'}}" class="st-ai">
               <image src="/assets/mch/spark-white.png" mode="aspectFit" />
               <view>
                 <text class="st-ai__title">AI 检测意见</text>
@@ -663,15 +663,6 @@
                 <block wx:if="{{section.findingMode}}">
                   <text wx:if="{{section.title}}" class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
-                  <view wx:if="{{isInspectionPhotoStep && intakeAdvice.hasContent}}" class="merchant-flow-page__inspect-advice">
-                    <view class="merchant-flow-page__inspect-advice-head" bindtap="onToggleInspectAdvice">
-                      <text class="text-body merchant-flow-page__inspect-advice-title">AI意见</text>
-                      <text class="text-caption text-secondary">{{inspectAdviceOpen ? '收起' : '展开'}}</text>
-                    </view>
-                    <view wx:if="{{inspectAdviceOpen}}">
-                      <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: true}}" />
-                    </view>
-                  </view>
                   <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending">
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>
@@ -719,7 +710,7 @@
                     </block>
                   </view>
                   <view wx:if="{{isInspectionPhotoStep && checkpointMisses.length}}" class="merchant-flow-page__checkpoint-miss">
-                    <text class="text-caption text-secondary">对照意见未见到</text>
+                    <text class="text-caption text-secondary">还可以看</text>
                     <view
                       wx:for="{{checkpointMisses}}"
                       wx:key="id"
@@ -737,6 +728,7 @@
                       wx:key="listKey"
                       class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}} {{finding.outsideQuote ? 'merchant-flow-page__finding-row--quote-miss' : ''}}"
                     >
+                      <view wx:if="{{finding.aiRemind}}" class="merchant-flow-page__finding-remind">{{finding.aiRemind}}</view>
                       <flow-finding-card
                         wx:if="{{!finding.expanded}}"
                         title="{{finding.summaryText}}"
@@ -1705,8 +1697,15 @@
           </view>
       </scroll-view>
       <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary)}}" class="st-bar">
-        <view wx:if="{{stageShowPreview}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
-        <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
+        <view
+          wx:if="{{stageKey === 'inspect' && stageBoard.state === 'current' && !readOnly}}"
+          class="st-bar__btn st-bar__btn--ai"
+          bindtap="onInspectionAi"
+        >{{organizingPhotos ? '正在看' : (adviceOpen ? '收起' : 'AI意见')}}</view>
+        <view class="st-bar__row">
+          <view wx:if="{{stageShowPreview}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
+          <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
+        </view>
       </view>
     </view>
     <view wx:if="{{recordPreview}}" class="rec-preview" catchtouchmove="true">

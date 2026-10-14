@@ -130,6 +130,42 @@ function stableFindingId(raw = {}, index = -1) {
   return index >= 0 ? `fid_i${index}` : ''
 }
 
+function keepInspectionRemind(raw = {}) {
+  const code = String((raw && raw.aiRemindCode) || '').trim()
+  const part = String((raw && raw.partName) || '').trim()
+  const result = String((raw && raw.result) || '').trim()
+  if (code.startsWith('result:') && result === code.slice(7)) {
+    return { aiRemind: '', aiRemindCode: '' }
+  }
+  if (code.startsWith('place:') && part === code.slice(6)) {
+    return { aiRemind: '', aiRemindCode: '' }
+  }
+  return {
+    aiRemind: String((raw && raw.aiRemind) || '').trim(),
+    aiRemindCode: code,
+  }
+}
+
+/** 这一眼只产生提醒。部位对上了就去掉「放错项」，结果对上了就去掉「看图更像是」。 */
+function inspectionRemindFromLook(row = {}, suggestedResult = '', suggestedPart = '') {
+  const part = String(row.partName || '').trim()
+  const result = String(row.result || '').trim()
+  if (suggestedPart && part && suggestedPart !== part) {
+    return { aiRemind: `这张更像是${suggestedPart}`, aiRemindCode: `place:${suggestedPart}` }
+  }
+  if (suggestedResult && result && suggestedResult !== result) {
+    return { aiRemind: `看图更像是${suggestedResult}`, aiRemindCode: `result:${suggestedResult}` }
+  }
+  const kept = keepInspectionRemind(row)
+  if (suggestedPart && part && suggestedPart === part && kept.aiRemindCode.startsWith('place:')) {
+    return { aiRemind: '', aiRemindCode: '' }
+  }
+  if (suggestedResult && result && suggestedResult === result && kept.aiRemindCode.startsWith('result:')) {
+    return { aiRemind: '', aiRemindCode: '' }
+  }
+  return kept
+}
+
 function normalizeFinding(raw = {}, index = -1) {
   const caption = String(raw.caption || '').trim()
   const result = normalizeFindingResult(raw.result)
@@ -151,6 +187,7 @@ function normalizeFinding(raw = {}, index = -1) {
     symptom: String(raw.symptom || '').trim(),
     result,
     advice,
+    ...keepInspectionRemind({ ...raw, partName: String(raw.partName || caption || '').trim(), result }),
   }
 }
 
@@ -177,6 +214,7 @@ function normalizeItemFinding(raw = {}, index = -1) {
     symptom: String(raw.symptom || '').trim(),
     result,
     advice,
+    ...keepInspectionRemind({ ...raw, partName: String(raw.partName || '').trim(), result }),
   }
 }
 
@@ -466,6 +504,10 @@ function mergeFindingsByPart(list) {
     if (!host.result && item.result) host.result = item.result
     if ((!host.advice || host.advice === FINDING_ADVICE_NONE) && item.advice && item.advice !== FINDING_ADVICE_NONE) {
       host.advice = item.advice
+    }
+    if (!host.aiRemind && item.aiRemind) {
+      host.aiRemind = item.aiRemind
+      host.aiRemindCode = item.aiRemindCode || ''
     }
   })
   return out
@@ -852,14 +894,48 @@ function applyOrganizeGroups({
   })
   prepared.forEach(({ group, partName, shots }) => {
     if (!shots.length || !partName) return
-    shots.forEach((img) => used.add(mediaKey(img.url)))
+    const suggestedResult = isValidFindingResult(String((group && group.result) || '').trim())
+      ? String(group.result).trim()
+      : ''
+    const suggestedAdvice = stripFigureIndexTalk(group && group.advice)
+    const fresh = []
+    if (mode === 'inspection') {
+      shots.forEach((img) => {
+        const imgKey = mediaKey(img.url)
+        if (!imgKey || used.has(imgKey)) return
+        const ownerIdx = nextFindings.findIndex((row) =>
+          (row.images || []).some((im) => mediaKey(im && im.url) === imgKey),
+        )
+        if (ownerIdx < 0) {
+          fresh.push(img)
+          return
+        }
+        used.add(imgKey)
+        const owner = nextFindings[ownerIdx]
+        const ownerPart = String(owner.partName || '').trim()
+        const ownerAdvice = String(owner.advice || '').trim()
+        const samePart = !ownerPart || ownerPart === partName
+        const remind = inspectionRemindFromLook(owner, samePart ? suggestedResult : '', ownerPart ? partName : '')
+        nextFindings[ownerIdx] = normalizeItemFinding({
+          ...owner,
+          partName: ownerPart || partName,
+          result: samePart ? owner.result || suggestedResult : owner.result,
+          advice: samePart ? ownerAdvice || suggestedAdvice : owner.advice,
+          ...remind,
+        })
+      })
+    } else {
+      shots.forEach((img) => fresh.push(img))
+    }
+    if (!fresh.length) return
+    fresh.forEach((img) => used.add(mediaKey(img.url)))
     const hostIdx = partName
       ? nextFindings.findIndex((row) => String(row.partName || '').trim() === partName)
       : -1
     if (hostIdx >= 0) {
       const host = nextFindings[hostIdx]
       const cap = mode === 'work' ? WORK_IMAGES_MAX : FINDING_IMAGES_MAX
-      const images = (host.images || []).concat(shots).slice(0, cap)
+      const images = (host.images || []).concat(fresh).slice(0, cap)
       if (mode === 'work') {
         nextFindings[hostIdx] = normalizeWorkFinding({
           ...host,
@@ -874,14 +950,14 @@ function applyOrganizeGroups({
           outsideQuote: Boolean(group && group.outsideQuote),
         })
       } else {
+        const remind = inspectionRemindFromLook(host, suggestedResult, '')
         nextFindings[hostIdx] = normalizeItemFinding({
           ...host,
           images,
           partName: host.partName || partName,
-            result: host.result || (isValidFindingResult(String((group && group.result) || '').trim())
-              ? group.result
-              : ''),
-          advice: host.advice || stripFigureIndexTalk(group && group.advice),
+          result: host.result || suggestedResult,
+          advice: host.advice || suggestedAdvice,
+          ...remind,
         })
       }
       return
@@ -892,7 +968,7 @@ function applyOrganizeGroups({
           partName,
           material: stripFigureIndexTalk(group && (group.material || group.caption)),
           caption: stripFigureIndexTalk(group && (group.observation || '')),
-          images: shots.slice(0, WORK_IMAGES_MAX),
+          images: fresh.slice(0, WORK_IMAGES_MAX),
           outsideQuote: Boolean(group && group.outsideQuote),
         }),
       )
@@ -901,11 +977,9 @@ function applyOrganizeGroups({
     nextFindings.push(
       normalizeItemFinding({
         partName,
-        result: isValidFindingResult(String((group && group.result) || '').trim())
-          ? group.result
-          : '',
-        advice: stripFigureIndexTalk(group && group.advice),
-        images: shots.slice(0, FINDING_IMAGES_MAX),
+        result: suggestedResult,
+        advice: suggestedAdvice,
+        images: fresh.slice(0, FINDING_IMAGES_MAX),
       }),
     )
   })
@@ -1069,7 +1143,7 @@ function collectInspectionReportGaps(payload = {}) {
   }
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   if (!findings.length) {
-    gaps.push('请至少上传 1 张检测照片并填写发现项')
+    gaps.push('请写出检查内容')
     return gaps
   }
   findings.forEach((raw) => {

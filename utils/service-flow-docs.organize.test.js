@@ -66,6 +66,76 @@ test('organize does not overwrite filled inspection fields', () => {
   })
   assert.equal(findings[0].result, '需关注')
   assert.equal(findings[0].advice, '店员已写')
+  assert.equal(findings[0].aiRemind, '看图更像是需处理')
+})
+
+test('organize does not move a photo already on another item', () => {
+  const { findings, pendingImages } = applyOrganizeGroups({
+    pendingImages: [a],
+    findings: [{
+      id: 'fid_brake',
+      partName: '制动盘',
+      result: '需处理',
+      advice: '盘面有沟槽',
+      images: [a],
+    }],
+    groups: [{
+      partName: '刹车片',
+      result: '需处理',
+      advice: '模型想改到刹车片',
+      imageKeys: ['uploads/a.jpg'],
+    }],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 1)
+  assert.equal(findings[0].id, 'fid_brake')
+  assert.equal(findings[0].partName, '制动盘')
+  assert.equal(findings[0].advice, '盘面有沟槽')
+  assert.equal(findings[0].images.length, 1)
+  assert.equal(findings[0].aiRemind, '这张更像是刹车片')
+  assert.equal(pendingImages.length, 0)
+})
+
+test('organize fills an empty note without duplicating the photo', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [a],
+    findings: [{
+      id: 'fid_pad',
+      partName: '刹车片',
+      result: '',
+      advice: '',
+      images: [a],
+    }],
+    groups: [{
+      partName: '刹车片',
+      result: '需处理',
+      advice: '片体磨薄',
+      imageKeys: ['uploads/a.jpg'],
+    }],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 1)
+  assert.equal(findings[0].advice, '片体磨薄')
+  assert.equal(findings[0].result, '需处理')
+  assert.equal(findings[0].images.length, 1)
+  assert.equal(findings[0].aiRemind, '')
+})
+
+test('inspection remind clears after the result is corrected', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [],
+    findings: [{
+      partName: '液压位',
+      result: '需处理',
+      advice: '店员已写',
+      aiRemind: '看图更像是需处理',
+      aiRemindCode: 'result:需处理',
+      images: [a],
+    }],
+    groups: [],
+    mode: 'inspection',
+  })
+  assert.equal(findings[0].aiRemind, '')
 })
 
 test('organize does not invent an unnamed item from photos', () => {

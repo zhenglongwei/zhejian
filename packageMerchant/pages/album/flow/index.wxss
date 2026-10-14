@@ -2970,10 +2970,21 @@
 .st-bar {
   flex: none;
   display: flex;
+  flex-direction: column;
   gap: 18rpx;
   padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-bg-card);
   border-top: 1rpx solid var(--color-border);
+}
+
+.st-bar__row {
+  display: flex;
+  gap: 18rpx;
+}
+
+.st-bar__btn--ai {
+  color: var(--color-mch-advice);
+  border-color: var(--color-mch-advice);
 }
 
 .st-bar__btn {
@@ -2996,6 +3007,13 @@
   color: var(--color-text-inverse);
   background: var(--color-primary);
   border-color: var(--color-primary);
+}
+
+.merchant-flow-page__finding-remind {
+  margin: 0 0 12rpx;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-mch-advice);
 }
 
 .sup-steps {

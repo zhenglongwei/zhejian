@@ -1103,7 +1103,7 @@ Page({
           (this._placeholders && this._placeholders.workCaption) ||
           this.data.workCaptionPlaceholder ||
           '选填，例：已按规定扭矩紧固并排气',
-        listKey: listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
+        listKey: row.id || listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
         expanded: Boolean(expanded),
         complete: hasPhoto && missing === 0,
         summaryText: row.partName || '待填写',
@@ -1144,7 +1144,7 @@ Page({
       findingKind: 'inspection',
       pendingPhoto: !hasPhoto,
       recordOnly: row.result === FINDING_RESULT.RECORD,
-      listKey: listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
+      listKey: row.id || listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
       expanded: Boolean(expanded),
       complete: missing === 0 && hasPhoto,
       summaryText: row.partName || '待填写',
@@ -2230,7 +2230,14 @@ Page({
       this.onAddFindingPhotos()
       return
     }
-    if (action === 'generateReport') this.sendOwnerDocument('inspect')
+    if (action === 'generateReport') {
+      const kind = this.data.activeNode && this.data.activeNode.kind
+      if (kind === 'inspection' || kind === 'intake_inspection') {
+        this.onConfirmPhotoStep()
+        return
+      }
+      this.sendOwnerDocument('inspect')
+    }
     if (action === 'sendQuote') this.sendOwnerDocument('quote')
     if (action === 'remindDelivery') this.sendOwnerDocument('finish')
   },
@@ -3086,7 +3093,12 @@ Page({
         } finally {
           wx.hideLoading()
         }
-        if (!this.data.isWorkPhotoStep) await this.onOrganizePhotos()
+        this.persistPhotos()
+          .then(() => this.persistPhotoDraft())
+          .then(() => this.setAutoSaveLabel('已自动保存'))
+          .catch((err) => {
+            this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+          })
       },
     })
   },
@@ -3711,17 +3723,37 @@ Page({
     return last
   },
 
-  async onOrganizePhotos() {
-    if (this.data.readOnly || this.data.organizingPhotos) return
+  collectInspectionAiBatch(findings) {
+    const pending = normalizePendingImages(this.data.pendingImages)
+    const seen = new Set(pending.map((img) => mediaKey(img && img.url)).filter(Boolean))
+    const extra = []
+    ;(findings || []).forEach((row) => {
+      const part = String((row && row.partName) || '').trim()
+      const advice = String((row && row.advice) || '').trim()
+      if (part && advice) return
+      ;(row.images || []).forEach((img) => {
+        const key = mediaKey(img && img.url)
+        if (!key || seen.has(key)) return
+        seen.add(key)
+        extra.push(img)
+      })
+    })
+    return pending.concat(extra)
+  },
+
+  async onOrganizePhotos(options = {}) {
+    if (this.data.readOnly || this.data.organizingPhotos) return false
     const node = this.data.activeNode
     const rawKind = (node && node.kind) || ''
-    if (rawKind === 'delivery_photos' || rawKind === 'work' || rawKind === 'intake') return
+    if (rawKind === 'delivery_photos' || rawKind === 'work' || rawKind === 'intake') return false
     const kind =
       rawKind === 'intake_inspection' ? 'inspection' : rawKind
-    const pending = this.collectPendingForOrganize(kind)
+    const pending = options.images
+      ? normalizePendingImages(options.images)
+      : this.collectPendingForOrganize(kind)
     if (!pending.length) {
-      wx.showToast({ title: '先上传照片', icon: 'none' })
-      return
+      if (!options.silentEmpty) wx.showToast({ title: '先上传照片', icon: 'none' })
+      return false
     }
     const pageWait = kind !== 'intake'
     this.setData({ organizingPhotos: true, organizeResultHint: '' })
@@ -3773,7 +3805,14 @@ Page({
               : this.findingImagesFromRows(nextFindings, this.data.odometerUrl),
         }
       })
-      const leftover = applied.pendingImages
+      const originKeys = new Set(
+        normalizePendingImages(this.data.pendingImages)
+          .map((img) => mediaKey(img && img.url))
+          .filter(Boolean),
+      )
+      const leftover = (applied.pendingImages || []).filter((img) =>
+        originKeys.has(mediaKey(img && img.url)),
+      )
       const organizeResultHint = this.summarizeOrganizeResult(
         pending,
         applied.findings,
@@ -4060,7 +4099,12 @@ Page({
       autoSaveLabel: '保存中…',
       ...this.findingChromePatch(this.data.sections, pendingImages),
     })
-    this.onOrganizePhotos()
+    this.persistPhotos()
+      .then(() => this.persistPhotoDraft())
+      .then(() => this.setAutoSaveLabel('已自动保存'))
+      .catch((err) => {
+        this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+      })
   },
 
   onAddOdometerPhoto() {
@@ -5589,6 +5633,14 @@ Page({
         wx.showToast({ title: '请先拍留证', icon: 'none' })
         return
       }
+    } else if (kind === 'inspection') {
+      const piled = normalizePendingImages(this.data.pendingImages).length
+      const total =
+        this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0) + piled
+      if (total < 1) {
+        wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
+        return
+      }
     } else if (kind !== 'delivery_photos') {
       const total = this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0)
       if (total < 1) {
@@ -5597,7 +5649,7 @@ Page({
       }
     }
     if (
-      (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
+      (kind === 'work' || kind === 'intake_inspection') &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
       wx.showToast({ title: '先处理未归组的图', icon: 'none' })
@@ -5789,6 +5841,40 @@ Page({
       lines,
       confirmCopy: this.data.confirmCopy || QUOTE_CONFIRM_COPY,
     }
+  },
+
+  async onInspectionAi() {
+    if (this.data.readOnly || this.data.confirming || this.data.organizingPhotos) return
+    if (this.data.adviceOpen) {
+      this.setData({ adviceOpen: false })
+      return
+    }
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    if (kind !== 'inspection' && kind !== 'intake_inspection') return
+    const findings = this.collectFindingsFromSections()
+    const batch = this.collectInspectionAiBatch(findings)
+    const hasItem = findings.some(
+      (row) =>
+        String((row && row.partName) || '').trim() ||
+        String((row && row.advice) || '').trim() ||
+        (row.images && row.images.length),
+    )
+    if (!batch.length && !hasItem) {
+      this.setData({ adviceOpen: true })
+      await this.onStartIntakeAdvice()
+      return
+    }
+    if (batch.length) {
+      await this.onOrganizePhotos({ images: batch, silentEmpty: true })
+    } else {
+      this.setData({
+        checkpointMisses: this.computeCheckpointMisses(this._flowNodes || [], findings, true),
+      })
+    }
+    this.setData({ adviceOpen: true })
+    const advice = this.data.intakeAdvice
+    if (advice && (advice.hasContent || advice.isWaiting)) return
+    this.onStartIntakeAdvice()
   },
 
   onToggleAdvice() {
