@@ -5845,10 +5845,6 @@ Page({
 
   async onInspectionAi() {
     if (this.data.readOnly || this.data.confirming || this.data.organizingPhotos) return
-    if (this.data.adviceOpen) {
-      this.setData({ adviceOpen: false })
-      return
-    }
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind !== 'inspection' && kind !== 'intake_inspection') return
     const findings = this.collectFindingsFromSections()

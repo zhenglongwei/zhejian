@@ -664,6 +664,14 @@
                   <text wx:if="{{section.title}}" class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
                   <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending">
+                    <view
+                      wx:if="{{isInspectionPhotoStep && !readOnly}}"
+                      class="merchant-flow-page__ai-corner"
+                      catchtap="onInspectionAi"
+                    >
+                      <image class="merchant-flow-page__ai-corner-icon" src="/assets/mch/tab-ai-on.png" mode="aspectFit" />
+                      <text class="text-caption merchant-flow-page__ai-corner-text">{{organizingPhotos ? '正在看' : 'AI分析'}}</text>
+                    </view>
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>
                       <view class="merchant-flow-page__organize-dots" aria-hidden="true">
@@ -942,6 +950,14 @@
                     <text class="text-body">{{organizeResultHint}}</text>
                   </view>
                   <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
+                    <view
+                      wx:if="{{isInspectionPhotoStep && !readOnly}}"
+                      class="merchant-flow-page__ai-corner"
+                      catchtap="onInspectionAi"
+                    >
+                      <image class="merchant-flow-page__ai-corner-icon" src="/assets/mch/tab-ai-on.png" mode="aspectFit" />
+                      <text class="text-caption merchant-flow-page__ai-corner-text">{{organizingPhotos ? '正在看' : 'AI分析'}}</text>
+                    </view>
                     <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
                       <text class="text-body">归组中</text>
                       <view class="merchant-flow-page__organize-dots" aria-hidden="true">
@@ -1697,15 +1713,8 @@
           </view>
       </scroll-view>
       <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary)}}" class="st-bar">
-        <view
-          wx:if="{{stageKey === 'inspect' && stageBoard.state === 'current' && !readOnly}}"
-          class="st-bar__btn st-bar__btn--ai"
-          bindtap="onInspectionAi"
-        >{{organizingPhotos ? '正在看' : (adviceOpen ? '收起' : 'AI意见')}}</view>
-        <view class="st-bar__row">
-          <view wx:if="{{stageShowPreview}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
-          <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
-        </view>
+        <view wx:if="{{stageShowPreview}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
+        <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
     </view>
     <view wx:if="{{recordPreview}}" class="rec-preview" catchtouchmove="true">

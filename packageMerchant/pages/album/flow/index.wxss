@@ -641,6 +641,7 @@
 }
 
 .merchant-flow-page__pending {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -648,6 +649,26 @@
   padding: var(--space-md);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-card);
+}
+
+.merchant-flow-page__ai-corner {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.merchant-flow-page__ai-corner-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.merchant-flow-page__ai-corner-text {
+  color: var(--color-mch-advice);
 }
 
 .merchant-flow-page__organize-wait {
@@ -2970,21 +2991,10 @@
 .st-bar {
   flex: none;
   display: flex;
-  flex-direction: column;
   gap: 18rpx;
   padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-bg-card);
   border-top: 1rpx solid var(--color-border);
-}
-
-.st-bar__row {
-  display: flex;
-  gap: 18rpx;
-}
-
-.st-bar__btn--ai {
-  color: var(--color-mch-advice);
-  border-color: var(--color-mch-advice);
 }
 
 .st-bar__btn {
