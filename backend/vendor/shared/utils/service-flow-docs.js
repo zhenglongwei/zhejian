@@ -1164,8 +1164,8 @@ function buildInspectionReportPayload({
       photoDraft.vehicleYear || vehicle.modelYear || vehicle.year || '',
     ),
     mileageText:
-      formatMileageText(photoDraft.mileageKm) ||
-      formatMileageText(vehicle.mileage || vehicle.mileageKm),
+      formatMileageText(vehicle.mileage || vehicle.mileageKm) ||
+      formatMileageText(photoDraft.mileageKm),
     chiefComplaint: String(
       chiefComplaint || photoDraft.chiefComplaint || '',
     ).trim(),

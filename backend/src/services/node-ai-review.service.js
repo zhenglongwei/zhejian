@@ -34,6 +34,11 @@ function text(value) {
   return String(value || '').trim()
 }
 
+function albumMileageKm(album) {
+  const vehicle = (album && (album.vehicle || album.vehicleJson)) || {}
+  return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
+}
+
 function sortFlowNodes(nodes) {
   return (Array.isArray(nodes) ? nodes : [])
     .slice()
@@ -113,7 +118,7 @@ function buildReviewFingerprint(node, extra = {}) {
   const payload = {
     urls: collectNodeImageUrls(node).map((url) => stripUrlQuery(url)).sort(),
     complaint: text((node.photoDraft && node.photoDraft.chiefComplaint) || extra.chiefComplaint),
-    mileage: text((node.photoDraft && node.photoDraft.mileageKm) || extra.mileageKm),
+    mileage: text(extra.mileageKm || (node.photoDraft && node.photoDraft.mileageKm)),
     findings: (
       (node.photoDraft && node.photoDraft.findings) ||
       (node.document && node.document.payload && node.document.payload.findings) ||
@@ -347,7 +352,7 @@ function buildReviewContext(album, node, extra = {}) {
           return intake && intake.photoDraft && intake.photoDraft.chiefComplaint
         })(),
     ),
-    mileageKm: draft.mileageKm || extra.mileageKm,
+    mileageKm: albumMileageKm(album) || text(extra.mileageKm) || text(draft.mileageKm),
     odometerUrl: draft.odometerUrl || extra.odometerUrl || '',
     findings,
     orderItems,
@@ -717,7 +722,10 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
     ...node,
     photoDraft: incomingDraft || node.photoDraft || {},
   }
-  const fingerprint = buildReviewFingerprint(merged, extra)
+  const fingerprint = buildReviewFingerprint(merged, {
+    ...extra,
+    mileageKm: albumMileageKm(album) || extra.mileageKm,
+  })
   const reviewStep = text(extra.step || (node.aiReview && node.aiReview.reviewStep))
   const existing = node.aiReview || {}
   if (canReuseReviewThisRound(merged, extra)) {

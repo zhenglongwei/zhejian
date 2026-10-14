@@ -299,17 +299,6 @@
                   <text>继续拍摄</text>
                 </view>
               </view>
-              <view wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}" class="st-mileage">
-                <text>当前里程</text>
-                <input
-                  value="{{mileageKm}}"
-                  type="number"
-                  maxlength="7"
-                  placeholder="公里数"
-                  bindinput="onMileageKmInput"
-                />
-                <text>km</text>
-              </view>
               <view wx:if="{{intakeDocStatus === 'pending_confirm'}}" class="st-note">
                 <text class="st-note__body">待车主确认</text>
                 <text wx:if="{{!readOnly}}" class="st-edit" catchtap="onProxyIntakeConfirm">代车主确认</text>
@@ -1024,22 +1013,6 @@
                       bindtap="onAddOdometerPhoto"
                     >
                       <text class="merchant-flow-page__work-thumb-plus">+</text>
-                    </view>
-                  </view>
-                  <view class="merchant-flow-page__mileage-row">
-                    <view class="merchant-flow-page__mileage-field">
-                      <view class="merchant-flow-page__mileage-input-wrap">
-                        <input
-                          class="merchant-flow-page__mileage-input"
-                          value="{{mileageKm}}"
-                          maxlength="7"
-                          type="number"
-                          placeholder="当前里程"
-                          disabled="{{readOnly}}"
-                          bindinput="onMileageKmInput"
-                        />
-                      </view>
-                      <text class="text-caption text-secondary merchant-flow-page__mileage-unit">km</text>
                     </view>
                   </view>
                   <text class="text-body merchant-flow-page__label">车辆外观、灯光等</text>

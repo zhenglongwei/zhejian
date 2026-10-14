@@ -30,12 +30,17 @@ function readFlowNodes(album) {
 }
 
 function vehicleFacts(album, draft = {}) {
-  const vehicle = (album && album.vehicleJson) || {}
+  const vehicle = (album && (album.vehicle || album.vehicleJson)) || {}
   return {
     vehicleBrand: text(draft.vehicleBrand) || text(vehicle.brand),
     vehicleSeries: text(draft.vehicleSeries) || text(vehicle.series),
     vehicleYear: text(draft.vehicleYear) || text(vehicle.modelYear) || text(vehicle.year),
   }
+}
+
+function albumMileageKm(album) {
+  const vehicle = (album && (album.vehicle || album.vehicleJson)) || {}
+  return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
 }
 
 function buildFingerprint(album) {
@@ -52,7 +57,7 @@ function buildFingerprint(album) {
         b: vehicle.vehicleBrand,
         s: vehicle.vehicleSeries,
         y: vehicle.vehicleYear,
-        m: text(draft.mileageKm),
+        m: albumMileageKm(album),
       }),
     )
     .digest('hex')
@@ -149,7 +154,7 @@ async function runIntakeAdviceJob(albumId) {
       vehicleBrand: vehicle.vehicleBrand,
       vehicleSeries: vehicle.vehicleSeries,
       vehicleYear: vehicle.vehicleYear,
-      mileageKm: text(draft.mileageKm),
+      mileageKm: albumMileageKm(album),
     })
     await patchIntakeNode(albumId, (item) => ({
       ...item,
@@ -194,13 +199,8 @@ async function queueIntakeAdviceIfNeeded(album, merchantId) {
     err.status = 400
     throw err
   }
-  if (!text(draft.odometerUrl)) {
-    const err = new Error('请拍里程表')
-    err.status = 400
-    throw err
-  }
-  if (!text(draft.mileageKm)) {
-    const err = new Error('请填写当前里程')
+  if (!albumMileageKm(album)) {
+    const err = new Error('建档没有里程')
     err.status = 400
     throw err
   }

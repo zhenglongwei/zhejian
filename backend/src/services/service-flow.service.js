@@ -385,7 +385,6 @@ async function writeFlowPackage(albumId, mutator) {
 async function persistIntakeVehicleFields(albumId, prevVehicle, draft) {
   const { normalizeVehicleJson } = require('./service-album.service')
   if (!draft || typeof draft !== 'object') return
-  const mileage = parseMileageKm(draft.mileageKm)
   const brand = String(draft.vehicleBrand || '').trim()
   const series = String(draft.vehicleSeries || '').trim()
   const modelYear = String(draft.vehicleYear || '').trim()
@@ -395,8 +394,6 @@ async function persistIntakeVehicleFields(albumId, prevVehicle, draft) {
     ...(series ? { series } : {}),
     ...(modelYear ? { modelYear } : {}),
   })
-  if (mileage) next.mileage = Number(mileage)
-  else delete next.mileage
   await prisma.album.update({
     where: { id: albumId },
     data: { vehicleJson: next },
@@ -889,11 +886,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
     if (photoCount < 1) {
       const err = new Error('请先拍留证')
-      err.status = 400
-      throw err
-    }
-    if (!String(incomingDraft.mileageKm || '').trim()) {
-      const err = new Error('请填写当前里程')
       err.status = 400
       throw err
     }

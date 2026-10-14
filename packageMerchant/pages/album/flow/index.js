@@ -1240,7 +1240,6 @@ Page({
       const pile = normalizePendingImages(this.collectIntakePile())
       return {
         chiefComplaint: this.data.chiefComplaint || draft.chiefComplaint,
-        mileageKm: parseMileageKm(this.data.mileageKm || draft.mileageKm),
         fuelReading: String(this.data.fuelReading || draft.fuelReading || '').trim(),
         vehicleBrand: String(this.data.vehicleBrand || draft.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || draft.vehicleSeries || '').trim(),
@@ -1264,7 +1263,6 @@ Page({
       const odometerUrl = String(this.data.odometerUrl || '').trim()
       return {
         chiefComplaint: this.data.chiefComplaint,
-        mileageKm: parseMileageKm(this.data.mileageKm),
         vehicleBrand: String(this.data.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || '').trim(),
         vehicleYear: String(this.data.vehicleYear || '').trim(),
@@ -1625,9 +1623,8 @@ Page({
       const activeTitle = timeline.activeTitle
 
       const albumVehicle = (album && album.vehicle) || {}
-      const mileageKm = isIntakePhotoStep
-        ? parseMileageKm(photoDraft.mileageKm || albumVehicle.mileage || albumVehicle.mileageKm)
-        : parseMileageKm(photoDraft.mileageKm)
+      this._albumMileage = parseMileageKm(albumVehicle.mileage || albumVehicle.mileageKm)
+      const mileageKm = isIntakePhotoStep ? '' : parseMileageKm(photoDraft.mileageKm)
       const vehicleBrand = isIntakePhotoStep
         ? String(photoDraft.vehicleBrand || albumVehicle.brand || '').trim()
         : String(photoDraft.vehicleBrand || '').trim()
@@ -2004,7 +2001,6 @@ Page({
       complaint: String(
         this.data.chiefComplaint || board.complaint || draft.chiefComplaint || '',
       ).trim(),
-      mileageKm: String(this.data.mileageKm || draft.mileageKm || '').trim(),
     }
   },
 
@@ -2016,7 +2012,7 @@ Page({
       return String((row && row.reading) || '').trim()
     }
     return {
-      mileageKm: fields.mileageKm,
+      mileageKm: parseMileageKm(this._albumMileage),
       fuelReading: String(this.data.fuelReading || reading('fuel') || '').trim(),
       belongings: reading('belongings'),
       chiefComplaint: fields.complaint,
@@ -2037,7 +2033,7 @@ Page({
     }
     if (this.intakeDocumentSent()) return true
     const payload = this.buildIntakeConfirmPayload()
-    if (!payload.photos.length || !payload.mileageKm) return false
+    if (!payload.photos.length) return false
     if (!quiet) this.setData({ confirming: true })
     try {
       await updateMerchantFlowNode(this.albumId, node.id, {
@@ -2073,10 +2069,8 @@ Page({
           .filter((item) => item.url)
         await completeMerchantFlowNode(this.albumId, intake.id, {
           chiefComplaint: fields.complaint,
-          mileageKm: parseMileageKm(fields.mileageKm),
           photoDraft: {
             chiefComplaint: fields.complaint,
-            mileageKm: parseMileageKm(fields.mileageKm),
             pendingImages: photos,
           },
         })
@@ -2216,7 +2210,7 @@ Page({
       }
       wx.showModal({
         title: '发给车主',
-        content: '发出后不能再改。请核对入店照片、里程和车主诉求。',
+        content: '发出后不能再改。请核对入店照片和车主诉求。',
         confirmText: '发送',
         cancelText: '再看一下',
         success: (res) => {
@@ -5580,10 +5574,6 @@ Page({
           wx.showToast({ title: '请先拍留证', icon: 'none' })
           return
         }
-        if (!parseMileageKm(fields.mileageKm)) {
-          wx.showToast({ title: '请填写当前里程', icon: 'none' })
-          return
-        }
         await this.finishIntakeSend(fields)
         return
       }
@@ -5596,10 +5586,6 @@ Page({
       }
       if (!fields.pile.length) {
         wx.showToast({ title: '请先拍留证', icon: 'none' })
-        return
-      }
-      if (!parseMileageKm(fields.mileageKm)) {
-        wx.showToast({ title: '请填写当前里程', icon: 'none' })
         return
       }
     } else if (kind !== 'delivery_photos') {
@@ -5629,7 +5615,6 @@ Page({
                   this.data.chiefComplaint ||
                   '',
               ).trim(),
-        mileageKm: parseMileageKm(this.data.mileageKm),
         vehicleBrand: String(this.data.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || '').trim(),
         vehicleYear: String(this.data.vehicleYear || '').trim(),
@@ -5844,12 +5829,8 @@ Page({
       wx.showToast({ title: '先写车主诉求', icon: 'none' })
       return
     }
-    if (!String(this.data.odometerUrl || '').trim()) {
-      wx.showToast({ title: '请拍里程表', icon: 'none' })
-      return
-    }
-    if (!parseMileageKm(this.data.mileageKm)) {
-      wx.showToast({ title: '请填写当前里程', icon: 'none' })
+    if (!parseMileageKm(this._albumMileage)) {
+      wx.showToast({ title: '建档没有里程', icon: 'none' })
       return
     }
     if (!String(this.data.vehicleBrand || '').trim() || !String(this.data.vehicleSeries || '').trim()) {

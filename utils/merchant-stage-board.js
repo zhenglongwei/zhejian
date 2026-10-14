@@ -334,7 +334,11 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
   const vehicle = album.vehicle || {}
   const year = String(vehicle.modelYear || vehicle.year || '').trim()
   const mileage = Number(vehicle.mileage)
-  const spec = [overview.vehicleName, year ? `${year}` : '', Number.isFinite(mileage) && mileage > 0 ? `${mileage.toLocaleString('zh-CN')} km` : '']
+  const mileageLabel =
+    selected === 'intake' || !Number.isFinite(mileage) || mileage <= 0
+      ? ''
+      : `${mileage.toLocaleString('zh-CN')} km`
+  const spec = [overview.vehicleName, year ? `${year}` : '', mileageLabel]
     .filter(Boolean)
     .join(' · ')
   return {
