@@ -43,26 +43,26 @@
       data-id="{{item.albumId}}"
       bindtap="onCardTap"
     >
+      <view
+        wx:if="{{!item.repairDone && !item.deliveryPending}}"
+        class="mch-card__close"
+        data-id="{{item.albumId}}"
+        catchtap="onDeleteAlbum"
+      >×</view>
       <view class="mch-thumb mch-thumb--{{item.thumbTone}}">
         <image class="mch-thumb__car" src="/assets/mch/car-white.png" mode="aspectFit" />
         <text class="mch-thumb__count">{{item.imageCount}} 条留证</text>
       </view>
-      <view class="mch-card__main">
-        <view class="mch-card__head">
-          <text class="mch-card__plate">{{item.plate}}</text>
+      <view class="mch-card__main {{!item.repairDone && !item.deliveryPending ? 'has-close' : ''}}">
+        <text class="mch-card__plate">{{item.plate}}</text>
+        <text wx:if="{{item.titleLine}}" class="mch-card__title">{{item.titleLine}}</text>
+        <view class="mch-card__meta-row">
+          <text wx:if="{{item.metaLine}}" class="mch-card__meta">{{item.metaLine}}</text>
           <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
         </view>
-        <text wx:if="{{item.titleLine}}" class="mch-card__title">{{item.titleLine}}</text>
-        <text wx:if="{{item.metaLine}}" class="mch-card__meta">{{item.metaLine}}</text>
         <view class="mch-track">
           <view class="mch-track__bar mch-track__bar--{{item.pillTone}}" style="width: {{item.progress}}%;" />
         </view>
-        <view
-          wx:if="{{!item.repairDone && !item.deliveryPending}}"
-          class="mch-card__delete"
-          data-id="{{item.albumId}}"
-          catchtap="onDeleteAlbum"
-        >删除</view>
         <view wx:if="{{item.chips.length}}" class="mch-tags">
           <text wx:for="{{item.chips}}" wx:for-item="chip" wx:key="*this" class="mch-tag">{{chip}}</text>
         </view>

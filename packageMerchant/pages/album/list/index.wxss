@@ -20,7 +20,7 @@ page {
 
 .mch-kicker {
   color: var(--color-primary);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -66,6 +66,7 @@ page {
 }
 
 .mch-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 20rpx;
@@ -74,6 +75,21 @@ page {
   background: var(--color-bg-card);
   border-radius: 28rpx;
   box-shadow: var(--shadow-mch-card);
+}
+
+.mch-card__close {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  z-index: 1;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 32rpx;
+  line-height: 1;
 }
 
 .mch-thumb {
@@ -113,7 +129,7 @@ page {
   border-radius: 8rpx;
   background: var(--color-mch-thumb-badge);
   color: var(--color-text-inverse);
-  font-size: 18rpx;
+  font-size: var(--font-caption);
   line-height: 1.4;
 }
 
@@ -126,35 +142,35 @@ page {
   min-width: 0;
 }
 
-.mch-card__delete {
-  margin-top: 12rpx;
-  color: var(--color-danger);
-  font-size: 24rpx;
-  line-height: 1.4;
-}
-
-.mch-card__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12rpx;
+.mch-card__main.has-close {
+  padding-right: 40rpx;
 }
 
 .mch-card__plate {
-  flex: 1;
+  display: block;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 32rpx;
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
 }
 
-.mch-card__title,
-.mch-card__meta {
+.mch-card__title {
   display: block;
   margin-top: 6rpx;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.mch-card__meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 6rpx;
 }
 
 .mch-card__title {
@@ -163,7 +179,12 @@ page {
 }
 
 .mch-card__meta {
-  font-size: 22rpx;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--font-caption);
   color: var(--color-text-secondary);
 }
 
@@ -171,7 +192,7 @@ page {
   flex: none;
   border-radius: 999rpx;
   padding: 6rpx 14rpx;
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-medium);
 }
 
@@ -224,5 +245,5 @@ page {
   border-radius: 8rpx;
   background: var(--color-bg-muted);
   color: var(--color-text-secondary);
-  font-size: 20rpx;
+  font-size: var(--font-caption);
 }

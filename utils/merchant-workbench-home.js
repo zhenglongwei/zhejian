@@ -103,8 +103,6 @@ function presentAlbumCard(item = {}, now = new Date()) {
     metaLine = [when, duration].filter(Boolean).join(' · ')
   }
   const chips = []
-  if (card.quotePending && !card.repairDone) chips.push('等待确认')
-  if (card.repairDone) chips.push('已确认报告')
   if (card.publicOnSite) chips.push('可公开')
   return {
     ...card,

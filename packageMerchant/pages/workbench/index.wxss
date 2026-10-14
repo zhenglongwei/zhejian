@@ -46,7 +46,7 @@ page {
 
 .mch-kicker {
   color: var(--color-mch-blue);
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 2rpx;
 }
@@ -108,7 +108,7 @@ page {
   width: 78%;
   color: var(--color-text-inverse);
   opacity: 0.78;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   line-height: 1.6;
 }
 
@@ -147,7 +147,7 @@ page {
 }
 
 .mch-metric__label {
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-muted);
 }
 
@@ -161,7 +161,7 @@ page {
 
 .mch-metric__hint {
   min-height: 28rpx;
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   color: var(--color-text-tertiary);
 }
 
@@ -183,7 +183,7 @@ page {
 
 .mch-more {
   color: var(--color-mch-muted);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   padding-bottom: 6rpx;
 }
 
@@ -260,7 +260,7 @@ page {
 .mch-order__model,
 .mch-compact__sub {
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-muted);
   overflow: hidden;
   white-space: nowrap;
@@ -271,7 +271,7 @@ page {
   flex: none;
   border-radius: 999rpx;
   padding: 8rpx 16rpx;
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -312,7 +312,7 @@ page {
   display: flex;
   align-items: center;
   gap: 4rpx;
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   color: var(--color-text-disabled);
 }
 

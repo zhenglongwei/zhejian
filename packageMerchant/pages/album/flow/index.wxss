@@ -182,7 +182,7 @@
 
 .merchant-flow-page__result-seg--compact .merchant-flow-page__result-seg-item {
   padding: 10rpx 4rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
 }
 
 .merchant-flow-page__result-seg-item--on.merchant-flow-page__result-tone-ok {
@@ -2093,7 +2093,7 @@
   border-radius: 8rpx;
   background: var(--color-mch-thumb-badge);
   color: var(--color-text-inverse);
-  font-size: 18rpx;
+  font-size: var(--font-caption);
 }
 
 .ov-shot--add {
@@ -2104,7 +2104,7 @@
   gap: 8rpx;
   border: 2rpx dashed var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   background: var(--color-bg-card);
 }
 
@@ -2147,8 +2147,8 @@
 }
 
 .ov-work .ov-kicker {
-  font-size: var(--font-mch-kicker);
-  line-height: var(--font-mch-kicker-lh);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
   letter-spacing: 2rpx;
 }
 
@@ -2277,9 +2277,9 @@
 .st-tab:not(:last-child)::after {
   content: "";
   position: absolute;
-  top: 20rpx;
-  left: calc(50% + 24rpx);
-  width: calc(100% - 48rpx);
+  top: 24rpx;
+  left: calc(50% + 28rpx);
+  width: calc(100% - 56rpx);
   height: 2rpx;
   background: var(--color-mch-rail);
 }
@@ -2287,16 +2287,16 @@
 .st-tab__dot {
   position: relative;
   z-index: 1;
-  width: 42rpx;
-  height: 42rpx;
+  width: 48rpx;
+  height: 48rpx;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-mch-dot);
   color: var(--color-mch-dot-ink);
-  font-size: var(--font-mch-micro);
-  line-height: var(--font-mch-micro-lh);
+  font-size: var(--font-caption);
+  line-height: 1;
   font-weight: var(--font-weight-semibold);
 }
 
@@ -2316,9 +2316,9 @@
 }
 
 .st-tab__name {
-  font-size: var(--font-mch-micro);
-  line-height: var(--font-mch-micro-lh);
-  color: var(--color-mch-meta);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-primary);
 }
 
 .st-tab--on .st-tab__name {
@@ -2483,9 +2483,9 @@
 .st-card__hint {
   display: block;
   margin-top: 6rpx;
-  color: var(--color-mch-meta);
-  font-size: var(--font-mch-micro);
-  line-height: var(--font-mch-micro-lh);
+  color: var(--color-mch-copy);
+  font-size: var(--font-sub);
+  line-height: var(--font-sub-lh);
 }
 
 .st-line__note,
@@ -2495,9 +2495,9 @@
 .st-hero__sub,
 .st-hero__label,
 .st-empty {
-  font-size: var(--font-mch-micro);
-  line-height: var(--font-mch-micro-lh);
-  color: var(--color-mch-meta);
+  font-size: var(--font-sub);
+  line-height: var(--font-sub-lh);
+  color: var(--color-mch-copy);
 }
 
 .st-fault__body,

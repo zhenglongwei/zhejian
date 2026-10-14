@@ -189,8 +189,8 @@ page {
   --font-sub: 26rpx;
   --font-sub-lh: 36rpx;
 
-  --font-status: 22rpx;
-  --font-status-lh: 30rpx;
+  --font-status: 24rpx;
+  --font-status-lh: 34rpx;
 
   --font-price: 36rpx;
   --font-price-lh: 44rpx;
@@ -201,14 +201,14 @@ page {
   --font-mch-figure: 62rpx;
   --font-mch-figure-lh: 70rpx;
 
-  --font-mch-micro: 16rpx;
-  --font-mch-micro-lh: 22rpx;
+  --font-mch-micro: 24rpx;
+  --font-mch-micro-lh: 34rpx;
 
-  --font-mch-kicker: 18rpx;
-  --font-mch-kicker-lh: 26rpx;
+  --font-mch-kicker: 24rpx;
+  --font-mch-kicker-lh: 34rpx;
 
-  --font-mch-row: 20rpx;
-  --font-mch-row-lh: 28rpx;
+  --font-mch-row: 28rpx;
+  --font-mch-row-lh: 40rpx;
 
   --font-mch-hero-title: 32rpx;
   --font-mch-hero-title-lh: 44rpx;

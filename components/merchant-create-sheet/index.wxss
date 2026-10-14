@@ -46,7 +46,7 @@
 .mch-create__kicker {
   display: block;
   color: var(--color-primary);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 2rpx;
 }
@@ -175,7 +175,7 @@
 .mch-create__hint {
   display: block;
   margin-top: 8rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-amber);
 }
 
@@ -184,7 +184,7 @@
   align-items: flex-start;
   gap: 10rpx;
   padding-bottom: 12rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   line-height: 1.45;
   color: var(--color-text-secondary);
 }

@@ -25,7 +25,7 @@
 }
 
 .mch-tab__label {
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   line-height: 1.2;
 }
 

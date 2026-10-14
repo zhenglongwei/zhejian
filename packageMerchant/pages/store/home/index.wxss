@@ -16,13 +16,13 @@ page {
 
 .mch-kicker {
   color: var(--color-mch-blue);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   font-weight: 600;
 }
 
 .mch-kicker--muted {
   color: var(--color-mch-muted);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   font-weight: 500;
 }
 
@@ -93,7 +93,7 @@ page {
   padding: 2rpx 12rpx;
   border-radius: 999rpx;
   background: var(--color-mch-glass);
-  font-size: 18rpx;
+  font-size: var(--font-caption);
   font-weight: 600;
 }
 
@@ -121,7 +121,7 @@ page {
 
 .mch-store__addr-text {
   flex: 1;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   line-height: 1.45;
   color: var(--color-mch-on-card);
 }
@@ -184,7 +184,7 @@ page {
 }
 
 .mch-ring__unit {
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-blue);
 }
 
@@ -197,7 +197,7 @@ page {
 .mch-store__miss {
   display: block;
   margin-top: 8rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-muted);
   line-height: 1.45;
 }
@@ -211,7 +211,7 @@ page {
 
 .mch-store__preview {
   color: var(--color-mch-muted);
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   padding-bottom: 6rpx;
 }
 
@@ -265,7 +265,7 @@ page {
 
 .mch-row__value {
   margin-top: 4rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-muted);
   overflow: hidden;
   white-space: nowrap;
@@ -308,6 +308,6 @@ page {
 
 .mch-stat__label {
   margin-top: 4rpx;
-  font-size: 22rpx;
+  font-size: var(--font-caption);
   color: var(--color-mch-muted);
 }

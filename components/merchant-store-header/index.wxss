@@ -123,7 +123,7 @@
   right: -4rpx;
   min-width: 28rpx;
   padding: 0 6rpx;
-  font-size: 20rpx;
+  font-size: var(--font-caption);
   line-height: 28rpx;
   text-align: center;
   color: var(--color-text-inverse);
