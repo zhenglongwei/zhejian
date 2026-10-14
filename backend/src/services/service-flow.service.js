@@ -38,6 +38,7 @@ const {
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
 const { planLegacyPhotoFold } = resolveShared('utils/flow-node-photos.js')
+const { applyAddonInsert } = resolveShared('utils/service-flow-addon-insert.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
@@ -1406,89 +1407,23 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
     }
   }
 
+  let inserted = null
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
-    let workIdx = nodes.findIndex((n) => n.kind === 'work' && n.status === 'in_progress')
-    if (workIdx < 0) {
-      workIdx = nodes.findIndex((n) => n.kind === 'work' && n.status !== 'locked')
-    }
-    if (workIdx < 0) {
-      workIdx = nodes.findIndex((n) => n.kind === 'work')
-    }
-    if (workIdx < 0) {
-      const err = new Error('未找到施工步骤')
+    inserted = applyAddonInsert(nodes)
+    if (inserted.error) {
+      const err = new Error(inserted.error)
       err.status = 400
       throw err
     }
-    // 打断施工：完成当前施工节点（保留 photoDraft），插入增项方案
-    const interrupted = nodes[workIdx]
-    if (interrupted.status === 'in_progress' || interrupted.status === 'pending') {
-      nodes[workIdx] = {
-        ...interrupted,
-        status: 'completed',
-        photoDraft: normalizePhotoDraft(interrupted.photoDraft || {}),
-      }
-    }
-    const priorFindings = Array.isArray(
-      nodes[workIdx].photoDraft && nodes[workIdx].photoDraft.findings,
-    )
-      ? nodes[workIdx].photoDraft.findings
-      : []
-    const deliveryIdx = nodes.findIndex((n) => n.kind === 'delivery_photos')
-    const insertAt = deliveryIdx >= 0 ? deliveryIdx : nodes.length
-    const ts = Date.now()
-    const quoteNode = {
-      id: `fn_addon_q_${ts}`,
-      kind: 'quote_confirm',
-      nodeCategory: 'document',
-      sortOrder: insertAt,
-      title: '施工中新发现',
-      status: 'in_progress',
-      photos: [],
-      note: '',
-      document: {
-        ...emptyDocument('quote_confirm'),
-        status: 'draft',
-        payload: {
-          lines: addonDraft.lines,
-          discovery: addonDraft.discovery,
-          confirmCopy: QUOTE_CONFIRM_COPY,
-        },
-      },
-      legacyStageId: '',
-      legacyStageIds: [],
-      insertedReason: 'addon',
-      parentNodeId: nodes[workIdx].id,
-      segmentLabel: '增项',
-    }
-    // 增项后继续施工：新开一段工单（如实记录），沿用已有登记内容免重抄
-    const extraWork = {
-      id: `fn_addon_work_${ts}`,
-      kind: 'work',
-      nodeCategory: 'photo',
-      sortOrder: insertAt + 1,
-      title: '工单',
-      status: 'locked',
-      photos: [],
-      note: '',
-      document: null,
-      legacyStageId: 'stage_5',
-      legacyStageIds: ['stage_5'],
-      insertedReason: 'addon',
-      parentNodeId: quoteNode.id,
-      segmentLabel: '增项',
-      photoDraft: normalizePhotoDraft({ findings: priorFindings }),
-    }
-    nodes.splice(insertAt, 0, quoteNode, extraWork)
-    renumberSortOrders(nodes)
-    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
+    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: inserted.nodes }
   })
 
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   return {
     ...buildFlowView(refreshed, viewNodes),
-    addonSeeded: Boolean(addonDraft.seeded),
+    addonSeeded: Boolean(inserted && inserted.seeded),
   }
 }
 
