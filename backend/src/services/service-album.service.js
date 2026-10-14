@@ -1144,6 +1144,7 @@ function mapUserServiceAlbumListItem(album) {
     hasReview: false,
     pendingOwnerReview: false,
     usesFlowTimeline: Boolean(ownerFlow.usesFlowTimeline),
+    ownerFlowVisible: Array.isArray(ownerFlow.docs) && ownerFlow.docs.some((row) => row && !row.locked),
     progressLabel: String(ownerFlow.progressLabel || ''),
     latestDocTitle: String(ownerFlow.latestDocTitle || ''),
     pendingConfirmCount: Number(ownerFlow.pendingConfirmCount || 0),
@@ -1245,7 +1246,6 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
   const albums = await prisma.album.findMany({
     where: {
       ...buildUserAlbumWhere(userId, phone),
-      imageCount: { gt: 0 },
       publicCaseStatus: { not: 'public_approved' },
     },
     select: {
@@ -1256,6 +1256,7 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
       vehicleJson: true,
       status: true,
       imageCount: true,
+      contentPackageJson: true,
       publicCaseStatus: true,
       pendingConfirmsJson: true,
       createdAt: true,
@@ -1269,10 +1270,22 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
       },
     },
     orderBy: { updatedAt: 'desc' },
-    take: Math.max(1, Math.min(Number(limit) || 3, 5)),
+    take: 40,
   })
 
-  return albums.map((album) => {
+  const visible = albums.filter((album) => {
+    if ((album.imageCount || 0) > 0) return true
+    if (album.status === 'completed' || album.status === 'published') return true
+    try {
+      const { buildOwnerFlowView } = require('./service-flow.service')
+      const flow = buildOwnerFlowView(album, [])
+      return Array.isArray(flow.docs) && flow.docs.some((row) => row && !row.locked)
+    } catch (_) {
+      return false
+    }
+  }).slice(0, Math.max(1, Math.min(Number(limit) || 3, 5)))
+
+  return visible.map((album) => {
     const vehicle = album.vehicleJson || {}
     const publicCaseStatus = resolvePublicCaseStatus(album)
     const plateDisplay = ownerVisiblePlate(vehicle)
@@ -1333,7 +1346,8 @@ async function listUserServiceAlbums(userId, options = {}) {
       (item) =>
         item.imageCount > 0 ||
         item.status === 'completed' ||
-        item.status === 'published',
+        item.status === 'published' ||
+        item.ownerFlowVisible,
     )
 
   list = await attachOwnerReviewState(userId, list)

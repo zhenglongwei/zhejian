@@ -1613,8 +1613,18 @@ function isOwnerDocContentReady(node = {}) {
   const docStatus = String(doc.status || '')
   switch (node.kind) {
     case 'intake':
-    case 'intake_inspection':
-      return docStatus === 'pending_confirm' || docStatus === 'confirmed' || docStatus === 'delivered'
+    case 'intake_inspection': {
+      if (docStatus === 'pending_confirm' || docStatus === 'confirmed' || docStatus === 'delivered') {
+        return true
+      }
+      if (status !== 'completed') return false
+      const payload = doc.payload || {}
+      const pending = node.photoDraft && node.photoDraft.pendingImages
+      const count =
+        (Array.isArray(payload.photos) ? payload.photos.length : 0) ||
+        (Array.isArray(pending) ? pending.length : 0)
+      return count > 0
+    }
     case 'inspection_report':
       return docStatus === 'delivered' || docStatus === 'confirmed'
     case 'quote_confirm':
@@ -1639,6 +1649,23 @@ function isOwnerDocContentReady(node = {}) {
     default:
       return false
   }
+}
+
+function ownerIntakePhotos(node = {}, payload = {}) {
+  const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+  const rows = []
+  const push = (row) => {
+    const raw = typeof row === 'string' ? row : row && (row.url || row.src)
+    const url = resolveClientReadableMediaUrl(raw)
+    if (!url || rows.some((item) => item.url === url)) return
+    rows.push({ url })
+  }
+  ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
+  if (!rows.length) {
+    const pending = node.photoDraft && node.photoDraft.pendingImages
+    ;(Array.isArray(pending) ? pending : []).forEach(push)
+  }
+  return rows
 }
 
 function mapOwnerFriendlyLine(row = {}) {
@@ -1782,7 +1809,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   const mileageText = String(
     payload.mileageText || (mileageKm ? `里程 ${mileageKm} km` : ''),
   ).trim()
-  const intakePhotos = Array.isArray(payload.photos) ? payload.photos : []
+  const intakePhotos = ownerIntakePhotos(node, payload)
   const reportDate = String(
     payload.reportDate || doc.confirmedAt || doc.deliveredAt || '',
   ).trim()
@@ -1839,7 +1866,9 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     belongings: String(payload.belongings || '').trim(),
     photos: intakePhotos,
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
-    chiefComplaint: String(payload.chiefComplaint || ''),
+    chiefComplaint: String(
+      payload.chiefComplaint || (node.photoDraft && node.photoDraft.chiefComplaint) || '',
+    ).trim(),
     vehicleBrand,
     vehicleSeries,
     mileageText,
@@ -1944,6 +1973,7 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
           (Array.isArray(payload.lines) && payload.lines.length) ||
           (Array.isArray(payload.items) && payload.items.length) ||
           (Array.isArray(payload.workItems) && payload.workItems.length) ||
+          (Array.isArray(payload.photos) && payload.photos.length) ||
           (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
           Boolean(String(payload.warrantyPeriod || '').trim()) ||
           Boolean(String(payload.conclusion || '').trim()))

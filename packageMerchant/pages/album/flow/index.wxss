@@ -2610,15 +2610,16 @@
 
 .st-quote-input {
   width: 100%;
-  min-height: 120rpx;
+  min-height: 160rpx;
+  margin-top: 8rpx;
   padding: 20rpx;
   box-sizing: border-box;
   border-left: 6rpx solid var(--color-primary);
-  border-radius: 0 16rpx 16rpx 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background: var(--color-bg-page);
   color: var(--color-text-primary);
-  font-size: var(--font-mch-kicker);
-  line-height: var(--font-mch-kicker-lh);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
 }
 
 .st-photo__badge {

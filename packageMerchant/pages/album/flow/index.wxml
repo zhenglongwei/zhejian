@@ -255,7 +255,7 @@
           <text class="st-tab__name">{{item.short}}</text>
         </view>
       </view>
-      <scroll-view scroll-y class="ov-work__body ov-work__body--bar" show-scrollbar="{{false}}">
+      <scroll-view scroll-y="{{!complaintFocus}}" class="ov-work__body ov-work__body--bar" show-scrollbar="{{false}}">
           <view wx:if="{{stageBoard}}" class="st-vehicle">
             <view class="st-vehicle__icon"><image src="/assets/mch/car-blue.png" mode="aspectFit" /></view>
             <view class="st-vehicle__text">
@@ -320,22 +320,21 @@
                   <text class="st-kicker">CUSTOMER REQUEST</text>
                   <text class="st-card__title">车主诉求</text>
                 </view>
-                <view wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}" class="st-edit" catchtap="onToggleIntakeEdit">
-                  <image src="/assets/mch/pencil-blue.png" mode="aspectFit" />
-                  <text>{{intakeEditing ? '收起' : '编辑'}}</text>
-                </view>
               </view>
               <textarea
-                wx:if="{{intakeEditing && !intakeSent}}"
+                wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
                 class="st-quote-input"
                 value="{{chiefComplaint}}"
                 maxlength="300"
                 auto-height="{{true}}"
                 placeholder="车主怎么描述的"
-                disabled="{{readOnly}}"
+                cursor-spacing="80"
+                show-confirm-bar="{{false}}"
+                bindfocus="onComplaintFocus"
+                bindblur="onComplaintBlur"
                 bindinput="onChiefComplaintInput"
               />
-              <text wx:elif="{{stageBoard.intake.complaint}}" class="st-quote">“{{stageBoard.intake.complaint}}”</text>
+              <text wx:elif="{{stageBoard.intake.complaint || chiefComplaint}}" class="st-quote">“{{stageBoard.intake.complaint || chiefComplaint}}”</text>
               <view wx:if="{{stageBoard.intake.cells.length}}" class="st-grid">
                 <view wx:for="{{stageBoard.intake.cells}}" wx:key="label">
                   <text>{{item.label}}</text>

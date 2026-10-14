@@ -366,7 +366,7 @@ Page({
     stagePrimaryAction: '',
     stageShowPreview: false,
     recordPreview: null,
-    intakeEditing: false,
+    complaintFocus: false,
     intakePile: [],
     intakeDocStatus: '',
     intakeSent: false,
@@ -1859,7 +1859,6 @@ Page({
       workOpen: true,
       doneView: null,
       stageEditor: stageBoard.state === 'current' && stageBoard.selectedKey !== 'intake',
-      intakeEditing: false,
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
@@ -1871,9 +1870,12 @@ Page({
     })
   },
 
-  onToggleIntakeEdit() {
-    if (this.data.readOnly || this.data.intakeSent) return
-    this.setData({ intakeEditing: !this.data.intakeEditing })
+  onComplaintFocus() {
+    this.setData({ complaintFocus: true })
+  },
+
+  onComplaintBlur() {
+    this.setData({ complaintFocus: false })
   },
 
   collectIntakePile(stageBoard) {
@@ -3972,12 +3974,11 @@ Page({
   onChiefComplaintInput(e) {
     if (this.data.isIntakePhotoStep) {
       const value = e.detail.value
+      this.data.chiefComplaint = value
       const askOwner = (this.data.intakeAdvice && this.data.intakeAdvice.askOwner) || []
       const hasPick = askOwner.some((row) => (row.options || []).some((opt) => opt && opt.picked))
       if (!hasPick) this._askComplaintBase = String(value || '').trim()
-      this.setData({ chiefComplaint: value, autoSaveLabel: '保存中…' }, () => {
-        this.scheduleAutoSaveDraftOnly()
-      })
+      this.scheduleAutoSaveDraftOnly()
       return
     }
     this.setData({ chiefComplaint: e.detail.value, autoSaveLabel: '保存中…' }, () => {
