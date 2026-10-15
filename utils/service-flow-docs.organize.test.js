@@ -1,6 +1,13 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { applyOrganizeGroups, mapFindingRows, stripFigureIndexTalk } = require('./service-flow-docs')
+const {
+  applyOrganizeGroups,
+  mapFindingRows,
+  stripFigureIndexTalk,
+  inspectionSuggestions,
+  applyInspectionSuggestion,
+  foldInspectionPendingDraft,
+} = require('./service-flow-docs')
 
 const a = { url: 'https://cdn.example/api/v1/media/files/uploads/a.jpg', imageId: '1' }
 const b = { url: 'https://cdn.example/api/v1/media/files/uploads/b.jpg', imageId: '2' }
@@ -410,4 +417,52 @@ test('work organize observation does not keep 图N in caption', () => {
     quoteNames: [],
   })
   assert.equal(findings[0].caption, '旧件胶套撕裂')
+})
+
+test('inspection upload pile becomes one item and is not folded twice', () => {
+  const once = foldInspectionPendingDraft({
+    pendingImages: [a, b],
+    findings: [],
+  })
+  assert.equal(once.findings.length, 1)
+  assert.equal(once.findings[0].images.length, 2)
+  assert.equal(once.pendingImages.length, 0)
+  const twice = foldInspectionPendingDraft(once)
+  assert.equal(twice.findings.length, 1)
+})
+
+test('inspection AI suggests a fill and does not change the row until apply', () => {
+  const suggested = inspectionSuggestions(
+    [{ id: 'fid_one', partName: '', result: '', advice: '', images: [a, b] }],
+    [{ partName: '刹车片', result: '需处理', advice: '片体磨薄', imageKeys: ['a.jpg', 'b.jpg'] }],
+  )
+  assert.equal(suggested.length, 1)
+  assert.equal(suggested[0].partName, '')
+  assert.equal(suggested[0].images.length, 2)
+  assert.match(suggested[0].aiApply.body, /刹车片/)
+  const applied = applyInspectionSuggestion(suggested, suggested[0].aiApply.id)
+  assert.equal(applied.length, 1)
+  assert.equal(applied[0].partName, '刹车片')
+  assert.equal(applied[0].advice, '片体磨薄')
+  assert.equal(applied[0].images.length, 2)
+  assert.equal(applied[0].aiApply, null)
+})
+
+test('inspection AI suggests a split and apply keeps each photo on its new item', () => {
+  const suggested = inspectionSuggestions(
+    [{ id: 'fid_mix', partName: '待填', result: '', advice: '', images: [a, b] }],
+    [
+      { partName: '刹车片', result: '需处理', advice: '磨薄', imageKeys: ['a.jpg'] },
+      { partName: '制动盘', result: '需关注', advice: '有沟', imageKeys: ['b.jpg'] },
+    ],
+  )
+  assert.equal(suggested.length, 1)
+  assert.match(suggested[0].aiApply.body, /刹车片/)
+  assert.match(suggested[0].aiApply.body, /制动盘/)
+  const applied = applyInspectionSuggestion(suggested, suggested[0].aiApply.id)
+  assert.equal(applied.length, 2)
+  assert.equal(applied[0].partName, '刹车片')
+  assert.equal(applied[0].images.length, 1)
+  assert.equal(applied[1].partName, '制动盘')
+  assert.equal(applied[1].images.length, 1)
 })

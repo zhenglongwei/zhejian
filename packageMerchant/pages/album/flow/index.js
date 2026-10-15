@@ -60,6 +60,9 @@ const {
   pickOdometerSlot,
   isOdometerFinding,
   applyOrganizeGroups,
+  inspectionSuggestions,
+  applyInspectionSuggestion,
+  foldInspectionPendingDraft,
   applyIntakeOrganizeGroups,
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
@@ -1081,10 +1084,19 @@ Page({
       captionPlaceholder: item.captionPlaceholder || '',
       advicePlaceholder: item.advicePlaceholder || '',
       photoHint: item.photoHint || null,
-      adviceHint: item.adviceHint || null,
+      adviceHint: item.aiApply
+        ? {
+            id: item.aiApply.id,
+            kicker: '建议',
+            body: item.aiApply.body,
+            canApply: true,
+            applied: false,
+          }
+        : item.adviceHint || null,
       captionHint: item.captionHint || null,
       hasCollapsedHints: Boolean(
-        (item.photoHint && !item.photoHint.applied) ||
+        item.aiApply ||
+          (item.photoHint && !item.photoHint.applied) ||
           (item.captionHint && !item.captionHint.applied) ||
           (item.adviceHint && !item.adviceHint.applied),
       ),
@@ -1371,6 +1383,11 @@ Page({
       let deliveryExtraCount = 0
 
       if (activeIsPhoto && active) {
+        if (active.kind === 'inspection') {
+          const pendingBefore = normalizePendingImages(photoDraft.pendingImages).length
+          photoDraft = foldInspectionPendingDraft(photoDraft)
+          if (pendingBefore) this._foldInspectionPending = true
+        }
         if (isWorkPhotoStep) {
           photoDraft = {
             ...photoDraft,
@@ -1810,6 +1827,10 @@ Page({
             ? buildMerchantStageBoard(album, flowNodes, this.data.stageKey)
             : null,
       })
+      if (this._foldInspectionPending) {
+        this._foldInspectionPending = false
+        this.persistPhotoDraft().catch(() => {})
+      }
       this._focusNodeId = ''
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
@@ -3084,10 +3105,32 @@ Page({
     })
   },
 
+  async uploadPickedFiles(files) {
+    const uploadedList = []
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < files.length) {
+        const index = cursor
+        cursor += 1
+        const uploaded = await uploadImage(files[index].tempFilePath)
+        const url = uploaded && (uploaded.url || uploaded)
+        if (!url) continue
+        uploadedList.push({
+          url,
+          imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+        })
+      }
+    }
+    const width = Math.min(3, files.length)
+    await Promise.all(Array.from({ length: width }, () => worker()))
+    return uploadedList
+  },
+
   onAddFindingPhotos() {
     if (this.data.readOnly) return
+    const batchAsOneItem = this.data.activeKind === 'inspection'
     const pending = normalizePendingImages(this.data.pendingImages)
-    const remain = Math.max(0, 12 - pending.length)
+    const remain = batchAsOneItem ? 9 : Math.max(0, 12 - pending.length)
     if (remain < 1) {
       wx.showToast({ title: '一次最多 12 张', icon: 'none' })
       return
@@ -3101,30 +3144,28 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploadedList = []
-          for (let i = 0; i < files.length; i += 1) {
-            const uploaded = await uploadImage(files[i].tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (!url) continue
-            uploadedList.push({
-              url,
-              imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+          const uploadedList = await this.uploadPickedFiles(files)
+          if (!uploadedList.length) throw new Error('上传失败')
+          if (batchAsOneItem) {
+            const sectionIndex = this.findingSectionIndex()
+            this.addBlankFinding(sectionIndex, { images: uploadedList })
+          } else {
+            const pendingImages = normalizePendingImages(pending.concat(uploadedList))
+            this.setData({
+              pendingImages,
+              ...this.findingChromePatch(this.data.sections, pendingImages),
             })
           }
-          if (!uploadedList.length) throw new Error('上传失败')
-          const pendingImages = normalizePendingImages(pending.concat(uploadedList))
-          this.setData({
-            pendingImages,
-            ...this.findingChromePatch(this.data.sections, pendingImages),
-          })
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
           return
         } finally {
           wx.hideLoading()
         }
-        this.persistPhotos()
-          .then(() => this.persistPhotoDraft())
+        const save = batchAsOneItem
+          ? this.persistPhotoDraft()
+          : this.persistPhotos().then(() => this.persistPhotoDraft())
+        save
           .then(() => this.setAutoSaveLabel('已自动保存'))
           .catch((err) => {
             this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
@@ -3807,6 +3848,15 @@ Page({
         return
       }
       const groups = (res && res.groups) || []
+      if (options.suggestOnly) {
+        const suggested = inspectionSuggestions(findings, groups)
+        const sections = this.data.sections.map((row) => {
+          if (!row.findingMode) return row
+          return { ...row, findings: suggested }
+        })
+        this.setSectionsWithFindings(sections, { organizeResultHint: groups.length ? '' : '这次没看出来' })
+        return true
+      }
       if (!groups.length) {
         this.setData({
           organizeResultHint: (res && res.skipped)
@@ -4120,9 +4170,18 @@ Page({
       if (picked.length && room === 0) wx.showToast({ title: '一次最多 12 张', icon: 'none' })
       return
     }
-    const pendingImages = pending.concat(
-      extra.map((item) => ({ url: item.url, imageId: item.imageId || '' })),
-    )
+    const pickedImages = extra.map((item) => ({ url: item.url, imageId: item.imageId || '' }))
+    if (this.data.activeKind === 'inspection') {
+      this.setData({ showLibrary: false })
+      this.addBlankFinding(this.findingSectionIndex(), { images: pickedImages })
+      this.persistPhotoDraft()
+        .then(() => this.setAutoSaveLabel('已自动保存'))
+        .catch((err) => {
+          this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+        })
+      return
+    }
+    const pendingImages = pending.concat(pickedImages)
     this.setData({
       showLibrary: false,
       pendingImages,
@@ -5421,10 +5480,39 @@ Page({
     this._quoteAssistTimer = setTimeout(tick, 1600)
   },
 
+  applyInspectionProposal(id) {
+    if (!id) return false
+    const sectionIndex = (this.data.sections || []).findIndex((section) =>
+      (section.findings || []).some((row) => row && row.aiApply && row.aiApply.id === id),
+    )
+    if (sectionIndex < 0) return false
+    const section = this.data.sections[sectionIndex]
+    const findings = applyInspectionSuggestion(section.findings || [], id)
+    const sections = this.data.sections.map((row, index) => {
+      if (index !== sectionIndex) return row
+      return {
+        ...row,
+        findings,
+        images:
+          row.findingKind === 'work'
+            ? this.flattenWorkSectionImages(findings)
+            : this.findingImagesFromRows(findings, this.data.odometerUrl),
+      }
+    })
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' })
+    this.persistPhotoDraft()
+      .then(() => this.setAutoSaveLabel('已自动保存'))
+      .catch((err) => {
+        this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+      })
+    return true
+  },
+
   async onApplyAiSuggestion(e, options = {}) {
     const skipPersist = Boolean(options && options.skipPersist)
     const skipToast = Boolean(options && options.skipToast)
     const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    if (this.applyInspectionProposal(id)) return
     const review = this.data.aiReview
     const item = ((review && review.suggestions) || []).find((row) => row && row.id === id)
     if (!item) return
@@ -5890,17 +5978,22 @@ Page({
       await this.onStartIntakeAdvice()
       return
     }
-    if (batch.length) {
-      await this.onOrganizePhotos({ images: batch, silentEmpty: true })
-    } else {
-      this.setData({
-        checkpointMisses: this.computeCheckpointMisses(this._flowNodes || [], findings, true),
+    const shots = []
+    const seen = new Set()
+    findings.forEach((row) => {
+      ;(row.images || []).forEach((img) => {
+        const key = mediaKey(img && img.url)
+        if (!key || seen.has(key)) return
+        seen.add(key)
+        shots.push(img)
       })
+    })
+    if (!shots.length) {
+      this.setData({ adviceOpen: true })
+      await this.onStartIntakeAdvice()
+      return
     }
-    this.setData({ adviceOpen: true })
-    const advice = this.data.intakeAdvice
-    if (advice && (advice.hasContent || advice.isWaiting)) return
-    this.onStartIntakeAdvice()
+    await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
   },
 
   onToggleAdvice() {

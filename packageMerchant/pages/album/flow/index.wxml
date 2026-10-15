@@ -682,6 +682,7 @@
                     </view>
                     <block wx:else>
                     <flow-unmatched-photos
+                      wx:if="{{activeKind !== 'inspection'}}"
                       images="{{pendingImages}}"
                       label="本次照片"
                       canAssign="{{canAssignPending}}"
@@ -968,6 +969,7 @@
                     </view>
                     <block wx:else>
                     <flow-unmatched-photos
+                      wx:if="{{activeKind !== 'inspection'}}"
                       images="{{pendingImages}}"
                       label="未归组"
                       canAssign="{{canAssignPending}}"

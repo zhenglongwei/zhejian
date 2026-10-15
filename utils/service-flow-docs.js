@@ -188,6 +188,7 @@ function normalizeFinding(raw = {}, index = -1) {
     result,
     advice,
     ...keepInspectionRemind({ ...raw, partName: String(raw.partName || caption || '').trim(), result }),
+    aiApply: raw.aiApply && raw.aiApply.id ? raw.aiApply : null,
   }
 }
 
@@ -215,6 +216,7 @@ function normalizeItemFinding(raw = {}, index = -1) {
     result,
     advice,
     ...keepInspectionRemind({ ...raw, partName: String(raw.partName || '').trim(), result }),
+    aiApply: raw.aiApply && raw.aiApply.id ? raw.aiApply : null,
   }
 }
 
@@ -1663,6 +1665,177 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   return next
 }
 
+function shotsInOrganizeGroup(images, group) {
+  const pending = normalizePendingImages(images)
+  const byKey = {}
+  pending.forEach((img) => {
+    const key = mediaKey(img && img.url)
+    if (key) byKey[key] = img
+  })
+  const keys =
+    Array.isArray(group && group.imageSlots) && group.imageSlots.length
+      ? group.imageSlots
+      : Array.isArray(group && group.imageKeys)
+        ? group.imageKeys
+        : []
+  const shots = []
+  const seen = new Set()
+  keys.forEach((raw) => {
+    const img = matchPendingImage(pending, byKey, raw)
+    if (!img) return
+    const key = mediaKey(img.url)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    shots.push(img)
+  })
+  return shots
+}
+
+/** 检测：AI 只挂建议。一批图对一项时补空字段；对不上时建议拆开。不改原项。 */
+function inspectionSuggestions(findings, groups) {
+  return (findings || []).map((raw) => {
+    const row = normalizeItemFinding(raw)
+    const images = row.images || []
+    if (!images.length) return { ...row, aiApply: null }
+    const hit = []
+    ;(groups || []).forEach((group) => {
+      const partName = String((group && group.partName) || '').trim()
+      if (!partName) return
+      const shots = shotsInOrganizeGroup(images, group)
+      if (!shots.length) return
+      const result = isValidFindingResult(String((group && group.result) || '').trim())
+        ? String(group.result).trim()
+        : ''
+      hit.push({
+        partName,
+        result,
+        advice: stripFigureIndexTalk(group && group.advice),
+        images: shots,
+      })
+    })
+    if (!hit.length) return { ...row, aiApply: null }
+    if (hit.length === 1) {
+      const one = hit[0]
+      const partDiff = Boolean(row.partName && one.partName && row.partName !== one.partName)
+      const empty = !row.partName || !row.result || !row.advice
+      if (!partDiff && !empty) return { ...row, aiApply: null }
+      const bits = [one.partName, one.result].filter(Boolean).join(' · ')
+      const body = partDiff
+        ? `这批图更像是「${one.partName}」`
+        : one.advice
+          ? `写成「${bits}」。${one.advice}`
+          : `写成「${bits}」`
+      return {
+        ...row,
+        aiApply: {
+          id: `apply_${row.id}`,
+          kind: 'fill',
+          onlyEmpty: !partDiff,
+          body,
+          partName: one.partName,
+          result: one.result,
+          advice: one.advice,
+        },
+      }
+    }
+    const names = hit.map((item) => item.partName).filter(Boolean)
+    return {
+      ...row,
+      aiApply: {
+        id: `apply_${row.id}`,
+        kind: 'split',
+        body: `可以拆成${names.map((name) => `「${name}」`).join('')}`,
+        groups: hit,
+      },
+    }
+  })
+}
+
+function applyInspectionSuggestion(findings, applyId) {
+  const list = Array.isArray(findings) ? findings : []
+  const idx = list.findIndex((row) => row && row.aiApply && row.aiApply.id === applyId)
+  if (idx < 0) return list.map((row) => normalizeItemFinding(row))
+  const row = normalizeItemFinding(list[idx])
+  const proposal = row.aiApply
+  if (proposal.kind === 'split' && Array.isArray(proposal.groups) && proposal.groups.length) {
+    const used = new Set()
+    const created = proposal.groups.map((group, index) => {
+      const shots = normalizePendingImages(group.images)
+      shots.forEach((img) => {
+        const key = mediaKey(img.url)
+        if (key) used.add(key)
+      })
+      return normalizeItemFinding({
+        id: `${row.id}_s${index}`,
+        partName: group.partName,
+        result: group.result,
+        advice: group.advice,
+        images: shots,
+        aiApply: null,
+      })
+    })
+    const rest = (row.images || []).filter((img) => !used.has(mediaKey(img && img.url)))
+    if (rest.length) {
+      created.push(
+        normalizeItemFinding({
+          ...row,
+          id: `${row.id}_rest`,
+          images: rest,
+          aiApply: null,
+        }),
+      )
+    }
+    return list
+      .slice(0, idx)
+      .concat(created)
+      .concat(list.slice(idx + 1))
+      .map((item) => normalizeItemFinding(item))
+  }
+  const onlyEmpty = proposal.onlyEmpty !== false
+  const next = normalizeItemFinding({
+    ...row,
+    partName: onlyEmpty ? row.partName || proposal.partName : proposal.partName || row.partName,
+    result: onlyEmpty ? row.result || proposal.result : proposal.result || row.result,
+    advice: onlyEmpty ? row.advice || proposal.advice : proposal.advice || row.advice,
+    aiApply: null,
+  })
+  return list
+    .slice(0, idx)
+    .concat([next])
+    .concat(list.slice(idx + 1))
+    .map((item) => normalizeItemFinding(item))
+}
+
+/** 检测旧的未归组一堆，打开时收成一项。已经挂在项上的图不再收一次。 */
+function foldInspectionPendingDraft(photoDraft = {}) {
+  const pending = normalizePendingImages(photoDraft.pendingImages)
+  const findings = Array.isArray(photoDraft.findings) ? photoDraft.findings.slice() : []
+  if (!pending.length) return { ...photoDraft, findings, pendingImages: [] }
+  const used = new Set()
+  findings.forEach((row) => {
+    normalizePendingImages(row && row.images).forEach((img) => {
+      const key = mediaKey(img && img.url)
+      if (key) used.add(key)
+    })
+  })
+  const fresh = pending.filter((img) => {
+    const key = mediaKey(img && img.url)
+    return key && !used.has(key)
+  })
+  if (fresh.length) {
+    findings.push(
+      normalizeItemFinding({
+        id: `fid_pile_${mediaKey(fresh[0].url).slice(0, 40)}`,
+        partName: '',
+        result: '',
+        advice: '',
+        images: fresh,
+      }),
+    )
+  }
+  return { ...photoDraft, findings, pendingImages: [] }
+}
+
 module.exports = {
   mapPhotoRows,
   mediaKey,
@@ -1702,6 +1875,9 @@ module.exports = {
   mergePhotoDraft,
   normalizePendingImages,
   applyOrganizeGroups,
+  inspectionSuggestions,
+  applyInspectionSuggestion,
+  foldInspectionPendingDraft,
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
   seedWorkFindingsFromQuoteLines,
