@@ -1400,6 +1400,18 @@ Page({
         if (isInspectionPhotoStep) {
           conclusion = photoDraft.conclusion || ''
           findings = this.collectFindingsFromSections(sections)
+          const intake = flowNodes.find(
+            (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
+          )
+          const intakeDraft = (intake && intake.photoDraft) || {}
+          const intakeLocal = intake && readLocalFlowDraft(this.albumId, intake.id)
+          const intakePayload = (intake && intake.document && intake.document.payload) || {}
+          chiefComplaint = String(
+            intakeDraft.chiefComplaint ||
+              (intakeLocal && intakeLocal.photoDraft && intakeLocal.photoDraft.chiefComplaint) ||
+              intakePayload.chiefComplaint ||
+              '',
+          ).trim()
         }
         if (isDeliveryPhotoStep) {
           warrantyPeriod = String(photoDraft.warrantyPeriod || '').trim()
@@ -1977,6 +1989,24 @@ Page({
     return (this._flowNodes || []).find(
       (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
     )
+  },
+
+  /** 车主诉求只住在接车。检测页自己的字段是空的，不能拿来判断写过没有。 */
+  intakeComplaintText() {
+    if (this.data.isIntakePhotoStep) {
+      const live = String(this.data.chiefComplaint || '').trim()
+      if (live) return live
+    }
+    const intake = this.intakeNode()
+    const draft = (intake && intake.photoDraft) || {}
+    const local = intake && readLocalFlowDraft(this.albumId, intake.id)
+    const payload = (intake && intake.document && intake.document.payload) || {}
+    return String(
+      draft.chiefComplaint ||
+        (local && local.photoDraft && local.photoDraft.chiefComplaint) ||
+        payload.chiefComplaint ||
+        '',
+    ).trim()
   },
 
   intakeDocumentStatus() {
@@ -5908,7 +5938,7 @@ Page({
   async onStartIntakeAdvice() {
     if (this.data.readOnly || this.data.confirming) return
     if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
-    if (!String(this.data.chiefComplaint || '').trim()) {
+    if (!this.intakeComplaintText()) {
       wx.showToast({ title: '先写车主诉求', icon: 'none' })
       return
     }

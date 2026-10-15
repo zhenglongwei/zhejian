@@ -38,6 +38,12 @@ function vehicleFacts(album, draft = {}) {
   }
 }
 
+function intakeComplaintText(intake) {
+  const draft = (intake && intake.photoDraft) || {}
+  const payload = (intake && intake.document && intake.document.payload) || {}
+  return text(draft.chiefComplaint || payload.chiefComplaint)
+}
+
 function albumMileageKm(album) {
   const vehicle = (album && (album.vehicle || album.vehicleJson)) || {}
   return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
@@ -52,7 +58,7 @@ function buildFingerprint(album) {
     .createHash('sha1')
     .update(
       JSON.stringify({
-        c: text(draft.chiefComplaint),
+        c: intakeComplaintText(intake),
         t: text(album && album.templateId),
         b: vehicle.vehicleBrand,
         s: vehicle.vehicleSeries,
@@ -148,7 +154,7 @@ async function runIntakeAdviceJob(albumId) {
     const draft = intake.photoDraft || {}
     const vehicle = vehicleFacts(album, draft)
     const parsed = await runGenerateLlm({
-      chiefComplaint: text(draft.chiefComplaint),
+      chiefComplaint: intakeComplaintText(intake),
       templateId: text(album.templateId),
       serviceName: text(album.serviceName),
       vehicleBrand: vehicle.vehicleBrand,
@@ -192,8 +198,7 @@ async function queueIntakeAdviceIfNeeded(album, merchantId) {
     (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
   )
   if (!intake) return { queued: false }
-  const draft = (intake && intake.photoDraft) || {}
-  const complaint = text(draft.chiefComplaint)
+  const complaint = intakeComplaintText(intake)
   if (!complaint) {
     const err = new Error('先写车主诉求')
     err.status = 400
