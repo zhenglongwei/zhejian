@@ -651,26 +651,6 @@
   background-color: var(--color-bg-card);
 }
 
-.merchant-flow-page__ai-corner {
-  position: absolute;
-  top: var(--space-md);
-  right: var(--space-md);
-  z-index: 2;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.merchant-flow-page__ai-corner-icon {
-  width: 32rpx;
-  height: 32rpx;
-}
-
-.merchant-flow-page__ai-corner-text {
-  color: var(--color-mch-advice);
-}
-
 .merchant-flow-page__organize-wait {
   display: flex;
   flex-direction: row;
@@ -2275,7 +2255,7 @@
 }
 
 .ov-work__body--bar {
-  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+  padding-bottom: 32rpx;
 }
 
 .st-tabs {
@@ -2759,6 +2739,39 @@
 .st-hero--inspect,
 .st-hero--work {
   background: linear-gradient(135deg, var(--color-mch-card-start), var(--color-mch-card-end));
+}
+
+.st-hero--inspect {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.st-hero__ai {
+  position: absolute;
+  top: 28rpx;
+  right: 28rpx;
+  z-index: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.st-hero__ai image {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.st-hero__ai text {
+  color: var(--color-text-inverse);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: var(--font-weight-semibold);
+}
+
+.st-hero--inspect .st-kicker--light {
+  padding-right: 148rpx;
 }
 
 .st-hero--quote {
