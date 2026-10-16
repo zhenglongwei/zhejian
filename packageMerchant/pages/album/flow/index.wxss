@@ -2775,6 +2775,7 @@
 }
 
 .st-hero--quote {
+  position: relative;
   background: linear-gradient(135deg, var(--color-mch-hero-start), var(--color-mch-hero-end));
 }
 
@@ -2892,6 +2893,59 @@
   line-height: var(--font-mch-row-lh);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+.st-line__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-line__name-input,
+.st-line__brand-input,
+.st-line__amt-input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+}
+
+.st-line__brand-input {
+  margin-top: 4rpx;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.st-line__amt--edit {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  width: 160rpx;
+  flex: none;
+}
+
+.st-line__amt-input {
+  text-align: right;
+  font-weight: var(--font-weight-semibold);
+}
+
+.st-line__remove {
+  flex: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  padding: 0 4rpx;
+}
+
+.st-line__add {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
 }
 
 .st-line__sum {

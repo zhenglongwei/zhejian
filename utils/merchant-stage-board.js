@@ -192,9 +192,9 @@ function quoteRecord(nodes) {
     .map((line) => {
       const name = String((line && line.name) || '').trim()
       if (!name) return null
-      const note = [line.brand, line.note].map((part) => String(part || '').trim()).filter(Boolean).join(' · ')
+      const brand = String((line && line.brand) || '').trim()
       const amount = money(line.amount)
-      return { name, note, amount: amount ? `¥${amount}` : '' }
+      return { name, brand, amount: amount ? `¥${amount}` : '' }
     })
     .filter(Boolean)
   const total = lines.reduce((sum, line) => sum + (Number(String(line.amount).replace(/[^\d.]/g, '')) || 0), 0)

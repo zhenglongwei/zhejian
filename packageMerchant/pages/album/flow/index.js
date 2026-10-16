@@ -436,6 +436,7 @@ Page({
     quoteDraftHint: '',
     quoteEvidenceFindings: [],
     quoteTotalLabel: '合计 ¥0.00',
+    quoteHeroAmount: '0',
     quoteNodeId: '',
     docStatus: '',
     showCombinedPlan: false,
@@ -1018,12 +1019,23 @@ Page({
     return this.data.quoteEvidenceFindings || this.data.findings || []
   },
 
+  quoteMoneyFields(lines) {
+    const sum = Math.round(Number(sumQuoteAmounts(lines || [])) * 100) / 100
+    const hero = Number.isInteger(sum)
+      ? sum.toLocaleString('zh-CN')
+      : sum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return {
+      quoteTotalLabel: `合计 ¥${sum.toFixed(2)}`,
+      quoteHeroAmount: hero,
+    }
+  },
+
   setQuoteLines(lines) {
     const quoteLines = this.decorateQuoteLines(lines, this.quoteEvidenceSource())
     this.setData(
       {
         quoteLines,
-        quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+        ...this.quoteMoneyFields(quoteLines),
         autoSaveLabel: '保存中…',
       },
       () => this.scheduleAutoSaveDoc(),
@@ -1037,7 +1049,7 @@ Page({
     this.setData({
       quoteEvidenceFindings,
       quoteLines,
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+      ...this.quoteMoneyFields(quoteLines),
     })
   },
 
@@ -1786,7 +1798,7 @@ Page({
         quoteLines,
         quoteDraftHint,
         quoteEvidenceFindings,
-        quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+        ...this.quoteMoneyFields(quoteLines),
         quoteNodeId: this._quoteNodeId || '',
         docStatus,
         showCombinedPlan,
@@ -5333,7 +5345,7 @@ Page({
     return {
       sections,
       quoteLines: this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource()),
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+      ...this.quoteMoneyFields(quoteLines),
       chiefComplaintHint,
       odometerHint,
       warrantyHint,
@@ -5676,7 +5688,7 @@ Page({
         }
       })
       patch.quoteLines = this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource())
-      patch.quoteTotalLabel = `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`
+      Object.assign(patch, this.quoteMoneyFields(quoteLines))
     }
     const suggestions = (review.suggestions || []).map((row) =>
       row && row.id === id ? { ...row, applied: true } : row,
