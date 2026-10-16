@@ -1,5 +1,20 @@
 <template name="quoteMerchantBrief">
   <view wx:if="{{brief.hasContent}}" class="merchant-flow-page__quote-brief">
+    <view wx:if="{{brief.hasObjections}}" class="merchant-flow-page__ask">
+      <text class="merchant-flow-page__ask-title">车主可能问</text>
+      <view wx:for="{{brief.objections}}" wx:key="index" class="merchant-flow-page__ask-card">
+        <text wx:if="{{item.hasAsk}}" class="merchant-flow-page__ask-q">{{item.ask}}</text>
+        <view wx:if="{{item.hasHeard}}" class="merchant-flow-page__ask-row">
+          <text class="merchant-flow-page__ask-k">常听到</text>
+          <text class="merchant-flow-page__ask-v">{{item.heard}}</text>
+        </view>
+        <view wx:if="{{item.hasOurs}}" class="merchant-flow-page__ask-row">
+          <text class="merchant-flow-page__ask-k">本单</text>
+          <text class="merchant-flow-page__ask-v">{{item.ours}}</text>
+        </view>
+        <text wx:if="{{item.hasSay}}" class="merchant-flow-page__ask-say">{{item.say}}</text>
+      </view>
+    </view>
     <view wx:if="{{brief.hasIssues}}" class="merchant-flow-page__quote-brief-sec">
       <text class="merchant-flow-page__quote-brief-sec-title">已写内容</text>
       <view wx:for="{{brief.issues}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
@@ -10,13 +25,6 @@
     <view wx:if="{{brief.hasOmissions}}" class="merchant-flow-page__quote-brief-sec">
       <text class="merchant-flow-page__quote-brief-sec-title">可能漏了</text>
       <view wx:for="{{brief.omissions}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
-      </view>
-    </view>
-    <view wx:if="{{brief.hasObjections}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">车主可能问</text>
-      <view wx:for="{{brief.objections}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
         <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
         <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
       </view>
@@ -412,9 +420,9 @@
                 <image src="/assets/mch/spark-white.png" mode="aspectFit" />
                 <text>{{quoteAssist.isWaiting || (aiReview && aiReview.isWaiting) ? '正在看' : 'AI分析'}}</text>
               </view>
-              <text class="st-hero__label">本次维修报价</text>
+              <text class="st-hero__label">{{stageBoard.quoteHeroLabel}}</text>
               <view class="st-figure"><text>¥</text><text>{{stageEditor && activeKind === 'quote_confirm' ? quoteHeroAmount : stageBoard.quote.amount}}</text></view>
-              <text class="st-hero__sub">包含配件、辅料与施工服务费</text>
+              <text class="st-hero__sub">{{stageBoard.quoteHeroSub}}</text>
               <view wx:if="{{stageBoard.quote.note}}" class="st-hero__foot"><text>{{stageBoard.quote.note}}</text></view>
             </view>
             <view wx:if="{{stageEditor && activeKind === 'quote_confirm' && !isAddonQuote}}" class="st-card">
@@ -565,7 +573,7 @@
               </view>
             </view>
             <view wx:if="{{stageBoard.work.fault}}" class="st-faultbox">
-              <text class="st-faultbox__kicker">施工中新发现</text>
+              <text class="st-faultbox__kicker">{{stageBoard.addonEntry}}</text>
               <text class="st-faultbox__title">{{stageBoard.work.fault.title}}</text>
               <text wx:if="{{stageBoard.work.fault.body}}" class="st-faultbox__body">{{stageBoard.work.fault.body}}</text>
               <text wx:if="{{stageBoard.work.fault.amount}}" class="st-faultbox__amt">补充报价 {{stageBoard.work.fault.amount}}</text>
@@ -1206,7 +1214,7 @@
                   wx:if="{{!readOnly && isWorkPhotoStep}}"
                   class="text-caption merchant-flow-page__addon-link"
                   bindtap="onAddAddonPlan"
-                >施工中新发现</text>
+                >{{addonEntryLabel}}</text>
                 <view
                   wx:if="{{aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"
@@ -1469,11 +1477,6 @@
             </block>
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
-              <text
-                wx:if="{{isAddonQuote && !readOnly && docStatus !== 'pending_confirm' && docStatus !== 'confirmed'}}"
-                class="text-caption text-link merchant-flow-page__addon-back"
-                bindtap="onOpenCancelAddon"
-              >返回施工</text>
               <view
                 wx:if="{{isAddonQuote && !confirmAwaitingOwner}}"
                 class="merchant-flow-page__sheet"
@@ -1730,8 +1733,9 @@
             </block>
           </view>
       </scroll-view>
-      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary)}}" class="st-bar">
-        <view wx:if="{{stageShowPreview}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
+      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor))}}" class="st-bar">
+        <view wx:if="{{isAddonQuote && stageEditor}}" class="st-bar__btn" bindtap="onOpenCancelAddon">返回施工</view>
+        <view wx:if="{{stageShowPreview && !(isAddonQuote && stageEditor)}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
     </view>

@@ -3,6 +3,7 @@
  */
 const { FINDING_RESULT } = require('../constants/service-flow-nodes')
 const { buildMerchantAlbumOverview } = require('./merchant-album-overview')
+const { quoteFace } = require('./service-flow-quote-draft')
 
 const STAGES = [
   { key: 'intake', title: '接车建档', short: '接车' },
@@ -380,16 +381,20 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
     .join(' · ')
   const extraQuoteCount = rows.filter((row) => stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0').length
   let extraSeen = 0
-  const title =
-    family === 'quote' && selected !== 'quote:0'
-      ? '施工中新发现'
-      : family === 'quote'
-        ? '首次报价'
-        : family === 'work'
-          ? '维修施工'
-          : (STAGES.find((item) => item.key === family) || STAGES[0]).title
+  const face = quoteFace({ templateId: album.templateId, serviceName: album.serviceName })
+  const addonQuote = family === 'quote' && selected !== 'quote:0'
+  const title = addonQuote
+    ? face.addonTitle
+    : family === 'quote'
+      ? '首次报价'
+      : family === 'work'
+        ? '维修施工'
+        : (STAGES.find((item) => item.key === family) || STAGES[0]).title
   return {
     title,
+    quoteHeroLabel: addonQuote ? face.addonTitle : face.heroLabel,
+    quoteHeroSub: addonQuote ? '这次补充的项目' : face.heroSub,
+    addonEntry: face.addonEntry,
     selectedKey: selected,
     family,
     state: albumState,

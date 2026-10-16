@@ -26,6 +26,15 @@ test('parse quote assist payload keeps lines, talking points and bands', () => {
   assert.equal(got.summary, '')
   assert.equal(got.omissions.length, 1)
   assert.equal(got.objections.length, 1)
+  assert.equal(got.objections[0].ask, '为什么不换盘')
   assert.equal(got.suggestedLines[0].name, '更换前刹车片')
   assert.equal(got.suggestedLines[0].oem, '380-520')
+})
+
+test('owner ask keeps the four lines', () => {
+  const got = parseQuoteAssistPayload({
+    objections: [{ ask: '这是修完的总价吗', heard: '第一个数就是总价', ours: '单上有拆检', say: '这是先确认的范围' }],
+  })
+  assert.equal(got.objections[0].heard, '第一个数就是总价')
+  assert.equal(got.objections[0].say, '这是先确认的范围')
 })

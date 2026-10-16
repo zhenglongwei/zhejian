@@ -76,6 +76,7 @@ const {
   buildQuoteDraft,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
+const { quoteFace } = require('../../../../utils/service-flow-quote-draft')
 const {
   bindSuggestionPart,
   isOdometerSuggestion,
@@ -437,6 +438,7 @@ Page({
     quoteEvidenceFindings: [],
     quoteTotalLabel: '合计 ¥0.00',
     quoteHeroAmount: '0',
+    addonEntryLabel: '施工中新发现',
     quoteNodeId: '',
     docStatus: '',
     showCombinedPlan: false,
@@ -1644,6 +1646,10 @@ Page({
         }
       }
       const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
+      const face = quoteFace({
+        templateId: album && album.templateId,
+        serviceName: (album && album.serviceName) || '',
+      })
       this._pendingQuoteAssist = (
         (flowNodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {})
           .quoteAssist ||
@@ -1797,6 +1803,7 @@ Page({
         vehicleLine,
         quoteLines,
         quoteDraftHint,
+        addonEntryLabel: face.addonEntry,
         quoteEvidenceFindings,
         ...this.quoteMoneyFields(quoteLines),
         quoteNodeId: this._quoteNodeId || '',
@@ -5000,8 +5007,8 @@ Page({
       .map((row) => this.decorateBriefItem(row))
       .filter((row) => row.hasTitle || row.hasBody)
     const objections = (Array.isArray(brief.objections) ? brief.objections : [])
-      .map((row) => this.decorateBriefItem(row, true))
-      .filter((row) => row.hasTitle || row.hasBody)
+      .map((row) => this.decorateObjection(row))
+      .filter((row) => row.hasAsk || row.hasHeard || row.hasOurs || row.hasSay)
     const priceBands = (Array.isArray(brief.priceBands) ? brief.priceBands : [])
       .filter((row) => row && (row.name || row.oem || row.brand || row.economy))
       .map((row) => {
@@ -5031,6 +5038,27 @@ Page({
         omissions.length > 0 ||
         objections.length > 0 ||
         priceBands.length > 0,
+    }
+  },
+
+  decorateObjection(item) {
+    const base = this.decorateBriefItem(item, true)
+    const row = item && typeof item === 'object' ? item : {}
+    const ask = String(row.ask || row.title || base.title || '').trim()
+    const heard = String(row.heard || '').trim()
+    const ours = String(row.ours || '').trim()
+    const say = String(row.say || (!heard && !ours ? base.body : '') || '').trim()
+    return {
+      ask,
+      heard,
+      ours,
+      say,
+      hasAsk: Boolean(ask),
+      hasHeard: Boolean(heard),
+      hasOurs: Boolean(ours),
+      hasSay: Boolean(say),
+      hasTitle: Boolean(ask),
+      hasBody: Boolean(say),
     }
   },
 

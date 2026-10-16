@@ -161,4 +161,12 @@ test('补充报价单独占一格，施工图留在原来的施工', () => {
   assert.equal(firstWork.work.tasks[0].name, '拆饰板')
   const firstQuote = buildMerchantStageBoard(album(), list, 'quote')
   assert.equal(firstQuote.quote.lines[0].name, '气门室盖垫')
+  const openAlbum = { ...album(), templateId: 'accident', serviceName: '事故维修' }
+  const openAddon = buildMerchantStageBoard(openAlbum, list, 'quote:1')
+  assert.equal(openAddon.title, '补充报价')
+  assert.equal(openAddon.quoteHeroLabel, '补充报价')
+  assert.equal(openAddon.addonEntry, '范围有变')
+  const openFirst = buildMerchantStageBoard(openAlbum, list, 'quote')
+  assert.equal(openFirst.quoteHeroLabel, '先确认这些')
+  assert.equal(openFirst.quoteHeroSub, '已写项目合计')
 })

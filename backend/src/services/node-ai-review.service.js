@@ -462,7 +462,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
   const accident = ctx.rubric.category === 'accident'
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是给店员看的检查结果，不写进车主字段。issues/omissions/objections 每条必须是 {"title","body"}：title 4到12个字写部位或问题名，body 一两句人话。不要写发现项序号、字段名、规范、违反规定。omissions 只提醒可能漏查/漏报，不要编成收费行，不要放进 suggestions。objections 的 title 写成车主会问的原话，body 可空。priceBands 只针对已有报价行给原厂/品牌/经济件宽区间，不是实时行情。不要改金额，不要自动加报价行。'
+      ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是给店员看的检查结果，不写进车主字段。issues/omissions/objections 每条必须是 {"title","body"}：title 4到12个字写部位或问题名，body 一两句人话。不要写发现项序号、字段名、规范、违反规定。omissions 只提醒可能漏查/漏报，不要编成收费行，不要放进 suggestions。objections 每条用 ask、heard、ours、say：ask 是车主原话，heard 是没看见这台车时的常见说法，ours 只引用本单已有内容，say 是当面怎么讲。不要把这四行写进车主字段，不要改金额。事故车不要写维修费数字。priceBands 只针对已有报价行给原厂/品牌/经济件宽区间，不是实时行情。不要改金额，不要自动加报价行。'
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。suggestions 只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。merchantBrief 同样要核已写内容和可能漏了什么，漏项只提醒不自动加行。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
@@ -481,7 +481,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     accident && (ctx.rubric.step === 'quote_check' || ctx.rubric.step === 'addon_check')
       ? '事故车不要给金额档，priceBands 必须空数组。'
       : '',
-    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}],"merchantBrief":{"issues":[{"title","body"}],"omissions":[{"title","body"}],"objections":[{"title","body"}],"priceBands":[{"lineIndex","name","oem","brand","economy","note"}]}}',
+    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}],"merchantBrief":{"issues":[{"title","body"}],"omissions":[{"title","body"}],"objections":[{"ask","heard","ours","say"}],"priceBands":[{"lineIndex","name","oem","brand","economy","note"}]}}',
     'text 只在对应字段为空时才给 suggestedText。栏里已经有字，一律不要出改句，保留店员原文。没有空缺就返回空 suggestions。quote_check / addon_check 即使 suggestions 为空，也要给 merchantBrief。',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
     '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',

@@ -88,7 +88,7 @@ async function runGenerateLlm(facts, category) {
     '状态良好、仅记录、巡检类不要出行。',
     `类目约束：${JSON.stringify(facts.constraint)}`,
     `本单事实：${JSON.stringify(facts.body)}`,
-    '输出 JSON：{"suggestedLines":[{"name","note","oem","brand","economy"}],"omissions":[{"title","body"}],"objections":[{"title","body"}]}',
+    '输出 JSON：{"suggestedLines":[{"name","note","oem","brand","economy"}],"omissions":[{"title","body"}],"objections":[{"ask","heard","ours","say"}]}。objections 只给店员看：ask 是车主会问的一句，heard 是没看见这台车时常见的说法，ours 只引用本单已有的照片和项目，say 是当面要讲的一句。不要把 objections 写进报价行，不要改金额。开口活必须有一条说明第一个数不是拆开后的总价。事故车不要写维修费区间，say 写不要报这个数。',
   ]
     .filter(Boolean)
     .join('\n')

@@ -243,9 +243,22 @@ function resolveQuoteConfirmCopy(opts = {}) {
   return buildQuoteDraft(opts).confirmCopy
 }
 
+function quoteFace({ templateId = '', serviceName = '' } = {}) {
+  const known = Boolean(String(templateId || '').trim() || String(serviceName || '').trim())
+  const open = known && isOpenCategory(resolveFlowCategory(templateId, serviceName))
+  return {
+    open,
+    heroLabel: open ? '先确认这些' : '本次维修报价',
+    heroSub: open ? '已写项目合计' : '包含配件、辅料与施工服务费',
+    addonEntry: open ? '范围有变' : '施工中新发现',
+    addonTitle: open ? '补充报价' : '施工中新发现',
+  }
+}
+
 module.exports = {
   buildQuoteDraft,
   buildQuoteLinesFromFindings,
   resolveQuoteConfirmCopy,
   isOpenCategory,
+  quoteFace,
 }

@@ -317,6 +317,15 @@ function clipBriefItems(value, max = 6, opts = {}) {
   if (!Array.isArray(value)) return []
   const out = []
   value.forEach((item) => {
+    if (opts.question && item && typeof item === 'object' && !Array.isArray(item)) {
+      const ask = sanitizeBriefJargon(item.ask || item.title || item.part || item.name || '').slice(0, 28)
+      const heard = sanitizeBriefJargon(item.heard || '').slice(0, 80)
+      const ours = sanitizeBriefJargon(item.ours || '').slice(0, 80)
+      const say = sanitizeBriefJargon(item.say || item.body || item.text || '').slice(0, 80)
+      if (!ask && !heard && !ours && !say) return
+      out.push({ title: ask, body: say, ask, heard, ours, say })
+      return
+    }
     if (item && typeof item === 'object' && !Array.isArray(item)) {
       const title = sanitizeBriefJargon(item.title || item.part || item.name).slice(0, 20)
       const body = sanitizeBriefJargon(

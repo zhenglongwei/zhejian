@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { FINDING_RESULT } = require('../constants/service-flow-nodes')
-const { buildQuoteDraft, buildQuoteLinesFromFindings } = require('./service-flow-quote-draft')
+const { buildQuoteDraft, buildQuoteLinesFromFindings, quoteFace } = require('./service-flow-quote-draft')
 
 test('no album context does not invent quote lines', () => {
   const lines = buildQuoteLinesFromFindings([
@@ -91,4 +91,16 @@ test('accident draft does not paste inspection findings into quote notes', () =>
     lines.every((row) => !/深黑|修补痕迹/.test(row.note)),
     true,
   )
+})
+
+test('开口活和封闭类目的页面称呼不同', () => {
+  const open = quoteFace({ templateId: 'accident' })
+  assert.equal(open.heroLabel, '先确认这些')
+  assert.equal(open.heroSub, '已写项目合计')
+  assert.equal(open.addonEntry, '范围有变')
+  assert.equal(open.addonTitle, '补充报价')
+  const closed = quoteFace({ templateId: 'maintenance' })
+  assert.equal(closed.heroLabel, '本次维修报价')
+  assert.equal(closed.addonEntry, '施工中新发现')
+  assert.equal(quoteFace({}).open, false)
 })

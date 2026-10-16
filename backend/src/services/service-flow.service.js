@@ -38,6 +38,7 @@ const {
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
 const { planLegacyPhotoFold } = resolveShared('utils/flow-node-photos.js')
+const { quoteFace } = resolveShared('utils/service-flow-quote-draft.js')
 const { applyAddonInsert } = resolveShared('utils/service-flow-addon-insert.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
@@ -1830,7 +1831,13 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   return {
     id: node.id,
     kind,
-    title: intakeSheet ? '接车照片' : isAddonQuote ? '施工中新发现' : node.title || '',
+    title: intakeSheet
+      ? '接车照片'
+      : isAddonQuote
+        ? quoteFace({ templateId: album.templateId, serviceName: album.serviceName }).addonTitle
+        : kind === 'quote_confirm'
+          ? quoteFace({ templateId: album.templateId, serviceName: album.serviceName }).heroLabel
+          : node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     cancelledBy,

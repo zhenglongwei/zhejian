@@ -43,6 +43,26 @@ function parseSuggestedLines(raw) {
   return lines.slice(0, 16)
 }
 
+function parseOwnerAsks(raw, max = 6) {
+  const list = Array.isArray(raw) ? raw : []
+  const out = []
+  list.forEach((item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const ask = text(item.ask || item.title || item.name).slice(0, 28)
+      const heard = text(item.heard).slice(0, 80)
+      const ours = text(item.ours).slice(0, 80)
+      const say = text(item.say || item.body || item.text).slice(0, 80)
+      if (!ask && !heard && !ours && !say) return
+      out.push({ title: ask, body: say, ask, heard, ours, say })
+      return
+    }
+    const line = text(item)
+    if (!line) return
+    out.push({ title: line.slice(0, 28), body: '', ask: line.slice(0, 28), heard: '', ours: '', say: '' })
+  })
+  return out.slice(0, max)
+}
+
 function parseQuoteAssistPayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
   const analysis = parsed.analysis && typeof parsed.analysis === 'object' ? parsed.analysis : parsed
@@ -54,7 +74,7 @@ function parseQuoteAssistPayload(raw) {
     reportPrefill: '',
     issues: [],
     omissions: parseTitleBodyList(parsed.omissions || analysis.omissions, 8),
-    objections: parseTitleBodyList(parsed.objections || analysis.objections, 8),
+    objections: parseOwnerAsks(parsed.objections || analysis.objections, 6),
     suggestedLines,
   }
 }
@@ -88,6 +108,7 @@ function sanitizeQuoteAssistForView(assist) {
 
 module.exports = {
   parseSuggestedLines,
+  parseOwnerAsks,
   parseQuoteAssistPayload,
   quoteAssistHasContent,
   sanitizeQuoteAssistForView,
