@@ -1887,10 +1887,30 @@ Page({
     this.setData({ workOpen: false, stageKey: '', stageBoard: null, stageEditor: false })
   },
 
+  bucketKeyOf(id) {
+    const sorted = (this._flowNodes || [])
+      .slice()
+      .sort((a, b) => Number((a && a.sortOrder) || 0) - Number((b && b.sortOrder) || 0))
+    let quote = 0
+    let work = 0
+    for (let i = 0; i < sorted.length; i += 1) {
+      const node = sorted[i]
+      if (!node) continue
+      if (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm') {
+        if (node.id === id) return `quote:${quote}`
+        quote += 1
+      } else if (node.kind === 'work') {
+        if (node.id === id) return `work:${work}`
+        work += 1
+      }
+    }
+    return this.resolveStageKey(id)
+  },
+
   resolveStageKey(id) {
     const overview = this.data.overview || {}
     const row = (overview.rows || []).find((item) => item && item.nodeId === id)
-    if (row) return stageKeyOf(row.key) || 'intake'
+    if (row) return row.key || 'intake'
     const doc = (overview.docs || []).find((item) => item && item.nodeId === id)
     const title = String((doc && doc.title) || '')
     if (title === '检测报告') return 'inspect'
@@ -1901,28 +1921,43 @@ Page({
   },
 
   stageBarFields(flowNodes, board, activeNode) {
-    const key = (board && board.selectedKey) || stageKeyOf(this.data.stageKey) || this.data.stageKey
-    const chrome = stageChrome(
-      key,
-      stageGateFor(flowNodes || this._flowNodes || [], key, activeNode || this.data.activeNode),
+    const family = (board && board.family) || stageKeyOf((board && board.selectedKey) || this.data.stageKey)
+    const focus = (flowNodes || []).find((node) => node && board && node.id === board.focusId)
+    let chrome = stageChrome(
+      family,
+      stageGateFor(
+        flowNodes || this._flowNodes || [],
+        family,
+        family === 'quote' ? focus : activeNode || this.data.activeNode,
+      ),
     )
+    if (family === 'work' && (!board || board.state !== 'current')) {
+      chrome = { preview: true, label: '', action: '', locked: true }
+    }
     return {
       stageShowPreview: chrome.preview,
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
-      stageEditor: Boolean(board && board.state === 'current' && key !== 'intake' && !chrome.locked),
+      stageEditor: Boolean(board && board.state === 'current' && family !== 'intake' && !chrome.locked),
     }
   },
 
   openStage(stageKey) {
-    const key = stageKeyOf(stageKey) || stageKey || 'intake'
-    const stageBoard = buildMerchantStageBoard(this._album || {}, this._flowNodes || [], key)
-    const chrome = stageChrome(key, stageGateFor(this._flowNodes || [], key, this.data.activeNode))
+    const stageBoard = buildMerchantStageBoard(this._album || {}, this._flowNodes || [], stageKey || 'intake')
+    const family = stageBoard.family || stageKeyOf(stageBoard.selectedKey)
+    const focus = (this._flowNodes || []).find((node) => node && node.id === stageBoard.focusId)
+    let chrome = stageChrome(
+      family,
+      stageGateFor(this._flowNodes || [], family, family === 'quote' ? focus : this.data.activeNode),
+    )
+    if (family === 'work' && stageBoard.state !== 'current') {
+      chrome = { preview: true, label: '', action: '', locked: true }
+    }
     this.setData({
       workOpen: true,
       doneView: null,
-      stageEditor: stageBoard.state === 'current' && stageBoard.selectedKey !== 'intake' && !chrome.locked,
+      stageEditor: stageBoard.state === 'current' && family !== 'intake' && !chrome.locked,
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
@@ -6239,15 +6274,18 @@ Page({
       const added = await insertMerchantAddonPlan(this.albumId)
       const seeded = Boolean(added && added.addonSeeded)
       wx.showToast({
-        title:
-          seeded
-            ? '补金额后通知车主'
-            : added && added.addonAlreadyOpen
-              ? '新发现已在这一页'
-              : '请先拍故障、写看见什么',
+        title: seeded || (added && added.addonSeeded) ? '补上金额' : '写下新发现和金额',
         icon: 'none',
       })
       await this.loadFlow({ silent: true })
+      const addon = (this._flowNodes || []).find(
+        (node) =>
+          node &&
+          node.kind === 'quote_confirm' &&
+          node.insertedReason === 'addon' &&
+          !['confirmed', 'cancelled'].includes(String((node.document && node.document.status) || '')),
+      )
+      this.openStage(addon ? this.bucketKeyOf(addon.id) : 'quote')
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
@@ -6271,8 +6309,12 @@ Page({
     this.setData({ addonDiscoveryNote: e.detail.value })
   },
 
+  onAddonDiscoveryBlur() {
+    this.persistAddonDocument().catch(() => {})
+  },
+
   onAddAddonDiscoveryImage() {
-    if (this.data.readOnly || this.data.confirmAwaitingOwner || this.data.addonDiscoveryReady) return
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const current = (this.data.addonDiscoveryImages || []).filter(Boolean)
     if (current.length >= 6) {
       wx.showToast({ title: '最多 6 张', icon: 'none' })
@@ -6308,7 +6350,7 @@ Page({
   },
 
   onRemoveAddonDiscoveryImage(e) {
-    if (this.data.readOnly || this.data.confirmAwaitingOwner || this.data.addonDiscoveryReady) return
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const index = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(index)) return
     const urls = (this.data.addonDiscoveryImages || []).filter((_, i) => i !== index)
@@ -6321,11 +6363,11 @@ Page({
     const images = (this.data.addonDiscoveryImages || []).filter(Boolean)
     const note = String(this.data.addonDiscoveryNote || '').trim()
     if (!images.length) {
-      wx.showToast({ title: '请先拍下新故障', icon: 'none' })
+      wx.showToast({ title: '请上传照片', icon: 'none' })
       return
     }
     if (!note) {
-      wx.showToast({ title: '请写一句看见什么', icon: 'none' })
+      wx.showToast({ title: '请写备注', icon: 'none' })
       return
     }
     this.setData(
@@ -6366,10 +6408,10 @@ Page({
     // 未发送：当误点，直接确认删除，不填原因
     if (docStatus !== 'pending_confirm') {
       wx.showModal({
-        title: '取消本项',
-        content: '尚未发送车主，取消后不留记录，回到施工。',
-        confirmText: '确认取消',
-        cancelText: '返回',
+        title: '返回施工',
+        content: '还没发给车主，退回后接着施工。',
+        confirmText: '返回施工',
+        cancelText: '留下',
         success: (res) => {
           if (!res.confirm) return
           this.submitCancelAddon('')
@@ -6407,8 +6449,9 @@ Page({
       if (cancelReason) payload.cancelReason = cancelReason
       await cancelMerchantAddonPlan(this.albumId, payload)
       this.setData({ showCancelAddonModal: false, cancelAddonReason: '' })
-      wx.showToast({ title: '已取消，回到施工', icon: 'none' })
+      wx.showToast({ title: '已回到施工', icon: 'none' })
       await this.loadFlow({ silent: true })
+      this.openStage('work')
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '取消失败', icon: 'none' })
     } finally {

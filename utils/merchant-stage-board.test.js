@@ -121,4 +121,44 @@ test('报价合计来自明细，交车不写评价', () => {
   assert.equal(JSON.stringify(finish.finish).includes('评价'), false)
   assert.equal(finish.tabs[4].mark, 'on')
   assert.equal(finish.tabs[3].mark, 'before')
+  assert.equal(finish.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,交车')
+})
+
+test('补充报价单独占一格，施工图留在原来的施工', () => {
+  const list = nodes()
+  list.splice(
+    5,
+    0,
+    {
+      id: 'addon',
+      kind: 'quote_confirm',
+      sortOrder: 5.5,
+      insertedReason: 'addon',
+      status: 'in_progress',
+      document: {
+        status: 'draft',
+        payload: {
+          lines: [{ name: '下摆臂胶套', amount: 0 }],
+          discovery: { note: '胶套开裂', images: ['https://img/new.jpg'] },
+        },
+      },
+    },
+    {
+      id: 'w2',
+      kind: 'work',
+      sortOrder: 5.6,
+      status: 'locked',
+      insertedReason: 'addon',
+      photoDraft: { findings: [] },
+    },
+  )
+  const quote = buildMerchantStageBoard(album(), list, 'quote:1')
+  assert.equal(quote.title, '施工中新发现')
+  assert.equal(quote.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,补充报价,施工,交车')
+  assert.equal(quote.quote.lines[0].name, '下摆臂胶套')
+  assert.equal(quote.quote.discoveryNote, '胶套开裂')
+  const firstWork = buildMerchantStageBoard(album(), list, 'work:0')
+  assert.equal(firstWork.work.tasks[0].name, '拆饰板')
+  const firstQuote = buildMerchantStageBoard(album(), list, 'quote')
+  assert.equal(firstQuote.quote.lines[0].name, '气门室盖垫')
 })

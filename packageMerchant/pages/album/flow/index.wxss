@@ -2259,20 +2259,32 @@
 }
 
 .st-tabs {
-  display: flex;
   flex: none;
-  padding: 20rpx 16rpx 16rpx;
+  width: 100%;
+  white-space: nowrap;
   background: var(--color-bg-card);
   border-bottom: 1rpx solid var(--color-border);
 }
 
+.st-tabs__row {
+  display: inline-flex;
+  min-width: 100%;
+  padding: 20rpx 16rpx 16rpx;
+  box-sizing: border-box;
+}
+
 .st-tab {
   position: relative;
-  flex: 1;
+  flex: 1 0 120rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8rpx;
+}
+
+.merchant-flow-page__addon-back {
+  display: block;
+  margin: 0 0 16rpx;
 }
 
 .st-tab:not(:last-child)::after {

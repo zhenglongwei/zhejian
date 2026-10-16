@@ -240,7 +240,8 @@
           </view>
         </view>
       </view>
-      <view wx:if="{{stageBoard}}" class="st-tabs">
+      <scroll-view wx:if="{{stageBoard}}" scroll-x class="st-tabs" show-scrollbar="{{false}}">
+        <view class="st-tabs__row">
         <view
           wx:for="{{stageBoard.tabs}}"
           wx:key="key"
@@ -254,7 +255,8 @@
           </view>
           <text class="st-tab__name">{{item.short}}</text>
         </view>
-      </view>
+        </view>
+      </scroll-view>
       <scroll-view scroll-y="{{!complaintFocus}}" class="ov-work__body ov-work__body--bar" show-scrollbar="{{false}}">
           <view wx:if="{{stageBoard}}" class="st-vehicle">
             <view class="st-vehicle__icon"><image src="/assets/mch/car-blue.png" mode="aspectFit" /></view>
@@ -479,7 +481,7 @@
               <text wx:if="{{!readOnly}}" class="st-line__add" bindtap="onAddQuoteLine">+ 新增项目</text>
               <view class="st-line__sum">{{quoteTotalLabel}}</view>
             </view>
-            <view wx:elif="{{stageBoard.quote.lines.length}}" class="st-card">
+            <view wx:elif="{{stageBoard.quote.lines.length && !(stageEditor && isAddonQuote)}}" class="st-card">
               <view class="st-card__head">
                 <view>
                   <text class="st-kicker">QUOTE DETAILS</text>
@@ -494,6 +496,23 @@
                 <text class="st-line__amt">{{item.amount}}</text>
               </view>
               <view class="st-line__sum">{{stageBoard.quote.totalText}}</view>
+            </view>
+            <view
+              wx:if="{{(stageBoard.quote.discoveryNote || stageBoard.quote.discoveryPhotos.length) && !(stageEditor && isAddonQuote)}}"
+              class="st-card"
+            >
+              <text class="st-card__title">新发现</text>
+              <text wx:if="{{stageBoard.quote.discoveryNote}}" class="st-task__note">{{stageBoard.quote.discoveryNote}}</text>
+              <view wx:if="{{stageBoard.quote.discoveryPhotos.length}}" class="st-fault__shots">
+                <image
+                  wx:for="{{stageBoard.quote.discoveryPhotos}}"
+                  wx:key="*this"
+                  src="{{item}}"
+                  mode="aspectFill"
+                  data-url="{{item}}"
+                  bindtap="onPreviewStagePhoto"
+                />
+              </view>
             </view>
             <view wx:if="{{stageBoard.quote.advice}}" class="st-ai">
               <image src="/assets/mch/spark-white.png" mode="aspectFit" />
@@ -530,6 +549,17 @@
                 <view>
                   <text class="st-task__name">{{item.name}}</text>
                   <text wx:if="{{item.note}}" class="st-task__note">{{item.note}}</text>
+                  <view wx:if="{{item.shots.length}}" class="st-fault__shots">
+                    <image
+                      wx:for="{{item.shots}}"
+                      wx:for-item="shot"
+                      wx:key="*this"
+                      src="{{shot}}"
+                      mode="aspectFill"
+                      data-url="{{shot}}"
+                      bindtap="onPreviewStagePhoto"
+                    />
+                  </view>
                 </view>
                 <text class="st-pill st-pill--{{item.tone}}">{{item.status}}</text>
               </view>
@@ -1439,31 +1469,16 @@
             </block>
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
-              <view wx:if="{{isAddonQuote}}" class="sup-steps">
-                <view class="sup-step {{addonDiscoveryReady || confirmAwaitingOwner ? 'is-before' : 'is-on'}}">
-                  <text class="sup-step__dot">{{addonDiscoveryReady || confirmAwaitingOwner ? '✓' : '1'}}</text>
-                  <text>故障留证</text>
-                </view>
-                <view class="sup-step {{confirmAwaitingOwner ? 'is-before' : addonDiscoveryReady ? 'is-on' : ''}}">
-                  <text class="sup-step__dot">{{confirmAwaitingOwner ? '✓' : '2'}}</text>
-                  <text>补充报价</text>
-                </view>
-                <view class="sup-step {{confirmAwaitingOwner ? 'is-on' : ''}}">
-                  <text class="sup-step__dot">3</text>
-                  <text>车主确认</text>
-                </view>
-              </view>
+              <text
+                wx:if="{{isAddonQuote && !readOnly && docStatus !== 'pending_confirm' && docStatus !== 'confirmed'}}"
+                class="text-caption text-link merchant-flow-page__addon-back"
+                bindtap="onOpenCancelAddon"
+              >返回施工</text>
               <view
-                wx:if="{{isAddonQuote && !addonDiscoveryReady && !confirmAwaitingOwner}}"
+                wx:if="{{isAddonQuote && !confirmAwaitingOwner}}"
                 class="merchant-flow-page__sheet"
               >
                 <view class="merchant-flow-page__sheet-section">
-                  <view class="merchant-flow-page__sheet-title-row">
-                    <view class="merchant-flow-page__sheet-rail" />
-                    <text class="text-body merchant-flow-page__sheet-title">新发现故障</text>
-                  </view>
-                  <text class="st-kicker">NEW ISSUE</text>
-                  <text class="text-caption text-secondary">故障说明</text>
                   <view class="merchant-flow-page__work-thumbs">
                     <view
                       wx:for="{{addonDiscoveryImages}}"
@@ -1490,54 +1505,27 @@
                       bindtap="onAddAddonDiscoveryImage"
                     >
                       <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
-                      <text class="text-caption text-secondary">故障照片</text>
                     </view>
                   </view>
-                  <text class="text-caption text-secondary merchant-flow-page__field-label">看见什么</text>
                   <textarea
                     class="merchant-flow-page__plan-note"
-                    placeholder="例：液压位渗油"
+                    placeholder="备注"
                     value="{{addonDiscoveryNote}}"
                     maxlength="200"
                     auto-height="{{false}}"
                     style="height: 96rpx;"
                     disabled="{{readOnly}}"
                     bindinput="onAddonDiscoveryInput"
-                  />
-                  <ui-button
-                    wx:if="{{!readOnly}}"
-                    type="primary"
-                    block="{{true}}"
-                    bind:btntap="onFinishAddonDiscovery"
-                  >写好了，去报价</ui-button>
-                </view>
-              </view>
-              <view wx:elif="{{isAddonQuote && addonDiscoveryReady}}" class="merchant-flow-page__doc-block">
-                <text class="text-body">新发现</text>
-                <text class="text-caption">{{addonDiscoveryNote}}</text>
-                <view class="merchant-flow-page__work-thumbs">
-                  <image
-                    wx:for="{{addonDiscoveryImages}}"
-                    wx:key="*this"
-                    class="merchant-flow-page__work-thumb-img image-placeholder"
-                    src="{{item}}"
-                    mode="aspectFill"
-                    data-url="{{item}}"
-                    bindtap="onPreviewAddonDiscovery"
+                    bindblur="onAddonDiscoveryBlur"
                   />
                 </view>
-                <text
-                  wx:if="{{!readOnly && !confirmAwaitingOwner}}"
-                  class="text-caption text-link"
-                  bindtap="onEditAddonDiscovery"
-                >改照片和说明</text>
               </view>
               <text wx:if="{{ownerRejectReason && !confirmAwaitingOwner}}" class="text-caption text-secondary">车主未同意。{{ownerRejectReason}}</text>
-              <view wx:if="{{isAddonQuote && (addonDiscoveryReady || confirmAwaitingOwner)}}" class="merchant-flow-page__sheet">
+              <view wx:if="{{isAddonQuote}}" class="merchant-flow-page__sheet">
                 <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
                   <view class="merchant-flow-page__sheet-title-row">
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
-                    <text class="text-body merchant-flow-page__sheet-title">报价单</text>
+                    <text class="text-body merchant-flow-page__sheet-title">项目和金额</text>
                   </view>
                   <text wx:if="{{quoteDraftHint && !isAddonQuote}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">

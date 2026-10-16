@@ -1444,8 +1444,8 @@ function collectQuoteConfirmGaps(payload = {}, options = {}) {
   if (requireDiscovery) {
     const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
     const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
-    if (!images.length) gaps.push('请先拍下新故障')
-    if (!String(discovery.note || '').trim()) gaps.push('请写一句看见什么')
+    if (!images.length) gaps.push('请上传照片')
+    if (!String(discovery.note || '').trim()) gaps.push('请写备注')
   }
   const lines = Array.isArray(payload.lines) ? payload.lines.map(normalizeQuoteLine) : []
   const valid = lines.filter((l) => l.name)

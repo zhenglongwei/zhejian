@@ -198,18 +198,26 @@ function quoteRecord(nodes) {
     })
     .filter(Boolean)
   const total = lines.reduce((sum, line) => sum + (Number(String(line.amount).replace(/[^\d.]/g, '')) || 0), 0)
+  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+  const discoveryNote = String(discovery.note || '').trim()
+  const discoveryPhotos = (Array.isArray(discovery.images) ? discovery.images : [])
+    .map((url) => String(url || '').trim())
+    .filter(Boolean)
   const status = docStatus(quote)
   const confirmed = status === 'confirmed' || status === 'delivered'
   const waiting = status === 'pending_confirm'
+  const advice = adviceOf(quote)
   return {
     amount: lines.length ? money(total) || '0' : '',
     note: confirmed ? '车主已确认' : waiting ? '等待确认' : '',
     lines,
     totalText: lines.length ? `合计 ¥${money(total) || '0'}` : '',
-    advice: adviceOf(quote),
+    advice,
     owner: confirmed ? { title: '维修方案及报价已确认', sub: '确认凭证已保存' } : null,
+    discoveryNote,
+    discoveryPhotos,
     previewNodeId: (quote && quote.id) || '',
-    empty: !lines.length && !advice,
+    empty: !lines.length && !advice && !discoveryPhotos.length && !discoveryNote,
   }
 }
 
@@ -219,11 +227,19 @@ function workRecord(nodes, addonNodes) {
   const tasks = findings
     .map((row) => {
       const name = String((row && (row.partName || row.caption)) || '').trim()
-      if (!name) return null
       const done = Boolean(row && row.result && row.result !== FINDING_RESULT.RECORD)
+      const images = row && Array.isArray(row.images) ? row.images : []
+      const shots = []
+      images.forEach((img) => {
+        const url = String((img && img.url) || (typeof img === 'string' ? img : '') || '')
+        if (url) shots.push(url)
+      })
+      if (!shots.length && row && row.url) shots.push(String(row.url))
+      if (!name && !shots.length) return null
       return {
-        name,
+        name: name || '未命名',
         note: String((row && row.advice) || '').trim(),
+        shots: shots.slice(0, 6),
         status: done ? '已记录' : '施工中',
         tone: done ? 'green' : 'blue',
       }
@@ -280,84 +296,121 @@ function finishRecord(nodes, intakeImages) {
   }
 }
 
+function bucketKeyForNode(node, counters) {
+  if (!node) return ''
+  if (node.kind === 'intake' || node.kind === 'intake_inspection') return 'intake'
+  if (node.kind === 'inspection' || node.kind === 'inspection_report') return 'inspect'
+  if (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm') {
+    const key = `quote:${counters.quote}`
+    counters.quote += 1
+    return key
+  }
+  if (node.kind === 'work') {
+    const key = `work:${counters.work}`
+    counters.work += 1
+    return key
+  }
+  if (node.kind === 'delivery_photos' || node.kind === 'repair_report') return 'finish'
+  return ''
+}
+
+function pickStageRow(rows, selectedKey) {
+  const raw = String(selectedKey || '')
+  const exact = rows.find((row) => row.key === raw)
+  if (exact) return exact
+  const family = stageKeyOf(raw)
+  const matches = rows.filter((row) => stageKeyOf(row.key) === family)
+  if (family === 'quote') return matches.find((row) => row.key === 'quote:0') || matches[0] || rows[0]
+  if (family === 'work') {
+    return matches.find((row) => row.state === 'current') || matches[matches.length - 1] || rows[0]
+  }
+  return matches[0] || rows[0] || null
+}
+
+function tabShort(row, extraQuoteCount, extraSeen) {
+  const family = stageKeyOf(row.key)
+  if (family === 'intake') return '接车'
+  if (family === 'inspect') return '检测'
+  if (family === 'finish') return '交车'
+  if (family === 'work') return '施工'
+  if (family === 'quote' && row.key === 'quote:0') return '报价'
+  if (family === 'quote') return extraQuoteCount > 1 ? `补充报价${extraSeen}` : '补充报价'
+  return row.title || ''
+}
+
 function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'intake') {
   const overview = buildMerchantAlbumOverview(album, flowNodes || [])
-  const buckets = []
-  ;(overview.rows || []).forEach((row) => {
-    const key = stageKeyOf(row.key)
+  const rows = overview.rows || []
+  const counters = { quote: 0, work: 0 }
+  const grouped = {}
+  ;(flowNodes || [])
+    .slice()
+    .sort((a, b) => Number((a && a.sortOrder) || 0) - Number((b && b.sortOrder) || 0))
+    .forEach((node) => {
+    const key = bucketKeyForNode(node, counters)
     if (!key) return
-    const found = buckets.find((item) => item.key === key)
-    const nodeIds = String(row.nodeId || '')
-    if (found) {
-      if (nodeIds) found.nodeIds.push(nodeIds)
-      return
-    }
-    buckets.push({ key, state: row.state, nodeIds: nodeIds ? [nodeIds] : [] })
+    if (!grouped[key]) grouped[key] = []
+    const row = rows.find((item) => item.key === key)
+    grouped[key].push({ ...node, _done: row ? row.state === 'done' : false })
   })
-  const byId = {}
-  ;(flowNodes || []).forEach((node) => {
-    if (node && node.id) byId[node.id] = node
-  })
-  const grouped = { intake: [], inspect: [], quote: [], work: [], finish: [] }
-  ;(flowNodes || []).forEach((node) => {
-    const key = stageKeyOf(
-      node.kind === 'intake' || node.kind === 'intake_inspection'
-        ? 'intake'
-        : node.kind === 'inspection' || node.kind === 'inspection_report'
-          ? 'inspect'
-          : node.kind === 'quote_confirm'
-            ? 'quote'
-            : node.kind === 'addon_quote_confirm'
-              ? 'quote'
-              : node.kind === 'work'
-                ? 'work'
-                : node.kind === 'delivery_photos' || node.kind === 'repair_report'
-                  ? 'finish'
-                  : '',
-    )
-    if (!grouped[key]) return
-    const bucket = buckets.find((item) => item.key === key)
-    grouped[key].push({ ...node, _done: bucket ? bucket.state === 'done' : false })
-  })
-  const selected = STAGES.some((item) => item.key === selectedKey) ? selectedKey : 'intake'
-  const selectedIndex = STAGES.findIndex((item) => item.key === selected)
-  const albumState = (buckets.find((item) => item.key === selected) || {}).state || 'todo'
-  const intakeImages = imagesOf(firstNode(grouped.intake, ['intake', 'intake_inspection']))
+  const selectedRow = pickStageRow(rows, selectedKey)
+  const selected = (selectedRow && selectedRow.key) || 'intake'
+  const family = stageKeyOf(selected)
+  const selectedIndex = Math.max(0, rows.findIndex((row) => row.key === selected))
+  const albumState = (selectedRow && selectedRow.state) || 'todo'
+  const intakeImages = imagesOf(firstNode(grouped.intake || [], ['intake', 'intake_inspection']))
+  const selectedNodes = grouped[selected] || []
   const record = {
-    intake: selected === 'intake' ? intakeRecord(grouped.intake, album) : null,
-    inspect: selected === 'inspect' ? inspectRecord(grouped.inspect) : null,
-    quote: selected === 'quote' ? quoteRecord(grouped.quote.filter((node) => node.kind === 'quote_confirm')) : null,
-    work: selected === 'work' ? workRecord(grouped.work, grouped.quote) : null,
-    finish: selected === 'finish' ? finishRecord(grouped.finish, intakeImages) : null,
+    intake: family === 'intake' ? intakeRecord(selectedNodes, album) : null,
+    inspect: family === 'inspect' ? inspectRecord(selectedNodes) : null,
+    quote: family === 'quote' ? quoteRecord(selectedNodes.filter((node) => node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm')) : null,
+    work: family === 'work' ? workRecord(selectedNodes, []) : null,
+    finish: family === 'finish' ? finishRecord(grouped.finish || selectedNodes, intakeImages) : null,
   }
-  const current = record[selected] || {}
+  const current = record[family] || {}
   const vehicle = album.vehicle || {}
   const year = String(vehicle.modelYear || vehicle.year || '').trim()
   const mileage = Number(vehicle.mileage)
   const mileageLabel =
-    selected === 'intake' || !Number.isFinite(mileage) || mileage <= 0
+    family === 'intake' || !Number.isFinite(mileage) || mileage <= 0
       ? ''
       : `${mileage.toLocaleString('zh-CN')} km`
   const spec = [overview.vehicleName, year ? `${year}` : '', mileageLabel]
     .filter(Boolean)
     .join(' · ')
+  const extraQuoteCount = rows.filter((row) => stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0').length
+  let extraSeen = 0
+  const title =
+    family === 'quote' && selected !== 'quote:0'
+      ? '施工中新发现'
+      : family === 'quote'
+        ? '首次报价'
+        : family === 'work'
+          ? '维修施工'
+          : (STAGES.find((item) => item.key === family) || STAGES[0]).title
   return {
-    title: (STAGES[selectedIndex] || STAGES[0]).title,
+    title,
     selectedKey: selected,
+    family,
     state: albumState,
-    previewNodeId: current.previewNodeId || (grouped[selected][0] && grouped[selected][0].id) || '',
+    focusId: (selectedRow && selectedRow.nodeId) || (selectedNodes[0] && selectedNodes[0].id) || '',
+    previewNodeId: current.previewNodeId || (selectedNodes[0] && selectedNodes[0].id) || '',
     vehicle: {
       plate: overview.plate,
       line: spec,
       pill: overview.pill && overview.pill.text ? overview.pill.text : '进行中',
     },
-    tabs: STAGES.map((item, index) => ({
-      key: item.key,
-      short: item.short,
-      index: index + 1,
-      mark: index < selectedIndex ? 'before' : index === selectedIndex ? 'on' : 'after',
-      state: (buckets.find((bucket) => bucket.key === item.key) || {}).state || 'todo',
-    })),
+    tabs: rows.map((row, index) => {
+      const isExtraQuote = stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0'
+      if (isExtraQuote) extraSeen += 1
+      return {
+        key: row.key,
+        short: tabShort(row, extraQuoteCount, extraSeen),
+        index: index + 1,
+        mark: index < selectedIndex ? 'before' : index === selectedIndex ? 'on' : 'after',
+        state: row.state,
+      }
+    }),
     ...record,
   }
 }
