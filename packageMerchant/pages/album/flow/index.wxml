@@ -355,7 +355,7 @@
           <block wx:if="{{stageBoard.inspect}}">
             <view class="st-hero st-hero--inspect">
               <view
-                wx:if="{{isInspectionPhotoStep && !readOnly}}"
+                wx:if="{{isInspectionPhotoStep && !readOnly && !stageLocked}}"
                 class="st-hero__ai"
                 catchtap="onInspectionAi"
               >
@@ -1776,8 +1776,13 @@
         </view>
       </scroll-view>
       <view class="st-bar">
-        <view class="st-bar__btn" catchtap="onCloseRecordPreview">返回修改</view>
-        <view class="st-bar__btn st-bar__btn--go" catchtap="onAcceptRecordPreview">确认记录内容</view>
+        <block wx:if="{{recordPreview.locked}}">
+          <view class="st-bar__btn st-bar__btn--go" catchtap="onCloseRecordPreview">关闭</view>
+        </block>
+        <block wx:else>
+          <view class="st-bar__btn" catchtap="onCloseRecordPreview">返回修改</view>
+          <view class="st-bar__btn st-bar__btn--go" catchtap="onAcceptRecordPreview">确认记录内容</view>
+        </block>
       </view>
     </view>
     <view wx:if="{{doneView}}" class="ov-work ov-work--top">

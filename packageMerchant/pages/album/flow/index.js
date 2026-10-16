@@ -35,7 +35,7 @@ const {
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
-const { buildRecordPreview, stageChrome } = require('../../../../utils/merchant-record-preview')
+const { buildRecordPreview, stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
 const { buildMerchantStageBoard, stageKeyOf } = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
@@ -367,6 +367,7 @@ Page({
     stageEditor: false,
     stagePrimary: '',
     stagePrimaryAction: '',
+    stageLocked: false,
     stageShowPreview: false,
     recordPreview: null,
     complaintFocus: false,
@@ -1676,6 +1677,11 @@ Page({
         (flowNodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
           .intakeAdvice,
       )
+      const openStageBoard =
+        this.data.workOpen && this.data.stageKey
+          ? buildMerchantStageBoard(album, flowNodes, this.data.stageKey)
+          : null
+      const openStageBar = openStageBoard ? this.stageBarFields(flowNodes, openStageBoard, active) : {}
 
       this.setData({
         status: 'ready',
@@ -1822,10 +1828,8 @@ Page({
         deliveryExteriorUrl,
         deliveryPickMode,
         overview: buildMerchantAlbumOverview(album, flowNodes),
-        stageBoard:
-          this.data.workOpen && this.data.stageKey
-            ? buildMerchantStageBoard(album, flowNodes, this.data.stageKey)
-            : null,
+        stageBoard: openStageBoard,
+        ...openStageBar,
       })
       if (this._foldInspectionPending) {
         this._foldInspectionPending = false
@@ -1884,19 +1888,35 @@ Page({
     return 'intake'
   },
 
+  stageBarFields(flowNodes, board, activeNode) {
+    const key = (board && board.selectedKey) || stageKeyOf(this.data.stageKey) || this.data.stageKey
+    const chrome = stageChrome(
+      key,
+      stageGateFor(flowNodes || this._flowNodes || [], key, activeNode || this.data.activeNode),
+    )
+    return {
+      stageShowPreview: chrome.preview,
+      stagePrimary: chrome.label,
+      stagePrimaryAction: chrome.action,
+      stageLocked: Boolean(chrome.locked),
+      stageEditor: Boolean(board && board.state === 'current' && key !== 'intake' && !chrome.locked),
+    }
+  },
+
   openStage(stageKey) {
     const key = stageKeyOf(stageKey) || stageKey || 'intake'
     const stageBoard = buildMerchantStageBoard(this._album || {}, this._flowNodes || [], key)
-    const chrome = stageChrome(stageBoard.selectedKey, stageBoard.state)
+    const chrome = stageChrome(key, stageGateFor(this._flowNodes || [], key, this.data.activeNode))
     this.setData({
       workOpen: true,
       doneView: null,
-      stageEditor: stageBoard.state === 'current' && stageBoard.selectedKey !== 'intake',
+      stageEditor: stageBoard.state === 'current' && stageBoard.selectedKey !== 'intake' && !chrome.locked,
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
+      stageLocked: Boolean(chrome.locked),
       intakePile: this.collectIntakePile(stageBoard),
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
@@ -1995,7 +2015,7 @@ Page({
       wx.showToast({ title: '还没有可预览的记录', icon: 'none' })
       return
     }
-    this.setData({ recordPreview: preview })
+    this.setData({ recordPreview: { ...preview, locked: Boolean(this.data.stageLocked) } })
   },
 
   onCloseRecordPreview() {
@@ -2279,6 +2299,10 @@ Page({
         return
       }
       this.onAddFindingPhotos()
+      return
+    }
+    if (action === 'proxyConfirm') {
+      this.onProxyConfirm()
       return
     }
     if (action === 'generateReport') {
@@ -5878,6 +5902,7 @@ Page({
         })
         await this.loadFlow({ silent: true })
         if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
+        else if (kind === 'inspection') this.openStage('inspect')
       } catch (e) {
         wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
       } finally {

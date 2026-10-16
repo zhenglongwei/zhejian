@@ -43,30 +43,59 @@ function readStageGate(flowNodes, stageKey) {
   return {
     nodeId: (node && node.id) || '',
     usesDocument: Boolean(node && node.document),
+    status,
     confirmed: versions.length > 0,
-    generated: Boolean(String(pack.reportGeneratedAt || '').trim()) || sent,
+    generated: status === 'delivered' || status === 'confirmed' || Boolean(String(pack.reportGeneratedAt || '').trim()) || sent,
     sent,
     versions,
   }
 }
 
-function stageChrome(stageKey) {
+function stageGateFor(flowNodes, stageKey, activeNode) {
+  const gate = readStageGate(flowNodes, stageKey)
+  if (
+    stageKey === 'quote' &&
+    activeNode &&
+    (activeNode.kind === 'quote_confirm' || activeNode.kind === 'addon_quote_confirm')
+  ) {
+    return {
+      ...gate,
+      status: String((activeNode.document && activeNode.document.status) || ''),
+    }
+  }
+  return gate
+}
+
+function stageChrome(stageKey, gate) {
+  const status = String((gate && gate.status) || '')
   if (stageKey === 'intake') {
-    return { preview: true, label: '保存并发送给车主', action: 'advance' }
+    if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered') {
+      return { preview: true, label: '', action: '', locked: true }
+    }
+    return { preview: true, label: '保存并发送给车主', action: 'advance', locked: false }
   }
   if (stageKey === 'inspect') {
-    return { preview: true, label: '生成检测报告', action: 'generateReport' }
+    if (status === 'delivered' || status === 'confirmed') {
+      return { preview: true, label: '', action: '', locked: true }
+    }
+    return { preview: true, label: '生成检测报告', action: 'generateReport', locked: false }
   }
   if (stageKey === 'quote') {
-    return { preview: true, label: '发送报价单给车主', action: 'sendQuote' }
+    if (status === 'pending_confirm') {
+      return { preview: true, label: '代车主确认', action: 'proxyConfirm', locked: true }
+    }
+    if (status === 'confirmed' || status === 'delivered') {
+      return { preview: true, label: '', action: '', locked: true }
+    }
+    return { preview: true, label: '发送报价单给车主', action: 'sendQuote', locked: false }
   }
   if (stageKey === 'work') {
-    return { preview: true, label: '添加施工记录', action: 'addWork' }
+    return { preview: true, label: '添加施工记录', action: 'addWork', locked: false }
   }
   if (stageKey === 'finish') {
-    return { preview: true, label: '提醒车主确认报告', action: 'remindDelivery' }
+    return { preview: true, label: '提醒车主确认报告', action: 'remindDelivery', locked: false }
   }
-  return { preview: false, label: '', action: '' }
+  return { preview: false, label: '', action: '', locked: false }
 }
 
 function intakeFacts(block) {
@@ -158,6 +187,7 @@ function buildRecordPreview(album = {}, board = {}) {
 
 module.exports = {
   readStageGate,
+  stageGateFor,
   stageChrome,
   buildRecordPreview,
 }

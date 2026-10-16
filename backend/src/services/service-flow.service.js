@@ -607,6 +607,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     payload.document &&
     (previewDocStatus === 'pending_confirm' ||
       previewDocStatus === 'confirmed' ||
+      previewDocStatus === 'delivered' ||
       previewDocStatus === 'cancelled')
   ) {
     const err = new Error('已发给车主，不能再改')
@@ -994,7 +995,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           status: 'in_progress',
           document: {
             ...(list[reportIdx].document || emptyDocument('inspection_report')),
-            status: 'draft',
+            status: 'delivered',
+            deliveredAt: new Date().toISOString(),
             payload: draft,
           },
         }
@@ -1082,8 +1084,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   const updated = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
   const messages = {
     intake: '接车留证已完成，下一步做检测',
-    inspection: '请核对报告并填写方案',
-    intake_inspection: '请核对报告并填写方案',
+    inspection: '检测报告已生成',
+    intake_inspection: '检测报告已生成',
     delivery_photos: '请核对完工确认',
     work: '施工记录已确认',
   }

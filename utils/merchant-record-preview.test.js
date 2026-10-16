@@ -10,7 +10,15 @@ test('每一步都能预览，右边的按钮各不相同', () => {
   assert.equal(stageChrome('finish', 'current').label, '提醒车主确认报告')
   assert.equal(stageChrome('intake', 'current').preview, true)
   assert.equal(stageChrome('work', 'current').preview, true)
-  assert.equal(stageChrome('intake', 'done').label, '保存并发送给车主')
+  assert.equal(stageChrome('intake', { status: 'delivered' }).label, '')
+  assert.equal(stageChrome('intake', { status: 'delivered' }).locked, true)
+  assert.equal(stageChrome('inspect', { status: 'draft' }).label, '生成检测报告')
+  assert.equal(stageChrome('inspect', { status: 'delivered' }).label, '')
+  assert.equal(stageChrome('inspect', { status: 'delivered' }).locked, true)
+  assert.equal(stageChrome('quote', { status: 'draft' }).label, '发送报价单给车主')
+  assert.equal(stageChrome('quote', { status: 'pending_confirm' }).label, '代车主确认')
+  assert.equal(stageChrome('quote', { status: 'pending_confirm' }).locked, true)
+  assert.equal(stageChrome('quote', { status: 'confirmed' }).label, '')
 })
 
 test('预览只用已有记录，不编健康分', () => {
