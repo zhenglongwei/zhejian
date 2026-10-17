@@ -1,6 +1,6 @@
 /**
- * 施工中新发现：打断当前工单，在交车前插入一张增项报价和一张新工单。
- * 新工单不抄上一张工单的项目，避免交车时同一项算两遍。
+ * 施工中新发现：在原施工之后插入一张补充报价。
+ * 不把原施工标完成，不另开空工单。照片和说明留在原施工，可以继续补。
  */
 const { emptyDocument, QUOTE_CONFIRM_COPY } = require('../constants/service-flow-nodes')
 const { buildAddonDraftFromWorkFindings, normalizePhotoDraft } = require('./service-flow-docs')
@@ -30,12 +30,10 @@ function applyAddonInsert(nodes = [], options = {}) {
   const findings =
     work.photoDraft && Array.isArray(work.photoDraft.findings) ? work.photoDraft.findings : []
   const addonDraft = buildAddonDraftFromWorkFindings(findings)
-  if (work.status === 'in_progress' || work.status === 'pending') {
-    list[workIdx] = {
-      ...work,
-      status: 'completed',
-      photoDraft: normalizePhotoDraft(work.photoDraft || {}),
-    }
+  list[workIdx] = {
+    ...work,
+    status: work.status === 'locked' ? 'in_progress' : work.status || 'in_progress',
+    photoDraft: normalizePhotoDraft(work.photoDraft || {}),
   }
   const deliveryIdx = list.findIndex((n) => n && n.kind === 'delivery_photos')
   const insertAt = deliveryIdx >= 0 ? deliveryIdx : list.length
@@ -64,31 +62,72 @@ function applyAddonInsert(nodes = [], options = {}) {
     parentNodeId: list[workIdx].id,
     segmentLabel: '增项',
   }
-  const extraWork = {
-    id: `fn_addon_work_${ts}`,
-    kind: 'work',
-    nodeCategory: 'photo',
-    sortOrder: insertAt + 1,
-    title: '工单',
-    status: 'locked',
-    photos: [],
-    note: '',
-    document: null,
-    legacyStageId: 'stage_5',
-    legacyStageIds: ['stage_5'],
-    insertedReason: 'addon',
-    parentNodeId: quoteNode.id,
-    segmentLabel: '增项',
-    photoDraft: normalizePhotoDraft({}),
-  }
-  list.splice(insertAt, 0, quoteNode, extraWork)
+  list.splice(insertAt, 0, quoteNode)
   list.forEach((n, i) => {
     n.sortOrder = i
   })
   return { nodes: list, seeded: Boolean(addonDraft.seeded), error: '' }
 }
 
+function addonDocStatus(node) {
+  return String((node && node.document && node.document.status) || 'draft')
+}
+
+function isOpenAddonQuote(node) {
+  if (!node || node.kind !== 'quote_confirm' || String(node.insertedReason || '') !== 'addon') return false
+  const status = addonDocStatus(node)
+  return status === 'draft' || status === 'pending_confirm'
+}
+
+function workHasMaterial(node) {
+  if (!node) return false
+  const findings = node.photoDraft && Array.isArray(node.photoDraft.findings) ? node.photoDraft.findings : []
+  if (
+    findings.some(
+      (row) =>
+        row &&
+        (String(row.partName || row.caption || '').trim() ||
+          row.url ||
+          (Array.isArray(row.images) && row.images.length)),
+    )
+  ) {
+    return true
+  }
+  return Array.isArray(node.photos) && node.photos.length > 0
+}
+
+/** 已发出的补充报价若把原施工收成完成，再打开时改回施工中，并去掉还没内容的空工单。 */
+function reopenWorkBesideOpenAddon(nodes = []) {
+  const list = sortNodes(nodes)
+  const remove = new Set()
+  let changed = false
+  list.forEach((node) => {
+    if (!isOpenAddonQuote(node)) return
+    const parentId = String(node.parentNodeId || '')
+    const parent = list.find((item) => item && item.id === parentId && item.kind === 'work')
+    if (parent && parent.status === 'completed') {
+      parent.status = 'in_progress'
+      changed = true
+    }
+    list.forEach((child) => {
+      if (!child || child.kind !== 'work' || String(child.insertedReason || '') !== 'addon') return
+      if (String(child.parentNodeId || '') !== node.id) return
+      if (child.status === 'locked' && !workHasMaterial(child)) {
+        remove.add(child.id)
+      }
+    })
+  })
+  if (!remove.size && !changed) return { nodes: list, changed: false }
+  const next = list.filter((node) => node && !remove.has(node.id))
+  next.forEach((node, index) => {
+    node.sortOrder = index
+  })
+  return { nodes: next, changed: true }
+}
+
 module.exports = {
   applyAddonInsert,
   findWorkToInterrupt,
+  reopenWorkBesideOpenAddon,
+  isOpenAddonQuote,
 }

@@ -315,6 +315,19 @@ function bucketKeyForNode(node, counters) {
   return ''
 }
 
+function focusStaysEditable(board, focus) {
+  if (!board || !focus) return false
+  if (board.family === 'work') {
+    const status = String(focus.status || '')
+    return status === 'in_progress' || status === 'pending'
+  }
+  if (board.family === 'quote' && focus.kind === 'quote_confirm' && String(focus.insertedReason || '') === 'addon') {
+    const status = String((focus.document && focus.document.status) || 'draft')
+    return status === 'draft' || status === ''
+  }
+  return false
+}
+
 function pickStageRow(rows, selectedKey) {
   const raw = String(selectedKey || '')
   const exact = rows.find((row) => row.key === raw)
@@ -424,4 +437,5 @@ module.exports = {
   STAGES,
   stageKeyOf,
   buildMerchantStageBoard,
+  focusStaysEditable,
 }

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const { buildStandardFlowNodes, requiresOwnerConfirm } = require('../constants/service-flow-nodes')
 const { buildFlowProgressView, isFlowNodeDone } = require('./service-flow-progress')
 const { presentMerchantTimeline } = require('./merchant-flow-steps')
-const { applyAddonInsert } = require('./service-flow-addon-insert')
+const { applyAddonInsert, reopenWorkBesideOpenAddon } = require('./service-flow-addon-insert')
 const {
   collectInspectionReportGaps,
   collectQuoteConfirmGaps,
@@ -150,7 +150,7 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.equal(firstAddon.seeded, true)
   const afterFirst = firstAddon.nodes
   const kept = afterFirst.find((n) => n.id === work.id)
-  assert.equal(kept.status, 'completed')
+  assert.equal(kept.status, 'in_progress')
   assert.deepEqual(
     kept.photoDraft.findings.map((row) => row.partName),
     ['更换机油', '下摆臂胶套'],
@@ -161,10 +161,8 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.equal(addon.document.payload.lines[0].name, '下摆臂胶套')
   assert.equal(addon.document.payload.lines[0].amount, '')
   assert.equal(addon.document.payload.discovery.images[0], 'arm.jpg')
-  const addonWork = afterFirst.find((n) => n.id === 'fn_addon_work_101')
-  assert.equal(addonWork.status, 'locked')
-  assert.deepEqual(addonWork.photoDraft.findings, [])
-  assert.equal(activeKind(afterFirst), 'quote_confirm')
+  assert.equal(afterFirst.some((n) => n.id === 'fn_addon_work_101'), false)
+  assert.equal(activeKind(afterFirst), 'work')
   assert.equal(afterFirst.find((n) => n.kind === 'delivery_photos').status, 'locked')
 
   const blocked = collectQuoteConfirmGaps(addon.document.payload, { requireDiscovery: true })
@@ -172,21 +170,18 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   addon.document.payload.lines[0].amount = 180
   assert.equal(collectQuoteConfirmGaps(addon.document.payload, { requireDiscovery: true }).length, 0)
   confirmQuote(afterFirst, addon)
-  assert.equal(addonWork.status, 'in_progress')
+  assert.equal(kept.status, 'in_progress')
   assert.equal(activeKind(afterFirst), 'work')
-
-  addonWork.photoDraft = {
-    findings: [
-      {
-        id: 'w-disc',
-        partName: '制动盘',
-        caption: '盘面起槽',
-        outsideQuote: true,
-        images: [{ url: 'disc.jpg' }],
-        amount: '',
-      },
-    ],
-  }
+  const arm = kept.photoDraft.findings.find((row) => row.id === 'w-arm')
+  arm.outsideQuote = false
+  kept.photoDraft.findings.push({
+    id: 'w-disc',
+    partName: '制动盘',
+    caption: '盘面起槽',
+    outsideQuote: true,
+    images: [{ url: 'disc.jpg' }],
+    amount: '',
+  })
   const secondAddon = applyAddonInsert(afterFirst, { now: 202 })
   assert.equal(secondAddon.seeded, true)
   const afterSecond = secondAddon.nodes
@@ -198,14 +193,16 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.equal(afterSecond.filter((n) => n.insertedReason === 'addon' && n.kind === 'quote_confirm').length, 2)
   again.document.payload.lines[0].amount = 90
   confirmQuote(afterSecond, again)
-  const latestWork = afterSecond.find((n) => n.id === 'fn_addon_work_202')
-  assert.equal(latestWork.status, 'in_progress')
-  assert.deepEqual(latestWork.photoDraft.findings, [])
-  assert.ok(collectWorkPhotoDraftGaps(latestWork.photoDraft).length > 0)
-  latestWork.photoDraft = {
-    findings: [{ id: 'w-disc-new', partName: '换新制动盘', outsideQuote: false, images: [{ url: 'disc-new.jpg' }], amount: '' }],
-  }
-  assert.equal(collectWorkPhotoDraftGaps(latestWork.photoDraft).length, 0)
+  const sameWork = afterSecond.find((n) => n.id === work.id)
+  assert.equal(sameWork.status, 'in_progress')
+  sameWork.photoDraft.findings.push({
+    id: 'w-disc-new',
+    partName: '换新制动盘',
+    outsideQuote: false,
+    images: [{ url: 'disc-new.jpg' }],
+    amount: '',
+  })
+  assert.equal(collectWorkPhotoDraftGaps(sameWork.photoDraft).length, 0)
   completePhoto(afterSecond, 'work')
   assert.equal(activeKind(afterSecond), 'delivery_photos')
   assert.equal(quoteTotal(afterSecond), 260 + 180 + 90)
@@ -233,8 +230,41 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   const timeline = presentMerchantTimeline(afterSecond, null)
   const titles = timeline.completed.map((row) => row.title)
   assert.ok(titles.filter((title) => title.includes('报价')).length >= 2)
-  assert.ok(titles.filter((title) => title.includes('施工')).length >= 2)
+  assert.ok(titles.filter((title) => title.includes('施工')).length >= 1)
   assert.equal(nodes.find((n) => n.kind === 'quote_confirm' && !n.insertedReason).title, '方案确认')
+})
+
+test('已经收成完成的原施工，在补充报价还没确认时改回施工中', () => {
+  const healed = reopenWorkBesideOpenAddon([
+    {
+      id: 'w1',
+      kind: 'work',
+      sortOrder: 0,
+      status: 'completed',
+      photoDraft: { findings: [{ id: 'f1', partName: '拆检', images: [{ url: 'a.jpg' }] }] },
+    },
+    {
+      id: 'q1',
+      kind: 'quote_confirm',
+      sortOrder: 1,
+      insertedReason: 'addon',
+      parentNodeId: 'w1',
+      document: { status: 'draft', payload: { lines: [] } },
+    },
+    {
+      id: 'w2',
+      kind: 'work',
+      sortOrder: 2,
+      status: 'locked',
+      insertedReason: 'addon',
+      parentNodeId: 'q1',
+      photoDraft: { findings: [] },
+    },
+  ])
+  assert.equal(healed.changed, true)
+  assert.equal(healed.nodes.find((node) => node.id === 'w1').status, 'in_progress')
+  assert.equal(healed.nodes.some((node) => node.id === 'w2'), false)
+  assert.equal(healed.nodes.find((node) => node.id === 'w1').photoDraft.findings[0].partName, '拆检')
 })
 
 test('工单金额没把增项算进去时，交车对账会拦住', () => {

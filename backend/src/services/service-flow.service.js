@@ -39,7 +39,7 @@ const {
 } = resolveShared('utils/service-flow-docs.js')
 const { planLegacyPhotoFold } = resolveShared('utils/flow-node-photos.js')
 const { quoteFace } = resolveShared('utils/service-flow-quote-draft.js')
-const { applyAddonInsert } = resolveShared('utils/service-flow-addon-insert.js')
+const { applyAddonInsert, reopenWorkBesideOpenAddon } = resolveShared('utils/service-flow-addon-insert.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
@@ -253,6 +253,37 @@ function unlockNextNode(nodes, index) {
   const next = nodes[index + 1]
   if (next && (next.status === 'locked' || next.status === 'pending')) {
     next.status = 'in_progress'
+  }
+  return nodes
+}
+
+function addonQuoteSettled(node) {
+  if (!node || node.kind !== 'quote_confirm' || String(node.insertedReason || '') !== 'addon') return false
+  const status = String((node.document && node.document.status) || '')
+  return status === 'confirmed' || status === 'cancelled'
+}
+
+function unlockNextLocked(nodes, index) {
+  for (let i = index + 1; i < nodes.length; i += 1) {
+    const next = nodes[i]
+    if (!next || next.status === 'completed') continue
+    if (next.status === 'locked' || next.status === 'pending') next.status = 'in_progress'
+    return nodes
+  }
+  return nodes
+}
+
+function unlockAfterWorkComplete(nodes, index) {
+  for (let i = index + 1; i < nodes.length; i += 1) {
+    const next = nodes[i]
+    if (!next) continue
+    if (next.kind === 'quote_confirm' && String(next.insertedReason || '') === 'addon') {
+      if (addonQuoteSettled(next)) continue
+      return nodes
+    }
+    if (next.status === 'completed') continue
+    if (next.status === 'locked' || next.status === 'pending') next.status = 'in_progress'
+    return nodes
   }
   return nodes
 }
@@ -523,6 +554,15 @@ async function healQuotePrefillAfterReport(albumId, album = null) {
   })
 }
 
+async function healOpenAddonBesideWork(albumId) {
+  await writeFlowPackage(albumId, (pkg) => {
+    const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+    const healed = reopenWorkBesideOpenAddon(nodes)
+    if (!healed.changed) return pkg
+    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: healed.nodes }
+  })
+}
+
 async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, mapNodesForView } = require('./service-album.service')
   let album = await loadAlbum(albumId)
@@ -560,6 +600,8 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
     /* ignore */
   }
   album = await absorbLegacyStagePhotos(albumId, album, nodes)
+  await healOpenAddonBesideWork(albumId)
+  album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
   const {
     resolveCapabilityForMerchant,
@@ -966,7 +1008,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       status: 'completed',
       photoDraft: incomingDraft,
     }
-    unlockNextNode(list, idx)
+    if (list[idx].kind === 'work') unlockAfterWorkComplete(list, idx)
+    else unlockNextNode(list, idx)
 
     if (list[idx].kind === 'inspection' || list[idx].kind === 'intake_inspection') {
       const reportIdx = list.findIndex((n) => n.kind === 'inspection_report')
@@ -2125,7 +2168,15 @@ function buildOwnerFlowView(album, albumNodes = []) {
 /** 报价确认后的连带动作：工单是施工过程的如实记录，不由报价派生，
  *  所以这里只放行后面的工单节点开工，不再塞一份items 给它 */
 function applyQuoteConfirmedSideEffects(nodes, index) {
-  unlockNextNode(nodes, index)
+  const node = nodes[index]
+  const isAddon = node && node.kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon'
+  if (!isAddon) {
+    unlockNextNode(nodes, index)
+    return
+  }
+  const parent = nodes.find((item) => item && node.parentNodeId && item.id === node.parentNodeId)
+  if (parent && parent.kind === 'work' && parent.status !== 'completed') return
+  unlockNextLocked(nodes, index)
 }
 
 async function tryCompleteAlbumAfterRepairConfirm(

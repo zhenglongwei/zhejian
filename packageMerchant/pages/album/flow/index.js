@@ -36,7 +36,7 @@ const { buildFlowProgressView } = require('../../../../utils/service-flow-progre
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
 const { buildRecordPreview, stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
-const { buildMerchantStageBoard, stageKeyOf } = require('../../../../utils/merchant-stage-board')
+const { buildMerchantStageBoard, stageKeyOf, focusStaysEditable } = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
@@ -1339,7 +1339,19 @@ Page({
       const flowNodes = flow.flowNodes || []
       this._flowNodes = flowNodes
       const progress = flow.progress || buildFlowProgressView(flowNodes)
-      const active = progress.activeNode || null
+      const forceStage = Boolean(this._forceStageOpen)
+      this._forceStageOpen = false
+      const stageKeyForBoard = this._pendingStageKey || this.data.stageKey
+      this._pendingStageKey = ''
+      const stageOpen = forceStage || Boolean(this.data.workOpen && stageKeyForBoard)
+      let active = progress.activeNode || null
+      if (stageOpen && stageKeyForBoard) {
+        const previewBoard = buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
+        const focus = flowNodes.find((node) => node && node.id === previewBoard.focusId)
+        if (focus && (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus))) {
+          active = focus
+        }
+      }
       const activeIsPhoto = Boolean(
         active &&
           (active.nodeCategory === 'photo' ||
@@ -1695,10 +1707,9 @@ Page({
         (flowNodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
           .intakeAdvice,
       )
-      const openStageBoard =
-        this.data.workOpen && this.data.stageKey
-          ? buildMerchantStageBoard(album, flowNodes, this.data.stageKey)
-          : null
+      const openStageBoard = stageOpen
+        ? buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
+        : null
       const openStageBar = openStageBoard ? this.stageBarFields(flowNodes, openStageBoard, active) : {}
 
       this.setData({
@@ -1847,6 +1858,8 @@ Page({
         deliveryExteriorUrl,
         deliveryPickMode,
         overview: buildMerchantAlbumOverview(album, flowNodes),
+        workOpen: stageOpen ? true : this.data.workOpen,
+        stageKey: openStageBoard ? openStageBoard.selectedKey : this.data.stageKey,
         stageBoard: openStageBoard,
         ...openStageBar,
       })
@@ -1938,7 +1951,8 @@ Page({
         family === 'quote' ? focus : activeNode || this.data.activeNode,
       ),
     )
-    if (family === 'work' && (!board || board.state !== 'current')) {
+    const stay = focusStaysEditable(board, focus)
+    if (family === 'work' && (!board || board.state !== 'current') && !stay) {
       chrome = { preview: true, label: '', action: '', locked: true }
     }
     return {
@@ -1946,7 +1960,9 @@ Page({
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
-      stageEditor: Boolean(board && board.state === 'current' && family !== 'intake' && !chrome.locked),
+      stageEditor: Boolean(
+        board && (board.state === 'current' || stay) && family !== 'intake' && !chrome.locked,
+      ),
     }
   },
 
@@ -1958,13 +1974,20 @@ Page({
       family,
       stageGateFor(this._flowNodes || [], family, family === 'quote' ? focus : this.data.activeNode),
     )
-    if (family === 'work' && stageBoard.state !== 'current') {
+    const stay = focusStaysEditable(stageBoard, focus)
+    if (family === 'work' && stageBoard.state !== 'current' && !stay) {
       chrome = { preview: true, label: '', action: '', locked: true }
+    }
+    if (stay && (!this.data.activeNode || this.data.activeNode.id !== focus.id)) {
+      this._pendingStageKey = stageBoard.selectedKey
+      this._forceStageOpen = true
+      this.loadFlow({ silent: true })
+      return
     }
     this.setData({
       workOpen: true,
       doneView: null,
-      stageEditor: stageBoard.state === 'current' && family !== 'intake' && !chrome.locked,
+      stageEditor: (stageBoard.state === 'current' || stay) && family !== 'intake' && !chrome.locked,
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
