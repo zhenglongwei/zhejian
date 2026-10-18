@@ -35,7 +35,8 @@ const {
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
-const { buildRecordPreview, stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
+const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
+const { buildOwnerPreviewDoc } = require('../../../../utils/owner-preview-doc')
 const { buildMerchantStageBoard, stageKeyOf, focusStaysEditable } = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
@@ -1348,7 +1349,9 @@ Page({
       if (stageOpen && stageKeyForBoard) {
         const previewBoard = buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
         const focus = flowNodes.find((node) => node && node.id === previewBoard.focusId)
-        if (focus && (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus))) {
+        const workDone =
+          previewBoard.family === 'work' && focus && String(focus.status || '') === 'completed'
+        if (focus && (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus) || workDone)) {
           active = focus
         }
       }
@@ -1717,7 +1720,7 @@ Page({
         serviceName: album.serviceName || '服务相册',
         statusLabel: SERVICE_ALBUM_STATUS_LABEL[status] || status,
         statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
-        readOnly,
+        readOnly: readOnly || Boolean(isWorkPhotoStep && active && active.status === 'completed'),
         completedSteps,
         activeNode: active,
         activeTitle,
@@ -1952,8 +1955,13 @@ Page({
       ),
     )
     const stay = focusStaysEditable(board, focus)
-    if (family === 'work' && (!board || board.state !== 'current') && !stay) {
-      chrome = { preview: true, label: '', action: '', locked: true }
+    const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
+    if (family === 'work' && workDone) {
+      chrome = { preview: false, label: '', action: '', locked: false }
+    } else if (family === 'work' && (!board || board.state !== 'current') && !stay) {
+      chrome = { preview: false, label: '', action: '', locked: true }
+    } else if (family === 'work') {
+      chrome = { ...chrome, preview: false }
     }
     return {
       stageShowPreview: chrome.preview,
@@ -1961,7 +1969,10 @@ Page({
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
       stageEditor: Boolean(
-        board && (board.state === 'current' || stay) && family !== 'intake' && !chrome.locked,
+        board &&
+          (board.state === 'current' || stay || workDone) &&
+          family !== 'intake' &&
+          !chrome.locked,
       ),
     }
   },
@@ -1975,10 +1986,16 @@ Page({
       stageGateFor(this._flowNodes || [], family, family === 'quote' ? focus : this.data.activeNode),
     )
     const stay = focusStaysEditable(stageBoard, focus)
-    if (family === 'work' && stageBoard.state !== 'current' && !stay) {
-      chrome = { preview: true, label: '', action: '', locked: true }
+    const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
+    if (family === 'work' && workDone) {
+      chrome = { preview: false, label: '', action: '', locked: false }
+    } else if (family === 'work' && stageBoard.state !== 'current' && !stay) {
+      chrome = { preview: false, label: '', action: '', locked: true }
+    } else if (family === 'work') {
+      chrome = { ...chrome, preview: false }
     }
-    if (stay && (!this.data.activeNode || this.data.activeNode.id !== focus.id)) {
+    const bindEditor = stay || workDone || stageBoard.state === 'current'
+    if (bindEditor && focus && (!this.data.activeNode || this.data.activeNode.id !== focus.id)) {
       this._pendingStageKey = stageBoard.selectedKey
       this._forceStageOpen = true
       this.loadFlow({ silent: true })
@@ -1987,13 +2004,14 @@ Page({
     this.setData({
       workOpen: true,
       doneView: null,
-      stageEditor: (stageBoard.state === 'current' || stay) && family !== 'intake' && !chrome.locked,
+      stageEditor: (stageBoard.state === 'current' || stay || workDone) && family !== 'intake' && !chrome.locked,
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
+      readOnly: workDone ? true : this.data.readOnly,
       intakePile: this.collectIntakePile(stageBoard),
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
@@ -2087,12 +2105,90 @@ Page({
   },
 
   onOpenRecordPreview() {
-    const preview = buildRecordPreview(this._album || {}, this.data.stageBoard || {})
+    const board = this.data.stageBoard || {}
+    const family = board.family || ''
+    if (family === 'work') return
+    const album = this._album || {}
+    const nodes = this._flowNodes || []
+    const intake = nodes.find((node) => node && (node.kind === 'intake' || node.kind === 'intake_inspection'))
+    const complaint = this.intakeComplaintText()
+    let preview = { hasBody: false }
+    if (family === 'intake') {
+      preview = buildOwnerPreviewDoc({
+        family,
+        album,
+        chiefComplaint: complaint,
+        photos: this.collectIntakePile(board),
+        mileageText: this._albumMileage ? `里程 ${this._albumMileage} km` : '',
+        fuelReading: this.data.fuelReading,
+        belongings: this.data.belongings,
+      })
+    } else if (family === 'inspect') {
+      const inspection = nodes.find((node) => node && (node.kind === 'inspection' || node.kind === 'intake_inspection'))
+      const live = this.data.activeKind === 'inspection' || this.data.activeKind === 'intake_inspection'
+      const findings = live
+        ? this.collectFindingsFromSections()
+        : (inspection && inspection.photoDraft && inspection.photoDraft.findings) || []
+      const quote = nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason)
+      const quoteLines =
+        (quote && quote.document && quote.document.payload && quote.document.payload.lines) || []
+      preview = buildOwnerPreviewDoc({
+        family,
+        album,
+        chiefComplaint: complaint,
+        findings,
+        quoteLines,
+      })
+    } else if (family === 'quote') {
+      const live = this.data.activeKind === 'quote_confirm'
+      const focus = nodes.find((node) => node && node.id === board.focusId)
+      const payload = (focus && focus.document && focus.document.payload) || {}
+      const savedDiscovery = payload.discovery || {}
+      preview = buildOwnerPreviewDoc({
+        family,
+        album,
+        isAddon: Boolean(live ? this.data.isAddonQuote : focus && focus.insertedReason === 'addon'),
+        lines: live ? this.data.quoteLines : payload.lines || [],
+        discoveryNote: live ? this.data.addonDiscoveryNote : savedDiscovery.note || '',
+        discoveryImages: live ? this.data.addonDiscoveryImages : savedDiscovery.images || [],
+      })
+    } else if (family === 'finish') {
+      const works = nodes.filter((node) => node && node.kind === 'work')
+      const workItems = []
+      works.forEach((node) => {
+        const findings = (node.photoDraft && node.photoDraft.findings) || []
+        findings.forEach((row) => {
+          const name = String((row && row.partName) || '').trim()
+          if (!name) return
+          workItems.push({
+            name,
+            brand: String((row && row.brand) || '').trim(),
+            note: String((row && row.caption) || '').trim(),
+            amount: row && row.amount != null ? row.amount : '',
+          })
+        })
+      })
+      const exterior = String(this.data.deliveryExteriorUrl || '').trim()
+      preview = buildOwnerPreviewDoc({
+        family,
+        album,
+        workItems,
+        deliveryPhotos: exterior ? [{ url: exterior, caption: '整车外观' }] : [],
+        warrantyPeriod: this.data.warrantyPeriod,
+        warrantyNotes: this.data.warrantyNotes,
+      })
+    }
     if (!preview.hasBody) {
       wx.showToast({ title: '还没有可预览的记录', icon: 'none' })
       return
     }
-    this.setData({ recordPreview: { ...preview, locked: Boolean(this.data.stageLocked) } })
+    this.setData({
+      recordPreview: {
+        doc: preview.doc,
+        quoteLines: preview.quoteLines || [],
+        locked: Boolean(this.data.stageLocked),
+      },
+    })
   },
 
   onCloseRecordPreview() {

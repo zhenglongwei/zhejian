@@ -539,7 +539,7 @@
             <view wx:if="{{stageBoard.quote.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
           </block>
 
-          <block wx:if="{{stageBoard.work}}">
+          <block wx:if="{{stageBoard.work && !isWorkPhotoStep}}">
             <view class="st-hero st-hero--work">
               <text class="st-kicker st-kicker--light">WORK IN PROGRESS</text>
               <text class="st-hero__title">{{stageBoard.work.headline}}</text>
@@ -1735,7 +1735,7 @@
       </scroll-view>
       <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor))}}" class="st-bar">
         <view wx:if="{{isAddonQuote && stageEditor}}" class="st-bar__btn" bindtap="onOpenCancelAddon">返回施工</view>
-        <view wx:if="{{stageShowPreview && !(isAddonQuote && stageEditor)}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
+        <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
     </view>
@@ -1750,58 +1750,12 @@
         </view>
       </view>
       <scroll-view scroll-y class="rec-preview__body" show-scrollbar="{{false}}">
-        <view class="rec-preview__note">这是车主将看到的记录</view>
-        <view class="rec-preview__card">
-          <view class="doc-brief__store">
-            <text class="doc-brief__mark">{{recordPreview.mark}}</text>
-            <view class="doc-brief__store-text">
-              <text class="doc-brief__store-name">{{recordPreview.storeName}}</text>
-              <text class="doc-brief__store-sub">全程留证</text>
-            </view>
-            <text wx:if="{{recordPreview.status}}" class="doc-brief__pill doc-brief__pill--live">{{recordPreview.status}}</text>
-          </view>
-          <text class="rec-preview__title">{{recordPreview.title}}</text>
-          <view wx:if="{{recordPreview.plate || recordPreview.model}}" class="doc-brief__row">
-            <text>车辆</text>
-            <text>{{recordPreview.plate}}{{recordPreview.model ? ' · ' : ''}}{{recordPreview.model}}</text>
-          </view>
-          <view wx:if="{{recordPreview.summary}}" class="rec-preview__block">
-            <text class="rec-preview__label">节点说明</text>
-            <text class="rec-preview__copy">{{recordPreview.summary}}</text>
-          </view>
-          <view wx:if="{{recordPreview.facts.length}}" class="rec-preview__block">
-            <text class="rec-preview__label">关键数据</text>
-            <view wx:for="{{recordPreview.facts}}" wx:key="label" class="doc-brief__row">
-              <text>{{item.label}}</text>
-              <text>{{item.value}}</text>
-            </view>
-          </view>
-          <view wx:if="{{recordPreview.photos.length}}" class="rec-preview__block">
-            <text class="rec-preview__label">现场留证</text>
-            <view class="rec-preview__photos">
-              <image
-                wx:for="{{recordPreview.photos}}"
-                wx:key="url"
-                src="{{item.url}}"
-                mode="aspectFill"
-                data-url="{{item.url}}"
-                bindtap="onPreviewStagePhoto"
-              />
-            </view>
-          </view>
-          <view wx:if="{{recordPreview.advice}}" class="rec-preview__block">
-            <text class="rec-preview__label">AI 技师意见</text>
-            <text class="rec-preview__copy">{{recordPreview.advice}}</text>
-          </view>
-          <view class="rec-preview__scope">
-            <text>车主可见</text>
-            <text>节点说明、关键数据、留证照片、技师意见</text>
-          </view>
-          <view class="rec-preview__scope">
-            <text>隐私已保护</text>
-            <text>内部备注不在这份记录里</text>
-          </view>
-        </view>
+        <service-doc-sheet
+          doc="{{recordPreview.doc}}"
+          mode="owner"
+          quote-lines="{{recordPreview.quoteLines}}"
+          show-header="{{true}}"
+        />
       </scroll-view>
       <view class="st-bar">
         <block wx:if="{{recordPreview.locked}}">

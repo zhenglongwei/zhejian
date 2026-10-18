@@ -90,7 +90,7 @@ function stageChrome(stageKey, gate) {
     return { preview: true, label: '发送报价单给车主', action: 'sendQuote', locked: false }
   }
   if (stageKey === 'work') {
-    return { preview: true, label: '添加施工记录', action: 'addWork', locked: false }
+    return { preview: false, label: '添加施工记录', action: 'addWork', locked: false }
   }
   if (stageKey === 'finish') {
     return { preview: true, label: '提醒车主确认报告', action: 'remindDelivery', locked: false }
