@@ -49,6 +49,21 @@ function albumMileageKm(album) {
   return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
 }
 
+function intakePhotoNotes(intake) {
+  const draft = (intake && intake.photoDraft) || {}
+  const notes = []
+  const push = (caption) => {
+    const line = text(caption).slice(0, 20)
+    if (!line || notes.length >= 12) return
+    notes.push(line)
+  }
+  if (text(draft.odometerUrl)) push('仪表')
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
+    push((img && img.caption) || '留证照')
+  })
+  return notes
+}
+
 function buildFingerprint(album) {
   const nodes = readFlowNodes(album)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
@@ -58,7 +73,9 @@ function buildFingerprint(album) {
     .createHash('sha1')
     .update(
       JSON.stringify({
+        v: 'evidence',
         c: intakeComplaintText(intake),
+        p: intakePhotoNotes(intake),
         t: text(album && album.templateId),
         b: vehicle.vehicleBrand,
         s: vehicle.vehicleSeries,
@@ -93,14 +110,16 @@ async function runGenerateLlm(facts) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    '你是汽修店员的接车助手。根据主诉、车型年款和当前里程给短意见，不要百科，不要编没听到的损伤。',
-    '三块不许互相复述。不要写怎么拍、不要写环车留证。',
-    'askOwner：最多 4 条。每条一个短标题，options 2到4个可勾选项（短词，如「冷车启动」「过减速带」）。没有把握就不问。',
-    'diagnosis：最多三句，只说最可能什么问题。不要列部位清单。',
-    'checkpoints：举升后检测顺序，按优先级从前到后，结合年款和里程考虑耗材周期。每条 partName + 一句 why。不要写怎么拍，不要重复 diagnosis。最多 8 条。',
-    '车型年款、里程按本车写。不要写模型名、不要写 AI。',
+    '你是汽修门店的接车留证助手。接车只把进店时的状态留下来，避免以后扯皮。',
+    '不要写故障判断，不要写检测顺序，不要写保养周期，不要建议举升、拆检、换件。',
+    '不要把雨刮、滤芯、刹车、轮胎换位这类检测或保养写进来。',
+    '照片说明只用来判断留证齐不齐。不要根据没看见的画面编损伤。',
+    'risks：这单留证现在站不住的地方。每条一个短标题，加一句以后会在哪扯皮。最多 4 条。没有明显缺口就少写。',
+    'fixes：现在在接车这一步就能补的动作。每条一个短标题，加一句补哪张照片，或把诉求哪一句写具体。最多 4 条。',
+    '只有「把部位或程度写进诉求」才给 options，2到4个短词。补照片的条目不要 options。',
+    '不要写模型名，不要写 AI。',
     `本单：${JSON.stringify(facts)}`,
-    '输出 JSON：{"askOwner":[{"title","options":["",""]}],"diagnosis":"","checkpoints":[{"partName","why","priority":1}]}',
+    '输出 JSON：{"risks":[{"title":"","body":""}],"fixes":[{"title":"","body":"","options":[]}]}',
   ].join('\n')
 
   for (const engine of engines) {
@@ -155,6 +174,7 @@ async function runIntakeAdviceJob(albumId) {
     const vehicle = vehicleFacts(album, draft)
     const parsed = await runGenerateLlm({
       chiefComplaint: intakeComplaintText(intake),
+      photos: intakePhotoNotes(intake),
       templateId: text(album.templateId),
       serviceName: text(album.serviceName),
       vehicleBrand: vehicle.vehicleBrand,
@@ -168,10 +188,12 @@ async function runIntakeAdviceJob(albumId) {
         ? {
             status: 'ready',
             fingerprint,
-            diagnosis: parsed.diagnosis,
+            diagnosis: '',
             photoTips: [],
-            askOwner: parsed.askOwner,
-            checkpoints: parsed.checkpoints,
+            askOwner: [],
+            checkpoints: [],
+            risks: parsed.risks,
+            fixes: parsed.fixes,
             errorMessage: '',
             updatedAt: new Date().toISOString(),
           }
@@ -223,6 +245,8 @@ async function queueIntakeAdviceIfNeeded(album, merchantId) {
       photoTips: [],
       askOwner: [],
       checkpoints: [],
+      risks: [],
+      fixes: [],
       updatedAt: new Date().toISOString(),
     },
   }))

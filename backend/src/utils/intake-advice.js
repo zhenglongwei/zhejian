@@ -163,14 +163,21 @@ function parseCheckpoints(raw) {
     .map((row, index) => ({ ...row, sortOrder: index }))
 }
 
+function parseRisks(raw) {
+  return parseTitleBodyList(raw, 4)
+    .map((item) => ({ title: item.title, body: item.body }))
+    .filter((item) => item.title || item.body)
+}
+
 function parseIntakeAdvicePayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
-  const diagnosis = text(parsed.diagnosis || parsed.summary).slice(0, 160)
   return {
-    diagnosis,
+    diagnosis: '',
     photoTips: [],
-    askOwner: parseAskOwner(parsed.askOwner || parsed.questions),
-    checkpoints: parseCheckpoints(parsed.checkpoints || parsed.inspectPoints),
+    askOwner: [],
+    checkpoints: [],
+    risks: parseRisks(parsed.risks),
+    fixes: parseAskOwner(parsed.fixes),
   }
 }
 
@@ -195,10 +202,12 @@ function sanitizeIntakeAdviceForView(advice) {
   if (!status) return null
   return {
     status,
-    diagnosis: text(advice.diagnosis),
+    diagnosis: '',
     photoTips: [],
-    askOwner: Array.isArray(advice.askOwner) ? advice.askOwner : [],
-    checkpoints: Array.isArray(advice.checkpoints) ? advice.checkpoints : [],
+    askOwner: [],
+    checkpoints: [],
+    risks: Array.isArray(advice.risks) ? advice.risks : [],
+    fixes: Array.isArray(advice.fixes) ? advice.fixes : [],
     waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
     errorMessage: status === 'failed' ? text(advice.errorMessage) || '未能出意见' : '',
     updatedAt: text(advice.updatedAt),
@@ -208,9 +217,7 @@ function sanitizeIntakeAdviceForView(advice) {
 function intakeAdviceHasContent(advice) {
   if (!advice || typeof advice !== 'object') return false
   return Boolean(
-    text(advice.diagnosis) ||
-      (advice.askOwner && advice.askOwner.length) ||
-      (advice.checkpoints && advice.checkpoints.length),
+    (advice.risks && advice.risks.length) || (advice.fixes && advice.fixes.length),
   )
 }
 

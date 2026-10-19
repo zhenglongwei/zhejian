@@ -2486,6 +2486,70 @@
   margin-bottom: 20rpx;
 }
 
+.st-ai-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+  padding: 28rpx 32rpx;
+  border-radius: var(--radius-mch-hero);
+  background: linear-gradient(135deg, var(--color-mch-card-start), var(--color-mch-card-end));
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.st-ai-bar image {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.st-ai-bar text {
+  color: var(--color-text-inverse);
+  font-size: var(--font-mch-hero-title);
+  line-height: var(--font-mch-hero-title-lh);
+  font-weight: var(--font-weight-semibold);
+}
+
+.st-ai-chip-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.st-ai-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8rpx;
+  margin-left: 16rpx;
+}
+
+.st-ai-chip__mark {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.st-ai-chip__mark image {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+.st-ai-chip text {
+  color: var(--color-mch-advice);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: var(--font-weight-semibold);
+}
+
 .st-kicker {
   display: block;
   font-size: var(--font-mch-kicker);

@@ -72,13 +72,13 @@ function stageChrome(stageKey, gate) {
     if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered') {
       return { preview: true, label: '', action: '', locked: true }
     }
-    return { preview: true, label: '保存并发送给车主', action: 'advance', locked: false }
+    return { preview: false, label: '发给车主', action: 'advance', locked: false }
   }
   if (stageKey === 'inspect') {
     if (status === 'delivered' || status === 'confirmed') {
       return { preview: true, label: '', action: '', locked: true }
     }
-    return { preview: true, label: '生成检测报告', action: 'generateReport', locked: false }
+    return { preview: false, label: '生成检测报告', action: 'generateReport', locked: false }
   }
   if (stageKey === 'quote') {
     if (status === 'pending_confirm') {
@@ -87,13 +87,16 @@ function stageChrome(stageKey, gate) {
     if (status === 'confirmed' || status === 'delivered') {
       return { preview: true, label: '', action: '', locked: true }
     }
-    return { preview: true, label: '发送报价单给车主', action: 'sendQuote', locked: false }
+    return { preview: false, label: '发给车主', action: 'sendQuote', locked: false }
   }
   if (stageKey === 'work') {
-    return { preview: false, label: '添加施工记录', action: 'addWork', locked: false }
+    return { preview: false, label: '', action: '', locked: false }
   }
   if (stageKey === 'finish') {
-    return { preview: true, label: '提醒车主确认报告', action: 'remindDelivery', locked: false }
+    if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered') {
+      return { preview: true, label: '', action: '', locked: true }
+    }
+    return { preview: false, label: '请车主确认', action: 'remindDelivery', locked: false }
   }
   return { preview: false, label: '', action: '', locked: false }
 }

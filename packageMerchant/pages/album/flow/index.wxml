@@ -45,9 +45,16 @@
   </view>
 </template>
 <template name="intakeAdvicePanel">
-  <view wx:if="{{advice.hasAskOwner}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">建议进一步了解</text>
-    <view wx:for="{{advice.askOwner}}" wx:key="title" class="merchant-flow-page__advice-ask">
+  <view wx:if="{{advice.hasRisks}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">留证风险</text>
+    <view wx:for="{{advice.risks}}" wx:key="seq" class="merchant-flow-page__advice-ask">
+      <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+      <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+    </view>
+  </view>
+  <view wx:if="{{advice.hasFixes}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">现在补</text>
+    <view wx:for="{{advice.fixes}}" wx:key="seq" class="merchant-flow-page__advice-ask">
       <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
       <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
       <view wx:if="{{item.hasOptions && !askReadonly}}" class="merchant-flow-page__advice-chips">
@@ -62,20 +69,6 @@
         >{{opt.label}}</view>
       </view>
       <text wx:elif="{{item.hasOptions}}" class="merchant-flow-page__advice-ask-body">{{item.optionText}}</text>
-    </view>
-  </view>
-  <view wx:if="{{advice.hasDiagnosis}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">初步诊断</text>
-    <text class="merchant-flow-page__advice-lead">{{advice.diagnosis}}</text>
-  </view>
-  <view wx:if="{{advice.hasCheckpoints}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">检测顺序</text>
-    <view wx:for="{{advice.checkpoints}}" wx:key="seq" class="merchant-flow-page__advice-step">
-      <text class="merchant-flow-page__advice-step-num merchant-flow-page__advice-step-num--check">{{item.seq}}</text>
-      <view class="merchant-flow-page__advice-step-main">
-        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-step-title">{{item.title}}</text>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-step-body">{{item.body}}</text>
-      </view>
     </view>
   </view>
 </template>
@@ -276,6 +269,14 @@
           </view>
 
           <block wx:if="{{stageBoard.intake}}">
+            <view
+              wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
+              class="st-ai-bar"
+              catchtap="onIntakeHeaderAi"
+            >
+              <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+              <text>{{intakeAdvice.isWaiting ? '正在看' : 'AI分析'}}</text>
+            </view>
             <view class="st-card">
               <view class="st-card__head">
                 <view>
@@ -379,7 +380,7 @@
                 <text wx:for="{{stageBoard.inspect.pills}}" wx:key="text" class="st-pill st-pill--{{item.tone}}">{{item.text}}</text>
               </view>
             </view>
-            <view wx:if="{{stageBoard.inspect.items.length}}" class="st-card">
+            <view wx:if="{{stageBoard.inspect.items.length && !isInspectionPhotoStep}}" class="st-card">
               <view class="st-card__head">
                 <view>
                   <text class="st-kicker">ABNORMAL ITEMS</text>
@@ -400,14 +401,14 @@
                 </view>
               </view>
             </view>
-            <view wx:if="{{stageBoard.inspect.advice && stageBoard.state !== 'current'}}" class="st-ai">
+            <view wx:if="{{stageBoard.inspect.advice && !isInspectionPhotoStep && stageBoard.state !== 'current'}}" class="st-ai">
               <image src="/assets/mch/spark-white.png" mode="aspectFit" />
               <view>
                 <text class="st-ai__title">AI 检测意见</text>
                 <text class="st-ai__body">{{stageBoard.inspect.advice}}</text>
               </view>
             </view>
-            <view wx:if="{{stageBoard.inspect.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
+            <view wx:if="{{stageBoard.inspect.empty && !isInspectionPhotoStep && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
           </block>
 
           <block wx:if="{{stageBoard.quote}}">
@@ -489,7 +490,7 @@
               <text wx:if="{{!readOnly}}" class="st-line__add" bindtap="onAddQuoteLine">+ 新增项目</text>
               <view class="st-line__sum">{{quoteTotalLabel}}</view>
             </view>
-            <view wx:elif="{{stageBoard.quote.lines.length && !(stageEditor && isAddonQuote)}}" class="st-card">
+            <view wx:elif="{{stageBoard.quote.lines.length && !stageEditor}}" class="st-card">
               <view class="st-card__head">
                 <view>
                   <text class="st-kicker">QUOTE DETAILS</text>
@@ -506,7 +507,7 @@
               <view class="st-line__sum">{{stageBoard.quote.totalText}}</view>
             </view>
             <view
-              wx:if="{{(stageBoard.quote.discoveryNote || stageBoard.quote.discoveryPhotos.length) && !(stageEditor && isAddonQuote)}}"
+              wx:if="{{(stageBoard.quote.discoveryNote || stageBoard.quote.discoveryPhotos.length) && !stageEditor}}"
               class="st-card"
             >
               <text class="st-card__title">新发现</text>
@@ -581,7 +582,7 @@
             <view wx:if="{{stageBoard.work.empty && stageBoard.state !== 'current'}}" class="st-empty">这一步还没有记录</view>
           </block>
 
-          <block wx:if="{{stageBoard.finish}}">
+          <block wx:if="{{stageBoard.finish && !isDeliveryPhotoStep && activeKind !== 'repair_report'}}">
             <view class="st-hero st-hero--finish">
               <text class="st-kicker st-kicker--light">READY FOR DELIVERY</text>
               <text class="st-hero__title">{{stageBoard.finish.headline}}</text>
@@ -641,6 +642,14 @@
                 wx:if="{{isDeliveryPhotoStep}}"
                 class="merchant-flow-page__doc-block merchant-flow-page__section merchant-flow-page__delivery"
               >
+                <view wx:if="{{!readOnly && !stageLocked}}" class="st-ai-chip-row">
+                  <view class="st-ai-chip" catchtap="onToggleAdvice">
+                    <view class="st-ai-chip__mark">
+                      <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+                    </view>
+                    <text>{{aiReview.isWaiting ? '正在看' : 'AI分析'}}</text>
+                  </view>
+                </view>
                 <view class="merchant-flow-page__delivery-step">
                   <view class="merchant-flow-page__delivery-head">
                     <text class="merchant-flow-page__delivery-index">1</text>
@@ -1158,14 +1167,6 @@
                       <text class="merchant-flow-page__work-thumb-plus">+</text>
                     </view>
                   </view>
-                  <ui-button
-                    wx:if="{{showQuoteAiCheck && !readOnly}}"
-                    type="secondary"
-                    block="{{true}}"
-                    loading="{{confirming && !adviceOpen}}"
-                    disabled="{{confirming && !adviceOpen}}"
-                    bind:btntap="onToggleAdvice"
-                  >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                 </block>
                 <ui-album-node
                   wx:elif="{{!isDeliveryPhotoStep}}"
@@ -1226,14 +1227,6 @@
                   <template is="aiFieldHint" data="{{hint: item}}" />
                 </view>
                 <view class="merchant-flow-page__step-actions">
-                  <ui-button
-                    wx:if="{{showQuoteAiCheck && isDeliveryPhotoStep && !readOnly}}"
-                    type="secondary"
-                    block="{{true}}"
-                    loading="{{confirming && !adviceOpen}}"
-                    disabled="{{confirming && !adviceOpen}}"
-                    bind:btntap="onToggleAdvice"
-                  >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                   <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action merchant-flow-page__step-action--primary stage-bar-only">
                     <ui-button
                       type="primary"
@@ -1456,14 +1449,6 @@
                   <view class="merchant-flow-page__ai-status-spin"></view>
                   <text class="merchant-flow-page__ai-status-text">{{quoteAssist.isWaiting ? quoteAssist.waitHint : '正在出意见'}}</text>
                 </view>
-                <ui-button
-                  wx:if="{{showQuoteAiCheck}}"
-                  type="secondary"
-                  block="{{true}}"
-                  loading="{{confirming && !adviceOpen}}"
-                  disabled="{{confirming && !adviceOpen}}"
-                  bind:btntap="onToggleAdvice"
-                >{{adviceOpen ? '收起' : 'AI意见'}}</ui-button>
                 <view wx:if="{{quoteNotifyReady && !notifyConfirmDisabled}}" class="stage-bar-only">
                   <ui-button
                     type="primary"
@@ -1733,9 +1718,9 @@
             </block>
           </view>
       </scroll-view>
-      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor))}}" class="st-bar">
-        <view wx:if="{{isAddonQuote && stageEditor}}" class="st-bar__btn" bindtap="onOpenCancelAddon">返回施工</view>
-        <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenRecordPreview">预览记录</view>
+      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor && !stageLocked))}}" class="st-bar">
+        <view wx:if="{{isAddonQuote && stageEditor && !stageLocked}}" class="st-bar__btn" bindtap="onOpenCancelAddon">返回施工</view>
+        <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenOwnerView">看车主看到的</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
     </view>
@@ -1744,8 +1729,7 @@
         <view class="rec-preview__row" style="padding-right: {{capsulePad}}px;">
           <text class="ov-back" catchtap="onCloseRecordPreview">‹</text>
           <view class="ov-nav__text">
-            <text class="ov-kicker">提交前确认</text>
-            <text class="ov-work__title">节点记录预览</text>
+            <text class="ov-work__title">车主看到的</text>
           </view>
         </view>
       </view>
@@ -1763,7 +1747,7 @@
         </block>
         <block wx:else>
           <view class="st-bar__btn" catchtap="onCloseRecordPreview">返回修改</view>
-          <view class="st-bar__btn st-bar__btn--go" catchtap="onAcceptRecordPreview">确认记录内容</view>
+          <view class="st-bar__btn st-bar__btn--go" catchtap="onAcceptRecordPreview">{{recordPreview.acceptLabel}}</view>
         </block>
       </view>
     </view>
@@ -1827,7 +1811,7 @@
   <view wx:if="{{adviceOpen}}" class="merchant-flow-page__advice-mask" catchtouchmove="true" bindtap="onCloseAdvice">
     <view class="merchant-flow-page__advice" catchtap="onAdvicePanelTap">
       <view class="merchant-flow-page__advice-head">
-        <text class="text-h3">AI意见</text>
+        <text class="text-h3">AI分析</text>
         <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
       </view>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">

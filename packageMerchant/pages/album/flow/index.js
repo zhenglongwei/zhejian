@@ -37,7 +37,13 @@ const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
 const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
 const { buildOwnerPreviewDoc } = require('../../../../utils/owner-preview-doc')
-const { buildMerchantStageBoard, stageKeyOf, focusStaysEditable } = require('../../../../utils/merchant-stage-board')
+const {
+  buildMerchantStageBoard,
+  stageKeyOf,
+  focusStaysEditable,
+  stageReviewForm,
+  stageEditorNode,
+} = require('../../../../utils/merchant-stage-board')
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
@@ -1351,8 +1357,13 @@ Page({
         const focus = flowNodes.find((node) => node && node.id === previewBoard.focusId)
         const workDone =
           previewBoard.family === 'work' && focus && String(focus.status || '') === 'completed'
-        if (focus && (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus) || workDone)) {
-          active = focus
+        const review = stageReviewForm(previewBoard, focus, flowNodes)
+        const editorNode = stageEditorNode(previewBoard, focus, flowNodes)
+        if (
+          editorNode &&
+          (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus) || workDone || review)
+        ) {
+          active = editorNode
         }
       }
       const activeIsPhoto = Boolean(
@@ -1720,7 +1731,10 @@ Page({
         serviceName: album.serviceName || '服务相册',
         statusLabel: SERVICE_ALBUM_STATUS_LABEL[status] || status,
         statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
-        readOnly: readOnly || Boolean(isWorkPhotoStep && active && active.status === 'completed'),
+        readOnly:
+          readOnly ||
+          Boolean(isWorkPhotoStep && active && active.status === 'completed') ||
+          stageReviewForm(openStageBoard, openStageBoard && flowNodes.find((node) => node && node.id === openStageBoard.focusId), flowNodes),
         completedSteps,
         activeNode: active,
         activeTitle,
@@ -1956,6 +1970,7 @@ Page({
     )
     const stay = focusStaysEditable(board, focus)
     const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
+    const review = stageReviewForm(board, focus, flowNodes)
     if (family === 'work' && workDone) {
       chrome = { preview: false, label: '', action: '', locked: false }
     } else if (family === 'work' && (!board || board.state !== 'current') && !stay) {
@@ -1970,9 +1985,8 @@ Page({
       stageLocked: Boolean(chrome.locked),
       stageEditor: Boolean(
         board &&
-          (board.state === 'current' || stay || workDone) &&
           family !== 'intake' &&
-          !chrome.locked,
+          (((board.state === 'current' || stay || workDone) && !chrome.locked) || review || workDone),
       ),
     }
   },
@@ -1987,6 +2001,8 @@ Page({
     )
     const stay = focusStaysEditable(stageBoard, focus)
     const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
+    const review = stageReviewForm(stageBoard, focus, this._flowNodes || [])
+    const editorNode = stageEditorNode(stageBoard, focus, this._flowNodes || [])
     if (family === 'work' && workDone) {
       chrome = { preview: false, label: '', action: '', locked: false }
     } else if (family === 'work' && stageBoard.state !== 'current' && !stay) {
@@ -1994,8 +2010,8 @@ Page({
     } else if (family === 'work') {
       chrome = { ...chrome, preview: false }
     }
-    const bindEditor = stay || workDone || stageBoard.state === 'current'
-    if (bindEditor && focus && (!this.data.activeNode || this.data.activeNode.id !== focus.id)) {
+    const bindEditor = stay || workDone || review || stageBoard.state === 'current'
+    if (bindEditor && editorNode && (!this.data.activeNode || this.data.activeNode.id !== editorNode.id)) {
       this._pendingStageKey = stageBoard.selectedKey
       this._forceStageOpen = true
       this.loadFlow({ silent: true })
@@ -2004,14 +2020,16 @@ Page({
     this.setData({
       workOpen: true,
       doneView: null,
-      stageEditor: (stageBoard.state === 'current' || stay || workDone) && family !== 'intake' && !chrome.locked,
+      stageEditor:
+        family !== 'intake' &&
+        (((stageBoard.state === 'current' || stay || workDone) && !chrome.locked) || review || workDone),
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
-      readOnly: workDone ? true : this.data.readOnly,
+      readOnly: workDone || review ? true : this.data.readOnly,
       intakePile: this.collectIntakePile(stageBoard),
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
@@ -2179,24 +2197,58 @@ Page({
       })
     }
     if (!preview.hasBody) {
-      wx.showToast({ title: '还没有可预览的记录', icon: 'none' })
+      this._previewAcceptAction = ''
+      wx.showToast({ title: '还没有可给车主看的内容', icon: 'none' })
       return
     }
+    const sending = String(this._previewAcceptAction || '')
     this.setData({
       recordPreview: {
         doc: preview.doc,
         quoteLines: preview.quoteLines || [],
-        locked: Boolean(this.data.stageLocked),
+        locked: !sending,
+        acceptLabel: this.previewAcceptLabel(sending),
       },
     })
   },
 
+  previewAcceptLabel(action) {
+    if (action === 'generateReport') return '生成检测报告'
+    if (action === 'remindDelivery') return '请车主确认'
+    if (action === 'advance' || action === 'sendQuote') return '发给车主'
+    return ''
+  },
+
+  onOpenOwnerView() {
+    this._previewAcceptAction = ''
+    this.onOpenRecordPreview()
+  },
+
   onCloseRecordPreview() {
+    this._previewAcceptAction = ''
     this.setData({ recordPreview: null })
   },
 
   onAcceptRecordPreview() {
+    const action = String(this._previewAcceptAction || '')
+    this._previewAcceptAction = ''
     this.setData({ recordPreview: null })
+    if (!action || this.data.confirming) return
+    if (action === 'advance') {
+      this.onConfirmPhotoStep()
+      return
+    }
+    if (action === 'generateReport') {
+      const kind = this.data.activeNode && this.data.activeNode.kind
+      if (kind === 'inspection' || kind === 'intake_inspection') {
+        this.onConfirmPhotoStep()
+        return
+      }
+      this.sendOwnerDocument('inspect')
+      return
+    }
+    if (action === 'sendQuote') this.sendOwnerDocument('quote')
+    if (action === 'remindDelivery') this.sendOwnerDocument('finish')
   },
 
   intakeNode() {
@@ -2454,16 +2506,13 @@ Page({
         this.openStage('inspect')
         return
       }
-      wx.showModal({
-        title: '发给车主',
-        content: '发出后不能再改。请核对入店照片和车主诉求。',
-        confirmText: '发送',
-        cancelText: '再看一下',
-        success: (res) => {
-          if (!res.confirm) return
-          this.onConfirmPhotoStep()
-        },
-      })
+      this._previewAcceptAction = 'advance'
+      this.onOpenRecordPreview()
+      return
+    }
+    if (action === 'generateReport' || action === 'sendQuote' || action === 'remindDelivery') {
+      this._previewAcceptAction = action
+      this.onOpenRecordPreview()
       return
     }
     if (action === 'addWork') {
@@ -2476,18 +2525,7 @@ Page({
     }
     if (action === 'proxyConfirm') {
       this.onProxyConfirm()
-      return
     }
-    if (action === 'generateReport') {
-      const kind = this.data.activeNode && this.data.activeNode.kind
-      if (kind === 'inspection' || kind === 'intake_inspection') {
-        this.onConfirmPhotoStep()
-        return
-      }
-      this.sendOwnerDocument('inspect')
-    }
-    if (action === 'sendQuote') this.sendOwnerDocument('quote')
-    if (action === 'remindDelivery') this.sendOwnerDocument('finish')
   },
 
   onOpenStageEditor() {
@@ -4993,22 +5031,15 @@ Page({
     }
   },
 
-  decorateIntakeAdvice(raw) {
-    if (!raw || typeof raw !== 'object') {
-      return { status: '', isWaiting: false, hasContent: false }
-    }
-    const status = String(raw.status || '')
-    const diagnosis = String(raw.diagnosis || '').trim()
-    const prevAsk = (this.data.intakeAdvice && this.data.intakeAdvice.askOwner) || []
-    const photoTips = []
-    const askOwner = (Array.isArray(raw.askOwner) ? raw.askOwner : [])
+  decorateIntakeRows(rawRows, prevRows) {
+    return (Array.isArray(rawRows) ? rawRows : [])
       .map((row, qi) => {
         const title = String((row && (row.title || row.partName)) || '').trim()
-        const body = String((row && row.body) || '').trim()
+        const body = String((row && (row.body || row.why)) || '').trim()
         const prev =
-          prevAsk.find((item) => item && item.title === title) || prevAsk[qi] || {}
+          (prevRows || []).find((item) => item && item.title === title) || (prevRows || [])[qi] || {}
         const prevOpts = Array.isArray(prev.options) ? prev.options : []
-        const options = (Array.isArray(row.options) ? row.options : [])
+        const options = (Array.isArray(row && row.options) ? row.options : [])
           .map((opt, oi) => {
             const label = String((opt && (opt.label || opt.title || opt)) || '').trim()
             const hit = prevOpts.find((item) => item && item.label === label)
@@ -5016,23 +5047,32 @@ Page({
           })
           .filter((item) => item.label)
         return {
+          seq: String(qi + 1),
           title,
           body,
           hasTitle: Boolean(title),
-          hasBody: Boolean(body) && !options.length,
+          hasBody: Boolean(body),
           options,
           hasOptions: options.length > 0,
           optionText: options.map((opt) => opt.label).join('、'),
         }
       })
       .filter((row) => row.hasTitle || row.hasBody || row.hasOptions)
-    const checkpoints = (Array.isArray(raw.checkpoints) ? raw.checkpoints : [])
-      .map((row, index) => {
-        const item = this.decorateBriefItem({ title: row.partName, body: row.why })
-        return { ...item, seq: String(index + 1) }
-      })
-      .filter((row) => row.hasTitle || row.hasBody)
-    const fp = `${status}|${diagnosis}|${askOwner.map((row) => row.title).join(',')}`
+  },
+
+  decorateIntakeAdvice(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return { status: '', isWaiting: false, hasContent: false }
+    }
+    const status = String(raw.status || '')
+    const prev = this.data.intakeAdvice || {}
+    const risks = this.decorateIntakeRows(raw.risks, prev.risks).map((row) => ({
+      ...row,
+      options: [],
+      hasOptions: false,
+    }))
+    const fixes = this.decorateIntakeRows(raw.fixes, prev.fixes)
+    const fp = `${status}|${risks.map((row) => row.title).join(',')}|${fixes.map((row) => row.title).join(',')}`
     if (status === 'ready' && this._askAdviceFp !== fp) {
       this._askAdviceFp = fp
       this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
@@ -5040,15 +5080,15 @@ Page({
     return {
       ...raw,
       status,
-      diagnosis,
-      photoTips,
-      askOwner,
-      checkpoints,
-      hasDiagnosis: Boolean(diagnosis),
-      hasPhotoTips: photoTips.length > 0,
-      hasAskOwner: askOwner.length > 0,
-      hasCheckpoints: checkpoints.length > 0,
-      hasContent: Boolean(diagnosis || photoTips.length || askOwner.length || checkpoints.length),
+      diagnosis: '',
+      photoTips: [],
+      askOwner: [],
+      checkpoints: [],
+      risks,
+      fixes,
+      hasRisks: risks.length > 0,
+      hasFixes: fixes.length > 0,
+      hasContent: Boolean(risks.length || fixes.length),
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
@@ -5075,8 +5115,8 @@ Page({
     const q = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.q)
     const o = Number(e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.o)
     const advice = this.data.intakeAdvice
-    if (!advice || !Array.isArray(advice.askOwner) || !Number.isFinite(q) || !Number.isFinite(o)) return
-    const askOwner = advice.askOwner.map((row, qi) => {
+    if (!advice || !Array.isArray(advice.fixes) || !Number.isFinite(q) || !Number.isFinite(o)) return
+    const fixes = advice.fixes.map((row, qi) => {
       if (qi !== q) return row
       const options = (row.options || []).map((opt, oi) =>
         oi === o ? { ...opt, picked: !opt.picked } : opt,
@@ -5086,10 +5126,10 @@ Page({
     if (this._askComplaintBase == null) {
       this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
     }
-    const chiefComplaint = this.mergeAskPicksIntoComplaint(askOwner)
+    const chiefComplaint = this.mergeAskPicksIntoComplaint(fixes)
     this.setData(
       {
-        intakeAdvice: { ...advice, askOwner, hasAskOwner: true },
+        intakeAdvice: { ...advice, fixes, hasFixes: true },
         chiefComplaint,
         autoSaveLabel: '保存中…',
       },
@@ -6213,6 +6253,18 @@ Page({
       return
     }
     await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
+  },
+
+  onIntakeHeaderAi() {
+    if (this.data.readOnly || this.data.confirming || this.data.intakeSent) return
+    if (this.data.adviceOpen) {
+      this.setData({ adviceOpen: false })
+      return
+    }
+    this.setData({ adviceOpen: true })
+    const advice = this.data.intakeAdvice
+    if ((advice && advice.hasContent) || (advice && advice.isWaiting)) return
+    this.onStartIntakeAdvice()
   },
 
   onToggleAdvice() {

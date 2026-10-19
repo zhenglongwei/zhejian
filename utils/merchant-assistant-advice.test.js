@@ -21,7 +21,7 @@ test('没有意见时不编卡片', () => {
   assert.deepEqual(cards, [])
 })
 
-test('接车意见在报价还能改时写入报价单', () => {
+test('接车留证意见不写进报价单', () => {
   const cards = collectAssistantAdvice(
     album([
       {
@@ -29,7 +29,7 @@ test('接车意见在报价还能改时写入报价单', () => {
         kind: 'intake',
         intakeAdvice: {
           status: 'ready',
-          diagnosis: '节温器座渗漏较多，建议先看冷却系统',
+          risks: [{ title: '剐蹭没写部位', body: '交车时分不清是进店前就有的。' }],
           updatedAt: '2026-10-11T05:40:00.000Z',
         },
       },
@@ -37,34 +37,7 @@ test('接车意见在报价还能改时写入报价单', () => {
     ]),
     now,
   )
-  assert.equal(cards.length, 1)
-  assert.equal(cards[0].plate, '粤B·7K52M')
-  assert.equal(cards[0].kindLabel, '接车意见')
-  assert.equal(cards[0].action, 'quote')
-  assert.equal(cards[0].actionLabel, '添加到报价单')
-  assert.equal(cards[0].quoteNodeId, 'q1')
-  assert.equal(cards[0].when, '20 分钟前')
-})
-
-test('报价已发给车主时只能打开那一步', () => {
-  const cards = collectAssistantAdvice(
-    album([
-      {
-        id: 'in',
-        kind: 'intake',
-        intakeAdvice: { status: 'ready', diagnosis: '冷却液痕迹' },
-      },
-      {
-        id: 'q1',
-        kind: 'quote_confirm',
-        document: { status: 'pending_confirm', payload: { lines: [] } },
-      },
-    ]),
-    now,
-  )
-  assert.equal(cards[0].action, 'open')
-  assert.equal(cards[0].actionLabel, '查看并采纳')
-  assert.equal(cards[0].quoteNodeId, '')
+  assert.deepEqual(cards, [])
 })
 
 test('已采纳、已写进报价单、补拍不进报价', () => {

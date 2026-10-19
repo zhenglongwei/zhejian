@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { FINDING_RESULT } = require('../constants/service-flow-nodes')
-const { buildMerchantStageBoard } = require('./merchant-stage-board')
+const { buildMerchantStageBoard, stageReviewForm, stageEditorNode } = require('./merchant-stage-board')
 
 function album() {
   return {
@@ -169,4 +169,16 @@ test('补充报价单独占一格，施工图留在原来的施工', () => {
   const openFirst = buildMerchantStageBoard(openAlbum, list, 'quote')
   assert.equal(openFirst.quoteHeroLabel, '先确认这些')
   assert.equal(openFirst.quoteHeroSub, '已写项目合计')
+})
+
+test('发出后的检测和报价仍打开原来的表', () => {
+  const sent = [
+    { id: 'ins', kind: 'inspection', sortOrder: 1, photoDraft: { findings: [{ partName: '下摆臂' }] } },
+    { id: 'rep', kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered' } },
+    { id: 'q', kind: 'quote_confirm', sortOrder: 3, document: { status: 'pending_confirm' } },
+  ]
+  assert.equal(stageReviewForm({ family: 'inspect' }, null, sent), true)
+  assert.equal(stageEditorNode({ family: 'inspect' }, sent[1], sent).id, 'ins')
+  assert.equal(stageReviewForm({ family: 'quote' }, sent[2], sent), true)
+  assert.equal(stageReviewForm({ family: 'quote' }, { document: { status: 'draft' } }, sent), false)
 })

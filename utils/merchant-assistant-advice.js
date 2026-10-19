@@ -172,29 +172,7 @@ function collectAssistantAdvice(album, now = new Date()) {
   nodes.forEach((node) => {
     if (!node || !node.id) return
     if (node.kind === 'intake' || node.kind === 'intake_inspection') {
-      const advice = node.intakeAdvice || {}
-      if (advice.status === 'failed') return
-      const diagnosis = text(advice.diagnosis)
-      if (diagnosis) {
-        const lead = leadOf(diagnosis)
-        pushCard(
-          list,
-          buildCard(
-            packed,
-            node,
-            'intake',
-            {
-              kindLabel: '接车意见',
-              title: lead.title,
-              body: lead.body,
-              updatedAt: advice.updatedAt,
-              canQuote: true,
-            },
-            quote,
-            now,
-          ),
-        )
-      }
+      return
     }
     suggestionCards(packed, node, quote, now, list)
   })

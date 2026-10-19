@@ -315,6 +315,38 @@ function bucketKeyForNode(node, counters) {
   return ''
 }
 
+function stageReviewForm(board, focus, nodes) {
+  if (!board) return false
+  const list = nodes || []
+  if (board.family === 'inspect') {
+    const report = list.find((node) => node && node.kind === 'inspection_report')
+    const status = docStatus(report)
+    return status === 'delivered' || status === 'confirmed'
+  }
+  if (board.family === 'quote') {
+    const status = docStatus(focus)
+    return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled'
+  }
+  if (board.family === 'finish') {
+    const report = list.find((node) => node && node.kind === 'repair_report')
+    const status = docStatus(report)
+    return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+  }
+  return false
+}
+
+function stageEditorNode(board, focus, nodes) {
+  const list = nodes || []
+  if (!board) return focus || null
+  if (board.family === 'inspect') {
+    return list.find((node) => node && (node.kind === 'inspection' || node.kind === 'intake_inspection')) || focus
+  }
+  if (board.family === 'finish' && stageReviewForm(board, focus, list)) {
+    return list.find((node) => node && node.kind === 'repair_report') || focus
+  }
+  return focus || null
+}
+
 function focusStaysEditable(board, focus) {
   if (!board || !focus) return false
   if (board.family === 'work') {
@@ -438,4 +470,6 @@ module.exports = {
   stageKeyOf,
   buildMerchantStageBoard,
   focusStaysEditable,
+  stageReviewForm,
+  stageEditorNode,
 }
