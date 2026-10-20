@@ -33,19 +33,30 @@ function buildAssistFingerprint(album) {
   const nodes = readFlowNodes(album)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
   const report = nodes.find((item) => item && item.kind === 'inspection_report')
+  const quote = nodes.find((item) => item && item.kind === 'quote_confirm' && !item.insertedReason)
   const payload = (report && report.document && report.document.payload) || {}
   const findings = Array.isArray(payload.findings) ? payload.findings : []
+  const quotePayload = (quote && quote.document && quote.document.payload) || {}
+  const lines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
+  const intakeDraft = (intake && intake.photoDraft) || {}
+  const intakePhotos = Array.isArray(intakeDraft.pendingImages) ? intakeDraft.pendingImages : []
   return crypto
     .createHash('sha1')
     .update(
       JSON.stringify({
-        c: text(
-          (intake && intake.photoDraft && intake.photoDraft.chiefComplaint) || payload.chiefComplaint,
-        ),
+        v: 'prior',
+        c: text(intakeDraft.chiefComplaint || payload.chiefComplaint),
+        intake: text((intake && intake.intakeAdvice && intake.intakeAdvice.updatedAt) || ''),
+        p: intakePhotos.map((img) => text(img && (img.url || img))),
         f: findings.map((row) => ({
           p: text(row && row.partName),
           r: text(row && row.result),
           a: text(row && row.advice),
+        })),
+        q: lines.map((row) => ({
+          n: text(row && row.name),
+          a: text(row && row.amount),
+          note: text(row && row.note),
         })),
       }),
     )

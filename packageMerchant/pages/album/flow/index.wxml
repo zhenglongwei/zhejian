@@ -45,31 +45,49 @@
   </view>
 </template>
 <template name="intakeAdvicePanel">
+  <view wx:if="{{advice.covered && !advice.hasRisks}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-lead">车身四周都拍到了</text>
+  </view>
   <view wx:if="{{advice.hasRisks}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">留证风险</text>
+    <text class="merchant-flow-page__advice-sec-title">还没拍到</text>
     <view wx:for="{{advice.risks}}" wx:key="seq" class="merchant-flow-page__advice-ask">
       <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
       <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
     </view>
   </view>
   <view wx:if="{{advice.hasFixes}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">现在补</text>
+    <text class="merchant-flow-page__advice-sec-title">补一张全景</text>
     <view wx:for="{{advice.fixes}}" wx:key="seq" class="merchant-flow-page__advice-ask">
       <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
       <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
-      <view wx:if="{{item.hasOptions && !askReadonly}}" class="merchant-flow-page__advice-chips">
-        <view
-          wx:for="{{item.options}}"
-          wx:for-item="opt"
-          wx:key="label"
-          class="merchant-flow-page__advice-chip {{opt.picked ? 'is-on' : ''}}"
-          data-q="{{opt.q}}"
-          data-o="{{opt.o}}"
-          bindtap="onToggleAskOption"
-        >{{opt.label}}</view>
-      </view>
-      <text wx:elif="{{item.hasOptions}}" class="merchant-flow-page__advice-ask-body">{{item.optionText}}</text>
     </view>
+  </view>
+</template>
+<template name="workAdvicePanel">
+  <view wx:if="{{advice.hasNote}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-lead">{{advice.note}}</text>
+  </view>
+  <view wx:if="{{advice.hasGaps}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">和报价不一致</text>
+    <view wx:for="{{advice.gaps}}" wx:key="seq" class="merchant-flow-page__advice-ask">
+      <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+      <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+      <text class="text-caption text-secondary">{{item.actionLabel}}</text>
+    </view>
+  </view>
+</template>
+<template name="deliveryAdvicePanel">
+  <view wx:if="{{advice.repair.hasBody}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">{{advice.repair.title}}</text>
+    <text class="merchant-flow-page__advice-ask-body">{{advice.repair.body}}</text>
+  </view>
+  <view wx:if="{{advice.warranty.hasBody}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">{{advice.warranty.title}}</text>
+    <text class="merchant-flow-page__advice-ask-body">{{advice.warranty.body}}</text>
+  </view>
+  <view wx:if="{{advice.care.hasBody}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">{{advice.care.title}}</text>
+    <text class="merchant-flow-page__advice-ask-body">{{advice.care.body}}</text>
   </view>
 </template>
 <template name="aiFieldHint">
@@ -622,6 +640,14 @@
           </block>
 
           <view wx:if="{{stageEditor}}" class="merchant-flow-page__active">
+            <view
+              wx:if="{{isWorkPhotoStep && !readOnly}}"
+              class="st-ai-bar"
+              catchtap="onWorkHeaderAi"
+            >
+              <image src="/assets/mch/spark-white.png" mode="aspectFit" />
+              <text>{{workAdvice.isWaiting ? '正在看' : 'AI分析'}}</text>
+            </view>
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">车主诉求</text>
@@ -1815,10 +1841,16 @@
         <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
       </view>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">
-        <view wx:if="{{intakeAdvice.isWaiting || quoteAssist.isWaiting || (aiReview && aiReview.isWaiting)}}" class="merchant-flow-page__ai-status">
+        <view wx:if="{{(isWorkPhotoStep && workAdvice.isWaiting) || (isDeliveryPhotoStep && deliveryAdvice.isWaiting) || (!isWorkPhotoStep && !isDeliveryPhotoStep && (intakeAdvice.isWaiting || quoteAssist.isWaiting || (aiReview && aiReview.isWaiting)))}}" class="merchant-flow-page__ai-status">
           <view class="merchant-flow-page__ai-status-spin"></view>
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
+        <block wx:elif="{{isWorkPhotoStep && workAdvice.hasContent}}">
+          <template is="workAdvicePanel" data="{{advice: workAdvice}}" />
+        </block>
+        <block wx:elif="{{isDeliveryPhotoStep && deliveryAdvice.hasContent}}">
+          <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
+        </block>
         <block wx:elif="{{intakeAdvice.hasContent}}">
           <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: false}}" />
         </block>

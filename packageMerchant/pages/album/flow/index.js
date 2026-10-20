@@ -503,6 +503,8 @@ Page({
     quoteNotifyReady: true,
     quoteAssist: null,
     intakeAdvice: null,
+    workAdvice: null,
+    deliveryAdvice: null,
     checkpointMisses: [],
     aiTextBatchCanApply: false,
     aiTextBatchCanUndo: false,
@@ -1290,6 +1292,7 @@ Page({
         findings: this.collectFindingsFromSections(),
         conclusion: this.data.conclusion,
         pendingImages: normalizePendingImages(this.data.pendingImages),
+        inspectionAiKey: this._inspectionAiKey || '',
       }
     }
     // 存量合并节点（v5）
@@ -1721,11 +1724,19 @@ Page({
         (flowNodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
           .intakeAdvice,
       )
+      const workAdvice = this.decorateWorkAdvice(
+        (flowNodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
+      )
+      const deliveryAdvice = this.decorateDeliveryAdvice(
+        (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice,
+      )
       const openStageBoard = stageOpen
         ? buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
         : null
       const openStageBar = openStageBoard ? this.stageBarFields(flowNodes, openStageBoard, active) : {}
 
+      this._inspectionAiKey =
+        (active && active.photoDraft && active.photoDraft.inspectionAiKey) || ''
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
@@ -1763,6 +1774,8 @@ Page({
         notifyConfirmDisabled: false,
         quoteAssist: this.decorateQuoteAssist(this._pendingQuoteAssist),
         intakeAdvice,
+        workAdvice,
+        deliveryAdvice,
         inspectAdviceOpen: options.silent
           ? this.data.inspectAdviceOpen
           : Boolean(isInspectionPhotoStep && intakeAdvice && intakeAdvice.hasContent),
@@ -5071,8 +5084,13 @@ Page({
       options: [],
       hasOptions: false,
     }))
-    const fixes = this.decorateIntakeRows(raw.fixes, prev.fixes)
-    const fp = `${status}|${risks.map((row) => row.title).join(',')}|${fixes.map((row) => row.title).join(',')}`
+    const fixes = this.decorateIntakeRows(raw.fixes, prev.fixes).map((row) => ({
+      ...row,
+      options: [],
+      hasOptions: false,
+    }))
+    const covered = Boolean(raw.covered) && !risks.length
+    const fp = `${status}|${covered}|${risks.map((row) => row.title).join(',')}|${fixes.map((row) => row.title).join(',')}`
     if (status === 'ready' && this._askAdviceFp !== fp) {
       this._askAdviceFp = fp
       this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
@@ -5086,11 +5104,65 @@ Page({
       checkpoints: [],
       risks,
       fixes,
+      covered,
       hasRisks: risks.length > 0,
       hasFixes: fixes.length > 0,
-      hasContent: Boolean(risks.length || fixes.length),
+      hasContent: Boolean(covered || risks.length || fixes.length),
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
+    }
+  },
+
+  decorateWorkAdvice(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return { status: '', isWaiting: false, hasContent: false, gaps: [], note: '', hasNote: false, hasGaps: false }
+    }
+    const status = String(raw.status || '')
+    const gaps = (Array.isArray(raw.gaps) ? raw.gaps : []).map((row) => {
+      const title = String((row && row.title) || '').trim()
+      const body = String((row && row.body) || '').trim()
+      const action = row && row.action === 'photo' ? 'photo' : 'addon'
+      return {
+        title,
+        body,
+        action,
+        actionLabel: action === 'photo' ? '补施工图' : '补充报价',
+        hasTitle: Boolean(title),
+        hasBody: Boolean(body),
+      }
+    })
+    const note = gaps.length ? '' : String(raw.note || '').trim()
+    return {
+      status,
+      note,
+      hasNote: Boolean(note),
+      gaps,
+      hasGaps: gaps.length > 0,
+      hasContent: Boolean(note || gaps.length),
+      isWaiting: status === 'queued' || status === 'running',
+    }
+  },
+
+  decorateDeliveryAdvice(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return { status: '', isWaiting: false, hasContent: false }
+    }
+    const status = String(raw.status || '')
+    const block = (item, fallback) => {
+      const title = String((item && item.title) || fallback).trim()
+      const body = String((item && item.body) || '').trim()
+      return { title, body, hasBody: Boolean(body) }
+    }
+    const repair = block(raw.repair, '这次维修')
+    const warranty = block(raw.warranty, '质保')
+    const care = block(raw.care, '用车')
+    return {
+      status,
+      repair,
+      warranty,
+      care,
+      hasContent: Boolean(repair.hasBody || warranty.hasBody || care.hasBody),
+      isWaiting: status === 'queued' || status === 'running',
     }
   },
 
@@ -5714,7 +5786,9 @@ Page({
   resumeQuoteAssistPoll() {
     const assistWaiting = Boolean(this.data.quoteAssist && this.data.quoteAssist.isWaiting)
     const intakeWaiting = Boolean(this.data.intakeAdvice && this.data.intakeAdvice.isWaiting)
-    if (assistWaiting || intakeWaiting) this.startQuoteAssistPoll()
+    const workWaiting = Boolean(this.data.workAdvice && this.data.workAdvice.isWaiting)
+    const deliveryWaiting = Boolean(this.data.deliveryAdvice && this.data.deliveryAdvice.isWaiting)
+    if (assistWaiting || intakeWaiting || workWaiting || deliveryWaiting) this.startQuoteAssistPoll()
     else this.stopQuoteAssistPoll()
   },
 
@@ -6220,10 +6294,43 @@ Page({
     }
   },
 
+  inspectionContentKey() {
+    const intakePhotos = (this.collectIntakePile ? this.collectIntakePile() : [])
+      .map((item) => String((item && item.url) || ''))
+      .filter(Boolean)
+      .sort()
+    const findings = this.collectFindingsFromSections().map((row) => ({
+      id: String((row && row.id) || ''),
+      part: String((row && row.partName) || ''),
+      result: String((row && row.result) || ''),
+      advice: String((row && row.advice) || ''),
+      photos: ((row && row.images) || [])
+        .map((img) => String((img && img.url) || ''))
+        .filter(Boolean)
+        .sort(),
+    }))
+    return JSON.stringify({
+      complaint: this.intakeComplaintText(),
+      intakePhotos,
+      findings,
+    })
+  },
+
   async onInspectionAi() {
     if (this.data.readOnly || this.data.confirming || this.data.organizingPhotos) return
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind !== 'inspection' && kind !== 'intake_inspection') return
+    const contentKey = this.inspectionContentKey()
+    const storedKey =
+      this._inspectionAiKey ||
+      (this.data.activeNode &&
+        this.data.activeNode.photoDraft &&
+        this.data.activeNode.photoDraft.inspectionAiKey) ||
+      ''
+    if (storedKey && storedKey === contentKey) {
+      wx.showToast({ title: '内容和上次一样', icon: 'none' })
+      return
+    }
     const findings = this.collectFindingsFromSections()
     const batch = this.collectInspectionAiBatch(findings)
     const hasItem = findings.some(
@@ -6252,7 +6359,10 @@ Page({
       await this.onStartIntakeAdvice()
       return
     }
-    await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
+    const ran = await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
+    if (!ran) return
+    this._inspectionAiKey = contentKey
+    this.persistPhotoDraft().catch(() => {})
   },
 
   onIntakeHeaderAi() {
@@ -6265,6 +6375,17 @@ Page({
     const advice = this.data.intakeAdvice
     if ((advice && advice.hasContent) || (advice && advice.isWaiting)) return
     this.onStartIntakeAdvice()
+  },
+
+  onWorkHeaderAi() {
+    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.adviceOpen) {
+      this.setData({ adviceOpen: false })
+      return
+    }
+    this.setData({ adviceOpen: true })
+    if (this.data.workAdvice && this.data.workAdvice.isWaiting) return
+    this.onStartWorkAdvice()
   },
 
   onToggleAdvice() {
@@ -6287,9 +6408,8 @@ Page({
       return
     }
     if (kind === 'repair_report' || kind === 'delivery_photos') {
-      const brief = this.data.aiReview && this.data.aiReview.merchantBrief
-      if ((brief && brief.hasContent) || (this.data.aiReview && this.data.aiReview.isWaiting)) return
-      this.onStartDeliveryAdvice()
+      if (this.data.deliveryAdvice && this.data.deliveryAdvice.isWaiting) return
+      this.onStartDeliveryStepAdvice()
     }
   },
 
@@ -6354,6 +6474,34 @@ Page({
       this.setData({ adviceOpen: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
+  async onStartWorkAdvice() {
+    await this.startStepAdvice('startWorkAdvice', '先有报价或施工项')
+  },
+
+  async onStartDeliveryStepAdvice() {
+    await this.startStepAdvice('startDeliveryAdvice', '未能出意见')
+  },
+
+  async startStepAdvice(flag, emptyTitle) {
+    if (this.data.readOnly || this.data.confirming) return
+    const node = this.data.activeNode
+    if (!node || !node.id) return
+    this.setData({ confirming: true, adviceOpen: true })
+    try {
+      await this.persistPhotoDraft()
+      const res = await updateMerchantFlowNode(this.albumId, node.id, { [flag]: true })
+      await this.loadFlow({ silent: true })
+      this.setData({ adviceOpen: true })
+      if (res && !res.queued && !res.reuse) {
+        wx.showToast({ title: '暂不可用', icon: 'none' })
+      }
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || emptyTitle, icon: 'none' })
     } finally {
       this.setData({ confirming: false })
     }

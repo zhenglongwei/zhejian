@@ -1,34 +1,45 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { parseIntakeAdvicePayload, unmatchedCheckpoints } = require('./intake-advice')
+const {
+  parseIntakeAdvicePayload,
+  sanitizeIntakeAdviceForView,
+  unmatchedCheckpoints,
+} = require('./intake-advice')
 
-test('接车意见只留留证风险和现在补', () => {
+test('接车意见只保留没拍到的侧面', () => {
   const got = parseIntakeAdvicePayload({
-    diagnosis: '异响更像转向球头松旷。',
-    checkpoints: [{ partName: '转向拉杆球头', why: '主诉异响常见点' }],
-    askOwner: [{ title: '异响工况', options: ['冷车启动'] }],
-    risks: [{ title: '剐蹭没写部位', body: '交车时分不清是进店前就有的。' }],
-    fixes: [{ title: '写进诉求', body: '补上是哪一块。', options: ['前保险杠', '车门', '前保险杠'] }],
+    diagnosis: '漆面受损，建议看深度。',
+    missing: ['车尾', '左前翼子板', '车尾'],
+    risks: [{ title: '损伤程度缺失', body: '要写清掉漆还是划痕。' }],
+    fixes: [{ title: '细化诉求', options: ['前保险杠'] }],
   })
-  assert.equal(got.diagnosis, '')
-  assert.equal(got.checkpoints.length, 0)
-  assert.equal(got.askOwner.length, 0)
-  assert.equal(got.risks.length, 1)
-  assert.equal(got.risks[0].title, '剐蹭没写部位')
+  assert.equal(got.covered, false)
   assert.deepEqual(
-    got.fixes[0].options.map((row) => row.label),
-    ['前保险杠', '车门'],
+    got.risks.map((row) => row.title),
+    ['缺车尾'],
   )
+  assert.equal(got.fixes[0].title, '补车尾全景')
+  assert.equal(got.fixes[0].options.length, 0)
+  assert.equal(got.diagnosis, '')
 })
 
-test('没有留证风险时不把检测顺序当成意见', () => {
-  const got = parseIntakeAdvicePayload({
-    diagnosis: '更像衬套间隙。',
-    checkpoints: [{ partName: '下摆臂球头', why: '松旷常见', priority: 1 }],
-  })
+test('四周都拍到了就不要求补描述', () => {
+  const got = parseIntakeAdvicePayload({ missing: [], risks: [{ title: '影像对应关系弱' }] })
+  assert.equal(got.covered, true)
   assert.equal(got.risks.length, 0)
   assert.equal(got.fixes.length, 0)
-  assert.equal(got.checkpoints.length, 0)
+})
+
+test('旧的诊断意见不再显示', () => {
+  const view = sanitizeIntakeAdviceForView({
+    status: 'ready',
+    diagnosis: '外观漆面受损',
+    risks: [{ title: '剐蹭位置不明', body: '要写具体部位' }],
+    fixes: [{ title: '细化诉求描述', options: ['左前翼子板'] }],
+  })
+  assert.equal(view.covered, false)
+  assert.equal(view.risks.length, 0)
+  assert.equal(view.fixes.length, 0)
 })
 
 test('unmatched checkpoints skip findings that already cover the part', () => {

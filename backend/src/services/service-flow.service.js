@@ -225,6 +225,22 @@ function mapFlowNodeForView(node, albumNodes = []) {
         return null
       }
     })(),
+    workAdvice: (() => {
+      try {
+        const { sanitizeStepAdviceForView } = require('./step-advice.service')
+        return sanitizeStepAdviceForView(node.workAdvice, 'work')
+      } catch (_) {
+        return null
+      }
+    })(),
+    deliveryAdvice: (() => {
+      try {
+        const { sanitizeStepAdviceForView } = require('./step-advice.service')
+        return sanitizeStepAdviceForView(node.deliveryAdvice, 'delivery')
+      } catch (_) {
+        return null
+      }
+    })(),
     summary: photo
       ? countPhotosForFlowNode(node, albumNodes) > 0
         ? `已拍 ${countPhotosForFlowNode(node, albumNodes)} 张`
@@ -669,6 +685,25 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       queued: Boolean(queued && queued.queued),
       reuse: Boolean(queued && queued.reuse),
       nextAction: 'intake_advice',
+      unlockedNext: false,
+      node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+    }
+  }
+
+  if (payload.startWorkAdvice || payload.startDeliveryAdvice) {
+    const kind = payload.startWorkAdvice ? 'work' : 'delivery'
+    const { queueWorkAdviceIfNeeded, queueDeliveryAdviceIfNeeded } = require('./step-advice.service')
+    const startAlbum = await loadAlbum(albumId)
+    const queued = kind === 'work'
+      ? await queueWorkAdviceIfNeeded(startAlbum)
+      : await queueDeliveryAdviceIfNeeded(startAlbum)
+    const fresh = await loadAlbum(albumId)
+    const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
+    const viewNodes = mapNodesForView(fresh)
+    return {
+      queued: Boolean(queued && queued.queued),
+      reuse: Boolean(queued && queued.reuse),
+      nextAction: kind === 'work' ? 'work_advice' : 'delivery_advice',
       unlockedNext: false,
       node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
     }

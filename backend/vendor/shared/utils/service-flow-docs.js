@@ -1590,6 +1590,7 @@ function normalizePhotoDraft(raw = {}) {
     deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
+    inspectionAiKey: String(raw.inspectionAiKey || '').trim(),
     recordVersions: Array.isArray(raw.recordVersions)
       ? raw.recordVersions
           .map((row) => ({
@@ -1656,6 +1657,9 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   }
   if (patch.ownerSentAt != null) {
     next.ownerSentAt = String(patch.ownerSentAt || '').trim()
+  }
+  if (patch.inspectionAiKey != null) {
+    next.inspectionAiKey = String(patch.inspectionAiKey || '').trim()
   }
   if (patch.recordVersions != null) {
     next.recordVersions = normalizePhotoDraft({ recordVersions: patch.recordVersions }).recordVersions

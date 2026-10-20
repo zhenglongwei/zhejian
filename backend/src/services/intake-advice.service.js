@@ -49,19 +49,16 @@ function albumMileageKm(album) {
   return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
 }
 
-function intakePhotoNotes(intake) {
+function intakePhotoUrls(intake) {
   const draft = (intake && intake.photoDraft) || {}
-  const notes = []
-  const push = (caption) => {
-    const line = text(caption).slice(0, 20)
-    if (!line || notes.length >= 12) return
-    notes.push(line)
+  const urls = []
+  const push = (raw) => {
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
+    urls.push(url)
   }
-  if (text(draft.odometerUrl)) push('仪表')
-  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
-    push((img && img.caption) || '留证照')
-  })
-  return notes
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
+  return urls
 }
 
 function buildFingerprint(album) {
@@ -73,9 +70,9 @@ function buildFingerprint(album) {
     .createHash('sha1')
     .update(
       JSON.stringify({
-        v: 'evidence',
+        v: 'coverage',
         c: intakeComplaintText(intake),
-        p: intakePhotoNotes(intake),
+        p: intakePhotoUrls(intake),
         t: text(album && album.templateId),
         b: vehicle.vehicleBrand,
         s: vehicle.vehicleSeries,
@@ -104,23 +101,25 @@ async function patchIntakeNode(albumId, mutator) {
   return nodes[index]
 }
 
-async function runGenerateLlm(facts) {
+async function runGenerateLlm(urls) {
   const engines = resolveConfiguredNodeAiReviewEngines()
   if (!engines.length) return null
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    '你是汽修门店的接车留证助手。接车只把进店时的状态留下来，避免以后扯皮。',
-    '不要写故障判断，不要写检测顺序，不要写保养周期，不要建议举升、拆检、换件。',
-    '不要把雨刮、滤芯、刹车、轮胎换位这类检测或保养写进来。',
-    '照片说明只用来判断留证齐不齐。不要根据没看见的画面编损伤。',
-    'risks：这单留证现在站不住的地方。每条一个短标题，加一句以后会在哪扯皮。最多 4 条。没有明显缺口就少写。',
-    'fixes：现在在接车这一步就能补的动作。每条一个短标题，加一句补哪张照片，或把诉求哪一句写具体。最多 4 条。',
-    '只有「把部位或程度写进诉求」才给 options，2到4个短词。补照片的条目不要 options。',
-    '不要写模型名，不要写 AI。',
-    `本单：${JSON.stringify(facts)}`,
-    '输出 JSON：{"risks":[{"title":"","body":""}],"fixes":[{"title":"","body":"","options":[]}]}',
+    '你在看接车时拍的车身照片。只判断车头、车尾、左侧、右侧有没有入镜。',
+    '某一侧完全没出现，放进 missing。值只能是：车头、车尾、左侧、右侧。',
+    '看不清是哪一侧，就不要猜，不要放进 missing。',
+    '不要写损伤部位、深浅、特写，不要改车主诉求，不要写检测或保养。',
+    '四周都能看到时 missing 为空数组。',
+    '输出 JSON：{"missing":[]}',
   ].join('\n')
+  const content = [{ type: 'text', text: instruction }].concat(
+    (urls || []).flatMap((url, index) => [
+      { type: 'text', text: `第 ${index + 1} 张` },
+      { type: 'image_url', image_url: { url } },
+    ]),
+  )
 
   for (const engine of engines) {
     try {
@@ -131,7 +130,7 @@ async function runGenerateLlm(facts) {
         model: engine.model,
         messages: [
           { role: 'system', content: '只输出 JSON。' },
-          { role: 'user', content: instruction },
+          { role: 'user', content: content },
         ],
         temperature: 0.2,
         responseFormat: engine.vendor === 'dashscope' ? { type: 'json_object' } : undefined,
@@ -170,30 +169,23 @@ async function runIntakeAdviceJob(albumId) {
         updatedAt: new Date().toISOString(),
       },
     }))
-    const draft = intake.photoDraft || {}
-    const vehicle = vehicleFacts(album, draft)
-    const parsed = await runGenerateLlm({
-      chiefComplaint: intakeComplaintText(intake),
-      photos: intakePhotoNotes(intake),
-      templateId: text(album.templateId),
-      serviceName: text(album.serviceName),
-      vehicleBrand: vehicle.vehicleBrand,
-      vehicleSeries: vehicle.vehicleSeries,
-      vehicleYear: vehicle.vehicleYear,
-      mileageKm: albumMileageKm(album),
-    })
+    const urls = intakePhotoUrls(intake)
+    const parsed = urls.length ? await runGenerateLlm(urls) : null
     await patchIntakeNode(albumId, (item) => ({
       ...item,
-      intakeAdvice: parsed
+      intakeAdvice: !urls.length || parsed
         ? {
             status: 'ready',
+            scope: 'coverage',
             fingerprint,
+            noPhotos: !urls.length,
+            covered: parsed ? parsed.covered : false,
             diagnosis: '',
             photoTips: [],
             askOwner: [],
             checkpoints: [],
-            risks: parsed.risks,
-            fixes: parsed.fixes,
+            risks: parsed ? parsed.risks : [],
+            fixes: parsed ? parsed.fixes : [],
             errorMessage: '',
             updatedAt: new Date().toISOString(),
           }

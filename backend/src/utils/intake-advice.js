@@ -163,21 +163,45 @@ function parseCheckpoints(raw) {
     .map((row, index) => ({ ...row, sortOrder: index }))
 }
 
-function parseRisks(raw) {
-  return parseTitleBodyList(raw, 4)
-    .map((item) => ({ title: item.title, body: item.body }))
-    .filter((item) => item.title || item.body)
+const BODY_SIDES = ['车头', '车尾', '左侧', '右侧']
+
+function sideName(value) {
+  const line = text(value)
+  return BODY_SIDES.find((side) => line.includes(side)) || ''
+}
+
+function coverageFromList(list) {
+  const missing = []
+  const seen = new Set()
+  ;(Array.isArray(list) ? list : []).forEach((item) => {
+    const side = sideName(typeof item === 'string' ? item : item && (item.title || item.body || item.name))
+    if (!side || seen.has(side)) return
+    seen.add(side)
+    missing.push(side)
+  })
+  return {
+    covered: missing.length === 0,
+    risks: missing.map((side) => ({ title: `缺${side}`, body: '这一侧还没有全景。' })),
+    fixes: missing.map((side) => ({
+      title: `补${side}全景`,
+      body: '拍一张能看清这一侧的照片。',
+      options: [],
+    })),
+  }
 }
 
 function parseIntakeAdvicePayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
+  const coverage = coverageFromList(parsed.missing || parsed.risks)
   return {
     diagnosis: '',
     photoTips: [],
     askOwner: [],
     checkpoints: [],
-    risks: parseRisks(parsed.risks),
-    fixes: parseAskOwner(parsed.fixes),
+    scope: 'coverage',
+    covered: coverage.covered,
+    risks: coverage.risks,
+    fixes: coverage.fixes,
   }
 }
 
@@ -200,14 +224,26 @@ function sanitizeIntakeAdviceForView(advice) {
   if (!advice || typeof advice !== 'object') return null
   const status = text(advice.status)
   if (!status) return null
+  const coverage =
+    advice.scope === 'coverage'
+      ? advice.noPhotos
+        ? {
+            covered: false,
+            risks: [{ title: '还没有车身照片', body: '先把车身拍下来。' }],
+            fixes: [{ title: '拍车身', body: '车头、车尾、左右各一张全景。', options: [] }],
+          }
+        : coverageFromList(advice.risks)
+      : { covered: false, risks: [], fixes: [] }
   return {
     status,
     diagnosis: '',
     photoTips: [],
     askOwner: [],
     checkpoints: [],
-    risks: Array.isArray(advice.risks) ? advice.risks : [],
-    fixes: Array.isArray(advice.fixes) ? advice.fixes : [],
+    scope: advice.scope === 'coverage' ? 'coverage' : '',
+    covered: coverage.covered,
+    risks: coverage.risks,
+    fixes: coverage.fixes,
     waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
     errorMessage: status === 'failed' ? text(advice.errorMessage) || '未能出意见' : '',
     updatedAt: text(advice.updatedAt),
@@ -216,9 +252,8 @@ function sanitizeIntakeAdviceForView(advice) {
 
 function intakeAdviceHasContent(advice) {
   if (!advice || typeof advice !== 'object') return false
-  return Boolean(
-    (advice.risks && advice.risks.length) || (advice.fixes && advice.fixes.length),
-  )
+  if (advice.scope !== 'coverage') return false
+  return Boolean(advice.covered || advice.noPhotos || (advice.risks && advice.risks.length))
 }
 
 module.exports = {
