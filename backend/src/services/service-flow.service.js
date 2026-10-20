@@ -1924,11 +1924,11 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     id: node.id,
     kind,
     title: intakeSheet
-      ? '接车照片'
+      ? '接车报告'
       : isAddonQuote
         ? quoteFace({ templateId: album.templateId, serviceName: album.serviceName }).addonTitle
         : kind === 'quote_confirm'
-          ? quoteFace({ templateId: album.templateId, serviceName: album.serviceName }).heroLabel
+          ? '报价单'
           : node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
@@ -2153,7 +2153,7 @@ function buildOwnerFlowView(album, albumNodes = []) {
       return {
         id: node.id,
         kind: node.kind,
-        title: node.kind === 'intake' || node.kind === 'intake_inspection' ? '接车照片' : node.title || '',
+        title: node.kind === 'intake' || node.kind === 'intake_inspection' ? '接车报告' : node.title || '',
         segmentLabel: node.segmentLabel || '',
         statusLabel: '待进行',
         needsConfirm: false,

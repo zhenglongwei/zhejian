@@ -13,7 +13,7 @@ function node(partial) {
   }
 }
 
-test('施工中的详情用真实车牌和四张单据', () => {
+test('施工中的详情用真实车牌和五张单据', () => {
   const view = buildMerchantAlbumOverview(
     {
       vehicle: { plate: '粤B7K52M', brand: '宝马', series: '3系', modelYear: '2021', mileage: 68420 },
@@ -55,7 +55,7 @@ test('施工中的详情用真实车牌和四张单据', () => {
   assert.match(view.meta, /137 \*\*\*\* 2021/)
   assert.deepEqual(
     view.docs.map((doc) => `${doc.title}:${doc.label}`),
-    ['检测报告:已完成', '报价单:已确认', '维修工单:施工中', '交车报告:待生成'],
+    ['接车报告:已发出', '检测报告:已完成', '报价单:已确认', '维修工单:施工中', '交车报告:待生成'],
   )
   assert.equal(view.rows[2].detail, '¥2,860 · 已确认')
   assert.equal(view.rows[3].state, 'current')

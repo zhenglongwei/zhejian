@@ -1994,6 +1994,7 @@ Page({
     if (row) return row.key || 'intake'
     const doc = (overview.docs || []).find((item) => item && item.nodeId === id)
     const title = String((doc && doc.title) || '')
+    if (title === '接车报告') return 'intake'
     if (title === '检测报告') return 'inspect'
     if (title === '报价单') return 'quote'
     if (title === '维修工单') return 'work'
@@ -5183,10 +5184,6 @@ Page({
     }
     const status = String(raw.status || '')
     const findings = this.collectFindingsFromSections(sections)
-    const byId = {}
-    findings.forEach((row) => {
-      if (row && row.id) byId[row.id] = row
-    })
     const names = new Set(findings.map((row) => String((row && row.partName) || '').trim()).filter(Boolean))
     const shopLabel = { miss: '缺项', wrong: '错项', omit: '漏项', how: '怎么查' }
     const shop = (Array.isArray(raw.shop) ? raw.shop : []).map((row, index) => {
@@ -5209,16 +5206,33 @@ Page({
       canApply: false,
       applyKind: '',
     }))
-    const items = (Array.isArray(raw.items) ? raw.items : []).map((row) => {
-      const current = byId[String((row && row.id) || '')] || null
+    const tidy = (body, timing) => {
+      let text = String(body || '').trim().replace(/。{2,}/g, '。')
+      const mark = `${String(timing || '').trim()}。`
+      if (mark === '。') return text
+      while (text.endsWith(mark) && text.slice(0, -mark.length).endsWith(mark)) {
+        text = text.slice(0, -mark.length)
+      }
+      return text
+    }
+    const items = (Array.isArray(raw.items) ? raw.items : []).map((row, index) => {
+      const storedId = String((row && row.findingId) || '')
+      const rawId = String((row && row.id) || '')
+      const findingId = storedId || (rawId.startsWith('own_') ? '' : rawId)
+      const findingIndex = Number.isInteger(row && row.findingIndex) ? row.findingIndex : index
+      const partName = String((row && row.partName) || '').trim()
+      const current = this.pickAdviceFinding(findings, { findingId, partName, findingIndex })
       const advice = String((current && current.advice) || '').trim()
       const source = String((row && row.sourceNote) || '').trim()
-      const body = String((row && row.body) || '').trim()
+      const timing = String((row && row.timing) || '').trim()
+      const body = tidy(row && row.body, timing)
       const unchanged = !advice || advice === source || advice === '无需处理'
       return {
-        id: String((row && row.id) || ''),
-        partName: String((row && row.partName) || '').trim(),
-        timing: String((row && row.timing) || '').trim(),
+        id: `own_${findingIndex}`,
+        findingId,
+        findingIndex,
+        partName,
+        timing,
         body,
         hasReason: Boolean(row && row.hasReason),
         canApply: Boolean(row && row.hasReason && body && unchanged && advice !== body),
@@ -6610,29 +6624,47 @@ Page({
       .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
   },
 
+  pickAdviceFinding(findings, item) {
+    const list = Array.isArray(findings) ? findings : []
+    const id = String((item && item.findingId) || '')
+    if (id) {
+      const hits = list.filter((row) => row && String(row.id || '') === id)
+      if (hits.length === 1) return hits[0]
+    }
+    const name = String((item && item.partName) || '').trim()
+    if (name && name !== '这项') {
+      const hits = list.filter((row) => row && String(row.partName || '').trim() === name)
+      if (hits.length === 1) return hits[0]
+    }
+    const index = Number(item && item.findingIndex)
+    if (Number.isInteger(index) && index >= 0 && list[index]) return list[index]
+    return null
+  },
+
   onApplyOwnerExplain(e) {
-    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const lineId = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     const item = ((this.data.inspectionAdvice && this.data.inspectionAdvice.items) || []).find(
-      (row) => row && row.id === id && row.canApply,
+      (row) => row && row.id === lineId && row.canApply,
     )
-    if (!item) return
+    if (!item || !item.body) return
     const sections = (this.data.sections || []).map((section) => {
       if (!section || !section.findingMode) return section
+      const findings = section.findings || []
+      const target = this.pickAdviceFinding(findings, item)
+      if (!target) return section
       return {
         ...section,
-        findings: (section.findings || []).map((row) =>
-          String((row && row.id) || '') === id ? { ...row, advice: item.body } : row,
-        ),
+        findings: findings.map((row) => (row === target ? { ...row, advice: item.body } : row)),
       }
     })
     this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
       this.setData({
         inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
       })
+      this.persistPhotoDraft()
+        .then(() => this.setAutoSaveLabel('已自动保存'))
+        .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
     })
-    this.persistPhotoDraft()
-      .then(() => this.setAutoSaveLabel('已自动保存'))
-      .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
   },
 
   async onStartInspectionAdvice() {

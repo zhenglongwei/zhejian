@@ -226,6 +226,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
       canAddShot: showShots,
     }
   })
+  const intake = nodes.find((node) => node.kind === 'intake' || node.kind === 'intake_inspection')
   const report = nodes.find((node) => node.kind === 'inspection_report')
   const quote = nodes.find((node) => node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm')
   const work = nodes.find((node) => node.kind === 'work')
@@ -252,6 +253,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     phone,
     records,
     docs: [
+      docTile('接车报告', intake, { done: '已发出', live: '填写中' }),
       docTile('检测报告', report, { done: '已完成', live: '填写中' }),
       docTile('报价单', quote, { done: '已确认', live: '填写中' }),
       docTile('维修工单', work, { done: '已完成', live: '施工中' }),
@@ -288,16 +290,18 @@ function findingLines(list) {
 
 function briefLines(title, nodes, node) {
   const payload = (node && node.document && node.document.payload) || {}
+  const draft = (node && node.photoDraft) || {}
+  if (title === '接车报告') {
+    const complaint = String(draft.chiefComplaint || payload.chiefComplaint || '').trim()
+    const belongings = String(draft.belongings || payload.belongings || '').trim()
+    return [complaint ? { name: complaint, amount: '' } : null, belongings ? { name: belongings, amount: '' } : null].filter(Boolean)
+  }
   if (title === '检测报告') {
     const fromDoc = Array.isArray(payload.findings) ? payload.findings : []
     return findingLines(fromDoc.length ? fromDoc : findingsOf(nodes))
   }
   if (title === '报价单') return pricedLines(payload.lines)
   if (title === '交车报告') return pricedLines(payload.workItems)
-  const quote = nodes.find((item) => item && item.kind === 'quote_confirm')
-  const quoteLines = quote && quote.document && quote.document.payload && quote.document.payload.lines
-  const priced = pricedLines(quoteLines)
-  if (priced.length) return priced
   return findingLines(findingsOf([node]))
 }
 
@@ -309,7 +313,7 @@ function lineTotal(lines) {
 }
 
 /**
- * 详情页顶部四张单据的简要弹层。金额和项目只取已有记录。
+ * 详情页顶部五张单据的简要弹层。金额和项目只取已有记录。工单不列金额。
  */
 function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
   const overview = buildMerchantAlbumOverview(album, flowNodes)
@@ -334,7 +338,8 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
   const quoteReady = title === '报价单' && lines.length > 0 && lines.every((line) => line.amount)
   const repairReady = title === '交车报告' && lines.length > 0 && Boolean(period)
   const canSend = (status === '' || status === 'draft') && (quoteReady || repairReady)
-  const stageKey = title === '检测报告' ? 'inspect' : title === '报价单' ? 'quote' : title === '维修工单' ? 'work' : 'finish'
+  const stageKey =
+    title === '接车报告' ? 'intake' : title === '检测报告' ? 'inspect' : title === '报价单' ? 'quote' : title === '维修工单' ? 'work' : 'finish'
   return {
     title: tile.title || title,
     plate: overview.plate,
@@ -346,7 +351,7 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
     vehicleLine: [overview.plate, mileageText].filter(Boolean).join(' / '),
     serviceName,
     lines,
-    totalText: total > 0 ? moneyText(total) : '',
+    totalText: title === '维修工单' || title === '接车报告' || title === '检测报告' ? '' : total > 0 ? moneyText(total) : '',
     sealed: (status === 'confirmed' || status === 'delivered') && lines.length > 0,
     emptyText: lines.length ? '' : '还没有这份内容',
     canSend,

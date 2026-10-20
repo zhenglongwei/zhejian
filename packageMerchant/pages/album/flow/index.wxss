@@ -832,7 +832,7 @@
 .merchant-flow-page__advice-sec {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   margin-bottom: var(--space-lg);
   padding-left: var(--space-sm);
   border-left: 4rpx solid var(--color-primary);
@@ -868,7 +868,7 @@
   flex: 1;
   min-width: 0;
   font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
+  line-height: var(--font-body-lh);
   color: var(--color-text-primary);
 }
 
@@ -1925,7 +1925,7 @@
 .ov-doc {
   flex: 1;
   min-width: 0;
-  padding: 22rpx 6rpx 18rpx;
+  padding: 16rpx 4rpx 14rpx;
   border-radius: 28rpx;
   background: var(--color-bg-card);
   border: 2rpx solid transparent;
@@ -1959,9 +1959,9 @@
 
 .ov-doc__name {
   display: block;
-  font-size: var(--font-sub);
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-medium);
-  line-height: var(--font-sub-lh);
+  line-height: var(--font-caption-lh);
   color: var(--color-text-primary);
 }
 
@@ -3334,10 +3334,12 @@
 .doc-brief__sheet {
   position: relative;
   width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
   box-sizing: border-box;
   padding: var(--space-lg) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom));
   border-radius: var(--radius-mch-hero) var(--radius-mch-hero) 0 0;
-  background: var(--color-bg-card);
+  background: var(--color-bg-muted);
 }
 
 .doc-brief__top {
@@ -3382,11 +3384,52 @@
   text-align: center;
 }
 
-.doc-brief__card {
-  margin-top: var(--space-lg);
+.doc-brief__paper {
+  margin-top: var(--space-md);
   padding: var(--space-md);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-page);
+  background: #fff;
+  border: 2rpx solid var(--color-text-primary);
+}
+
+.doc-brief__shop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.doc-brief__sq {
+  width: 16rpx;
+  height: 16rpx;
+  background: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+.doc-brief__stamp {
+  flex-shrink: 0;
+  padding: 4rpx 12rpx;
+  border: 2rpx solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.doc-brief__bar {
+  width: 72rpx;
+  height: 4rpx;
+  margin: var(--space-xs) 0;
+  background: var(--color-text-primary);
+}
+
+.doc-brief__rule {
+  height: 2rpx;
+  margin: var(--space-sm) 0;
+  background: var(--color-text-primary);
+}
+
+.doc-brief__sheet-name {
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
 
 .doc-brief__store {
@@ -3420,9 +3463,11 @@
 }
 
 .doc-brief__store-name {
-  color: var(--color-text-primary);
-  font-size: var(--font-body);
-  font-weight: var(--font-weight-semibold);
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
 }
 
 .doc-brief__store-sub,
@@ -3455,11 +3500,14 @@
 }
 
 .doc-brief__doc-title {
-  margin: var(--space-lg) 0 var(--space-md);
+  display: block;
+  margin: var(--space-sm) 0 var(--space-xs);
   color: var(--color-text-primary);
-  font-size: var(--font-h3);
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-size: var(--font-h1);
+  line-height: var(--font-h1-lh);
   font-weight: var(--font-weight-semibold);
-  text-align: center;
+  text-align: left;
 }
 
 .doc-brief__row,
@@ -3488,7 +3536,8 @@
 }
 
 .doc-brief__line {
-  padding: 8rpx 0;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .doc-brief__dot {
@@ -3519,7 +3568,7 @@
 }
 
 .doc-brief__total text:last-child {
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-h3);
 }
 

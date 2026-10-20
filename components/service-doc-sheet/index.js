@@ -86,13 +86,13 @@ Component({
 
     onConfirmTap() {
       const doc = this.data.doc || {}
-      if (!doc.needsConfirm || !doc.id) return
+      if (this.data.confirming || !doc.needsConfirm || !doc.id) return
       this.triggerEvent('confirm', { nodeId: doc.id })
     },
 
     onRejectTap() {
       const doc = this.data.doc || {}
-      if (!doc.needsConfirm || !doc.id) return
+      if (this.data.confirming || !doc.needsConfirm || !doc.id) return
       this.triggerEvent('reject', { nodeId: doc.id, isAddon: Boolean(doc.isAddon) })
     },
 

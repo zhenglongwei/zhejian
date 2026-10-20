@@ -1722,7 +1722,7 @@
       </scroll-view>
       <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor && !stageLocked))}}" class="st-bar">
         <view wx:if="{{isAddonQuote && stageEditor && !stageLocked}}" class="st-bar__btn" bindtap="onOpenCancelAddon">返回施工</view>
-        <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenOwnerView">看车主看到的</view>
+        <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenOwnerView">预览报告</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
     </view>
@@ -1731,7 +1731,7 @@
         <view class="rec-preview__row" style="padding-right: {{capsulePad}}px;">
           <text class="ov-back" catchtap="onCloseRecordPreview">‹</text>
           <view class="ov-nav__text">
-            <text class="ov-work__title">车主看到的</text>
+            <text class="ov-work__title">预览报告</text>
           </view>
         </view>
       </view>
@@ -1879,34 +1879,25 @@
     <view class="doc-brief__mask" bindtap="onCloseDoc"></view>
     <view class="doc-brief__sheet">
       <view class="doc-brief__top">
-        <view>
-          <text class="doc-brief__kicker">SERVICE DOCUMENT</text>
-          <text class="doc-brief__title">{{docBrief.title}}</text>
-          <text class="doc-brief__sub">{{docBrief.plate}}{{docBrief.vehicleName ? ' · ' : ''}}{{docBrief.vehicleName}}</text>
-        </view>
+        <text class="doc-brief__sheet-name">{{docBrief.title}}</text>
         <text class="doc-brief__close" catchtap="onCloseDoc">×</text>
       </view>
-      <view class="doc-brief__card">
-        <view class="doc-brief__store">
-          <text class="doc-brief__mark">{{docBrief.mark}}</text>
-          <view class="doc-brief__store-text">
-            <text class="doc-brief__store-name">{{docBrief.storeName || '本店'}}</text>
-            <text class="doc-brief__store-sub">全程留证</text>
-          </view>
-          <text class="doc-brief__pill doc-brief__pill--{{docBrief.statusTone}}">{{docBrief.status}}</text>
+      <view class="doc-brief__paper">
+        <view class="doc-brief__shop">
+          <view class="doc-brief__sq"></view>
+          <text class="doc-brief__store-name">{{docBrief.storeName || '本店'}}</text>
+          <text class="doc-brief__stamp">{{docBrief.status}}</text>
         </view>
         <text class="doc-brief__doc-title">{{docBrief.title}}</text>
+        <view class="doc-brief__bar"></view>
+        <text class="doc-brief__sub">{{docBrief.plate}}{{docBrief.vehicleName ? ' · ' : ''}}{{docBrief.vehicleName}}</text>
+        <view class="doc-brief__rule"></view>
         <view wx:if="{{docBrief.vehicleLine}}" class="doc-brief__row">
-          <text>车辆信息</text>
+          <text>车辆</text>
           <text>{{docBrief.vehicleLine}}</text>
-        </view>
-        <view wx:if="{{docBrief.serviceName}}" class="doc-brief__row">
-          <text>服务项目</text>
-          <text>{{docBrief.serviceName}}</text>
         </view>
         <view wx:if="{{docBrief.lines.length}}" class="doc-brief__lines">
           <view wx:for="{{docBrief.lines}}" wx:key="index" class="doc-brief__line">
-            <view class="doc-brief__dot"></view>
             <text class="doc-brief__line-name">{{item.name}}</text>
             <text wx:if="{{item.amount}}" class="doc-brief__line-amount">{{item.amount}}</text>
           </view>
@@ -1916,7 +1907,6 @@
           <text>合计</text>
           <text>{{docBrief.totalText}}</text>
         </view>
-        <view wx:if="{{docBrief.sealed}}" class="doc-brief__seal">全流程影像已存证 · 数据不可篡改</view>
       </view>
       <view class="doc-brief__actions">
         <view class="doc-brief__send" catchtap="onBriefSend">{{briefSending ? '发送中' : '发送车主'}}</view>

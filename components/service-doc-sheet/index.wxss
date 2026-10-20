@@ -2,14 +2,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  padding: var(--space-md);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
 }
 
-.service-doc-sheet--evidence {
-  border-color: var(--color-border);
+.service-doc-sheet__paper {
+  padding: var(--space-md);
+  background: #fff;
+  border: 2rpx solid var(--color-text-primary);
 }
 
 .service-doc-sheet__head {
@@ -17,21 +15,104 @@
   flex-direction: column;
   gap: var(--space-xs);
   padding-bottom: var(--space-sm);
-  border-bottom: 1rpx solid var(--color-border);
 }
 
-.service-doc-sheet__title-row {
+.service-doc-sheet__shop {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
+}
+
+.service-doc-sheet__mark {
+  width: 16rpx;
+  height: 16rpx;
+  background: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+.service-doc-sheet__stamp {
+  flex-shrink: 0;
+  padding: 4rpx 12rpx;
+  border: 2rpx solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: var(--font-weight-semibold);
 }
 
 .service-doc-sheet__title {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-size: var(--font-h1);
+  line-height: var(--font-h1-lh);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+.service-doc-sheet__bar {
+  width: 72rpx;
+  height: 4rpx;
+  background: var(--color-text-primary);
+}
+
+.service-doc-sheet__rule {
+  height: 2rpx;
+  background: var(--color-text-primary);
+  margin-top: var(--space-xs);
+}
+
+.service-doc-sheet__field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.service-doc-sheet__field-k {
+  width: 112rpx;
+  flex-shrink: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+}
+
+.service-doc-sheet__field-v {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.service-doc-sheet__actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-sm);
+}
+
+.service-doc-sheet__btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background: #fff;
+  color: var(--color-text-primary);
+  border: 2rpx solid var(--color-text-primary);
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-medium);
+}
+
+.service-doc-sheet__btn--ink {
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
+}
+
+.service-doc-sheet__btn.is-busy {
+  opacity: 0.6;
 }
 
 .service-doc-sheet__store,
@@ -56,10 +137,11 @@
 }
 
 .service-doc-sheet__section {
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .service-doc-sheet__group {
@@ -137,9 +219,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-sm);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
+  padding: var(--space-sm) 0;
 }
 
 .service-doc-sheet__finding-head {
@@ -292,41 +372,43 @@
 }
 
 .service-doc-sheet__photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
 }
 
 .service-doc-sheet__photo {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: var(--radius-md);
+  width: 100%;
+  height: 144rpx;
 }
 
 .service-doc-sheet__protocol {
   margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
-  border-left: 6rpx solid var(--color-primary);
+  border: 2rpx solid var(--color-text-primary);
+}
+
+.service-doc-sheet__protocol-kicker {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
 }
 
 .service-doc-sheet__protocol-text {
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
+  display: block;
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
 }
 
 .service-doc-sheet__seal {
   color: var(--color-text-tertiary);
 }
 
-.service-doc-sheet__reject {
-  margin-top: var(--space-sm);
-}
-
 .service-doc-sheet__contact {
-  margin-top: var(--space-sm);
   text-align: center;
-  padding: var(--space-xs) 0;
+  color: var(--color-text-secondary);
 }

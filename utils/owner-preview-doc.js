@@ -66,7 +66,7 @@ function buildOwnerPreviewDoc(input = {}) {
     const chiefComplaint = String(input.chiefComplaint || '').trim()
     const doc = {
       kind: 'intake',
-      title: '接车照片',
+      title: '接车报告',
       styleVariant: 'document',
       storeName,
       chiefComplaint,
@@ -109,7 +109,7 @@ function buildOwnerPreviewDoc(input = {}) {
     return {
       doc: {
         kind: isAddon ? 'addon_quote_confirm' : 'quote_confirm',
-        title: isAddon ? face.addonTitle : face.heroLabel,
+        title: isAddon ? face.addonTitle : '报价单',
         styleVariant: 'document',
         storeName,
         isAddon,
