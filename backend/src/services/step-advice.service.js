@@ -106,6 +106,29 @@ const OWNER_TIMING = {
   仅记录: '这次只留了照片',
 }
 
+function intakePhotoUrls(intake) {
+  const draft = (intake && intake.photoDraft) || {}
+  const urls = []
+  const push = (raw) => {
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
+    urls.push(url)
+  }
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
+  return urls
+}
+
+function intakeBrief(intake) {
+  const advice = (intake && intake.intakeAdvice) || {}
+  if (advice.status !== 'ready' || advice.scope !== 'coverage') return ''
+  const risks = (Array.isArray(advice.risks) ? advice.risks : [])
+    .map((row) => text(row && (row.title || row.body)))
+    .filter(Boolean)
+  if (advice.noPhotos) return '接车还没有车身照片'
+  if (!risks.length) return '接车留证：车身四周都拍到了'
+  return `接车留证还缺：${risks.join('、')}`
+}
+
 function namedRows(findings) {
   return (Array.isArray(findings) ? findings : [])
     .map((row) => ({
@@ -146,7 +169,7 @@ function parseInspectionAdvice(raw, items) {
     .filter(Boolean)
     .slice(0, 4)
   return {
-    scope: 'both',
+    scope: 'flat',
     shop,
     items: (Array.isArray(items) ? items : [])
       .map((row) => {
@@ -183,6 +206,8 @@ function contextOf(album) {
   const workAdvice = (works.find((item) => item.workAdvice) || {}).workAdvice || {}
   return {
     complaint: text(intake && intake.photoDraft && intake.photoDraft.chiefComplaint),
+    intakeBrief: intakeBrief(intake),
+    intakePhotoUrls: intakeBrief(intake) ? [] : intakePhotoUrls(intake),
     intakeRisks: (Array.isArray(intakeAdvice.risks) ? intakeAdvice.risks : [])
       .map((row) => text(row && row.title))
       .filter(Boolean),
@@ -207,7 +232,13 @@ function fingerprintFor(kind, ctx) {
         workItems: ctx.workItems,
       }
     : kind === 'inspect'
-      ? { v3: 'both', complaint: ctx.complaint, inspectItems: ctx.inspectItems }
+      ? {
+          v4: 'flat',
+          complaint: ctx.complaint,
+          inspectItems: ctx.inspectItems,
+          intakeBrief: ctx.intakeBrief,
+          intakePhotos: ctx.intakePhotoUrls,
+        }
       : {
         complaint: ctx.complaint,
         quoteLines: ctx.quoteLines,
@@ -236,11 +267,19 @@ async function patchNode(albumId, kind, mutator) {
   return nodes[index]
 }
 
-async function runLlm(instruction) {
+async function runLlm(instruction, urls) {
   const engines = resolveConfiguredNodeAiReviewEngines()
   if (!engines.length) return null
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
+  const content = (urls || []).length
+    ? [{ type: 'text', text: instruction }].concat(
+        urls.map((url, index) => [
+          { type: 'text', text: `接车第 ${index + 1} 张` },
+          { type: 'image_url', image_url: { url } },
+        ]).flat(),
+      )
+    : instruction
   for (const engine of engines) {
     try {
       const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
@@ -250,7 +289,7 @@ async function runLlm(instruction) {
         model: engine.model,
         messages: [
           { role: 'system', content: '只输出 JSON。' },
-          { role: 'user', content: instruction },
+          { role: 'user', content },
         ],
         temperature: 0.2,
         responseFormat: engine.vendor === 'dashscope' ? { type: 'json_object' } : undefined,
@@ -284,18 +323,22 @@ function workInstruction(ctx) {
 }
 
 function inspectionInstruction(ctx) {
+  const intakeLine = ctx.intakeBrief
+    ? `接车分析：${ctx.intakeBrief}。不要再看接车照片，也不要要求把接车已经拍过的正常外观再拍一遍。`
+    : '接车还没有分析。下面如果附了接车照片，只用来知道当时留了什么，不要把正常外观再列成检测要拍的项。'
   return [
-    '你在看这次检测，分两层写。只根据车主诉求和已经写下的检查项，不要编没写过的裂、漏、厚度。',
-    '第一层给修理厂。shop 最多 4 条：',
-    'miss 缺项：这个故障通常要查、清单里还没有的部位。title 写部位名，body 写为什么要查、怎么查。',
-    'wrong 错项：已有项和诉求或检查发现对不上。title 写已有部位名，body 写哪里不对。',
-    'omit 漏项：诉求里提到、检测里没有单独一项。title 写部位名，body 写漏了什么。',
-    'how 怎么查：先查哪几处、怎么查。没有缺漏也可以写一条。不要写整本保养流程。',
-    '已经有的部位不要再放进 miss 或 omit。都对得上时 shop 可以为空。',
-    '第二层给车主。items 里每一项写一句车主能听懂的话：看到了什么，不处理会怎样，现在做还是先观察。',
+    intakeLine,
+    '剐蹭、漆面损伤只查受损的位置。正常的保险杠、翼子板、车门不要再要求补拍，那是接车已经做的事。',
+    '意见写成一条条完整的话。不要写「给店里」「给车主」「怎么查」「缺项」「漏项」「错项」当标题。',
+    'shop：还没写上的受损处、和诉求对不上的已有项、可以怎么核对。这些是文字意见，店员没法按一下就做完，不要写成能直接填进单据。已经有的部位不要再说漏了。最多 4 条。',
+    'items：把每一项已写下的发现写成车主能听懂的一句。看到了什么，不处理会怎样，现在做还是先观察。',
     '结果为需处理就建议现在处理。需关注就说可以先观察。状态良好就说现在不用动。仅记录就说只是留了照片。',
-    '给车主的句子里不要出现「需处理」「需关注」「状态良好」。检查发现是空的就不要为这项编后果。',
-    `本单：${JSON.stringify({ complaint: ctx.complaint, items: ctx.inspectItems })}`,
+    '这些句子里不要出现「需处理」「需关注」「状态良好」。检查发现是空的就不要为这项编后果。',
+    `本单：${JSON.stringify({
+      complaint: ctx.complaint,
+      intake: ctx.intakeBrief,
+      items: ctx.inspectItems,
+    })}`,
     '输出 JSON：{"shop":[{"kind":"miss","title":"","body":""}],"items":[{"id":"","body":""}]}',
   ].join('\n')
 }
@@ -329,6 +372,7 @@ async function runJob(albumId, kind) {
     const { field, nodeKind } = nodeField(kind)
     const raw = await runLlm(
       kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
+      kind === 'inspect' && !ctx.intakeBrief ? ctx.intakePhotoUrls : [],
     )
     const parsed = kind === 'work'
       ? parseWorkAdvice(raw)

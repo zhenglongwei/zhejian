@@ -44,7 +44,7 @@ test('检测按已写的发现解释，空发现不编后果', () => {
       { id: 'c', name: '雨刮', result: '状态良好', note: '刮得干净' },
     ],
   )
-  assert.equal(got.scope, 'both')
+  assert.equal(got.scope, 'flat')
   assert.equal(got.shop.length, 2)
   assert.equal(got.shop[0].kind, 'miss')
   assert.equal(got.shop[1].kind, 'wrong')

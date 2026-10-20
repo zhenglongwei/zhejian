@@ -5202,7 +5202,13 @@ Page({
         body,
         canApply: canAdd,
       }
-    }).filter((row) => row.title && row.body)
+    }).filter((row) => row.body)
+    const lines = shop.map((row) => ({
+      id: row.id,
+      body: row.body,
+      canApply: false,
+      applyKind: '',
+    }))
     const items = (Array.isArray(raw.items) ? raw.items : []).map((row) => {
       const current = byId[String((row && row.id) || '')] || null
       const advice = String((current && current.advice) || '').trim()
@@ -5216,16 +5222,26 @@ Page({
         body,
         hasReason: Boolean(row && row.hasReason),
         canApply: Boolean(row && row.hasReason && body && unchanged && advice !== body),
+        applyKind: 'copy',
       }
+    })
+    items.forEach((row) => {
+      if (!row.body) return
+      lines.push({
+        id: row.id,
+        body: row.body,
+        canApply: row.canApply,
+        applyKind: row.applyKind,
+      })
     })
     return {
       status,
       scope: String(raw.scope || ''),
       shop,
-      hasShop: shop.length > 0,
+      lines,
+      hasLines: lines.length > 0,
       items,
-      hasItems: items.length > 0,
-      hasContent: status === 'ready' && (items.length > 0 || shop.length > 0),
+      hasContent: status === 'ready' && lines.length > 0,
       isWaiting: status === 'queued' || status === 'running',
     }
   },
@@ -6421,7 +6437,7 @@ Page({
     if (storedKey && storedKey === contentKey) {
       this.setData({ adviceOpen: true })
       const advice = this.data.inspectionAdvice || {}
-      if (!(advice.scope === 'both' && (advice.hasContent || advice.isWaiting))) {
+      if (!(advice.scope === 'flat' && (advice.hasContent || advice.isWaiting))) {
         this.onStartInspectionAdvice()
       }
       return
