@@ -27,6 +27,12 @@ test('施工对得上时不列缺口', () => {
 test('检测按已写的发现解释，空发现不编后果', () => {
   const got = parseInspectionAdvice(
     {
+      shop: [
+        { kind: 'miss', title: '球头', body: '异响要查球头间隙，举升后撬一下。' },
+        { kind: 'omit', title: '插头', body: '这项已经有了，不该再算漏。' },
+        { kind: 'wrong', title: '轮胎', body: '结果写了关注，发现却是空的。' },
+        { kind: 'extra', title: '随便', body: '丢掉。' },
+      ],
       items: [
         { id: 'a', body: '接头已经老化。再拖可能接触不良，灯会闪。建议现在处理，不要再拖。' },
         { id: 'b', body: '编一段没写过的漏油。' },
@@ -38,6 +44,10 @@ test('检测按已写的发现解释，空发现不编后果', () => {
       { id: 'c', name: '雨刮', result: '状态良好', note: '刮得干净' },
     ],
   )
+  assert.equal(got.scope, 'both')
+  assert.equal(got.shop.length, 2)
+  assert.equal(got.shop[0].kind, 'miss')
+  assert.equal(got.shop[1].kind, 'wrong')
   assert.equal(got.items[0].timing, '建议现在处理')
   assert.match(got.items[0].body, /老化/)
   assert.equal(got.items[0].hasReason, true)

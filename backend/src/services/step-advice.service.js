@@ -86,7 +86,10 @@ function filled(item) {
 function adviceHasContent(advice, kind) {
   if (!advice || typeof advice !== 'object') return false
   if (kind === 'work') return Boolean(text(advice.note) || (advice.gaps && advice.gaps.length))
-  if (kind === 'inspect') return Array.isArray(advice.items) && advice.items.length > 0
+  if (kind === 'inspect') {
+    return (Array.isArray(advice.items) && advice.items.length > 0) ||
+      (Array.isArray(advice.shop) && advice.shop.length > 0)
+  }
   return Boolean(filled(advice.repair) || filled(advice.warranty) || filled(advice.care))
 }
 
@@ -114,6 +117,13 @@ function namedRows(findings) {
     .filter((row) => row.name || row.note || row.result)
 }
 
+const SHOP_KIND = {
+  miss: '缺项',
+  wrong: '错项',
+  omit: '漏项',
+  how: '怎么查',
+}
+
 function parseInspectionAdvice(raw, items) {
   const parsed = parseReviewModelJson(raw) || {}
   const byId = new Map()
@@ -122,7 +132,22 @@ function parseInspectionAdvice(raw, items) {
     const body = text(row && row.body).slice(0, 80)
     if (id && body) byId.set(id, body)
   })
+  const known = new Set((Array.isArray(items) ? items : []).map((row) => text(row.name)).filter(Boolean))
+  const shop = (Array.isArray(parsed.shop) ? parsed.shop : [])
+    .map((row) => {
+      const kind = text(row && row.kind)
+      if (!SHOP_KIND[kind]) return null
+      const title = text(row && (row.title || row.partName)).slice(0, 16)
+      const body = text(row && row.body).slice(0, 80)
+      if (!title || !body) return null
+      if ((kind === 'miss' || kind === 'omit') && known.has(title)) return null
+      return { kind, title, body }
+    })
+    .filter(Boolean)
+    .slice(0, 4)
   return {
+    scope: 'both',
+    shop,
     items: (Array.isArray(items) ? items : [])
       .map((row) => {
         const noted = text(row.note)
@@ -182,7 +207,7 @@ function fingerprintFor(kind, ctx) {
         workItems: ctx.workItems,
       }
     : kind === 'inspect'
-      ? { v2: 'owner', complaint: ctx.complaint, inspectItems: ctx.inspectItems }
+      ? { v3: 'both', complaint: ctx.complaint, inspectItems: ctx.inspectItems }
       : {
         complaint: ctx.complaint,
         quoteLines: ctx.quoteLines,
@@ -260,13 +285,18 @@ function workInstruction(ctx) {
 
 function inspectionInstruction(ctx) {
   return [
-    '你在给车主解释检测结果。店员已经写了部位、结果和检查发现。',
-    '每一项写一句车主能听懂的话：看到了什么，不处理会怎样，是现在做还是先观察。',
-    '结果为需处理：建议现在处理，不要再拖。需关注：现在还能用，先观察。状态良好：现在不用动。仅记录：只是留了照片。',
-    '不要出现「需处理」「需关注」「状态良好」这些词。不要编检查发现里没有的裂、漏、厚度和里程。检查发现是空的就不要写这一项。',
-    '最多 8 项。',
+    '你在看这次检测，分两层写。只根据车主诉求和已经写下的检查项，不要编没写过的裂、漏、厚度。',
+    '第一层给修理厂。shop 最多 4 条：',
+    'miss 缺项：这个故障通常要查、清单里还没有的部位。title 写部位名，body 写为什么要查、怎么查。',
+    'wrong 错项：已有项和诉求或检查发现对不上。title 写已有部位名，body 写哪里不对。',
+    'omit 漏项：诉求里提到、检测里没有单独一项。title 写部位名，body 写漏了什么。',
+    'how 怎么查：先查哪几处、怎么查。没有缺漏也可以写一条。不要写整本保养流程。',
+    '已经有的部位不要再放进 miss 或 omit。都对得上时 shop 可以为空。',
+    '第二层给车主。items 里每一项写一句车主能听懂的话：看到了什么，不处理会怎样，现在做还是先观察。',
+    '结果为需处理就建议现在处理。需关注就说可以先观察。状态良好就说现在不用动。仅记录就说只是留了照片。',
+    '给车主的句子里不要出现「需处理」「需关注」「状态良好」。检查发现是空的就不要为这项编后果。',
     `本单：${JSON.stringify({ complaint: ctx.complaint, items: ctx.inspectItems })}`,
-    '输出 JSON：{"items":[{"id":"","body":""}]}',
+    '输出 JSON：{"shop":[{"kind":"miss","title":"","body":""}],"items":[{"id":"","body":""}]}',
   ].join('\n')
 }
 
@@ -362,7 +392,12 @@ function sanitizeStepAdviceForView(advice, kind) {
     return { ...base, note: text(advice.note), gaps: Array.isArray(advice.gaps) ? advice.gaps : [] }
   }
   if (kind === 'inspect') {
-    return { ...base, items: Array.isArray(advice.items) ? advice.items : [] }
+    return {
+      ...base,
+      scope: text(advice.scope),
+      shop: Array.isArray(advice.shop) ? advice.shop : [],
+      items: Array.isArray(advice.items) ? advice.items : [],
+    }
   }
   return {
     ...base,

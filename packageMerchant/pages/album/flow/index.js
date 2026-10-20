@@ -3549,7 +3549,7 @@ Page({
     this.scheduleAutoSavePhotos()
   },
 
-  addBlankFinding(sectionIndex, { workQuoteName = '', images = [] } = {}) {
+  addBlankFinding(sectionIndex, { workQuoteName = '', partName = '', images = [] } = {}) {
     const section = this.data.sections[sectionIndex]
     if (!section || !section.findingMode) return
     const id = `fid_new_${Date.now()}`
@@ -3565,7 +3565,7 @@ Page({
           })
         : normalizeFinding({
             id,
-            partName: '',
+            partName: String(partName || '').trim(),
             result: '',
             advice: '',
             images: shots,
@@ -5187,6 +5187,22 @@ Page({
     findings.forEach((row) => {
       if (row && row.id) byId[row.id] = row
     })
+    const names = new Set(findings.map((row) => String((row && row.partName) || '').trim()).filter(Boolean))
+    const shopLabel = { miss: '缺项', wrong: '错项', omit: '漏项', how: '怎么查' }
+    const shop = (Array.isArray(raw.shop) ? raw.shop : []).map((row, index) => {
+      const kind = String((row && row.kind) || '')
+      const title = String((row && row.title) || '').trim()
+      const body = String((row && row.body) || '').trim()
+      const canAdd = (kind === 'miss' || kind === 'omit') && title && !names.has(title)
+      return {
+        id: `shop_${index}`,
+        kind,
+        label: shopLabel[kind] || '怎么查',
+        title,
+        body,
+        canApply: canAdd,
+      }
+    }).filter((row) => row.title && row.body)
     const items = (Array.isArray(raw.items) ? raw.items : []).map((row) => {
       const current = byId[String((row && row.id) || '')] || null
       const advice = String((current && current.advice) || '').trim()
@@ -5204,8 +5220,12 @@ Page({
     })
     return {
       status,
+      scope: String(raw.scope || ''),
+      shop,
+      hasShop: shop.length > 0,
       items,
-      hasContent: items.length > 0 && status === 'ready',
+      hasItems: items.length > 0,
+      hasContent: status === 'ready' && (items.length > 0 || shop.length > 0),
       isWaiting: status === 'queued' || status === 'running',
     }
   },
@@ -6400,7 +6420,8 @@ Page({
       ''
     if (storedKey && storedKey === contentKey) {
       this.setData({ adviceOpen: true })
-      if (!(this.data.inspectionAdvice && (this.data.inspectionAdvice.hasContent || this.data.inspectionAdvice.isWaiting))) {
+      const advice = this.data.inspectionAdvice || {}
+      if (!(advice.scope === 'both' && (advice.hasContent || advice.isWaiting))) {
         this.onStartInspectionAdvice()
       }
       return
@@ -6550,6 +6571,27 @@ Page({
     } finally {
       this.setData({ confirming: false })
     }
+  },
+
+  onApplyShopGap(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const row = ((this.data.inspectionAdvice && this.data.inspectionAdvice.shop) || []).find(
+      (item) => item && item.id === id && item.canApply,
+    )
+    if (!row) return
+    const sectionIndex = this.findingSectionIndex()
+    if (sectionIndex < 0) return
+    this.addBlankFinding(sectionIndex, { partName: row.title })
+    const shop = (this.data.inspectionAdvice.shop || []).map((item) =>
+      item && item.id === id ? { ...item, canApply: false } : item,
+    )
+    this.setData({
+      inspectionAdvice: { ...this.data.inspectionAdvice, shop },
+      autoSaveLabel: '保存中…',
+    })
+    this.persistPhotoDraft()
+      .then(() => this.setAutoSaveLabel('已自动保存'))
+      .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
   },
 
   onApplyOwnerExplain(e) {

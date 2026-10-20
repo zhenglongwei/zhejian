@@ -1837,18 +1837,34 @@
           <block wx:elif="{{aiReview && aiReview.merchantBrief.hasContent}}">
             <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
           </block>
-          <view wx:if="{{isInspectionPhotoStep && inspectionAdvice.hasContent}}" class="merchant-flow-page__advice-sec">
-            <view wx:for="{{inspectionAdvice.items}}" wx:key="id" class="merchant-flow-page__advice-ask">
-              <text class="merchant-flow-page__advice-ask-title">{{item.partName}} · {{item.timing}}</text>
-              <text class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
-              <text
-                wx:if="{{item.canApply}}"
-                class="merchant-flow-page__advice-row-go"
-                data-id="{{item.id}}"
-                catchtap="onApplyOwnerExplain"
-              >应用</text>
+          <block wx:if="{{isInspectionPhotoStep && inspectionAdvice.hasContent}}">
+            <view wx:if="{{inspectionAdvice.hasShop}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">给店里</text>
+              <view wx:for="{{inspectionAdvice.shop}}" wx:key="id" class="merchant-flow-page__advice-ask">
+                <text class="merchant-flow-page__advice-ask-title">{{item.label}} · {{item.title}}</text>
+                <text class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+                <text
+                  wx:if="{{item.canApply}}"
+                  class="merchant-flow-page__advice-row-go"
+                  data-id="{{item.id}}"
+                  catchtap="onApplyShopGap"
+                >应用</text>
+              </view>
             </view>
-          </view>
+            <view wx:if="{{inspectionAdvice.hasItems}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">给车主</text>
+              <view wx:for="{{inspectionAdvice.items}}" wx:key="id" class="merchant-flow-page__advice-ask">
+                <text class="merchant-flow-page__advice-ask-title">{{item.partName}} · {{item.timing}}</text>
+                <text class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+                <text
+                  wx:if="{{item.canApply}}"
+                  class="merchant-flow-page__advice-row-go"
+                  data-id="{{item.id}}"
+                  catchtap="onApplyOwnerExplain"
+                >应用</text>
+              </view>
+            </view>
+          </block>
           <view wx:if="{{adviceApplyRows.length}}" class="merchant-flow-page__advice-sec">
             <view wx:for="{{adviceApplyRows}}" wx:key="id" class="merchant-flow-page__advice-row">
               <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
