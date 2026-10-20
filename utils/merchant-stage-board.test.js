@@ -100,6 +100,29 @@ test('接车只展示已有照片、诉求和识别结论', () => {
   assert.equal(board.tabs[1].mark, 'after')
 })
 
+test('检测还在填写时，标题按本步已标需处理的项来数', () => {
+  const list = nodes()
+  list[1] = {
+    ...list[1],
+    status: 'in_progress',
+    photoDraft: {
+      findings: [
+        { partName: '下摆臂', result: FINDING_RESULT.ACTION, advice: '胶套裂' },
+        { partName: '轮胎', result: FINDING_RESULT.OK, advice: '正常' },
+      ],
+    },
+  }
+  list[2] = {
+    ...list[2],
+    status: 'pending',
+    document: { status: 'draft', payload: {} },
+  }
+  const board = buildMerchantStageBoard(album(), list, 'inspect')
+  assert.equal(board.inspect.headline, '发现 1 项异常')
+  assert.equal(board.inspect.items[0].name, '下摆臂')
+  assert.equal(board.inspect.items[0].tag, '需处理')
+})
+
 test('检测不编健康分，状态良好不进异常', () => {
   const board = buildMerchantStageBoard(album(), nodes(), 'inspect')
   assert.equal(board.inspect.headline, '发现 2 项异常')

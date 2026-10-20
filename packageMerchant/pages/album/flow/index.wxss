@@ -857,6 +857,29 @@
   gap: var(--space-xs);
 }
 
+.merchant-flow-page__advice-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__advice-row-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__advice-row-go {
+  flex-shrink: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
 .merchant-flow-page__advice-ask-title {
   font-size: var(--font-body-size);
   line-height: var(--font-body-lh);

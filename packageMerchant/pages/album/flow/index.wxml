@@ -90,26 +90,7 @@
     <text class="merchant-flow-page__advice-ask-body">{{advice.care.body}}</text>
   </view>
 </template>
-<template name="aiFieldHint">
-  <view wx:if="{{hint && !hint.applied}}" class="merchant-flow-page__ai-hint">
-    <view class="merchant-flow-page__ai-hint-body">
-      <text class="merchant-flow-page__ai-hint-kicker">{{hint.kicker}}</text>
-      <text class="merchant-flow-page__ai-hint-text">{{hint.body}}</text>
-    </view>
-    <text
-      wx:if="{{hint.canApply}}"
-      class="merchant-flow-page__ai-hint-action"
-      data-id="{{hint.id}}"
-      catchtap="onApplyAiSuggestion"
-    >应用</text>
-    <text
-      wx:elif="{{hint.canGoPhoto}}"
-      class="merchant-flow-page__ai-hint-action"
-      data-id="{{hint.id}}"
-      catchtap="onApplyAiSuggestion"
-    >补拍</text>
-  </view>
-</template>
+<template name="aiFieldHint"></template>
 <view class="page merchant-flow-page">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content merchant-flow-page__pad">
@@ -391,12 +372,7 @@
                 <image src="/assets/mch/spark-white.png" mode="aspectFit" />
                 <text>{{organizingPhotos ? '正在看' : 'AI分析'}}</text>
               </view>
-              <text class="st-kicker st-kicker--light">AI ASSISTED INSPECTION</text>
-              <text class="st-hero__title">{{stageBoard.inspect.headline}}</text>
-              <text wx:if="{{stageBoard.inspect.sub}}" class="st-hero__sub">{{stageBoard.inspect.sub}}</text>
-              <view wx:if="{{stageBoard.inspect.pills.length}}" class="st-pills">
-                <text wx:for="{{stageBoard.inspect.pills}}" wx:key="text" class="st-pill st-pill--{{item.tone}}">{{item.text}}</text>
-              </view>
+              <text class="st-kicker st-kicker--light">检测</text>
             </view>
             <view wx:if="{{stageBoard.inspect.items.length && !isInspectionPhotoStep}}" class="st-card">
               <view class="st-card__head">
@@ -1841,26 +1817,51 @@
         <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
       </view>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">
-        <view wx:if="{{(isWorkPhotoStep && workAdvice.isWaiting) || (isDeliveryPhotoStep && deliveryAdvice.isWaiting) || (!isWorkPhotoStep && !isDeliveryPhotoStep && (intakeAdvice.isWaiting || quoteAssist.isWaiting || (aiReview && aiReview.isWaiting)))}}" class="merchant-flow-page__ai-status">
+        <view wx:if="{{(isWorkPhotoStep && workAdvice.isWaiting) || (isDeliveryPhotoStep && deliveryAdvice.isWaiting) || (isInspectionPhotoStep && inspectionAdvice.isWaiting) || (!isWorkPhotoStep && !isDeliveryPhotoStep && !isInspectionPhotoStep && (intakeAdvice.isWaiting || quoteAssist.isWaiting || (aiReview && aiReview.isWaiting)))}}" class="merchant-flow-page__ai-status">
           <view class="merchant-flow-page__ai-status-spin"></view>
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
-        <block wx:elif="{{isWorkPhotoStep && workAdvice.hasContent}}">
-          <template is="workAdvicePanel" data="{{advice: workAdvice}}" />
+        <block wx:else>
+          <block wx:if="{{isWorkPhotoStep && workAdvice.hasContent}}">
+            <template is="workAdvicePanel" data="{{advice: workAdvice}}" />
+          </block>
+          <block wx:elif="{{isDeliveryPhotoStep && deliveryAdvice.hasContent}}">
+            <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
+          </block>
+          <block wx:elif="{{isIntakePhotoStep && intakeAdvice.hasContent}}">
+            <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: false}}" />
+          </block>
+          <block wx:elif="{{(activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm') && quoteAssist.hasContent}}">
+            <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
+          </block>
+          <block wx:elif="{{aiReview && aiReview.merchantBrief.hasContent}}">
+            <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
+          </block>
+          <view wx:if="{{isInspectionPhotoStep && inspectionAdvice.hasContent}}" class="merchant-flow-page__advice-sec">
+            <view wx:for="{{inspectionAdvice.items}}" wx:key="id" class="merchant-flow-page__advice-ask">
+              <text class="merchant-flow-page__advice-ask-title">{{item.partName}} · {{item.timing}}</text>
+              <text class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+              <text
+                wx:if="{{item.canApply}}"
+                class="merchant-flow-page__advice-row-go"
+                data-id="{{item.id}}"
+                catchtap="onApplyOwnerExplain"
+              >应用</text>
+            </view>
+          </view>
+          <view wx:if="{{adviceApplyRows.length}}" class="merchant-flow-page__advice-sec">
+            <view wx:for="{{adviceApplyRows}}" wx:key="id" class="merchant-flow-page__advice-row">
+              <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
+              <text
+                wx:if="{{item.canApply}}"
+                class="merchant-flow-page__advice-row-go"
+                data-id="{{item.id}}"
+                catchtap="onApplyAiSuggestion"
+              >应用</text>
+            </view>
+          </view>
+          <view wx:if="{{!adviceApplyRows.length && !(isInspectionPhotoStep && inspectionAdvice.hasContent) && !((isWorkPhotoStep && workAdvice.hasContent) || (isDeliveryPhotoStep && deliveryAdvice.hasContent) || (isIntakePhotoStep && intakeAdvice.hasContent) || ((activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm') && quoteAssist.hasContent) || (aiReview && aiReview.merchantBrief.hasContent))}}" class="text-caption text-secondary">这次没有额外意见</view>
         </block>
-        <block wx:elif="{{isDeliveryPhotoStep && deliveryAdvice.hasContent}}">
-          <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
-        </block>
-        <block wx:elif="{{intakeAdvice.hasContent}}">
-          <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: false}}" />
-        </block>
-        <block wx:elif="{{quoteAssist.hasContent}}">
-          <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
-        </block>
-        <block wx:elif="{{aiReview && aiReview.merchantBrief.hasContent}}">
-          <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
-        </block>
-        <view wx:else class="text-caption text-secondary">这次没有额外意见</view>
       </scroll-view>
     </view>
   </view>

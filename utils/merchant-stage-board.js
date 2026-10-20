@@ -147,7 +147,8 @@ function resultTag(result) {
 function inspectRecord(nodes) {
   const report = firstNode(nodes, ['inspection_report'])
   const photo = firstNode(nodes, ['inspection'])
-  const rows = findingsOf(report || photo)
+  const reportRows = findingsOf(report)
+  const rows = reportRows.length ? reportRows : findingsOf(photo)
   const items = []
   rows.forEach((row) => {
     const tag = resultTag(String((row && row.result) || ''))

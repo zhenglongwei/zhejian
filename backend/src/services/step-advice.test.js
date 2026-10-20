@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { parseWorkAdvice, parseDeliveryAdvice } = require('./step-advice.service')
+const { parseWorkAdvice, parseDeliveryAdvice, parseInspectionAdvice } = require('./step-advice.service')
 
 test('施工不一致时只指出补充报价或补图', () => {
   const got = parseWorkAdvice({
@@ -22,6 +22,29 @@ test('施工对得上时不列缺口', () => {
   const got = parseWorkAdvice({ note: '和报价对得上', gaps: [] })
   assert.equal(got.note, '和报价对得上')
   assert.equal(got.gaps.length, 0)
+})
+
+test('检测按已写的发现解释，空发现不编后果', () => {
+  const got = parseInspectionAdvice(
+    {
+      items: [
+        { id: 'a', body: '接头已经老化。再拖可能接触不良，灯会闪。建议现在处理，不要再拖。' },
+        { id: 'b', body: '编一段没写过的漏油。' },
+      ],
+    },
+    [
+      { id: 'a', name: '插头', result: '需处理', note: '接头老化' },
+      { id: 'b', name: '轮胎', result: '需关注', note: '' },
+      { id: 'c', name: '雨刮', result: '状态良好', note: '刮得干净' },
+    ],
+  )
+  assert.equal(got.items[0].timing, '建议现在处理')
+  assert.match(got.items[0].body, /老化/)
+  assert.equal(got.items[0].hasReason, true)
+  assert.match(got.items[1].body, /还空着/)
+  assert.equal(got.items[1].hasReason, false)
+  assert.equal(got.items[2].timing, '现在不用动')
+  assert.match(got.items[2].body, /刮得干净/)
 })
 
 test('交车分成维修、质保、用车', () => {

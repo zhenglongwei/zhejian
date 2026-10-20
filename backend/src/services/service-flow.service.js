@@ -233,6 +233,14 @@ function mapFlowNodeForView(node, albumNodes = []) {
         return null
       }
     })(),
+    inspectionAdvice: (() => {
+      try {
+        const { sanitizeStepAdviceForView } = require('./step-advice.service')
+        return sanitizeStepAdviceForView(node.inspectionAdvice, 'inspect')
+      } catch (_) {
+        return null
+      }
+    })(),
     deliveryAdvice: (() => {
       try {
         const { sanitizeStepAdviceForView } = require('./step-advice.service')
@@ -690,13 +698,19 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
   }
 
-  if (payload.startWorkAdvice || payload.startDeliveryAdvice) {
-    const kind = payload.startWorkAdvice ? 'work' : 'delivery'
-    const { queueWorkAdviceIfNeeded, queueDeliveryAdviceIfNeeded } = require('./step-advice.service')
+  if (payload.startWorkAdvice || payload.startDeliveryAdvice || payload.startInspectionAdvice) {
+    const kind = payload.startWorkAdvice ? 'work' : payload.startInspectionAdvice ? 'inspect' : 'delivery'
+    const {
+      queueWorkAdviceIfNeeded,
+      queueDeliveryAdviceIfNeeded,
+      queueInspectionAdviceIfNeeded,
+    } = require('./step-advice.service')
     const startAlbum = await loadAlbum(albumId)
     const queued = kind === 'work'
       ? await queueWorkAdviceIfNeeded(startAlbum)
-      : await queueDeliveryAdviceIfNeeded(startAlbum)
+      : kind === 'inspect'
+        ? await queueInspectionAdviceIfNeeded(startAlbum)
+        : await queueDeliveryAdviceIfNeeded(startAlbum)
     const fresh = await loadAlbum(albumId)
     const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
     const viewNodes = mapNodesForView(fresh)

@@ -499,12 +499,14 @@ Page({
     notifyConfirmDisabled: false,
     showQuoteAiCheck: false,
     adviceOpen: false,
+    adviceApplyRows: [],
     inspectAdviceOpen: true,
     quoteNotifyReady: true,
     quoteAssist: null,
     intakeAdvice: null,
     workAdvice: null,
     deliveryAdvice: null,
+    inspectionAdvice: null,
     checkpointMisses: [],
     aiTextBatchCanApply: false,
     aiTextBatchCanUndo: false,
@@ -1118,12 +1120,7 @@ Page({
           }
         : item.adviceHint || null,
       captionHint: item.captionHint || null,
-      hasCollapsedHints: Boolean(
-        item.aiApply ||
-          (item.photoHint && !item.photoHint.applied) ||
-          (item.captionHint && !item.captionHint.applied) ||
-          (item.adviceHint && !item.adviceHint.applied),
-      ),
+      hasCollapsedHints: false,
     }
     if (findingKind === 'work') {
       const row = normalizeWorkFinding(item)
@@ -1231,6 +1228,33 @@ Page({
     }
   },
 
+  buildAdviceApplyRows(sections, review) {
+    const rows = []
+    const seen = new Set()
+    ;(sections || []).forEach((section) => {
+      ;(section && section.findings ? section.findings : []).forEach((finding) => {
+        const apply = finding && finding.aiApply
+        const body = String((apply && apply.body) || '').trim()
+        if (!apply || !body || seen.has(apply.id)) return
+        seen.add(apply.id)
+        rows.push({ id: apply.id, body, canApply: true })
+      })
+    })
+    const suggestions = (review && review.suggestions) || []
+    suggestions.forEach((item) => {
+      if (!item || item.applied || seen.has(item.id)) return
+      const photo = item.isPhoto || item.type === 'photo'
+      const body = photo
+        ? String(item.howText || item.how || item.title || '').trim()
+        : String(item.suggestedText || '').trim()
+      if (!body) return
+      if (!photo && !item.canApply) return
+      seen.add(item.id)
+      rows.push({ id: item.id, body, canApply: !photo && Boolean(item.canApply) })
+    })
+    return rows
+  },
+
   setSectionsWithFindings(sections, extra = {}, expandKey, done) {
     const expandedFindingKey =
       expandKey === undefined ? this.data.expandedFindingKey : expandKey
@@ -1240,6 +1264,7 @@ Page({
     const patch = {
       sections: decorated,
       expandedFindingKey,
+      adviceApplyRows: this.buildAdviceApplyRows(decorated, extra.aiReview || this.data.aiReview),
       ...this.findingChromePatch(decorated, pending),
       ...extra,
     }
@@ -1730,6 +1755,10 @@ Page({
       const deliveryAdvice = this.decorateDeliveryAdvice(
         (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice,
       )
+      const inspectionAdvice = this.decorateInspectionAdvice(
+        (flowNodes.find((n) => n && n.kind === 'inspection') || {}).inspectionAdvice,
+        sections,
+      )
       const openStageBoard = stageOpen
         ? buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
         : null
@@ -1776,6 +1805,7 @@ Page({
         intakeAdvice,
         workAdvice,
         deliveryAdvice,
+        inspectionAdvice,
         inspectAdviceOpen: options.silent
           ? this.data.inspectAdviceOpen
           : Boolean(isInspectionPhotoStep && intakeAdvice && intakeAdvice.hasContent),
@@ -1805,6 +1835,7 @@ Page({
         orphanPhotoHints: [],
         aiReview: null,
         sections,
+        adviceApplyRows: this.buildAdviceApplyRows(sections, null),
         pendingImages: normalizePendingImages(photoDraft.pendingImages),
         organizingPhotos: false,
         organizeResultHint: '',
@@ -4102,7 +4133,10 @@ Page({
           if (!row.findingMode) return row
           return { ...row, findings: suggested }
         })
-        this.setSectionsWithFindings(sections, { organizeResultHint: groups.length ? '' : '这次没看出来' })
+        this.setSectionsWithFindings(sections, {
+          organizeResultHint: groups.length ? '' : '这次没看出来',
+          adviceOpen: true,
+        })
         return true
       }
       if (!groups.length) {
@@ -5143,6 +5177,39 @@ Page({
     }
   },
 
+  decorateInspectionAdvice(raw, sections) {
+    if (!raw || typeof raw !== 'object') {
+      return { status: '', isWaiting: false, hasContent: false, items: [] }
+    }
+    const status = String(raw.status || '')
+    const findings = this.collectFindingsFromSections(sections)
+    const byId = {}
+    findings.forEach((row) => {
+      if (row && row.id) byId[row.id] = row
+    })
+    const items = (Array.isArray(raw.items) ? raw.items : []).map((row) => {
+      const current = byId[String((row && row.id) || '')] || null
+      const advice = String((current && current.advice) || '').trim()
+      const source = String((row && row.sourceNote) || '').trim()
+      const body = String((row && row.body) || '').trim()
+      const unchanged = !advice || advice === source || advice === '无需处理'
+      return {
+        id: String((row && row.id) || ''),
+        partName: String((row && row.partName) || '').trim(),
+        timing: String((row && row.timing) || '').trim(),
+        body,
+        hasReason: Boolean(row && row.hasReason),
+        canApply: Boolean(row && row.hasReason && body && unchanged && advice !== body),
+      }
+    })
+    return {
+      status,
+      items,
+      hasContent: items.length > 0 && status === 'ready',
+      isWaiting: status === 'queued' || status === 'running',
+    }
+  },
+
   decorateDeliveryAdvice(raw) {
     if (!raw || typeof raw !== 'object') {
       return { status: '', isWaiting: false, hasContent: false }
@@ -5664,6 +5731,7 @@ Page({
     const patch = {
       aiReview: decorated,
       aiReviewBusy: false,
+      adviceApplyRows: this.buildAdviceApplyRows(this.data.sections, decorated),
     }
     Object.assign(patch, this.quoteAiButtonFlags())
     if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
@@ -5696,6 +5764,7 @@ Page({
         }
       }
     }
+    patch.adviceApplyRows = this.buildAdviceApplyRows(patch.sections || this.data.sections, decorated)
     this.setData(patch)
     if (waiting) this.startAiReviewPoll()
     else this.stopAiReviewPoll()
@@ -5788,7 +5857,8 @@ Page({
     const intakeWaiting = Boolean(this.data.intakeAdvice && this.data.intakeAdvice.isWaiting)
     const workWaiting = Boolean(this.data.workAdvice && this.data.workAdvice.isWaiting)
     const deliveryWaiting = Boolean(this.data.deliveryAdvice && this.data.deliveryAdvice.isWaiting)
-    if (assistWaiting || intakeWaiting || workWaiting || deliveryWaiting) this.startQuoteAssistPoll()
+    const inspectionWaiting = Boolean(this.data.inspectionAdvice && this.data.inspectionAdvice.isWaiting)
+    if (assistWaiting || intakeWaiting || workWaiting || deliveryWaiting || inspectionWaiting) this.startQuoteAssistPoll()
     else this.stopQuoteAssistPoll()
   },
 
@@ -5990,6 +6060,7 @@ Page({
       row && row.id === id ? { ...row, applied: true } : row,
     )
     patch.aiReview = this.decorateAiReview({ ...review, suggestions })
+    patch.adviceApplyRows = this.buildAdviceApplyRows(patch.sections || this.data.sections, patch.aiReview)
     this.setData(patch)
     if (skipPersist) return true
     try {
@@ -6328,22 +6399,25 @@ Page({
         this.data.activeNode.photoDraft.inspectionAiKey) ||
       ''
     if (storedKey && storedKey === contentKey) {
-      wx.showToast({ title: '内容和上次一样', icon: 'none' })
+      this.setData({ adviceOpen: true })
+      if (!(this.data.inspectionAdvice && (this.data.inspectionAdvice.hasContent || this.data.inspectionAdvice.isWaiting))) {
+        this.onStartInspectionAdvice()
+      }
       return
     }
     const findings = this.collectFindingsFromSections()
-    const batch = this.collectInspectionAiBatch(findings)
     const hasItem = findings.some(
       (row) =>
         String((row && row.partName) || '').trim() ||
         String((row && row.advice) || '').trim() ||
         (row.images && row.images.length),
     )
-    if (!batch.length && !hasItem) {
+    if (!hasItem) {
       this.setData({ adviceOpen: true })
-      await this.onStartIntakeAdvice()
+      wx.showToast({ title: '先写下检查项', icon: 'none' })
       return
     }
+    this.onStartInspectionAdvice()
     const shots = []
     const seen = new Set()
     findings.forEach((row) => {
@@ -6356,7 +6430,6 @@ Page({
     })
     if (!shots.length) {
       this.setData({ adviceOpen: true })
-      await this.onStartIntakeAdvice()
       return
     }
     const ran = await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
@@ -6476,6 +6549,51 @@ Page({
       wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
+    }
+  },
+
+  onApplyOwnerExplain(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const item = ((this.data.inspectionAdvice && this.data.inspectionAdvice.items) || []).find(
+      (row) => row && row.id === id && row.canApply,
+    )
+    if (!item) return
+    const sections = (this.data.sections || []).map((section) => {
+      if (!section || !section.findingMode) return section
+      return {
+        ...section,
+        findings: (section.findings || []).map((row) =>
+          String((row && row.id) || '') === id ? { ...row, advice: item.body } : row,
+        ),
+      }
+    })
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
+      this.setData({
+        inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
+      })
+    })
+    this.persistPhotoDraft()
+      .then(() => this.setAutoSaveLabel('已自动保存'))
+      .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+  },
+
+  async onStartInspectionAdvice() {
+    const node = this.data.activeNode
+    if (!node || !node.id || this.data.readOnly) return
+    if (this.data.inspectionAdvice && this.data.inspectionAdvice.isWaiting) {
+      this.setData({ adviceOpen: true })
+      return
+    }
+    try {
+      await this.persistPhotoDraft()
+      await updateMerchantFlowNode(this.albumId, node.id, { startInspectionAdvice: true })
+      await this.loadFlow({ silent: true })
+      this.setData({ adviceOpen: true })
+    } catch (e) {
+      const message = (e && e.message) || ''
+      if (message && message !== '先写下检查项') {
+        wx.showToast({ title: message, icon: 'none' })
+      }
     }
   },
 

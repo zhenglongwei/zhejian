@@ -86,16 +86,62 @@ function filled(item) {
 function adviceHasContent(advice, kind) {
   if (!advice || typeof advice !== 'object') return false
   if (kind === 'work') return Boolean(text(advice.note) || (advice.gaps && advice.gaps.length))
+  if (kind === 'inspect') return Array.isArray(advice.items) && advice.items.length > 0
   return Boolean(filled(advice.repair) || filled(advice.warranty) || filled(advice.care))
+}
+
+function nodeField(kind) {
+  if (kind === 'work') return { field: 'workAdvice', nodeKind: 'work' }
+  if (kind === 'inspect') return { field: 'inspectionAdvice', nodeKind: 'inspection' }
+  return { field: 'deliveryAdvice', nodeKind: 'delivery_photos' }
+}
+
+const OWNER_TIMING = {
+  需处理: '建议现在处理',
+  需关注: '可以先观察',
+  状态良好: '现在不用动',
+  仅记录: '这次只留了照片',
 }
 
 function namedRows(findings) {
   return (Array.isArray(findings) ? findings : [])
     .map((row) => ({
+      id: text(row && row.id),
       name: text(row && row.partName),
+      result: text(row && row.result),
       note: text(row && (row.advice || row.caption)),
     }))
-    .filter((row) => row.name || row.note)
+    .filter((row) => row.name || row.note || row.result)
+}
+
+function parseInspectionAdvice(raw, items) {
+  const parsed = parseReviewModelJson(raw) || {}
+  const byId = new Map()
+  ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
+    const id = text(row && row.id)
+    const body = text(row && row.body).slice(0, 80)
+    if (id && body) byId.set(id, body)
+  })
+  return {
+    items: (Array.isArray(items) ? items : [])
+      .map((row) => {
+        const noted = text(row.note)
+        const timing = OWNER_TIMING[row.result] || '先看这项'
+        const body = noted
+          ? byId.get(row.id) || `${noted}。${timing}。`
+          : '检查发现还空着。先写上看到的情况，再说明不处理会怎样。'
+        return {
+          id: row.id,
+          partName: row.name || '这项',
+          sourceNote: noted,
+          timing,
+          body,
+          hasReason: Boolean(noted),
+        }
+      })
+      .filter((row) => row.partName)
+      .slice(0, 8),
+  }
 }
 
 function contextOf(album) {
@@ -135,7 +181,9 @@ function fingerprintFor(kind, ctx) {
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
       }
-    : {
+    : kind === 'inspect'
+      ? { v2: 'owner', complaint: ctx.complaint, inspectItems: ctx.inspectItems }
+      : {
         complaint: ctx.complaint,
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
@@ -210,6 +258,18 @@ function workInstruction(ctx) {
   ].join('\n')
 }
 
+function inspectionInstruction(ctx) {
+  return [
+    '你在给车主解释检测结果。店员已经写了部位、结果和检查发现。',
+    '每一项写一句车主能听懂的话：看到了什么，不处理会怎样，是现在做还是先观察。',
+    '结果为需处理：建议现在处理，不要再拖。需关注：现在还能用，先观察。状态良好：现在不用动。仅记录：只是留了照片。',
+    '不要出现「需处理」「需关注」「状态良好」这些词。不要编检查发现里没有的裂、漏、厚度和里程。检查发现是空的就不要写这一项。',
+    '最多 8 项。',
+    `本单：${JSON.stringify({ complaint: ctx.complaint, items: ctx.inspectItems })}`,
+    '输出 JSON：{"items":[{"id":"","body":""}]}',
+  ].join('\n')
+}
+
 function deliveryInstruction(ctx) {
   return [
     '你在看交车。只根据已经做好的项目和店员写的质保，给店员三句。',
@@ -236,10 +296,15 @@ async function runJob(albumId, kind) {
     if (!album) return
     const ctx = contextOf(album)
     const fingerprint = fingerprintFor(kind, ctx)
-    const field = kind === 'work' ? 'workAdvice' : 'deliveryAdvice'
-    const nodeKind = kind === 'work' ? 'work' : 'delivery_photos'
-    const raw = await runLlm(kind === 'work' ? workInstruction(ctx) : deliveryInstruction(ctx))
-    const parsed = kind === 'work' ? parseWorkAdvice(raw) : parseDeliveryAdvice(raw)
+    const { field, nodeKind } = nodeField(kind)
+    const raw = await runLlm(
+      kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
+    )
+    const parsed = kind === 'work'
+      ? parseWorkAdvice(raw)
+      : kind === 'inspect'
+        ? parseInspectionAdvice(raw, ctx.inspectItems)
+        : parseDeliveryAdvice(raw)
     const ok = adviceHasContent(parsed, kind)
     await patchNode(albumId, nodeKind, (item) => ({
       ...item,
@@ -262,9 +327,13 @@ async function queueIfNeeded(album, kind) {
     err.status = 400
     throw err
   }
+  if (kind === 'inspect' && !ctx.inspectItems.length) {
+    const err = new Error('先写下检查项')
+    err.status = 400
+    throw err
+  }
   const fingerprint = fingerprintFor(kind, ctx)
-  const field = kind === 'work' ? 'workAdvice' : 'deliveryAdvice'
-  const nodeKind = kind === 'work' ? 'work' : 'delivery_photos'
+  const { field, nodeKind } = nodeField(kind)
   const node = readFlowNodes(album).find((item) => item && item.kind === nodeKind)
   const current = (node && node[field]) || {}
   if (current.status === 'ready' && current.fingerprint === fingerprint && adviceHasContent(current, kind)) {
@@ -292,6 +361,9 @@ function sanitizeStepAdviceForView(advice, kind) {
   if (kind === 'work') {
     return { ...base, note: text(advice.note), gaps: Array.isArray(advice.gaps) ? advice.gaps : [] }
   }
+  if (kind === 'inspect') {
+    return { ...base, items: Array.isArray(advice.items) ? advice.items : [] }
+  }
   return {
     ...base,
     repair: advice.repair || null,
@@ -303,7 +375,9 @@ function sanitizeStepAdviceForView(advice, kind) {
 module.exports = {
   queueWorkAdviceIfNeeded: (album) => queueIfNeeded(album, 'work'),
   queueDeliveryAdviceIfNeeded: (album) => queueIfNeeded(album, 'delivery'),
+  queueInspectionAdviceIfNeeded: (album) => queueIfNeeded(album, 'inspect'),
   sanitizeStepAdviceForView,
   parseWorkAdvice,
   parseDeliveryAdvice,
+  parseInspectionAdvice,
 }
