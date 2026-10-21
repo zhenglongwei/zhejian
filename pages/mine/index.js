@@ -3,9 +3,9 @@ const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { promptHomePrivacy } = require('../../utils/privacy-authorize')
-const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
+const { buildMineMenuSections, buildMineHubDock, buildOwnerHubLinks } = require('../../constants/mine-menu')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
-const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
+const { compareOwnerAlbums, filterOwnerHubAlbums, needsOwnerConfirm } = require('../../utils/owner-album-rank')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
 const {
@@ -23,6 +23,13 @@ const { TOOL_GUEST_ALBUM_TITLE, TOOL_GUEST_ALBUM_HINT } = require('../../constan
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildCaseListH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
+function hubEmptyTitle(key) {
+  if (key === 'confirm') return '没有待确认的服务'
+  if (key === 'review') return '没有待评价的服务'
+  if (key === 'active') return '没有进行中的服务'
+  return '这里还没有服务'
+}
+
 function quietHubAlbumTags(item = {}) {
   return {
     ...item,
@@ -32,13 +39,9 @@ function quietHubAlbumTags(item = {}) {
 }
 
 function enrichRecentAlbums(albums = []) {
-  return (albums || [])
-    .slice(0, 2)
-    .map((item) =>
-      quietHubAlbumTags(
-        enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })
-      )
-    )
+  return (albums || []).map((item) =>
+    quietHubAlbumTags(enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })),
+  )
 }
 
 const {
@@ -71,6 +74,17 @@ Page({
     albumHeroCards: [],
     pendingAuthBadge: '',
     hubDock: buildMineHubDock(),
+    hubLinks: [],
+    hubFilter: 'all',
+    hubEmptyTitle: '这里还没有服务',
+    hubAlbums: [],
+    hubFilters: [
+      { key: 'all', label: '全部' },
+      { key: 'active', label: '进行中' },
+      { key: 'confirm', label: '待确认' },
+      { key: 'review', label: '待评价' },
+    ],
+    heroLine: '',
     todoSummary: null,
     shareIncentivePreview: buildMineEarningsPreview({ loggedIn: false }),
     showShareIncentive: false,
@@ -124,7 +138,7 @@ Page({
     }
   },
 
-  syncHubView(badges, albums = [], loggedIn = false, summary = null, vehicleSummary = '', authList = []) {
+  syncHubView(badges, albums = [], loggedIn = false, summary = null, vehicleSummary = '', authList = [], filterKey) {
     const authSummary = summarizeAuthorizationTodos(authList, {
       albumPendingAuth: summary && summary.albumPendingAuth,
       albumPendingOwnerReview: summary && summary.albumPendingOwnerReview,
@@ -133,12 +147,17 @@ Page({
     const hasAlbumBindings = Boolean(
       (summary && summary.hasAlbumBindings) || (albums && albums.length)
     )
-    // 已登录无相册：空态主按钮进案例站首页；未登录公域冷启动：底部出口
     const showGuestH5Link =
       !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
+    const hubFilter = filterKey || this.data.hubFilter || 'all'
+    const reviewCount = (albums || []).filter((item) => item && item.pendingOwnerReview).length
     this.setData({
       menuSections: buildMineMenuSections(badges),
-      albumHeroCards: albums,
+      albumHeroCards: filterOwnerHubAlbums(albums, hubFilter),
+      hubAlbums: albums,
+      hubFilter,
+      hubEmptyTitle: hubEmptyTitle(hubFilter),
+      hubLinks: buildOwnerHubLinks(reviewCount),
       pendingAuthBadge: '',
       todoSummary,
       vehicleSummary,
@@ -176,17 +195,10 @@ Page({
   async loadHubAlbums() {
     try {
       const merged = await fetchUserServiceAlbums({ tab: 'all' })
-      const sorted = (merged || [])
-        .slice()
-        .sort((a, b) => {
-          const pendingA = a && a.pendingOwnerReview ? 1 : 0
-          const pendingB = b && b.pendingOwnerReview ? 1 : 0
-          if (pendingA !== pendingB) return pendingB - pendingA
-          return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
-        })
+      const sorted = (merged || []).slice()
       return {
-        recent: sorted.slice(0, 2),
-        albumUnread: hasUnreadAlbums(sorted),
+        recent: sorted,
+        albumUnread: false,
       }
     } catch (e) {
       return { recent: [], albumUnread: false }
@@ -227,16 +239,28 @@ Page({
       let recentRaw = []
       let albumUnread = false
       let authList = []
+      let heroLine = ''
+      let albumSectionTitle = '服务相册'
       if (auth.ok) {
         const hub = await this.loadHubAlbums()
         recentRaw = hub.recent
         albumUnread = hub.albumUnread
+        heroLine = hub.heroLine || ''
+        albumSectionTitle = hub.albumSectionTitle || '服务相册'
         authList = await this.loadAuthList()
       } else if (Array.isArray(summary.recentAlbums)) {
         recentRaw = summary.recentAlbums
       }
 
-      const recentAlbums = enrichRecentAlbums(recentRaw)
+      const recentAlbums = enrichRecentAlbums(recentRaw).slice().sort(compareOwnerAlbums)
+      const pendingCount = recentAlbums.filter((item) => needsOwnerConfirm(item)).length
+      const activeCount = filterOwnerHubAlbums(recentAlbums, 'active').length
+      heroLine = pendingCount
+        ? `有 ${pendingCount} 份待你确认`
+        : activeCount
+          ? `有 ${activeCount} 份服务进行中`
+          : '还没有进行中的服务'
+      albumSectionTitle = '服务相册'
       if (!albumUnread) {
         albumUnread = recentAlbums.some((item) => item.hasUnreadUpdate)
       }
@@ -248,6 +272,8 @@ Page({
         status: 'normal',
         isLoggedIn: true,
         user: summary.user,
+        heroLine,
+        albumSectionTitle,
       })
     } catch (e) {
       this.setData({
@@ -408,6 +434,28 @@ Page({
     if (item.url) {
       wx.navigateTo({ url: item.url })
     }
+  },
+
+  onHubFilterTap(e) {
+    const key = e.currentTarget.dataset.key
+    if (!key) return
+    this.setData({
+      hubFilter: key,
+      albumHeroCards: filterOwnerHubAlbums(this.data.hubAlbums || [], key),
+      hubEmptyTitle: hubEmptyTitle(key),
+    })
+  },
+
+  onHubLinkTap(e) {
+    const key = e.currentTarget.dataset.key
+    const item = (this.data.hubLinks || []).find((row) => row.key === key)
+    if (!item) return
+    if (key === 'review') {
+      this.onHubFilterTap({ currentTarget: { dataset: { key: 'review' } } })
+      return
+    }
+    if (item.needPhone && !this.guardProtectedEntry(true)) return
+    if (item.url) wx.navigateTo({ url: item.url })
   },
 
   onDockTap(e) {

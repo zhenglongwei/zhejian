@@ -12,6 +12,7 @@ const { SERVICE_ALBUM_LIST_TABS, normalizeServiceAlbumListTab } = require('../..
 const {
   enrichServiceAlbumListItem,
 } = require('../../../utils/service-album-display')
+const { compareOwnerAlbums } = require('../../../utils/owner-album-rank')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const { openH5Url, buildCaseListH5Url } = require('../../../constants/h5-links')
 const {
@@ -191,9 +192,9 @@ Page({
     try {
       const listTab = normalizeServiceAlbumListTab(this.data.activeTab)
       const raw = await fetchUserServiceAlbums({ tab: listTab })
-      const list = (raw || []).map((item) =>
-        enrichServiceAlbumListItem(item, { listTab })
-      )
+      const list = (raw || [])
+        .map((item) => enrichServiceAlbumListItem(item, { listTab }))
+        .sort(compareOwnerAlbums)
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',
@@ -216,6 +217,11 @@ Page({
     } finally {
       this._listLoading = false
     }
+  },
+
+  onChipTap(e) {
+    const key = e.currentTarget.dataset.key
+    this.onTabChange({ detail: { key } })
   },
 
   onTabChange(e) {

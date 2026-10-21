@@ -31,6 +31,9 @@
 
 .mine__section-title {
   color: var(--color-text-primary);
+  font-size: var(--font-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h2-lh);
 }
 
 .mine__section-links {
@@ -216,6 +219,81 @@
   min-height: 44rpx;
   display: flex;
   align-items: center;
+}
+
+.mine__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: var(--space-sm);
+}
+
+.mine__chip {
+  padding: 12rpx 22rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-caption-lh);
+}
+
+.mine__chip.is-on {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.mine__kicker {
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-caption-lh);
+}
+
+.mine__name {
+  display: block;
+  margin-top: 4rpx;
+  font-size: var(--font-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h1-lh);
+  color: var(--color-text-primary);
+}
+
+.mine__hero-line {
+  padding: 28rpx 32rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(160deg, var(--color-mch-card-start), var(--color-mch-card-end));
+  color: var(--color-text-inverse);
+  font-size: var(--font-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h2-lh);
+}
+
+.mine__album-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.mine__todo-line,
+.mine__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 8rpx;
+  border-bottom: 1rpx solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+}
+
+.mine__link-arrow,
+.mine__todo-line text:last-child {
+  color: var(--color-mch-caption);
+}
+
+.mine__links {
+  margin-top: 12rpx;
 }
 
 .mine__auth-submit {

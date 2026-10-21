@@ -1,4 +1,5 @@
 const { isLoggedIn, clearSession } = require('../../../utils/auth')
+const { openPlatformSupportContact } = require('../../../utils/support-contact')
 
 Page({
   data: {
@@ -13,6 +14,15 @@ Page({
     const { key } = e.currentTarget.dataset
     if (key === 'help') {
       wx.navigateTo({ url: '/pages/mine/help/index' })
+      return
+    }
+    if (key === 'support') {
+      openPlatformSupportContact()
+      return
+    }
+    if (key === 'merchant') {
+      const { persistRole, reLaunchRoleHome, ROLE_MERCHANT } = require('../../../utils/app-role')
+      persistRole(ROLE_MERCHANT).then(() => reLaunchRoleHome(ROLE_MERCHANT))
       return
     }
     if (key === 'agreement') {

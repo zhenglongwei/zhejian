@@ -1148,6 +1148,8 @@ function mapUserServiceAlbumListItem(album) {
     progressLabel: String(ownerFlow.progressLabel || ''),
     latestDocTitle: String(ownerFlow.latestDocTitle || ''),
     pendingConfirmCount: Number(ownerFlow.pendingConfirmCount || 0),
+    pendingConfirmKind: String(ownerFlow.pendingConfirmKind || ''),
+    nodeUpdatedAt: String(ownerFlow.nodeUpdatedAt || view.updatedAt || ''),
     vehicle: view.vehicle || {},
   }
 }

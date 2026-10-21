@@ -260,6 +260,10 @@
     <text class="service-doc-sheet__protocol-text">{{doc.confirmCopy}}</text>
   </view>
 
+  <view wx:if="{{doc.signName || doc.signAt}}" class="service-doc-sheet__signoff">
+    <text wx:if="{{doc.signName}}">{{doc.signLabel}}　{{doc.signName}}</text>
+    <text wx:if="{{doc.signAt}}">{{doc.signAtLabel}}　{{doc.signAt}}</text>
+  </view>
   <text wx:if="{{doc.sealed}}" class="service-doc-sheet__seal">确认后留存</text>
   </view>
 

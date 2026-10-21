@@ -55,7 +55,7 @@ test('施工中的详情用真实车牌和五张单据', () => {
   assert.match(view.meta, /137 \*\*\*\* 2021/)
   assert.deepEqual(
     view.docs.map((doc) => `${doc.title}:${doc.label}`),
-    ['接车报告:已发出', '检测报告:已完成', '报价单:已确认', '维修工单:施工中', '交车报告:待生成'],
+    ['接车报告:已发出', '检测报告:已完成', '报价单:已确认', '维修工单:施工中'],
   )
   assert.equal(view.rows[2].detail, '¥2,860 · 已确认')
   assert.equal(view.rows[3].state, 'current')

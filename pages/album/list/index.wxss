@@ -1,3 +1,28 @@
+page {
+  background: var(--color-mch-bg);
+}
+
+.album-list__chips {
+  display: flex;
+  gap: 12rpx;
+  padding: 8rpx 0 4rpx;
+}
+
+.album-list__chip {
+  padding: 12rpx 22rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-caption-lh);
+}
+
+.album-list__chip.is-on {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
 .album-list__tabs {
   padding-top: var(--space-sm);
   padding-bottom: var(--space-xs);
@@ -10,6 +35,17 @@
   line-height: 1.5;
   background-color: var(--color-bg-muted);
   border-radius: var(--radius-md);
+}
+
+.album-list__board {
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.album-list__board .album-list__list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
 }
 
 .album-list__catalog {

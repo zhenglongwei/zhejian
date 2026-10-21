@@ -65,14 +65,14 @@ function buildMineTodoSummary(badges = {}, authSummary = null) {
   if (summary.pendingOwnerReview > 0) {
     items.push({
       key: 'pendingOwnerReview',
-      label: `${summary.pendingOwnerReview} 本待评价`,
+      label: `${summary.pendingOwnerReview} 份可以评价`,
       action: 'albumPendingOwnerReview',
     })
   }
 
   if (!items.length) return null
   return {
-    headline: `${items.length} 项待你处理`,
+    headline: '',
     items,
   }
 }

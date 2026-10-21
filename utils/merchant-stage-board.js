@@ -183,6 +183,16 @@ function inspectRecord(nodes) {
     items,
     advice,
     previewNodeId: (report && report.id) || (photo && photo.id) || '',
+    inspectorName: String(
+      (photo && photo.photoDraft && photo.photoDraft.inspectorName) ||
+        (report && report.document && report.document.payload && report.document.payload.inspectorName) ||
+        '',
+    ).trim(),
+    inspectedAt: String(
+      (photo && photo.photoDraft && photo.photoDraft.inspectedAt) ||
+        (report && report.document && report.document.payload && report.document.payload.inspectedAt) ||
+        '',
+    ).trim(),
     empty: !items.length && !advice,
   }
 }
@@ -267,6 +277,7 @@ function workRecord(nodes, addonNodes) {
     tasks,
     fault,
     previewNodeId: (work && work.id) || '',
+    workerName: String((work && work.photoDraft && work.photoDraft.workerName) || '').trim(),
     empty: !tasks.length && !fault && !count,
   }
 }
@@ -288,6 +299,16 @@ function finishRecord(nodes, intakeImages) {
     before: before[0] ? { url: before[0].url, caption: before[0].caption || '维修前' } : null,
     after: after[0] ? { url: after[0].url, caption: after[0].caption || '维修后' } : null,
     warranty,
+    delivererName: String(
+      (payload.delivererName) ||
+        (photos && photos.photoDraft && photos.photoDraft.delivererName) ||
+        '',
+    ).trim(),
+    finishedAt: String(
+      (payload.finishedAt) ||
+        (photos && photos.photoDraft && photos.photoDraft.finishedAt) ||
+        '',
+    ).trim(),
     steps: [
       { no: '1', title: '商家提交交车报告', sub: sent ? '已提交' : '还没提交', done: sent, muted: false },
       { no: '2', title: '等待车主确认', sub: confirmed ? '已确认' : '确认后本单完成', done: confirmed, muted: !sent },

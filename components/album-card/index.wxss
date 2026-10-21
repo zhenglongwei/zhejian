@@ -409,6 +409,138 @@
   font-weight: var(--font-weight-medium);
 }
 
+.album-card__shell--board {
+  overflow: visible;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.album-card__board {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 24rpx;
+  background: var(--color-bg-card);
+  border-radius: 28rpx;
+  box-shadow: var(--shadow-mch-card);
+}
+
+.album-card__board-thumb {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-album-list-thumb);
+  height: var(--size-album-list-thumb);
+  overflow: hidden;
+  border-radius: 28rpx;
+  background: linear-gradient(160deg, var(--color-primary), var(--color-mch-hero-end));
+}
+
+.album-card__board-thumb--done {
+  background: var(--color-mch-thumb-gray);
+}
+
+.album-card__board-cover {
+  width: 100%;
+  height: 100%;
+}
+
+.album-card__board-dot {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  box-shadow: 0 0 0 4rpx var(--color-bg-card);
+}
+
+.album-card__board-car {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.album-card__board-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.album-card__board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.album-card__board-plate {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h3-lh);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.album-card__board-title,
+.album-card__board-sub {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.album-card__board-title {
+  margin-top: 6rpx;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-primary);
+}
+
+.album-card__board-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 8rpx;
+}
+
+.album-card__board-sub {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-mch-caption);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.album-card__board-pill {
+  flex: none;
+  padding: 4rpx 12rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-status);
+  line-height: var(--font-status-lh);
+}
+
+.album-card__board-pill--pending {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.album-card__board-pill--done {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
 .album-card__progress-line {
   display: block;
   width: 100%;

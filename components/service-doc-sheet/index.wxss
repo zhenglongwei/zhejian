@@ -408,6 +408,17 @@
   color: var(--color-text-tertiary);
 }
 
+.service-doc-sheet__signoff {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding-top: var(--space-sm);
+  border-top: 1rpx solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
 .service-doc-sheet__contact {
   text-align: center;
   color: var(--color-text-secondary);

@@ -375,7 +375,10 @@ function enrichServiceAlbumListItem(item, options = {}) {
   const summaryRowsFull = Array.isArray(item.summaryRows) ? item.summaryRows.slice() : []
   const summaryRowsForDisplay = stripPriceSummaryRow(summaryRowsFull)
   const unreadBase = {
-    hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
+    hasUnreadUpdate: isAlbumUnread({
+      ...item,
+      updatedAt: item.nodeUpdatedAt || item.updatedAt,
+    }),
   }
   const listTitle = resolveUserAlbumListTitle(base)
   const vehicleModelLine = resolveUserAlbumVehicleModelLine(base)

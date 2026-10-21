@@ -11,29 +11,38 @@ function isAlbumRepairDoneForTab(album) {
   return SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(status) || status === 'published'
 }
 
+function albumAwaitingOwnerConfirm(album) {
+  const label = String((album && album.progressLabel) || '')
+  if (label.indexOf('待确认') >= 0) return true
+  if (Number(album && album.pendingConfirmCount) > 0) return true
+  const pkg = album && album.contentPackageJson
+  const nodes = pkg && Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  return nodes.some((node) => {
+    const status = String((node && node.document && node.document.status) || '')
+    return status === 'pending_confirm'
+  })
+}
+
 /**
- * 相册列表 Tab 筛选（相册归相册 · 2026-08-13）
+ * 相册列表 Tab 筛选
  * - all：全部
  * - active：进行中（相册尚未标记完工）
- * - done：已完工（相册已 completed 等维修结束态）
- * 第三参 resolvePublicCaseStatus 保留兼容，不再作为 Tab 轴。
+ * - confirm：有单据等车主确认
+ * - done：已完工
  */
 function filterUserAlbumsByTab(albums, tab) {
   const key = normalizeServiceAlbumListTab(tab)
+  const list = albums || []
 
-  if (key === 'all') {
-    return albums
-  }
-
-  if (key === 'done') {
-    return (albums || []).filter((album) => isAlbumRepairDoneForTab(album))
-  }
-
-  return (albums || []).filter((album) => !isAlbumRepairDoneForTab(album))
+  if (key === 'all') return list
+  if (key === 'done') return list.filter((album) => isAlbumRepairDoneForTab(album))
+  if (key === 'confirm') return list.filter((album) => albumAwaitingOwnerConfirm(album))
+  return list.filter((album) => !isAlbumRepairDoneForTab(album))
 }
 
 module.exports = {
   filterUserAlbumsByTab,
+  albumAwaitingOwnerConfirm,
   isAlbumRepairDoneForTab,
   REVIEW_PASSED_STATUSES,
   /** @deprecated 使用 REVIEW_PASSED_STATUSES */

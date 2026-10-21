@@ -345,6 +345,24 @@
                 bindinput="onChiefComplaintInput"
               />
               <text wx:elif="{{stageBoard.intake.complaint || chiefComplaint}}" class="st-quote">“{{stageBoard.intake.complaint || chiefComplaint}}”</text>
+              <text class="text-body merchant-flow-page__label">接车人</text>
+              <input
+                class="st-field"
+                placeholder="例：李师傅"
+                value="{{receiverName}}"
+                data-key="receiverName"
+                disabled="{{readOnly || intakeSent}}"
+                bindinput="onClerkInput"
+              />
+              <text class="text-body merchant-flow-page__label">时间</text>
+              <input
+                class="st-field"
+                placeholder="例：10月20日 09:42"
+                value="{{receivedAt}}"
+                data-key="receivedAt"
+                disabled="{{readOnly || intakeSent}}"
+                bindinput="onClerkInput"
+              />
               <view wx:if="{{stageBoard.intake.cells.length}}" class="st-grid">
                 <view wx:for="{{stageBoard.intake.cells}}" wx:key="label">
                   <text>{{item.label}}</text>
@@ -373,6 +391,28 @@
                 <text>{{organizingPhotos ? '正在看' : 'AI分析'}}</text>
               </view>
               <text class="st-kicker st-kicker--light">检测</text>
+            </view>
+            <view class="st-card">
+              <text class="text-body merchant-flow-page__label">检测人</text>
+              <input
+                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                class="st-field"
+                placeholder="例：王师傅"
+                value="{{inspectorName}}"
+                data-key="inspectorName"
+                bindinput="onClerkInput"
+              />
+              <text wx:else class="st-quote">{{stageBoard.inspect.inspectorName || '未填'}}</text>
+              <text class="text-body merchant-flow-page__label">时间</text>
+              <input
+                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                class="st-field"
+                placeholder="例：10月20日 11:06"
+                value="{{inspectedAt}}"
+                data-key="inspectedAt"
+                bindinput="onClerkInput"
+              />
+              <text wx:else class="st-quote">{{stageBoard.inspect.inspectedAt || '未填'}}</text>
             </view>
             <view wx:if="{{stageBoard.inspect.items.length && !isInspectionPhotoStep}}" class="st-card">
               <view class="st-card__head">
@@ -441,7 +481,7 @@
                   />
                   <input
                     class="st-line__brand-input"
-                    placeholder="品牌，选填"
+                    placeholder="品牌"
                     value="{{item.brand}}"
                     data-index="{{index}}"
                     data-field="brand"
@@ -540,6 +580,18 @@
               <text class="st-hero__title">{{stageBoard.work.headline}}</text>
               <text wx:if="{{stageBoard.work.sub}}" class="st-hero__sub">{{stageBoard.work.sub}}</text>
             </view>
+            <view class="st-card">
+              <text class="text-body merchant-flow-page__label">施工人</text>
+              <input
+                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                class="st-field"
+                placeholder="例：李师傅"
+                value="{{workerName}}"
+                data-key="workerName"
+                bindinput="onClerkInput"
+              />
+              <text wx:else class="st-quote">{{stageBoard.work.workerName || '未填'}}</text>
+            </view>
             <view wx:if="{{stageBoard.work.tasks.length}}" class="st-card">
               <view class="st-card__head">
                 <view>
@@ -581,6 +633,28 @@
               <text class="st-kicker st-kicker--light">READY FOR DELIVERY</text>
               <text class="st-hero__title">{{stageBoard.finish.headline}}</text>
               <text wx:if="{{stageBoard.finish.sub}}" class="st-hero__sub">{{stageBoard.finish.sub}}</text>
+            </view>
+            <view class="st-card">
+              <text class="text-body merchant-flow-page__label">交付人</text>
+              <input
+                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                class="st-field"
+                placeholder="例：李师傅"
+                value="{{delivererName}}"
+                data-key="delivererName"
+                bindinput="onClerkInput"
+              />
+              <text wx:else class="st-quote">{{stageBoard.finish.delivererName || '未填'}}</text>
+              <text class="text-body merchant-flow-page__label">完工时间</text>
+              <input
+                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
+                class="st-field"
+                placeholder="例：10月20日 18:20"
+                value="{{finishedAt}}"
+                data-key="finishedAt"
+                bindinput="onClerkInput"
+              />
+              <text wx:else class="st-quote">{{stageBoard.finish.finishedAt || '未填'}}</text>
             </view>
             <view wx:if="{{stageBoard.finish.before || stageBoard.finish.after}}" class="st-card">
               <view class="st-card__head">
@@ -638,6 +712,11 @@
                   bindinput="onChiefComplaintInput"
                 />
                 <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
+              </view>
+
+              <view wx:if="{{isWorkPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
+                <text class="text-body merchant-flow-page__label">施工人</text>
+                <input class="st-field" placeholder="例：李师傅" value="{{workerName}}" data-key="workerName" disabled="{{readOnly}}" bindinput="onClerkInput" />
               </view>
 
               <view
@@ -1186,6 +1265,10 @@
               </view>
 
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
+                <text class="text-body merchant-flow-page__label">交付人</text>
+                <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
+                <text class="text-body merchant-flow-page__label">完工时间</text>
+                <input class="st-field" placeholder="例：10月20日 18:20" value="{{finishedAt}}" data-key="finishedAt" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -1665,6 +1748,10 @@
                   <text class="text-caption">¥{{item.amount}}</text>
                 </view>
                 <text class="text-body merchant-flow-page__label">合计 ¥{{docPayload.totalAmount}}</text>
+                <text class="text-body merchant-flow-page__label">交付人</text>
+                <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
+                <text class="text-body merchant-flow-page__label">完工时间</text>
+                <input class="st-field" placeholder="例：10月20日 18:20" value="{{finishedAt}}" data-key="finishedAt" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">质保期限</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -1882,32 +1969,14 @@
         <text class="doc-brief__sheet-name">{{docBrief.title}}</text>
         <text class="doc-brief__close" catchtap="onCloseDoc">×</text>
       </view>
-      <view class="doc-brief__paper">
-        <view class="doc-brief__shop">
-          <view class="doc-brief__sq"></view>
-          <text class="doc-brief__store-name">{{docBrief.storeName || '本店'}}</text>
-          <text class="doc-brief__stamp">{{docBrief.status}}</text>
-        </view>
-        <text class="doc-brief__doc-title">{{docBrief.title}}</text>
-        <view class="doc-brief__bar"></view>
-        <text class="doc-brief__sub">{{docBrief.plate}}{{docBrief.vehicleName ? ' · ' : ''}}{{docBrief.vehicleName}}</text>
-        <view class="doc-brief__rule"></view>
-        <view wx:if="{{docBrief.vehicleLine}}" class="doc-brief__row">
-          <text>车辆</text>
-          <text>{{docBrief.vehicleLine}}</text>
-        </view>
-        <view wx:if="{{docBrief.lines.length}}" class="doc-brief__lines">
-          <view wx:for="{{docBrief.lines}}" wx:key="index" class="doc-brief__line">
-            <text class="doc-brief__line-name">{{item.name}}</text>
-            <text wx:if="{{item.amount}}" class="doc-brief__line-amount">{{item.amount}}</text>
-          </view>
-        </view>
-        <text wx:elif="{{docBrief.emptyText}}" class="doc-brief__empty">{{docBrief.emptyText}}</text>
-        <view wx:if="{{docBrief.totalText}}" class="doc-brief__total">
-          <text>合计</text>
-          <text>{{docBrief.totalText}}</text>
-        </view>
-      </view>
+      <service-doc-sheet
+        wx:if="{{docBrief.sheetDoc}}"
+        doc="{{docBrief.sheetDoc}}"
+        mode="merchant"
+        quote-lines="{{docBrief.quoteLines}}"
+        show-header="{{true}}"
+      />
+      <text wx:else class="doc-brief__empty">{{docBrief.emptyText || '还没有这份内容'}}</text>
       <view class="doc-brief__actions">
         <view class="doc-brief__send" catchtap="onBriefSend">{{briefSending ? '发送中' : '发送车主'}}</view>
         <view class="doc-brief__full" catchtap="onBriefFull">查看完整文件</view>

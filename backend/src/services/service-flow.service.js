@@ -1963,7 +1963,31 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
           ? QUOTE_CONFIRM_COPY
           : String(payload.confirmCopy || ''),
     sealed: intakeSheet && String(doc.status || '') === 'confirmed',
-    fuelReading: String(payload.fuelReading || '').trim(),
+    fuelReading: '',
+    signLabel: intakeSheet
+      ? '接车人'
+      : kind === 'inspection_report'
+        ? '检测人'
+        : kind === 'work'
+          ? '施工人'
+          : kind === 'repair_report'
+            ? '交付人'
+            : '',
+    signName: String(
+      (intakeSheet && ((node.photoDraft && node.photoDraft.receiverName) || payload.receiverName)) ||
+        (kind === 'inspection_report' && (payload.inspectorName || (node.photoDraft && node.photoDraft.inspectorName))) ||
+        (kind === 'work' && ((node.photoDraft && node.photoDraft.workerName) || payload.workerName)) ||
+        (kind === 'repair_report' && (payload.delivererName || (node.photoDraft && node.photoDraft.delivererName))) ||
+        '',
+    ).trim(),
+    signAtLabel: kind === 'work' || kind === 'repair_report' ? '完工时间' : '时间',
+    signAt: String(
+      (intakeSheet && ((node.photoDraft && node.photoDraft.receivedAt) || payload.receivedAt)) ||
+        (kind === 'inspection_report' && (payload.inspectedAt || (node.photoDraft && node.photoDraft.inspectedAt))) ||
+        (kind === 'work' && ((node.photoDraft && node.photoDraft.finishedAt) || payload.finishedAt)) ||
+        (kind === 'repair_report' && (payload.finishedAt || (node.photoDraft && node.photoDraft.finishedAt))) ||
+        '',
+    ).trim(),
     belongings: String(payload.belongings || '').trim(),
     photos: intakePhotos,
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
@@ -2135,6 +2159,8 @@ function buildOwnerFlowView(album, albumNodes = []) {
       progressLabel: '',
       focusNodeId: '',
       latestDocTitle: '',
+      pendingConfirmKind: '',
+      nodeUpdatedAt: latestFlowActivityAt(album),
     }
   }
   const mapped = rawNodes
@@ -2211,7 +2237,39 @@ function buildOwnerFlowView(album, albumNodes = []) {
     progressLabel: deriveOwnerProgressLabel(finalDocs, album),
     focusNodeId: focusNode ? focusNode.id : '',
     latestDocTitle: latestUnlocked ? latestUnlocked.title : '',
+    pendingConfirmKind: focusPending ? String(focusPending.kind || '') : '',
+    nodeUpdatedAt: latestFlowActivityAt(album),
   }
+}
+
+function stampMillis(value) {
+  const t = new Date(value).getTime()
+  return Number.isFinite(t) ? t : 0
+}
+
+/** 节点上最近一次写下的时间。不用相册创建时间。 */
+function latestFlowActivityAt(album) {
+  let best = 0
+  const take = (value) => {
+    const t = stampMillis(value)
+    if (t > best) best = t
+  }
+  readFlowNodesRaw(album).forEach((node) => {
+    const doc = (node && node.document) || {}
+    take(doc.deliveredAt)
+    take(doc.confirmedAt)
+    take(doc.sentAt)
+    take(node && node.updatedAt)
+    const payload = doc.payload || {}
+    take(payload.receivedAt)
+    take(payload.inspectedAt)
+    take(payload.finishedAt)
+  })
+  ;(Array.isArray(album && album.images) ? album.images : []).forEach((img) => {
+    take(img && (img.updatedAt || img.createdAt))
+  })
+  take(album && album.updatedAt)
+  return best ? new Date(best).toISOString() : ''
 }
 
 /** 报价确认后的连带动作：工单是施工过程的如实记录，不由报价派生，
@@ -2546,6 +2604,7 @@ module.exports = {
   readFlowNodesRaw,
   buildFlowView,
   buildOwnerFlowView,
+  latestFlowActivityAt,
   buildHostContentReviewDocs,
   initFlowOnAlbum,
   writeFlowPackage,

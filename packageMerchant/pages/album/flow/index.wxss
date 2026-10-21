@@ -1922,6 +1922,21 @@
   margin-top: 24rpx;
 }
 
+.st-field {
+  width: 100%;
+  height: 96rpx;
+  min-height: 96rpx;
+  box-sizing: border-box;
+  margin-top: 8rpx;
+  margin-bottom: var(--space-sm);
+  padding: 0 24rpx;
+  line-height: 96rpx;
+  background: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+  font-size: var(--font-body);
+  color: var(--color-text-primary);
+}
+
 .ov-doc {
   flex: 1;
   min-width: 0;

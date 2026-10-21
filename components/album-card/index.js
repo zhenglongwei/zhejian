@@ -12,6 +12,11 @@ Component({
       type: String,
       value: 'user',
     },
+    /** board：与商家相册列表同款卡片 */
+    layout: {
+      type: String,
+      value: '',
+    },
     showProgress: {
       type: Boolean,
       value: true,

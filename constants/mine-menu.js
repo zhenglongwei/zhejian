@@ -86,6 +86,16 @@ function buildMineHubDock() {
   return MINE_HUB_DOCK
 }
 
+function buildOwnerHubLinks(reviewCount = 0) {
+  const links = []
+  const count = Number(reviewCount) || 0
+  if (count > 0) {
+    links.push({ key: 'review', label: `${count} 份可以评价` })
+  }
+  links.push({ ...MINE_TOOL_MENUS[0], label: '设置' })
+  return links
+}
+
 module.exports = {
   MINE_CONSULT_ITEM,
   MINE_CORE_MENUS,
@@ -96,4 +106,5 @@ module.exports = {
   MINE_HUB_DOCK,
   buildMineMenuSections,
   buildMineHubDock,
+  buildOwnerHubLinks,
 }

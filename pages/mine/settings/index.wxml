@@ -5,6 +5,20 @@
   <view class="settings-page">
     <view class="settings-page__main surface-album-panel">
       <ui-cell
+        title="切换为商家"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="merchant"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="联系客服"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="support"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
         title="使用说明与帮助"
         border="{{true}}"
         arrow="{{true}}"

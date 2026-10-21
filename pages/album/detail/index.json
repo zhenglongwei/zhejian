@@ -13,6 +13,7 @@
     "tool-immersive-nav": "/components/tool-immersive-nav/index",
     "album-end-page": "/components/album-end-page/index",
     "album-work-checklist": "/components/album-work-checklist/index",
-    "album-service-flow": "/components/album-service-flow/index"
+    "album-service-flow": "/components/album-service-flow/index",
+    "service-doc-sheet": "/components/service-doc-sheet/index"
   }
 }

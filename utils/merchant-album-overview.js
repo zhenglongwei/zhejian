@@ -258,7 +258,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
       docTile('报价单', quote, { done: '已确认', live: '填写中' }),
       docTile('维修工单', work, { done: '已完成', live: '施工中' }),
       docTile('交车报告', repair, { done: '已确认', live: '填写中' }),
-    ],
+    ].filter((item) => item.label !== '待生成' && item.label !== '填写中'),
     rows,
     action: actionLabel(current, finished),
     actionId: (current && (current.nodes.find((node) => !isFlowNodeDone(node)) || current.nodes[0] || {}).id) || '',

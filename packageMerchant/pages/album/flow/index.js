@@ -467,6 +467,13 @@ Page({
     showAutoSave: false,
     findings: [],
     chiefComplaint: '',
+    receiverName: '',
+    receivedAt: '',
+    inspectorName: '',
+    inspectedAt: '',
+    workerName: '',
+    delivererName: '',
+    finishedAt: '',
     mileageKm: '',
     odometerUrl: '',
     odometerImageId: '',
@@ -1301,6 +1308,8 @@ Page({
       const pile = normalizePendingImages(this.collectIntakePile())
       return {
         chiefComplaint: this.data.chiefComplaint || draft.chiefComplaint,
+        receiverName: String(this.data.receiverName || draft.receiverName || '').trim(),
+        receivedAt: String(this.data.receivedAt || draft.receivedAt || '').trim(),
         fuelReading: String(this.data.fuelReading || draft.fuelReading || '').trim(),
         vehicleBrand: String(this.data.vehicleBrand || draft.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || draft.vehicleSeries || '').trim(),
@@ -1316,6 +1325,8 @@ Page({
       return {
         findings: this.collectFindingsFromSections(),
         conclusion: this.data.conclusion,
+        inspectorName: String(this.data.inspectorName || '').trim(),
+        inspectedAt: String(this.data.inspectedAt || '').trim(),
         pendingImages: normalizePendingImages(this.data.pendingImages),
         inspectionAiKey: this._inspectionAiKey || '',
       }
@@ -1340,6 +1351,7 @@ Page({
     if (kind === 'work') {
       return {
         findings: this.collectFindingsFromSections(),
+        workerName: String(this.data.workerName || '').trim(),
         pendingImages: normalizePendingImages(this.data.pendingImages),
       }
     }
@@ -1348,6 +1360,8 @@ Page({
       return {
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
+        delivererName: String(this.data.delivererName || '').trim(),
+        finishedAt: String(this.data.finishedAt || '').trim(),
         confirmCopy: REPAIR_CONFIRM_COPY,
         deliveryExteriorUrl: exterior,
         selectedDeliveryUrls: (this.data.workImagePool || [])
@@ -1863,6 +1877,13 @@ Page({
         docPayload,
         findings,
         chiefComplaint,
+        receiverName: String(photoDraft.receiverName || '').trim(),
+        receivedAt: String(photoDraft.receivedAt || '').trim(),
+        inspectorName: String(photoDraft.inspectorName || '').trim(),
+        inspectedAt: String(photoDraft.inspectedAt || '').trim(),
+        workerName: String(photoDraft.workerName || '').trim(),
+        delivererName: String(photoDraft.delivererName || docPayload.delivererName || '').trim(),
+        finishedAt: String(photoDraft.finishedAt || docPayload.finishedAt || '').trim(),
         mileageKm,
         odometerUrl: isIntakePhotoStep ? String((sections[0] && sections[0].odometerUrl) || '').trim() : '',
         odometerImageId: isIntakePhotoStep
@@ -2167,80 +2188,166 @@ Page({
     })
   },
 
+  nodeDraft(node) {
+    const saved = (node && node.photoDraft) || {}
+    const local = node && readLocalFlowDraft(this.albumId, node.id)
+    const live = this.data.activeNode && node && this.data.activeNode.id === node.id
+    return { ...saved, ...((local && local.photoDraft) || {}), ...(live ? this.liveClerkDraft(node.kind) : {}) }
+  },
+
+  liveClerkDraft(kind) {
+    if (kind === 'intake' || kind === 'intake_inspection') {
+      return { receiverName: this.data.receiverName, receivedAt: this.data.receivedAt }
+    }
+    if (kind === 'inspection') {
+      return { inspectorName: this.data.inspectorName, inspectedAt: this.data.inspectedAt }
+    }
+    if (kind === 'work') return { workerName: this.data.workerName }
+    if (kind === 'delivery_photos' || kind === 'repair_report') {
+      return { delivererName: this.data.delivererName, finishedAt: this.data.finishedAt }
+    }
+    return {}
+  },
+
+  reportPreviewFor(title, options = {}) {
+    const album = this._album || {}
+    const nodes = this._flowNodes || []
+    const vehicle = album.vehicle || {}
+    const mileage = Number(vehicle.mileage)
+    const mileageText = Number.isFinite(mileage) && mileage > 0 ? `里程 ${mileage.toLocaleString('zh-CN')} km` : ''
+    const intake = nodes.find((node) => node && (node.kind === 'intake' || node.kind === 'intake_inspection'))
+    const intakeDraft = this.nodeDraft(intake)
+    const inspection = nodes.find((node) => node && node.kind === 'inspection')
+    const inspectionDraft = this.nodeDraft(inspection)
+    const report = nodes.find((node) => node && node.kind === 'inspection_report')
+    const reportPayload = (report && report.document && report.document.payload) || {}
+    const delivery = nodes.find((node) => node && node.kind === 'delivery_photos')
+    const deliveryDraft = this.nodeDraft(delivery)
+    const repair = nodes.find((node) => node && node.kind === 'repair_report')
+    const repairPayload = (repair && repair.document && repair.document.payload) || {}
+    if (title === '接车报告') {
+      const photos = []
+      ;((intake && intake.previewImages) || []).concat(intakeDraft.pendingImages || []).forEach((item) => {
+        const url = typeof item === 'string' ? item : item && item.url
+        if (url) photos.push({ url })
+      })
+      return buildOwnerPreviewDoc({
+        family: 'intake',
+        album,
+        chiefComplaint: intakeDraft.chiefComplaint || this.intakeComplaintText(),
+        photos: photos.length ? photos : this.collectIntakePile(),
+        mileageText,
+        belongings: intakeDraft.belongings,
+        signName: intakeDraft.receiverName,
+        signAt: intakeDraft.receivedAt,
+      })
+    }
+    if (title === '检测报告') {
+      const reportStatus = String((report && report.document && report.document.status) || '')
+      const official = Array.isArray(reportPayload.findings) ? reportPayload.findings : []
+      const generated = Boolean(
+        report &&
+          report.status !== 'locked' &&
+          (reportStatus === 'delivered' ||
+            reportStatus === 'confirmed' ||
+            report.status === 'completed' ||
+            official.length),
+      )
+      if (options.issuedOnly && !generated) {
+        return { doc: null, quoteLines: [], hasBody: false }
+      }
+      const liveInspect = !options.issuedOnly && (this.data.activeKind === 'inspection' || this.data.activeKind === 'intake_inspection')
+      const findings = liveInspect
+        ? this.collectFindingsFromSections()
+        : (official.length ? official : options.issuedOnly ? [] : inspectionDraft.findings) || []
+      return buildOwnerPreviewDoc({
+        family: 'inspect',
+        album,
+        chiefComplaint: reportPayload.chiefComplaint || intakeDraft.chiefComplaint || this.intakeComplaintText(),
+        findings,
+        mileageText,
+        quoteLines: ((nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason) || {}).document || {}).payload
+          ? nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason).document.payload.lines
+          : [],
+        signName: reportPayload.inspectorName || inspectionDraft.inspectorName,
+        signAt: reportPayload.inspectedAt || inspectionDraft.inspectedAt,
+      })
+    }
+    if (title === '报价单') {
+      const quote = nodes.find((node) => node && (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm'))
+      const payload = (quote && quote.document && quote.document.payload) || {}
+      const live = this.data.activeKind === 'quote_confirm' || this.data.activeKind === 'addon_quote_confirm'
+      return buildOwnerPreviewDoc({
+        family: 'quote',
+        album,
+        mileageText,
+        isAddon: Boolean(quote && quote.insertedReason === 'addon'),
+        lines: live ? this.data.quoteLines : payload.lines || [],
+        discoveryNote: (payload.discovery && payload.discovery.note) || '',
+        discoveryImages: (payload.discovery && payload.discovery.images) || [],
+      })
+    }
+    if (title === '维修工单') {
+      const work = nodes.find((node) => node && node.kind === 'work')
+      const draft = this.nodeDraft(work)
+      const source = this.data.activeKind === 'work' ? this.collectFindingsFromSections() : draft.findings || []
+      const items = (source || []).map((row) => ({
+        name: String((row && row.partName) || '').trim(),
+        brand: String((row && row.brand) || '').trim(),
+        note: String((row && row.caption) || '').trim(),
+        images: row && row.images ? row.images : row && row.url ? [{ url: row.url }] : [],
+      })).filter((row) => row.name)
+      return buildOwnerPreviewDoc({
+        family: 'work',
+        album,
+        mileageText,
+        workItems: items,
+        signName: draft.workerName,
+        signAt: deliveryDraft.finishedAt || repairPayload.finishedAt,
+      })
+    }
+    const works = nodes.filter((node) => node && node.kind === 'work')
+    const workItems = []
+    works.forEach((node) => {
+      const findings = (this.nodeDraft(node).findings) || []
+      findings.forEach((row) => {
+        const name = String((row && row.partName) || '').trim()
+        if (!name) return
+        workItems.push({
+          name,
+          brand: String((row && row.brand) || '').trim(),
+          note: String((row && row.caption) || '').trim(),
+          amount: row && row.amount != null ? row.amount : '',
+        })
+      })
+    })
+    const exterior = String(deliveryDraft.deliveryExteriorUrl || this.data.deliveryExteriorUrl || '').trim()
+    return buildOwnerPreviewDoc({
+      family: 'finish',
+      album,
+      mileageText,
+      workItems,
+      deliveryPhotos: exterior ? [{ url: exterior }] : [],
+      warrantyPeriod: deliveryDraft.warrantyPeriod || repairPayload.warrantyPeriod || this.data.warrantyPeriod,
+      warrantyNotes: deliveryDraft.warrantyNotes || repairPayload.warrantyNotes || this.data.warrantyNotes,
+      signName: deliveryDraft.delivererName || repairPayload.delivererName,
+      signAt: deliveryDraft.finishedAt || repairPayload.finishedAt,
+    })
+  },
+
   onOpenRecordPreview() {
     const board = this.data.stageBoard || {}
     const family = board.family || ''
-    if (family === 'work') return
-    const album = this._album || {}
-    const nodes = this._flowNodes || []
-    const intake = nodes.find((node) => node && (node.kind === 'intake' || node.kind === 'intake_inspection'))
-    const complaint = this.intakeComplaintText()
-    let preview = { hasBody: false }
-    if (family === 'intake') {
-      preview = buildOwnerPreviewDoc({
-        family,
-        album,
-        chiefComplaint: complaint,
-        photos: this.collectIntakePile(board),
-        mileageText: this._albumMileage ? `里程 ${this._albumMileage} km` : '',
-        fuelReading: this.data.fuelReading,
-        belongings: this.data.belongings,
-      })
-    } else if (family === 'inspect') {
-      const inspection = nodes.find((node) => node && (node.kind === 'inspection' || node.kind === 'intake_inspection'))
-      const live = this.data.activeKind === 'inspection' || this.data.activeKind === 'intake_inspection'
-      const findings = live
-        ? this.collectFindingsFromSections()
-        : (inspection && inspection.photoDraft && inspection.photoDraft.findings) || []
-      const quote = nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason)
-      const quoteLines =
-        (quote && quote.document && quote.document.payload && quote.document.payload.lines) || []
-      preview = buildOwnerPreviewDoc({
-        family,
-        album,
-        chiefComplaint: complaint,
-        findings,
-        quoteLines,
-      })
-    } else if (family === 'quote') {
-      const live = this.data.activeKind === 'quote_confirm'
-      const focus = nodes.find((node) => node && node.id === board.focusId)
-      const payload = (focus && focus.document && focus.document.payload) || {}
-      const savedDiscovery = payload.discovery || {}
-      preview = buildOwnerPreviewDoc({
-        family,
-        album,
-        isAddon: Boolean(live ? this.data.isAddonQuote : focus && focus.insertedReason === 'addon'),
-        lines: live ? this.data.quoteLines : payload.lines || [],
-        discoveryNote: live ? this.data.addonDiscoveryNote : savedDiscovery.note || '',
-        discoveryImages: live ? this.data.addonDiscoveryImages : savedDiscovery.images || [],
-      })
-    } else if (family === 'finish') {
-      const works = nodes.filter((node) => node && node.kind === 'work')
-      const workItems = []
-      works.forEach((node) => {
-        const findings = (node.photoDraft && node.photoDraft.findings) || []
-        findings.forEach((row) => {
-          const name = String((row && row.partName) || '').trim()
-          if (!name) return
-          workItems.push({
-            name,
-            brand: String((row && row.brand) || '').trim(),
-            note: String((row && row.caption) || '').trim(),
-            amount: row && row.amount != null ? row.amount : '',
-          })
-        })
-      })
-      const exterior = String(this.data.deliveryExteriorUrl || '').trim()
-      preview = buildOwnerPreviewDoc({
-        family,
-        album,
-        workItems,
-        deliveryPhotos: exterior ? [{ url: exterior, caption: '整车外观' }] : [],
-        warrantyPeriod: this.data.warrantyPeriod,
-        warrantyNotes: this.data.warrantyNotes,
-      })
-    }
+    const title = family === 'intake'
+      ? '接车报告'
+      : family === 'inspect'
+        ? '检测报告'
+        : family === 'quote'
+          ? '报价单'
+          : family === 'work'
+            ? '维修工单'
+            : '交车报告'
+    const preview = this.reportPreviewFor(title)
     if (!preview.hasBody) {
       this._previewAcceptAction = ''
       wx.showToast({ title: '还没有可给车主看的内容', icon: 'none' })
@@ -2515,6 +2622,16 @@ Page({
         chiefComplaint: String(payload.chiefComplaint || '').trim() || fromIntake,
         findings:
           Array.isArray(payload.findings) && payload.findings.length ? payload.findings : fromPhoto,
+        inspectorName: String(
+          payload.inspectorName ||
+            (inspection && inspection.photoDraft && inspection.photoDraft.inspectorName) ||
+            '',
+        ).trim(),
+        inspectedAt: String(
+          payload.inspectedAt ||
+            (inspection && inspection.photoDraft && inspection.photoDraft.inspectedAt) ||
+            '',
+        ).trim(),
       }
     }
     if (key === 'inspect') {
@@ -2623,8 +2740,19 @@ Page({
   onOpenDoc(e) {
     const title = String((e.currentTarget.dataset && e.currentTarget.dataset.title) || '')
     if (!title) return
+    const brief = buildMerchantDocBrief(this._album || {}, this._flowNodes || [], title)
+    if (brief.label === '待生成') return
+    const preview = this.reportPreviewFor(title, { issuedOnly: true })
+    if (!preview.hasBody) {
+      wx.showToast({ title: '还没有这份报告', icon: 'none' })
+      return
+    }
     this.setData({
-      docBrief: buildMerchantDocBrief(this._album || {}, this._flowNodes || [], title),
+      docBrief: {
+        ...brief,
+        sheetDoc: preview.hasBody ? { ...preview.doc, statusLabel: preview.doc.statusLabel || brief.status } : null,
+        quoteLines: preview.quoteLines || [],
+      },
     })
   },
 
@@ -2635,9 +2763,28 @@ Page({
 
   onBriefFull() {
     const brief = this.data.docBrief
-    if (!brief) return
-    this.setData({ docBrief: null })
-    this.openStage(brief.stageKey)
+    if (!brief || !brief.sheetDoc) {
+      wx.showToast({ title: '还没有这份内容', icon: 'none' })
+      return
+    }
+    this.setData({
+      docBrief: null,
+      recordPreview: {
+        doc: brief.sheetDoc,
+        quoteLines: brief.quoteLines || [],
+        locked: true,
+        acceptLabel: '',
+      },
+    })
+  },
+
+  onClerkInput(e) {
+    const key = String((e.currentTarget.dataset && e.currentTarget.dataset.key) || '')
+    if (!key || this.data.readOnly) return
+    this.setData({ [key]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+      if (this.data.activeIsDoc) this.scheduleAutoSaveDoc()
+      else this.scheduleAutoSaveDraftOnly()
+    })
   },
 
   async onBriefSend() {
@@ -6374,6 +6521,8 @@ Page({
         chiefComplaint: this.data.chiefComplaint,
         findings: (this.data.findings || []).map((item) => normalizeFinding(item)),
         conclusion: this.data.conclusion,
+        inspectorName: String(this.data.inspectorName || '').trim(),
+        inspectedAt: String(this.data.inspectedAt || '').trim(),
       }
     }
     if (kind === 'quote_confirm') {
@@ -6400,6 +6549,8 @@ Page({
         confirmCopy: REPAIR_CONFIRM_COPY,
         warrantyPeriod: this.data.warrantyPeriod || base.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes || base.warrantyNotes,
+        delivererName: String(this.data.delivererName || base.delivererName || '').trim(),
+        finishedAt: String(this.data.finishedAt || base.finishedAt || '').trim(),
       }
     }
     return base

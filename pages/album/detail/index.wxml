@@ -32,6 +32,121 @@
     </view>
   </block>
 
+  <block wx:elif="{{detail && showOwnerFlow && ownerBoard}}">
+    <view class="op" style="padding-top: {{statusBarHeight}}px;">
+      <view class="op-nav" style="padding-right: {{capsulePad}}px;">
+        <text class="op-back" bindtap="onBack">‹</text>
+        <view class="op-nav__text">
+          <text class="op-kicker">服务进度</text>
+          <text class="op-plate">{{ownerBoard.plate}}</text>
+        </view>
+      </view>
+      <scroll-view
+        scroll-y
+        class="op-scroll"
+        show-scrollbar="{{false}}"
+        scroll-into-view="{{flowScrollIntoView}}"
+        scroll-with-animation="{{true}}"
+      >
+        <view class="op-hero">
+          <text class="op-pill op-pill--{{ownerBoard.pill.tone}}">{{ownerBoard.pill.text}}</text>
+          <text class="op-hero__name">{{ownerBoard.vehicleName}}</text>
+          <text wx:if="{{ownerBoard.spec}}" class="op-hero__spec">{{ownerBoard.spec}}</text>
+          <text wx:if="{{ownerBoard.meta}}" class="op-hero__meta">{{ownerBoard.meta}}</text>
+        </view>
+
+        <view class="op-docs">
+          <view
+            wx:for="{{ownerBoard.tiles}}"
+            wx:key="id"
+            class="op-doc op-doc--{{item.tone}}"
+            data-id="{{item.id}}"
+            data-locked="{{item.locked}}"
+            bindtap="onOpenOwnerDoc"
+          >
+            <view class="op-doc__icon">
+              <image wx:if="{{item.tone === 'ok'}}" src="/assets/mch/check-blue.png" mode="aspectFit" />
+              <image wx:elif="{{item.tone === 'live'}}" src="/assets/mch/doc-blue.png" mode="aspectFit" />
+              <image wx:else src="/assets/mch/clock-gray.png" mode="aspectFit" />
+            </view>
+            <text class="op-doc__name">{{item.title}}</text>
+            <text class="op-doc__label">{{item.label}}</text>
+          </view>
+        </view>
+
+        <view class="op-sec">
+          <text class="op-sec__kicker">服务单据</text>
+          <view class="op-sec__row">
+            <text class="op-sec__title">进度</text>
+            <text wx:if="{{ownerBoard.deliveredCount}}" class="op-sec__count">已送达 {{ownerBoard.deliveredCount}} 份</text>
+          </view>
+        </view>
+
+        <view class="op-line">
+          <view
+            wx:for="{{ownerBoard.rows}}"
+            wx:key="id"
+            id="op-row-{{item.id}}"
+            class="op-row op-row--{{item.state}}"
+            data-id="{{item.id}}"
+            data-locked="{{item.locked}}"
+            bindtap="onOpenOwnerDoc"
+          >
+            <view class="op-row__rail">
+              <view class="op-row__dot">
+                <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-white.png" mode="aspectFit" />
+                <text wx:else>{{item.index}}</text>
+              </view>
+              <view wx:if="{{index < ownerBoard.rows.length - 1}}" class="op-row__bar" />
+            </view>
+            <view class="op-row__main">
+              <view class="op-row__head">
+                <text class="op-row__title">{{item.title}}</text>
+                <text class="op-row__mark">{{item.mark}}</text>
+              </view>
+              <text class="op-row__detail">{{item.detail}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{ownerBoard.protocol}}" class="op-protocol">
+          <text>{{ownerBoard.protocol}}</text>
+        </view>
+        <view class="op-spacer" />
+      </scroll-view>
+
+      <view wx:if="{{!openDoc && (hasStorePhone || ownerBoard.pendingId || pendingOwnerReview)}}" class="op-foot">
+        <view wx:if="{{hasStorePhone}}" class="op-call" bindtap="onContactStore">
+          <image src="/assets/mch/phone-ink.png" mode="aspectFit" />
+          <text>电话联系门店</text>
+        </view>
+        <view wx:if="{{ownerBoard.pendingId}}" class="op-no" bindtap="onOwnerBoardReject">不同意</view>
+        <view wx:if="{{ownerBoard.pendingId}}" class="op-yes" bindtap="onOwnerBoardConfirm">确认</view>
+        <view wx:elif="{{pendingOwnerReview}}" class="op-yes" bindtap="onEndPageFeedback">去评价</view>
+      </view>
+    </view>
+
+    <view wx:if="{{openDoc}}" class="op-paper" style="padding-top: {{statusBarHeight}}px;">
+      <view class="op-nav" style="padding-right: {{capsulePad}}px;">
+        <text class="op-back" bindtap="onCloseOwnerDoc">‹</text>
+        <view class="op-nav__text">
+          <text class="op-kicker">服务进度</text>
+          <text class="op-plate">{{openDoc.title}}</text>
+        </view>
+      </view>
+      <scroll-view scroll-y class="op-paper__body" show-scrollbar="{{false}}">
+        <service-doc-sheet
+          doc="{{openDoc}}"
+          mode="owner"
+          storePhone="{{storePhone}}"
+          confirming="{{flowConfirmingId === openDoc.id}}"
+          bind:confirm="onOwnerFlowConfirm"
+          bind:reject="onOwnerFlowReject"
+        />
+      </scroll-view>
+    </view>
+  </block>
+
   <block wx:elif="{{detail}}">
     <view class="album-detail__shell album-detail__shell--checklist">
       <tool-immersive-nav title="服务进度" />
@@ -42,14 +157,6 @@
         scroll-into-view="{{flowScrollIntoView}}"
         scroll-with-animation="{{true}}"
       >
-        <album-service-flow
-          wx:if="{{showOwnerFlow}}"
-          docs="{{ownerFlowDocs}}"
-          confirmingId="{{flowConfirmingId}}"
-          storePhone="{{storePhone}}"
-          bind:confirm="onOwnerFlowConfirm"
-          bind:reject="onOwnerFlowReject"
-        />
         <album-work-checklist
           wx:if="{{hasWorkChecklist && !showOwnerFlow}}"
           categoryLabel="{{workChecklistCategoryLabel}}"

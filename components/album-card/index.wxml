@@ -1,5 +1,47 @@
-<view class="album-card__shell {{embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised'}} {{selectable ? 'album-card__shell--selectable' : ''}} {{selected ? 'is-selected' : ''}} {{selectable && selectDisabled ? 'is-disabled' : ''}}">
-  <view class="album-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
+<view class="album-card__shell {{layout === 'board' ? 'album-card__shell--board' : ''}} {{embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised'}} {{selectable ? 'album-card__shell--selectable' : ''}} {{selected ? 'is-selected' : ''}} {{selectable && selectDisabled ? 'is-disabled' : ''}}">
+  <view
+    wx:if="{{layout === 'board' && audience === 'user'}}"
+    class="album-card__board"
+    data-id="{{item.albumId}}"
+    bindtap="onTap"
+  >
+    <view
+      wx:if="{{selectable}}"
+      class="album-card__select {{selected ? 'is-on' : ''}} {{selectDisabled ? 'is-disabled' : ''}}"
+      aria-role="radio"
+      aria-checked="{{selected}}"
+      aria-label="选择下载"
+    >
+      <view class="album-card__select-dot" />
+    </view>
+    <view class="album-card__board-thumb album-card__board-thumb--{{item.progressTone || 'default'}}">
+      <image
+        wx:if="{{item.coverUrl}}"
+        class="album-card__board-cover"
+        src="{{item.coverUrl}}"
+        mode="aspectFill"
+        lazy-load="{{true}}"
+      />
+      <image wx:else class="album-card__board-car" src="/assets/mch/car-white.png" mode="aspectFit" />
+      <view wx:if="{{item.hasUnreadUpdate}}" class="album-card__board-dot" />
+    </view>
+    <view class="album-card__board-main">
+      <view class="album-card__board-head">
+        <text class="album-card__board-plate">{{item.listTitle}}</text>
+        <view
+          wx:if="{{showQuickActions && quickReview.show}}"
+          class="album-card__share-btn album-card__share-btn--head"
+          catchtap="onOwnerReviewTap"
+        >{{quickReview.label}}</view>
+      </view>
+      <text wx:if="{{item.serviceName && item.serviceName !== '—'}}" class="album-card__board-title">{{item.serviceName}}</text>
+      <view class="album-card__board-meta">
+        <text class="album-card__board-sub">{{item.storeName}}{{item.vehicleModelLine ? ' · ' + item.vehicleModelLine : ''}}</text>
+        <text wx:if="{{item.progressLine}}" class="album-card__board-pill album-card__board-pill--{{item.progressTone || 'default'}}">{{item.progressLine}}</text>
+      </view>
+    </view>
+  </view>
+  <view wx:else class="album-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
     <view
       wx:if="{{selectable}}"
       class="album-card__select {{selected ? 'is-on' : ''}} {{selectDisabled ? 'is-disabled' : ''}}"

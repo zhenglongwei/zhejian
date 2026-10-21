@@ -18,46 +18,34 @@
 
   <block wx:else>
     <view class="mine__hub">
-      <view class="mine__folio surface-album-folio">
-        <ui-mine-user-header
-          variant="hub"
-          isLoggedIn="{{isLoggedIn}}"
-          user="{{user}}"
-          vehicleSummary="{{vehicleSummary}}"
-          bind:logintap="onLoginTap"
-          bind:profiletap="onProfileTap"
-        />
-      </view>
-
-      <view class="mine__main surface-album-panel">
-        <view class="mine__section-head">
-          <view class="surface-album-section-title-row">
-            <view class="surface-album-section-accent" aria-hidden="true" />
-            <text class="mine__section-title text-h3">{{albumSectionTitle}}</text>
-          </view>
-          <view wx:if="{{isLoggedIn}}" class="mine__section-links">
-            <view class="mine__section-link" bindtap="onAlbumListTap">
-              <text class="mine__section-link-text text-caption text-link">全部</text>
-            </view>
-            <text class="mine__section-divider text-caption text-secondary">·</text>
-            <view class="mine__section-link" bindtap="onAlbumActiveTap">
-              <text class="mine__section-link-text text-caption text-link">进行中</text>
-            </view>
-            <text class="mine__section-divider text-caption text-secondary">·</text>
-            <view class="mine__section-link" bindtap="onAlbumDoneTap">
-              <text class="mine__section-link-text text-caption text-link">已完工</text>
-            </view>
-          </view>
+      <block wx:if="{{isLoggedIn}}">
+        <view class="mine__hello" bindtap="onProfileTap">
+          <text class="mine__kicker">服务相册 · 车主</text>
+          <text class="mine__name">{{user.nickname || user.phoneDisplay || '你好'}}</text>
         </view>
-
-        <block wx:if="{{isLoggedIn && albumHeroCards.length}}">
+        <view wx:if="{{heroLine}}" class="mine__hero-line">
+          <text>{{heroLine}}</text>
+        </view>
+        <view class="mine__section-head">
+          <text class="mine__section-title">{{albumSectionTitle}}</text>
+        </view>
+        <view class="mine__chips">
+          <text
+            wx:for="{{hubFilters}}"
+            wx:key="key"
+            class="mine__chip {{hubFilter === item.key ? 'is-on' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onHubFilterTap"
+          >{{item.label}}</text>
+        </view>
+        <block wx:if="{{albumHeroCards.length}}">
           <view class="mine__album-stack">
             <ui-album-card
               wx:for="{{albumHeroCards}}"
               wx:key="albumId"
               item="{{item}}"
               audience="user"
-              showProgress="{{true}}"
+              layout="board"
               showQuickActions="{{true}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
@@ -66,8 +54,10 @@
             />
           </view>
         </block>
-
-        <block wx:elif="{{isLoggedIn}}">
+        <block wx:elif="{{hubAlbums.length}}">
+          <ui-empty theme="album" title="{{hubEmptyTitle}}" />
+        </block>
+        <block wx:else>
           <ui-empty
             theme="album"
             title="{{albumEmptyTitle}}"
@@ -77,50 +67,25 @@
             <text class="text-caption text-link">{{albumEmptyH5Link}}</text>
           </view>
         </block>
-
-        <block wx:else>
-          <view class="mine__guest-album" bindtap="onLoginTap">
-            <text class="text-body">{{guestAlbumTitle}}</text>
-            <text class="text-caption text-secondary">{{guestAlbumHint}}</text>
-          </view>
-        </block>
-
-        <view class="surface-album-inset-divider" />
-        <block wx:if="{{todoSummary}}">
-          <view class="mine__todo surface-album-todo">
-            <text class="mine__todo-headline text-body">{{todoSummary.headline}}</text>
-            <view class="mine__todo-list">
-              <view
-                wx:for="{{todoSummary.items}}"
-                wx:key="key"
-                class="mine__todo-item"
-                data-action="{{item.action}}"
-                bindtap="onTodoItemTap"
-              >
-                <text class="surface-album-todo-dot" />
-                <text class="text-caption">{{item.label}}</text>
-                <text class="mine__todo-arrow text-caption">›</text>
-              </view>
-            </view>
-          </view>
-        </block>
-
-        <view class="surface-album-inset-divider" />
-        <view class="mine__dock">
+        <view class="mine__links">
           <view
-            wx:for="{{hubDock}}"
+            wx:for="{{hubLinks}}"
             wx:key="key"
-            class="mine__dock-item"
+            class="mine__link"
             data-key="{{item.key}}"
-            bindtap="onDockTap"
+            bindtap="onHubLinkTap"
           >
-            <view class="mine__dock-well surface-album-well">
-              <image class="mine__dock-icon nav-icon-tone-album" src="{{item.icon}}" mode="aspectFit" />
-            </view>
-            <text class="mine__dock-label text-caption">{{item.label}}</text>
+            <text>{{item.label}}</text>
+            <text class="mine__link-arrow">›</text>
           </view>
         </view>
-      </view>
+      </block>
+      <block wx:else>
+        <view class="mine__guest-album" bindtap="onLoginTap">
+          <text class="text-body">{{guestAlbumTitle}}</text>
+          <text class="text-caption text-secondary">{{guestAlbumHint}}</text>
+        </view>
+      </block>
 
       <view
         wx:if="{{showGuestH5Link}}"

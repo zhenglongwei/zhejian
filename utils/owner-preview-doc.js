@@ -53,10 +53,25 @@ function findingRows(findings) {
     .filter((row) => row.partName || row.advice || row.images.length)
 }
 
+function albumMetaLine(album, mileageText) {
+  const vehicle = (album && album.vehicle) || {}
+  const plate = String(vehicle.plateDisplay || vehicle.plate || '').trim()
+  const name = [vehicle.brand, vehicle.series, vehicle.model]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' ')
+  return [plate, name, String(mileageText || '').trim()].filter(Boolean).join(' · ')
+}
+
 function buildOwnerPreviewDoc(input = {}) {
   const family = String(input.family || '')
   const album = input.album || {}
   const storeName = String(album.storeName || '').trim()
+  const signName = String(input.signName || '').trim()
+  const signAt = String(input.signAt || '').trim()
+  const signLabel = String(input.signLabel || '').trim()
+  const signAtLabel = String(input.signAtLabel || '').trim()
+  const metaLine = albumMetaLine(album, input.mileageText)
   const face = quoteFace({
     templateId: album.templateId,
     serviceName: album.serviceName || '',
@@ -75,6 +90,11 @@ function buildOwnerPreviewDoc(input = {}) {
       belongings: String(input.belongings || '').trim(),
       photos,
       needsConfirm: false,
+      metaLine,
+      signLabel: signLabel || '接车人',
+      signName,
+      signAtLabel: signAtLabel || '时间',
+      signAt,
     }
     return {
       doc,
@@ -95,6 +115,11 @@ function buildOwnerPreviewDoc(input = {}) {
         findings,
         conclusion: '',
         needsConfirm: false,
+        metaLine,
+        signLabel: signLabel || '检测人',
+        signName,
+        signAtLabel: signAtLabel || '时间',
+        signAt,
       },
       quoteLines: quoteRows(input.quoteLines),
       hasBody: Boolean(findings.length || chiefComplaint),
@@ -122,9 +147,39 @@ function buildOwnerPreviewDoc(input = {}) {
           serviceName: album.serviceName || '',
         }),
         needsConfirm: false,
+        metaLine,
       },
       quoteLines: [],
       hasBody: Boolean(lines.length || discoveryNote || discoveryImages.length),
+    }
+  }
+  if (family === 'work') {
+    const items = (Array.isArray(input.workItems) ? input.workItems : [])
+      .map((row) => ({
+        name: String((row && row.name) || '').trim(),
+        brand: String((row && row.brand) || '').trim(),
+        material: String((row && row.material) || '').trim(),
+        qty: String((row && row.qty) || '').trim(),
+        note: String((row && row.note) || '').trim(),
+        images: photoRows((row && row.images) || []),
+      }))
+      .filter((row) => row.name)
+    return {
+      doc: {
+        kind: 'work',
+        title: '维修工单',
+        styleVariant: 'document',
+        storeName,
+        items,
+        needsConfirm: false,
+        metaLine,
+        signLabel: signLabel || '施工人',
+        signName,
+        signAtLabel: signAtLabel || '完工时间',
+        signAt,
+      },
+      quoteLines: [],
+      hasBody: Boolean(items.length || signName || signAt),
     }
   }
   if (family === 'finish') {
@@ -153,6 +208,11 @@ function buildOwnerPreviewDoc(input = {}) {
         totalAmountLabel: workItems.length ? `合计 ¥${total.toFixed(2)}` : '',
         confirmCopy: REPAIR_CONFIRM_COPY,
         needsConfirm: false,
+        metaLine,
+        signLabel: signLabel || '交付人',
+        signName,
+        signAtLabel: signAtLabel || '完工时间',
+        signAt,
       },
       quoteLines: [],
       hasBody: Boolean(workItems.length || deliveryPhotos.length || warrantyPeriod || warrantyNotes),

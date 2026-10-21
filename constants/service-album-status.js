@@ -72,6 +72,7 @@ const SERVICE_ALBUM_STATUS_VARIANT = {
 const SERVICE_ALBUM_LIST_TABS = [
   { key: 'all', label: '全部' },
   { key: 'active', label: '进行中' },
+  { key: 'confirm', label: '待确认' },
   { key: 'done', label: '已完工' },
 ]
 
@@ -92,7 +93,7 @@ function normalizeServiceAlbumListTab(tab) {
 /**
  * 商家端列表 Tab（2026-10-11）
  * 待确认 = 报价还没确认。已完成 = 已交车。
- * 车主端仍用上面的三档，不要改成这一套。
+ * 车主端筛选项同为全部 / 进行中 / 待确认 / 已完工；待确认按车主单据是否等确认，不按商家报价字段。
  */
 const MERCHANT_SERVICE_ALBUM_LIST_TABS = [
   { key: 'all', label: '全部' },

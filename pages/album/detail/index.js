@@ -17,6 +17,7 @@ const {
   buildGateActionButtons,
 } = require('../../../utils/service-album-display')
 const { runGateUserAction } = require('../../../utils/album-gate-actions')
+const { buildOwnerProgressBoard } = require('../../../utils/owner-progress-overview')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
@@ -330,6 +331,10 @@ Page({
     workChecklistCards: [],
     showOwnerFlow: false,
     ownerFlowDocs: [],
+    ownerBoard: null,
+    openDoc: null,
+    statusBarHeight: 20,
+    capsulePad: 96,
     flowConfirmingId: '',
     flowScrollIntoView: '',
     focusPendingOnLoad: false,
@@ -478,10 +483,18 @@ Page({
     this.setData({ toolbarBottomPadPx: resolveToolbarBottomPadPx() })
     try {
       const menu = wx.getMenuButtonBoundingClientRect()
-      this.setData({ navSafeTopPx: menu.top + menu.height + 6 })
+      const win = getWindowMetrics()
+      this.setData({
+        navSafeTopPx: menu.top + menu.height + 6,
+        statusBarHeight: win.statusBarHeight || 20,
+        capsulePad: Math.max(16, (win.windowWidth || 375) - menu.left + 8),
+      })
     } catch (err) {
       const win = getWindowMetrics()
-      this.setData({ navSafeTopPx: (win.statusBarHeight || 20) + 44 })
+      this.setData({
+        navSafeTopPx: (win.statusBarHeight || 20) + 44,
+        statusBarHeight: win.statusBarHeight || 20,
+      })
     }
   },
 
@@ -684,6 +697,8 @@ Page({
         workChecklistCards: displayCards,
         showOwnerFlow,
         ownerFlowDocs,
+        ownerBoard: showOwnerFlow ? buildOwnerProgressBoard(enriched, ownerFlowDocs) : null,
+        openDoc: null,
         flowConfirmingId: '',
         flowScrollIntoView: '',
         warrantyText,
@@ -694,7 +709,7 @@ Page({
         this.setData({ toolbarBottomPadPx: resolveToolbarBottomPadPx() })
         if (showOwnerFlow && focusId && this.focusPendingOnLoad) {
           setTimeout(() => {
-            this.setData({ flowScrollIntoView: `flow-doc-${focusId}` })
+            this.setData({ flowScrollIntoView: `op-row-${focusId}` })
           }, 320)
         }
       })
@@ -706,7 +721,10 @@ Page({
           source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
         })
       }
-      markAlbumSeen(this.albumId, detail.updatedAt || enriched.updatedAt)
+      markAlbumSeen(
+        this.albumId,
+        (ownerFlow && ownerFlow.nodeUpdatedAt) || detail.updatedAt || enriched.updatedAt,
+      )
 
       if (showShareEntry) {
         await this.refreshShareToken({ silent: true, defaultShareIntent })
@@ -1079,6 +1097,41 @@ Page({
     runGateUserAction(this, key, this.data.detail || {})
   },
 
+  onBack() {
+    const pages = getCurrentPages()
+    if (pages.length > 1) {
+      wx.navigateBack()
+      return
+    }
+    wx.reLaunch({ url: '/pages/mine/index' })
+  },
+
+  onOpenOwnerDoc(e) {
+    const id = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id
+    const locked = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.locked
+    if (!id || locked === true || locked === 'true') return
+    const doc = (this.data.ownerFlowDocs || []).find((row) => row && row.id === id)
+    if (!doc || doc.locked) return
+    this.setData({ openDoc: doc })
+  },
+
+  onCloseOwnerDoc() {
+    this.setData({ openDoc: null })
+  },
+
+  onOwnerBoardConfirm() {
+    const nodeId = this.data.ownerBoard && this.data.ownerBoard.pendingId
+    if (!nodeId) return
+    this.onOwnerFlowConfirm({ detail: { nodeId } })
+  },
+
+  onOwnerBoardReject() {
+    const nodeId = this.data.ownerBoard && this.data.ownerBoard.pendingId
+    const doc = (this.data.ownerFlowDocs || []).find((row) => row && row.id === nodeId)
+    if (!nodeId) return
+    this.onOwnerFlowReject({ detail: { nodeId, isAddon: Boolean(doc && doc.isAddon) } })
+  },
+
   async onOwnerFlowConfirm(e) {
     const nodeId = e && e.detail && e.detail.nodeId
     if (!nodeId || this.data.flowConfirmingId) return
@@ -1095,6 +1148,8 @@ Page({
         this.setData({
           ownerFlowDocs: docs,
           showOwnerFlow: docs.length > 0,
+          ownerBoard: buildOwnerProgressBoard(this.data.detail || {}, docs),
+          openDoc: null,
         })
       }
       wx.showToast({ title: '已确认', icon: 'success' })
@@ -1134,6 +1189,8 @@ Page({
             this.setData({
               ownerFlowDocs: docs,
               showOwnerFlow: docs.length > 0,
+              ownerBoard: buildOwnerProgressBoard(this.data.detail || {}, docs),
+              openDoc: null,
             })
           }
           wx.showToast({ title: '已记下', icon: 'none' })
