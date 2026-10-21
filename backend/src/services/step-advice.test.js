@@ -2,25 +2,41 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { parseWorkAdvice, parseDeliveryAdvice, parseInspectionAdvice } = require('./step-advice.service')
 
-test('施工不一致时只指出补充报价或补图', () => {
+test('施工对不上时写明没做或报价没有', () => {
   const got = parseWorkAdvice({
-    note: '随便一句',
     gaps: [
-      { title: '下摆臂', body: '报价有这项，施工还没有图。', action: 'photo' },
-      { title: '平衡杆', body: '报价里没有，去补充报价。', action: 'addon' },
-      { title: '平衡杆', body: '再来一条', action: 'other' },
+      { kind: 'missing', title: '下摆臂', body: '报价有这项，施工还没有照片。补上这一项的施工图。' },
+      { kind: 'extra', title: '平衡杆', body: '施工做了，报价没有。要留下就去补充报价。' },
+      { kind: 'photo', title: '轮胎', body: '报价有这项，施工没有说明。补一句做成了什么。' },
+      { kind: 'nope', title: '丢掉', body: '丢掉。' },
     ],
-  })
-  assert.equal(got.note, '')
+    items: [],
+  }, [])
+  assert.equal(got.scope, 'process')
   assert.equal(got.gaps.length, 3)
-  assert.equal(got.gaps[0].action, 'photo')
-  assert.equal(got.gaps[1].action, 'addon')
-  assert.equal(got.gaps[2].action, 'addon')
+  assert.equal(got.gaps[0].kind, 'missing')
+  assert.equal(got.gaps[1].kind, 'extra')
+  assert.equal(got.gaps[2].kind, 'missing')
 })
 
-test('施工对得上时不列缺口', () => {
-  const got = parseWorkAdvice({ note: '和报价对得上', gaps: [] })
-  assert.equal(got.note, '和报价对得上')
+test('店员已写说明时保留原话，空说明才采用照片上的过程', () => {
+  const got = parseWorkAdvice({
+    gaps: [],
+    items: [
+      { id: 'a', body: '语句已经改顺了。', supplement: '照片里旧胶套已经拆下。' },
+      { id: 'b', body: '换好了下摆臂胶套。', supplement: '不要这句' },
+      { id: 'c', body: '编一段没拍到的。', supplement: '' },
+    ],
+  }, [
+    { id: 'a', name: '下摆臂', note: '胶套开裂已换', photos: 1 },
+    { id: 'b', name: '拆检', note: '', photos: 2 },
+    { id: 'c', name: '平衡杆', note: '', photos: 0 },
+  ])
+  assert.equal(got.items.length, 2)
+  assert.equal(got.items[0].body, '胶套开裂已换')
+  assert.equal(got.items[0].supplement, '照片里旧胶套已经拆下。')
+  assert.equal(got.items[1].body, '换好了下摆臂胶套。')
+  assert.equal(got.items[1].supplement, '')
   assert.equal(got.gaps.length, 0)
 })
 

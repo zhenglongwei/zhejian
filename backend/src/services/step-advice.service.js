@@ -1,6 +1,7 @@
 /**
- * 施工、交车的 AI 分析。
- * 前面各步只带已经生成的文字。本步文字和照片没变就复用上次结果。不重新看旧照片。
+ * 施工、检测、交车的 AI 分析。
+ * 施工只看本步的说明和照片，对照报价。前面各步的照片不再看。
+ * 本步文字和照片没变就复用上次结果。
  */
 const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
@@ -36,13 +37,35 @@ function linesOf(node) {
     .filter((row) => row.name)
 }
 
+function workImageList(row) {
+  const images = Array.isArray(row && row.images) ? row.images : []
+  if (images.length) return images
+  return row && row.url ? [row] : []
+}
+
 function workRows(node) {
   const findings = (node && node.photoDraft && node.photoDraft.findings) || []
-  return (Array.isArray(findings) ? findings : []).map((row) => ({
+  return (Array.isArray(findings) ? findings : []).map((row, index) => ({
+    id: text(row && row.id) || `w${index}`,
     name: text(row && row.partName),
     note: text(row && (row.caption || row.advice)),
-    photos: Array.isArray(row && row.images) ? row.images.length : row && row.url ? 1 : 0,
+    photos: workImageList(row).length,
   })).filter((row) => row.name || row.note || row.photos)
+}
+
+function workPhotoUrls(nodes) {
+  const urls = []
+  ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
+    const findings = (node && node.photoDraft && node.photoDraft.findings) || []
+    ;(Array.isArray(findings) ? findings : []).forEach((row) => {
+      workImageList(row).forEach((img) => {
+        const url = text(typeof img === 'object' && img ? img.url || img.rawUrl || img.maskedUrl : img)
+        if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
+        urls.push(url)
+      })
+    })
+  })
+  return urls
 }
 
 function clipItem(raw) {
@@ -53,20 +76,51 @@ function clipItem(raw) {
   return { title, body }
 }
 
-function parseWorkAdvice(raw) {
-  const parsed = parseReviewModelJson(raw)
-  if (!parsed) return { note: '', gaps: [] }
+function parseWorkAdvice(raw, items) {
+  const parsed = parseReviewModelJson(raw) || {}
+  const byId = new Map()
+  ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
+    const id = text(row && row.id)
+    const body = text(row && row.body).slice(0, 80)
+    const supplement = text(row && row.supplement).slice(0, 80)
+    if (id) byId.set(id, { body, supplement })
+  })
   const gaps = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
     .map((row) => {
-      const item = clipItem(row)
-      if (!item) return null
-      const action = text(row && row.action) === 'photo' ? 'photo' : 'addon'
-      return { ...item, action }
+      const kindText = text(row && row.kind)
+      const kind = kindText === 'extra' || kindText === 'addon'
+        ? 'extra'
+        : kindText === 'missing' || kindText === 'photo'
+          ? 'missing'
+          : ''
+      const title = text(row && (row.title || row.partName)).slice(0, 16)
+      const body = text(row && row.body).slice(0, 80)
+      if (!kind || !title || !body) return null
+      return { kind, title, body }
     })
     .filter(Boolean)
     .slice(0, 4)
-  const note = gaps.length ? '' : text(parsed.note).slice(0, 40) || '和报价对得上'
-  return { note, gaps }
+  const written = (Array.isArray(items) ? items : [])
+    .map((row) => {
+      const noted = text(row && row.note)
+      const hit = byId.get(text(row && row.id)) || null
+      const supplement = noted && hit && hit.supplement && hit.supplement !== noted ? hit.supplement : ''
+      const body = noted
+        ? noted.slice(0, 80)
+        : Number(row && row.photos) > 0 && hit
+          ? hit.body
+          : ''
+      return {
+        id: text(row && row.id),
+        partName: text(row && row.name) || '这项',
+        sourceNote: noted,
+        body,
+        supplement,
+      }
+    })
+    .filter((row) => row.body || row.supplement)
+    .slice(0, 8)
+  return { scope: 'process', gaps, items: written }
 }
 
 function parseDeliveryAdvice(raw) {
@@ -85,7 +139,11 @@ function filled(item) {
 
 function adviceHasContent(advice, kind) {
   if (!advice || typeof advice !== 'object') return false
-  if (kind === 'work') return Boolean(text(advice.note) || (advice.gaps && advice.gaps.length))
+  if (kind === 'work') {
+    return (Array.isArray(advice.gaps) && advice.gaps.length > 0) ||
+      (Array.isArray(advice.items) && advice.items.length > 0) ||
+      Boolean(text(advice.note))
+  }
   if (kind === 'inspect') {
     return (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.shop) && advice.shop.length > 0)
@@ -196,7 +254,10 @@ function contextOf(album) {
   const nodes = readFlowNodes(album)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
   const inspection = nodes.find((item) => item && item.kind === 'inspection')
-  const quotes = nodes.filter((item) => item && item.kind === 'quote_confirm')
+  const quotes = nodes.filter((item) => {
+    if (!item || (item.kind !== 'quote_confirm' && item.kind !== 'addon_quote_confirm')) return false
+    return String((item.document && item.document.status) || '') !== 'cancelled'
+  })
   const works = nodes.filter((item) => item && item.kind === 'work')
   const delivery = nodes.find((item) => item && item.kind === 'delivery_photos')
   const repair = nodes.find((item) => item && item.kind === 'repair_report')
@@ -214,6 +275,7 @@ function contextOf(album) {
     inspectItems: namedRows(inspection && inspection.photoDraft && inspection.photoDraft.findings),
     quoteLines: quotes.reduce((all, node) => all.concat(linesOf(node)), []),
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
+    workPhotoUrls: workPhotoUrls(works),
     warrantyPeriod: text(draft.warrantyPeriod || reportPayload.warrantyPeriod),
     warrantyNotes: text(draft.warrantyNotes || reportPayload.warrantyNotes),
     hasExterior: Boolean(text(draft.deliveryExteriorUrl)),
@@ -225,11 +287,10 @@ function contextOf(album) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        complaint: ctx.complaint,
-        intakeRisks: ctx.intakeRisks,
-        inspectItems: ctx.inspectItems,
+        v: 'process',
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
+        workPhotos: ctx.workPhotoUrls,
       }
     : kind === 'inspect'
       ? {
@@ -267,15 +328,16 @@ async function patchNode(albumId, kind, mutator) {
   return nodes[index]
 }
 
-async function runLlm(instruction, urls) {
+async function runLlm(instruction, urls, label) {
   const engines = resolveConfiguredNodeAiReviewEngines()
   if (!engines.length) return null
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
+  const tag = label || '照片'
   const content = (urls || []).length
     ? [{ type: 'text', text: instruction }].concat(
         urls.map((url, index) => [
-          { type: 'text', text: `接车第 ${index + 1} 张` },
+          { type: 'text', text: `${tag}第 ${index + 1} 张` },
           { type: 'image_url', image_url: { url } },
         ]).flat(),
       )
@@ -305,20 +367,26 @@ async function runLlm(instruction, urls) {
 }
 
 function workInstruction(ctx) {
+  const photoLine = (ctx.workPhotoUrls || []).length
+    ? '后面附了本步施工照片，按「施工第 N 张」的顺序看。只看这些图，不要编图里没有的工序。'
+    : '这一步没有可看的施工照片。没有照片也没有说明的项，不要编做了什么。'
   return [
-    '你在看施工和已确认报价是否一致。只根据下面的文字，不要再看照片，不要改金额。',
-    '报价里有、施工里没有图或说明的：action 用 photo，title 写项目名，body 写补哪一项的施工图。',
-    '施工里多出来、报价里没有的：action 用 addon，body 写去补充报价。',
-    '都对得上：gaps 为空，note 写「和报价对得上」。',
-    '最多 4 条。不要编没写过的项目。',
+    '你在对照报价和施工。不要改金额，不要把照片挪到别的项。',
+    photoLine,
+    '意见写成一条条完整的话。不要写「给店里」「给车主」当标题。',
+    'gaps：只写和报价对不上的，最多 4 条。',
+    'kind 用 missing：报价有这项，施工没有这项，或者没有照片也没有说明。body 写清是没做，以及要补施工图还是补说明。',
+    'kind 用 extra：施工做了，报价里没有。body 写清报价没报，要留下就去补充报价。',
+    '对得上的不要写进 gaps，也不要写「和报价对得上」。',
+    'items：给车主看的施工过程，一项一句，不要太口语。',
+    '店员已经写了 note 的，body 照抄 note，不要改错字，不要改病句，不要说哪句不通顺。图里看得见、note 里没写的事实，写在 supplement。没有要补的事实，supplement 留空。',
+    'note 是空的、但有照片的，body 按照片写一句车主能看懂的过程，supplement 留空。',
+    '没有照片也没有 note 的项不要出现在 items 里。',
     `本单：${JSON.stringify({
-      complaint: ctx.complaint,
-      intakeRisks: ctx.intakeRisks,
-      inspectItems: ctx.inspectItems,
       quoteLines: ctx.quoteLines,
       workItems: ctx.workItems,
     })}`,
-    '输出 JSON：{"note":"","gaps":[{"title":"","body":"","action":"photo"}]}',
+    '输出 JSON：{"gaps":[{"kind":"missing","title":"","body":""}],"items":[{"id":"","body":"","supplement":""}]}',
   ].join('\n')
 }
 
@@ -372,10 +440,11 @@ async function runJob(albumId, kind) {
     const { field, nodeKind } = nodeField(kind)
     const raw = await runLlm(
       kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
-      kind === 'inspect' && !ctx.intakeBrief ? ctx.intakePhotoUrls : [],
+      kind === 'work' ? ctx.workPhotoUrls : kind === 'inspect' && !ctx.intakeBrief ? ctx.intakePhotoUrls : [],
+      kind === 'work' ? '施工' : '接车',
     )
     const parsed = kind === 'work'
-      ? parseWorkAdvice(raw)
+      ? parseWorkAdvice(raw, ctx.workItems)
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems)
         : parseDeliveryAdvice(raw)
@@ -433,7 +502,13 @@ function sanitizeStepAdviceForView(advice, kind) {
     updatedAt: text(advice.updatedAt),
   }
   if (kind === 'work') {
-    return { ...base, note: text(advice.note), gaps: Array.isArray(advice.gaps) ? advice.gaps : [] }
+    return {
+      ...base,
+      scope: text(advice.scope),
+      note: text(advice.note),
+      gaps: Array.isArray(advice.gaps) ? advice.gaps : [],
+      items: Array.isArray(advice.items) ? advice.items : [],
+    }
   }
   if (kind === 'inspect') {
     return {

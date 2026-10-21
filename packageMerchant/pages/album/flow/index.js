@@ -1771,6 +1771,7 @@ Page({
       )
       const workAdvice = this.decorateWorkAdvice(
         (flowNodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
+        sections,
       )
       const deliveryAdvice = this.decorateDeliveryAdvice(
         (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice,
@@ -5412,32 +5413,64 @@ Page({
     }
   },
 
-  decorateWorkAdvice(raw) {
+  decorateWorkAdvice(raw, sections) {
     if (!raw || typeof raw !== 'object') {
-      return { status: '', isWaiting: false, hasContent: false, gaps: [], note: '', hasNote: false, hasGaps: false }
+      return { status: '', isWaiting: false, hasContent: false, hasLines: false, lines: [], items: [] }
     }
     const status = String(raw.status || '')
-    const gaps = (Array.isArray(raw.gaps) ? raw.gaps : []).map((row) => {
-      const title = String((row && row.title) || '').trim()
+    const findings = this.collectFindingsFromSections(sections)
+    const lines = []
+    const gaps = (Array.isArray(raw.gaps) ? raw.gaps : [])
+      .map((row, index) => {
+        const body = String((row && row.body) || '').trim()
+        return body ? { id: `gap_${index}`, body } : null
+      })
+      .filter(Boolean)
+    gaps.forEach((row) => {
+      lines.push({ id: row.id, body: row.body, canApply: false })
+    })
+    const items = (Array.isArray(raw.items) ? raw.items : []).map((row, index) => {
+      const findingId = String((row && (row.findingId || row.id)) || '')
+      const partName = String((row && row.partName) || '').trim()
+      const findingIndex = Number.isInteger(row && row.findingIndex) ? row.findingIndex : index
+      const current = this.pickAdviceFinding(findings, {
+        findingId: findingId.startsWith('own_') || findingId.startsWith('gap_') ? '' : findingId,
+        partName,
+        findingIndex,
+      })
+      const caption = String((current && current.caption) || '').trim()
+      const source = String((row && row.sourceNote) || '').trim()
       const body = String((row && row.body) || '').trim()
-      const action = row && row.action === 'photo' ? 'photo' : 'addon'
+      const supplement = String((row && row.supplement) || '').trim()
       return {
-        title,
+        id: `own_${findingIndex}`,
+        findingId,
+        findingIndex,
+        partName,
         body,
-        action,
-        actionLabel: action === 'photo' ? '补施工图' : '补充报价',
-        hasTitle: Boolean(title),
-        hasBody: Boolean(body),
+        supplement,
+        canApply: Boolean(!source && body && !caption),
       }
     })
-    const note = gaps.length ? '' : String(raw.note || '').trim()
+    items.forEach((row) => {
+      if (row.body) {
+        lines.push({ id: row.id, body: row.body, canApply: row.canApply })
+      }
+      if (row.supplement) {
+        lines.push({ id: `${row.id}_more`, body: row.supplement, canApply: false })
+      }
+    })
+    if (!lines.length) {
+      const note = String(raw.note || '').trim()
+      if (note) lines.push({ id: 'note', body: note, canApply: false })
+    }
     return {
       status,
-      note,
-      hasNote: Boolean(note),
-      gaps,
-      hasGaps: gaps.length > 0,
-      hasContent: Boolean(note || gaps.length),
+      scope: String(raw.scope || ''),
+      lines,
+      items,
+      hasLines: lines.length > 0,
+      hasContent: status === 'ready' && lines.length > 0,
       isWaiting: status === 'queued' || status === 'running',
     }
   },
@@ -6909,6 +6942,32 @@ Page({
     return null
   },
 
+  onApplyWorkExplain(e) {
+    const lineId = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const item = ((this.data.workAdvice && this.data.workAdvice.items) || []).find(
+      (row) => row && row.id === lineId && row.canApply && row.body,
+    )
+    if (!item) return
+    const sections = (this.data.sections || []).map((section) => {
+      if (!section || !section.findingMode || section.findingKind !== 'work') return section
+      const findings = section.findings || []
+      const target = this.pickAdviceFinding(findings, item)
+      if (!target) return section
+      return {
+        ...section,
+        findings: findings.map((row) => (row === target ? { ...row, caption: item.body } : row)),
+      }
+    })
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      this.persistPhotoDraft()
+        .then(() => this.setAutoSaveLabel('已自动保存'))
+        .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+    })
+  },
+
   onApplyOwnerExplain(e) {
     const lineId = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     const item = ((this.data.inspectionAdvice && this.data.inspectionAdvice.items) || []).find(
@@ -7352,8 +7411,10 @@ Page({
   },
 
   async onProxyConfirm() {
-    if (this.data.readOnly || this.data.confirming) return
-    if (!this.data.confirmAwaitingOwner) {
+    if (this.data.confirming) return
+    const awaiting = Boolean(this.data.confirmAwaitingOwner)
+    if (this.data.readOnly && !awaiting) return
+    if (!awaiting) {
       wx.showToast({ title: '请先发送车主确认', icon: 'none' })
       return
     }
@@ -7418,7 +7479,8 @@ Page({
   },
 
   async runProxyConfirm() {
-    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.confirming) return
+    if (this.data.readOnly && !this.data.confirmAwaitingOwner) return
     const kind = this.data.activeNode && this.data.activeNode.kind
     const payload = this.buildDocPayloadForSave()
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {

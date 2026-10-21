@@ -1909,9 +1909,17 @@
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
         <block wx:else>
-          <block wx:if="{{isWorkPhotoStep && workAdvice.hasContent}}">
-            <template is="workAdvicePanel" data="{{advice: workAdvice}}" />
-          </block>
+          <view wx:if="{{isWorkPhotoStep && workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
+            <view wx:for="{{workAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
+              <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
+              <text
+                wx:if="{{item.canApply}}"
+                class="merchant-flow-page__advice-apply"
+                data-id="{{item.id}}"
+                catchtap="onApplyWorkExplain"
+              >应用</text>
+            </view>
+          </view>
           <block wx:elif="{{isDeliveryPhotoStep && deliveryAdvice.hasContent}}">
             <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
           </block>
@@ -1946,7 +1954,7 @@
               >应用</text>
             </view>
           </view>
-          <view wx:if="{{!adviceApplyRows.length && !(isInspectionPhotoStep && inspectionAdvice.hasLines) && !((isWorkPhotoStep && workAdvice.hasContent) || (isDeliveryPhotoStep && deliveryAdvice.hasContent) || (isIntakePhotoStep && intakeAdvice.hasContent) || ((activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm') && quoteAssist.hasContent) || (aiReview && aiReview.merchantBrief.hasContent))}}" class="text-caption text-secondary">这次没有额外意见</view>
+          <view wx:if="{{!adviceApplyRows.length && !(isInspectionPhotoStep && inspectionAdvice.hasLines) && !(isWorkPhotoStep && workAdvice.hasLines) && !((isDeliveryPhotoStep && deliveryAdvice.hasContent) || (isIntakePhotoStep && intakeAdvice.hasContent) || ((activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm') && quoteAssist.hasContent) || (aiReview && aiReview.merchantBrief.hasContent))}}" class="text-caption text-secondary">这次没有额外意见</view>
         </block>
       </scroll-view>
     </view>
