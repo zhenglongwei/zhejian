@@ -864,6 +864,14 @@
   gap: var(--space-sm);
 }
 
+.merchant-flow-page__advice-shot {
+  flex-shrink: 0;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-muted);
+}
+
 .merchant-flow-page__advice-row-text {
   flex: 1;
   min-width: 0;

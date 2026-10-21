@@ -882,7 +882,7 @@
                     </view>
                     <block wx:else>
                     <flow-unmatched-photos
-                      wx:if="{{activeKind !== 'inspection'}}"
+                      wx:if="{{activeKind !== 'inspection' && !isWorkPhotoStep}}"
                       images="{{pendingImages}}"
                       label="本次照片"
                       canAssign="{{canAssignPending}}"
@@ -893,7 +893,7 @@
                       bind:promote="onPromotePendingToFinding"
                       bind:remove="onRemovePendingPhoto"
                     />
-                    <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
+                    <view wx:if="{{!readOnly && !isWorkPhotoStep && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                         bindtap="onAddFindingPhotos"
@@ -901,15 +901,6 @@
                         <text class="merchant-flow-page__work-thumb-plus">+</text>
                       </view>
                     </view>
-                    <text
-                      wx:if="{{!readOnly && canUseLibrary}}"
-                      class="text-caption merchant-flow-page__library-entry"
-                      bindtap="onOpenLibrary"
-                    >从图库选择</text>
-                    <text
-                      wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
-                      class="text-caption text-secondary"
-                    >进场外观在图库</text>
                     <text
                       wx:if="{{!readOnly}}"
                       class="text-caption text-link merchant-flow-page__add-finding"
@@ -1158,7 +1149,7 @@
                     </view>
                     <block wx:else>
                     <flow-unmatched-photos
-                      wx:if="{{activeKind !== 'inspection'}}"
+                      wx:if="{{activeKind !== 'inspection' && !isWorkPhotoStep}}"
                       images="{{pendingImages}}"
                       label="未归组"
                       canAssign="{{canAssignPending}}"
@@ -1169,7 +1160,7 @@
                       bind:promote="onPromotePendingToFinding"
                       bind:remove="onRemovePendingPhoto"
                     />
-                    <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
+                    <view wx:if="{{!readOnly && !isWorkPhotoStep && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                         bindtap="onAddFindingPhotos"
@@ -1177,15 +1168,6 @@
                         <text class="merchant-flow-page__work-thumb-plus">+</text>
                       </view>
                     </view>
-                    <text
-                      wx:if="{{!readOnly && canUseLibrary}}"
-                      class="text-caption merchant-flow-page__library-entry"
-                      bindtap="onOpenLibrary"
-                    >从图库选择</text>
-                    <text
-                      wx:if="{{!readOnly && isInspectionPhotoStep && isAppearanceService}}"
-                      class="text-caption text-secondary"
-                    >进场外观在图库</text>
                     </block>
                   </view>
                 </block>
@@ -1908,6 +1890,12 @@
         <block wx:else>
           <view wx:if="{{isWorkPhotoStep && workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
             <view wx:for="{{workAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
+              <image
+                wx:if="{{item.url}}"
+                class="merchant-flow-page__advice-shot"
+                src="{{item.url}}"
+                mode="aspectFill"
+              />
               <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
               <text
                 wx:if="{{item.canApply}}"

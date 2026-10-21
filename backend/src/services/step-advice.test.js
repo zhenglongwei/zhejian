@@ -20,6 +20,31 @@ test('施工对不上时写明没做或报价没有', () => {
   assert.equal(got.gaps[1].body, '平衡杆是新增项，没有事先报价。')
 })
 
+test('分组建议只保留已经有的另一项', () => {
+  const slots = [
+    { slot: 1, url: 'https://cdn.example/a.jpg', partName: '钣喷' },
+    { slot: 2, url: 'https://cdn.example/b.jpg', partName: '钣喷' },
+  ]
+  const got = parseWorkAdvice({
+    gaps: [],
+    items: [],
+    groups: [
+      { slot: 1, partName: '维修发动机' },
+      { slot: 2, partName: '钣喷' },
+      { slot: 1, partName: '维修发动机' },
+      { slot: 3, partName: '轮胎' },
+      { slot: 2, partName: '不存在的项' },
+    ],
+  }, [
+    { id: 'a', name: '钣喷', note: '', photos: 2 },
+    { id: 'b', name: '维修发动机', note: '', photos: 0 },
+  ], slots)
+  assert.equal(got.groups.length, 1)
+  assert.equal(got.groups[0].url, 'https://cdn.example/a.jpg')
+  assert.equal(got.groups[0].partName, '维修发动机')
+  assert.equal(got.groups[0].body, '这张更像是维修发动机。')
+})
+
 test('店员已写说明时保留原话，空说明才采用照片上的过程', () => {
   const got = parseWorkAdvice({
     gaps: [],

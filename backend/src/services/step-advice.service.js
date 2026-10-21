@@ -1,6 +1,6 @@
 /**
  * 施工、检测、交车的 AI 分析。
- * 施工只看本步的说明和照片，对照报价。前面各步的照片不再看。
+ * 施工只看本步的说明和照片，对照报价。前面各步的照片不再看。分组只给建议，不自动挪图。
  * 本步文字和照片没变就复用上次结果。
  */
 const crypto = require('crypto')
@@ -53,19 +53,21 @@ function workRows(node) {
   })).filter((row) => row.name || row.note || row.photos)
 }
 
-function workPhotoUrls(nodes) {
-  const urls = []
+function workPhotoSlots(nodes) {
+  const slots = []
   ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
     const findings = (node && node.photoDraft && node.photoDraft.findings) || []
     ;(Array.isArray(findings) ? findings : []).forEach((row) => {
+      const partName = text(row && row.partName)
+      const findingId = text(row && row.id)
       workImageList(row).forEach((img) => {
         const url = text(typeof img === 'object' && img ? img.url || img.rawUrl || img.maskedUrl : img)
-        if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
-        urls.push(url)
+        if (!/^https?:\/\//.test(url) || slots.some((item) => item.url === url) || slots.length >= 6) return
+        slots.push({ slot: slots.length + 1, url, partName, findingId })
       })
     })
   })
-  return urls
+  return slots
 }
 
 function clipItem(raw) {
@@ -76,7 +78,7 @@ function clipItem(raw) {
   return { title, body }
 }
 
-function parseWorkAdvice(raw, items) {
+function parseWorkAdvice(raw, items, slots) {
   const parsed = parseReviewModelJson(raw) || {}
   const byId = new Map()
   ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
@@ -122,7 +124,27 @@ function parseWorkAdvice(raw, items) {
     })
     .filter((row) => row.body || row.supplement)
     .slice(0, 8)
-  return { scope: 'process', gaps, items: written }
+  const names = new Set((Array.isArray(items) ? items : []).map((row) => text(row && row.name)).filter(Boolean))
+  const bySlot = new Map((Array.isArray(slots) ? slots : []).map((row) => [row.slot, row]))
+  const seenSlot = new Set()
+  const groups = (Array.isArray(parsed.groups) ? parsed.groups : [])
+    .map((row) => {
+      const slot = Number(row && row.slot)
+      const partName = text(row && (row.partName || row.title)).slice(0, 16)
+      const shot = bySlot.get(slot)
+      if (!Number.isInteger(slot) || !shot || !partName || !names.has(partName)) return null
+      if (shot.partName === partName || seenSlot.has(slot)) return null
+      seenSlot.add(slot)
+      return {
+        slot,
+        url: shot.url,
+        partName,
+        body: `这张更像是${partName}。`,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 4)
+  return { scope: 'process', gaps, items: written, groups }
 }
 
 function parseDeliveryAdvice(raw) {
@@ -144,6 +166,7 @@ function adviceHasContent(advice, kind) {
   if (kind === 'work') {
     return (Array.isArray(advice.gaps) && advice.gaps.length > 0) ||
       (Array.isArray(advice.items) && advice.items.length > 0) ||
+      (Array.isArray(advice.groups) && advice.groups.length > 0) ||
       Boolean(text(advice.note))
   }
   if (kind === 'inspect') {
@@ -277,7 +300,7 @@ function contextOf(album) {
     inspectItems: namedRows(inspection && inspection.photoDraft && inspection.photoDraft.findings),
     quoteLines: quotes.reduce((all, node) => all.concat(linesOf(node)), []),
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
-    workPhotoUrls: workPhotoUrls(works),
+    workPhotoSlots: workPhotoSlots(works),
     warrantyPeriod: text(draft.warrantyPeriod || reportPayload.warrantyPeriod),
     warrantyNotes: text(draft.warrantyNotes || reportPayload.warrantyNotes),
     hasExterior: Boolean(text(draft.deliveryExteriorUrl)),
@@ -289,10 +312,14 @@ function contextOf(album) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'compare',
+        v: 'group',
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
-        workPhotos: ctx.workPhotoUrls,
+        workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
+          slot: row.slot,
+          url: row.url,
+          partName: row.partName,
+        })),
       }
     : kind === 'inspect'
       ? {
@@ -369,11 +396,12 @@ async function runLlm(instruction, urls, label) {
 }
 
 function workInstruction(ctx) {
-  const photoLine = (ctx.workPhotoUrls || []).length
+  const slots = ctx.workPhotoSlots || []
+  const photoLine = slots.length
     ? '后面附了本步施工照片，按「施工第 N 张」的顺序看。只看这些图，不要编图里没有的工序。'
     : '这一步没有可看的施工照片。没有照片也没有说明的项，不要编做了什么。'
   return [
-    '你在对照报价和施工。不要改金额，不要把照片挪到别的项。',
+    '你在对照报价和施工。不要改金额，不要自己把照片挪走。',
     photoLine,
     '意见写成一条条完整的话。不要写「给店里」「给车主」当标题。',
     'gaps：只写和报价对不上的事实，最多 4 条。不要写怎么处理，不要写补充报价、重新报价、补照片、补说明、店里承担。',
@@ -385,11 +413,13 @@ function workInstruction(ctx) {
     '店员已经写了 note 的，body 照抄 note，不要改错字，不要改病句，不要说哪句不通顺。图里看得见、note 里没写的事实，写在 supplement。没有要补的事实，supplement 留空。',
     'note 是空的、但有照片的，body 按照片写一句车主能看懂的过程，supplement 留空。',
     '没有照片也没有 note 的项不要出现在 items 里。',
+    'groups：某张图更像已经有的另一项时才写。slot 用「施工第 N 张」的 N。partName 必须是 workItems 里已有的 name，并且和这张图现在所在的项不同。已经在对的项上不要写。没有对得上的已有项不要新造项目名。不要写怎么挪。最多 4 条。',
     `本单：${JSON.stringify({
       quoteLines: ctx.quoteLines,
       workItems: ctx.workItems,
+      photos: slots.map((row) => ({ slot: row.slot, on: row.partName })),
     })}`,
-    '输出 JSON：{"gaps":[{"kind":"missing","title":"","body":""}],"items":[{"id":"","body":"","supplement":""}]}',
+    '输出 JSON：{"gaps":[{"kind":"missing","title":"","body":""}],"items":[{"id":"","body":"","supplement":""}],"groups":[{"slot":1,"partName":""}]}',
   ].join('\n')
 }
 
@@ -443,11 +473,11 @@ async function runJob(albumId, kind) {
     const { field, nodeKind } = nodeField(kind)
     const raw = await runLlm(
       kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
-      kind === 'work' ? ctx.workPhotoUrls : kind === 'inspect' && !ctx.intakeBrief ? ctx.intakePhotoUrls : [],
+      kind === 'work' ? (ctx.workPhotoSlots || []).map((row) => row.url) : kind === 'inspect' && !ctx.intakeBrief ? ctx.intakePhotoUrls : [],
       kind === 'work' ? '施工' : '接车',
     )
     const parsed = kind === 'work'
-      ? parseWorkAdvice(raw, ctx.workItems)
+      ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems)
         : parseDeliveryAdvice(raw)
@@ -511,6 +541,7 @@ function sanitizeStepAdviceForView(advice, kind) {
       note: text(advice.note),
       gaps: Array.isArray(advice.gaps) ? advice.gaps : [],
       items: Array.isArray(advice.items) ? advice.items : [],
+      groups: Array.isArray(advice.groups) ? advice.groups : [],
     }
   }
   if (kind === 'inspect') {

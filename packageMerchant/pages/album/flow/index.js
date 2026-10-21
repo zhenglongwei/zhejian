@@ -1476,6 +1476,10 @@ Page({
           if (pendingBefore) this._foldInspectionPending = true
         }
         if (isWorkPhotoStep) {
+          if (normalizePendingImages(photoDraft.pendingImages).length) {
+            photoDraft = { ...photoDraft, pendingImages: [] }
+            this._parkWorkPending = true
+          }
           photoDraft = {
             ...photoDraft,
             findings: seedWorkFindingsFromQuoteLines(
@@ -1952,11 +1956,18 @@ Page({
         stageKey: openStageBoard ? openStageBoard.selectedKey : this.data.stageKey,
         stageBoard: openStageBoard,
         ...openStageBar,
+      }, () => {
+        if (this._foldInspectionPending) {
+          this._foldInspectionPending = false
+          this.persistPhotoDraft().catch(() => {})
+        }
+        if (this._parkWorkPending) {
+          this._parkWorkPending = false
+          this.persistPhotos()
+            .then(() => this.persistPhotoDraft())
+            .catch(() => {})
+        }
       })
-      if (this._foldInspectionPending) {
-        this._foldInspectionPending = false
-        this.persistPhotoDraft().catch(() => {})
-      }
       this._focusNodeId = ''
       this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
       this.resumeAiReviewFromNode(active)
@@ -3679,7 +3690,7 @@ Page({
   },
 
   onAddFindingPhotos() {
-    if (this.data.readOnly) return
+    if (this.data.readOnly || this.data.isWorkPhotoStep) return
     const batchAsOneItem = this.data.activeKind === 'inspection'
     const pending = normalizePendingImages(this.data.pendingImages)
     const remain = batchAsOneItem ? 9 : Math.max(0, 12 - pending.length)
@@ -3961,6 +3972,10 @@ Page({
     }
     if (kind === 'assign-work') {
       this.assignPendingWorkKey(this.data.assignPendingIndex, key)
+      return
+    }
+    if (kind === 'library-work') {
+      this.attachLibraryToWork(Number(key))
       return
     }
     if (kind === 'add-work') {
@@ -4714,6 +4729,57 @@ Page({
     this.setData({ libraryItems: items })
   },
 
+  attachLibraryToWork(findingIndex) {
+    const shots = Array.isArray(this._libraryPicked) ? this._libraryPicked : []
+    this._libraryPicked = []
+    if (this.data.readOnly || !shots.length || !Number.isInteger(findingIndex) || findingIndex < 0) return
+    const si = this.findingSectionIndex()
+    const section = this.data.sections[si]
+    if (!section || section.findingKind !== 'work') return
+    const findings = (section.findings || []).slice()
+    const current = normalizeWorkFinding(findings[findingIndex])
+    if (!current) return
+    const room = WORK_IMAGES_MAX - current.images.length
+    if (room < 1) {
+      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+      this.closePickSheet()
+      return
+    }
+    const seen = new Set(current.images.map((img) => mediaKey(img.url)))
+    const extra = shots.filter((img) => {
+      const key = mediaKey(img && img.url)
+      return key && !seen.has(key)
+    }).slice(0, room)
+    if (!extra.length) {
+      this.closePickSheet()
+      return
+    }
+    findings[findingIndex] = {
+      ...current,
+      images: current.images.concat(extra),
+    }
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== si) return row
+      return { ...row, findings, images: this.flattenWorkSectionImages(findings) }
+    })
+    this.setSectionsWithFindings(
+      sections,
+      {
+        autoSaveLabel: '保存中…',
+        showPickSheet: false,
+        pickSheetKind: '',
+        pickSheetGroups: [],
+        pickSheetExtra: '',
+        assignPendingIndex: -1,
+      },
+      `${si}:${findingIndex}`,
+    )
+    this.persistPhotos()
+      .then(() => this.persistPhotoDraft())
+      .then(() => this.setAutoSaveLabel('已自动保存'))
+      .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+  },
+
   onConfirmLibrary() {
     const pending = normalizePendingImages(this.data.pendingImages)
     const pendingKeys = new Set(pending.map((img) => mediaKey(img.url)))
@@ -4726,6 +4792,29 @@ Page({
       return
     }
     const pickedImages = extra.map((item) => ({ url: item.url, imageId: item.imageId || '' }))
+    if (this.data.isWorkPhotoStep) {
+      const si = this.findingSectionIndex()
+      const findings = (this.data.sections[si] && this.data.sections[si].findings) || []
+      const items = findings
+        .map((row, index) => ({
+          key: String(index),
+          title: String((row && row.partName) || '').trim() || '未命名',
+          meta: '',
+        }))
+        .filter((row) => row.title)
+      this.setData({ showLibrary: false })
+      if (!items.length) {
+        wx.showToast({ title: '先加一项', icon: 'none' })
+        return
+      }
+      this._libraryPicked = pickedImages
+      this.openPickSheet({
+        kind: 'library-work',
+        title: '放到哪一项',
+        groups: [{ label: '', items }],
+      })
+      return
+    }
     if (this.data.activeKind === 'inspection') {
       this.setData({ showLibrary: false })
       this.addBlankFinding(this.findingSectionIndex(), { images: pickedImages })
@@ -5472,6 +5561,24 @@ Page({
         lines.push({ id: `${row.id}_more`, body: row.supplement, canApply: false })
       }
     })
+    const groups = (Array.isArray(raw.groups) ? raw.groups : [])
+      .map((row, index) => {
+        const url = String((row && row.url) || '').trim()
+        const partName = String((row && row.partName) || '').trim()
+        const key = mediaKey(url)
+        const host = findings.find((item) =>
+          (item.images || []).some((img) => mediaKey(img && img.url) === key),
+        )
+        const hostName = String((host && host.partName) || '').trim()
+        const targets = findings.filter((item) => String((item && item.partName) || '').trim() === partName)
+        const body = String((row && row.body) || '').trim() || (partName ? `这张更像是${partName}。` : '')
+        if (!key || !partName || !host || hostName === partName || targets.length !== 1 || !body) return null
+        return { id: `grp_${index}`, url, partName, body, canApply: true }
+      })
+      .filter(Boolean)
+    groups.forEach((row) => {
+      lines.push({ id: row.id, body: row.body, url: row.url, canApply: true })
+    })
     if (!lines.length) {
       const note = String(raw.note || '').trim()
       if (note) lines.push({ id: 'note', body: note, canApply: false })
@@ -5482,6 +5589,7 @@ Page({
       lines,
       gaps,
       items,
+      groups,
       hasLines: lines.length > 0,
       hasContent: status === 'ready' && lines.length > 0,
       isWaiting: status === 'queued' || status === 'running',
@@ -6530,7 +6638,7 @@ Page({
       }
     }
     if (
-      (kind === 'work' || kind === 'intake_inspection') &&
+      kind === 'intake_inspection' &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
       wx.showToast({ title: '先处理未归组的图', icon: 'none' })
@@ -6957,6 +7065,13 @@ Page({
 
   onApplyWorkExplain(e) {
     const lineId = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const group = ((this.data.workAdvice && this.data.workAdvice.groups) || []).find(
+      (row) => row && row.id === lineId && row.canApply,
+    )
+    if (group) {
+      this.applyWorkPhotoGroup(group)
+      return
+    }
     const item = ((this.data.workAdvice && this.data.workAdvice.items) || []).find(
       (row) => row && row.id === lineId && row.canApply && row.body,
     )
@@ -6976,6 +7091,64 @@ Page({
         workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
       })
       this.persistPhotoDraft()
+        .then(() => this.setAutoSaveLabel('已自动保存'))
+        .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+    })
+  },
+
+  applyWorkPhotoGroup(group) {
+    const urlKey = mediaKey(group && group.url)
+    const targetName = String((group && group.partName) || '').trim()
+    if (!urlKey || !targetName || this.data.readOnly) return
+    let moved = false
+    let full = false
+    const sections = (this.data.sections || []).map((section) => {
+      if (!section || section.findingKind !== 'work' || moved || full) return section
+      const findings = (section.findings || []).map((row) => normalizeWorkFinding(row))
+      const hosts = findings.filter((row) => String(row.partName || '').trim() === targetName)
+      if (hosts.length !== 1) return section
+      const host = hosts[0]
+      if (host.images.some((img) => mediaKey(img.url) === urlKey)) {
+        moved = true
+        return section
+      }
+      let shot = null
+      const stripped = findings.map((row) => {
+        if (row === host) return row
+        const images = (row.images || []).filter((img) => {
+          if (mediaKey(img.url) === urlKey) {
+            shot = img
+            return false
+          }
+          return true
+        })
+        return images.length === row.images.length ? row : { ...row, images }
+      })
+      if (!shot) return section
+      if (host.images.length >= WORK_IMAGES_MAX) {
+        full = true
+        return section
+      }
+      const next = stripped.map((row) =>
+        row === host ? { ...row, images: host.images.concat([shot]) } : row,
+      )
+      moved = true
+      return { ...section, findings: next, images: this.flattenWorkSectionImages(next) }
+    })
+    if (full) {
+      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+      return
+    }
+    if (!moved) {
+      wx.showToast({ title: '对不上项目', icon: 'none' })
+      return
+    }
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      this.persistPhotos()
+        .then(() => this.persistPhotoDraft())
         .then(() => this.setAutoSaveLabel('已自动保存'))
         .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
     })
