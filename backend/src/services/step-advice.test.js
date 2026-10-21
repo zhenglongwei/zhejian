@@ -6,17 +6,18 @@ test('施工对不上时写明没做或报价没有', () => {
   const got = parseWorkAdvice({
     gaps: [
       { kind: 'missing', title: '下摆臂', body: '报价有这项，施工还没有照片。补上这一项的施工图。' },
-      { kind: 'extra', title: '平衡杆', body: '施工做了，报价没有。要留下就去补充报价。' },
+      { kind: 'extra', title: '平衡杆', body: '施工做了，报价没有。若要向车主另收，可以重新报价。报价已是最终价的，这项费用由店里承担。' },
       { kind: 'photo', title: '轮胎', body: '报价有这项，施工没有说明。补一句做成了什么。' },
       { kind: 'nope', title: '丢掉', body: '丢掉。' },
     ],
     items: [],
   }, [])
   assert.equal(got.scope, 'process')
-  assert.equal(got.gaps.length, 3)
+  assert.equal(got.gaps.length, 2)
   assert.equal(got.gaps[0].kind, 'missing')
+  assert.equal(got.gaps[0].body, '报价里的下摆臂，施工没有做。')
   assert.equal(got.gaps[1].kind, 'extra')
-  assert.equal(got.gaps[2].kind, 'missing')
+  assert.equal(got.gaps[1].body, '平衡杆是新增项，没有事先报价。')
 })
 
 test('店员已写说明时保留原话，空说明才采用照片上的过程', () => {

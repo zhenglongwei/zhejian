@@ -1150,14 +1150,12 @@ Page({
         complete: hasPhoto && missing === 0,
         summaryText: row.partName || '待填写',
         summaryBody: row.caption || '',
-        completenessLabel: !hasPhoto
-          ? '待拍照'
-          : missing > 0
-            ? '缺项目'
-            : row.outsideQuote
-              ? '报价没有'
-              : '',
-        labelToneDanger: !hasPhoto || missing > 0 || row.outsideQuote,
+        completenessLabel: !hasPhoto ? '待拍照' : missing > 0 ? '缺项目' : '',
+        labelToneDanger: !hasPhoto || missing > 0,
+        showQuoteAddon: Boolean(
+          row.outsideQuote ||
+            (this._workExtraTitles && this._workExtraTitles.has(String(row.partName || '').trim())),
+        ),
         adviceRequired: false,
         resultTone: '',
         resultToneClass: '',
@@ -1486,6 +1484,15 @@ Page({
             ),
           }
         }
+        const workAdviceRaw =
+          (flowNodes.find((node) => node && node.kind === 'work' && node.workAdvice) || {}).workAdvice ||
+          {}
+        this._workExtraTitles = new Set(
+          (Array.isArray(workAdviceRaw.gaps) ? workAdviceRaw.gaps : [])
+            .filter((row) => row && (row.kind === 'extra' || row.kind === 'addon'))
+            .map((row) => String((row && row.title) || '').trim())
+            .filter(Boolean),
+        )
         sections = this.buildSections(album, active, photoDraft, flowNodes)
         // 主诉 / 环车勾选记在接车步
         if (isIntakePhotoStep) {
@@ -5423,9 +5430,14 @@ Page({
     const gaps = (Array.isArray(raw.gaps) ? raw.gaps : [])
       .map((row, index) => {
         const body = String((row && row.body) || '').trim()
-        return body ? { id: `gap_${index}`, body } : null
+        const title = String((row && row.title) || '').trim()
+        const kind = row && row.kind === 'extra' ? 'extra' : row && row.kind === 'missing' ? 'missing' : ''
+        return body ? { id: `gap_${index}`, kind, title, body } : null
       })
       .filter(Boolean)
+    this._workExtraTitles = new Set(
+      gaps.filter((row) => row.kind === 'extra' && row.title).map((row) => row.title),
+    )
     gaps.forEach((row) => {
       lines.push({ id: row.id, body: row.body, canApply: false })
     })
@@ -5468,6 +5480,7 @@ Page({
       status,
       scope: String(raw.scope || ''),
       lines,
+      gaps,
       items,
       hasLines: lines.length > 0,
       hasContent: status === 'ready' && lines.length > 0,

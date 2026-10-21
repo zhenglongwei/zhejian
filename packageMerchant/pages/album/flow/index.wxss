@@ -1114,13 +1114,10 @@
   border-color: var(--color-warning);
 }
 
-.merchant-flow-page__quote-miss {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background-color: var(--color-warning-light);
+.merchant-flow-page__quote-addon {
+  display: block;
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+  text-align: right;
 }
 
 .merchant-flow-page__quote-miss-text {

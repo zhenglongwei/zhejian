@@ -935,7 +935,7 @@
                       wx:for-item="finding"
                       wx:for-index="findingIndex"
                       wx:key="listKey"
-                      class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}} {{finding.outsideQuote ? 'merchant-flow-page__finding-row--quote-miss' : ''}}"
+                      class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}}"
                     >
                       <view wx:if="{{finding.aiRemind}}" class="merchant-flow-page__finding-remind">{{finding.aiRemind}}</view>
                       <flow-finding-card
@@ -972,14 +972,11 @@
                           catchtap="onRemoveFinding"
                         >×</text>
                       </view>
-                      <view
-                        wx:if="{{finding.outsideQuote}}"
-                        class="merchant-flow-page__quote-miss"
+                      <text
+                        wx:if="{{section.findingKind === 'work' && finding.showQuoteAddon && !readOnly}}"
+                        class="text-caption text-link merchant-flow-page__quote-addon"
                         catchtap="onAddAddonPlan"
-                      >
-                        <text class="merchant-flow-page__quote-miss-text">报价没有这项</text>
-                        <text wx:if="{{!readOnly}}" class="merchant-flow-page__quote-miss-action">去通知车主</text>
-                      </view>
+                      >去补充报价</text>
                       <view wx:if="{{!finding.expanded && finding.hasCollapsedHints}}" class="merchant-flow-page__finding-hints">
                         <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                         <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />

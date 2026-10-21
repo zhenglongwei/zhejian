@@ -90,12 +90,14 @@ function parseWorkAdvice(raw, items) {
       const kindText = text(row && row.kind)
       const kind = kindText === 'extra' || kindText === 'addon'
         ? 'extra'
-        : kindText === 'missing' || kindText === 'photo'
+        : kindText === 'missing'
           ? 'missing'
           : ''
       const title = text(row && (row.title || row.partName)).slice(0, 16)
-      const body = text(row && row.body).slice(0, 80)
-      if (!kind || !title || !body) return null
+      if (!kind || !title) return null
+      const body = kind === 'extra'
+        ? `${title}是新增项，没有事先报价。`
+        : `报价里的${title}，施工没有做。`
       return { kind, title, body }
     })
     .filter(Boolean)
@@ -287,7 +289,7 @@ function contextOf(album) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'process',
+        v: 'compare',
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
         workPhotos: ctx.workPhotoUrls,
@@ -374,9 +376,10 @@ function workInstruction(ctx) {
     '你在对照报价和施工。不要改金额，不要把照片挪到别的项。',
     photoLine,
     '意见写成一条条完整的话。不要写「给店里」「给车主」当标题。',
-    'gaps：只写和报价对不上的，最多 4 条。',
-    'kind 用 missing：报价有这项，施工没有这项，或者没有照片也没有说明。body 写清是没做，以及要补施工图还是补说明。',
-    'kind 用 extra：施工做了，报价里没有。body 写清报价没报，要留下就去补充报价。',
+    'gaps：只写和报价对不上的事实，最多 4 条。不要写怎么处理，不要写补充报价、重新报价、补照片、补说明、店里承担。',
+    'kind 用 missing：报价有这项，施工里没有这项。title 写报价项目名。',
+    'kind 用 extra：施工做了，报价里没有。title 写施工项目名。',
+    '只是还没拍照、没写说明，但这项施工里已经有：不要写进 gaps。',
     '对得上的不要写进 gaps，也不要写「和报价对得上」。',
     'items：给车主看的施工过程，一项一句，不要太口语。',
     '店员已经写了 note 的，body 照抄 note，不要改错字，不要改病句，不要说哪句不通顺。图里看得见、note 里没写的事实，写在 supplement。没有要补的事实，supplement 留空。',
