@@ -54,8 +54,27 @@ function filterOwnerHubAlbums(albums = [], key = 'all') {
   return list
 }
 
+function nextOwnerHubFilter(current, tapped) {
+  if (!tapped) return current || 'preview'
+  return current === tapped ? 'preview' : tapped
+}
+
+function visibleOwnerHubAlbums(albums = [], key = 'preview') {
+  const list = albums || []
+  if (!key || key === 'preview') {
+    return list
+      .slice()
+      .sort(compareOwnerAlbums)
+      .filter((item) => ownerAlbumTier(item) < 3)
+      .slice(0, 3)
+  }
+  return filterOwnerHubAlbums(list, key)
+}
+
 module.exports = {
   compareOwnerAlbums,
+  visibleOwnerHubAlbums,
+  nextOwnerHubFilter,
   filterOwnerHubAlbums,
   ownerAlbumTier,
   needsOwnerConfirm,

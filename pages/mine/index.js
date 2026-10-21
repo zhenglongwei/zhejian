@@ -5,7 +5,7 @@ const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { promptHomePrivacy } = require('../../utils/privacy-authorize')
 const { buildMineMenuSections, buildMineHubDock, buildOwnerHubLinks } = require('../../constants/mine-menu')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
-const { compareOwnerAlbums, filterOwnerHubAlbums, needsOwnerConfirm } = require('../../utils/owner-album-rank')
+const { compareOwnerAlbums, visibleOwnerHubAlbums, nextOwnerHubFilter, needsOwnerConfirm } = require('../../utils/owner-album-rank')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
 const {
@@ -24,7 +24,6 @@ const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildCaseListH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
 function hubEmptyTitle(key) {
-  if (key === 'confirm') return '没有待确认的服务'
   if (key === 'review') return '没有待评价的服务'
   if (key === 'active') return '没有进行中的服务'
   return '这里还没有服务'
@@ -75,13 +74,12 @@ Page({
     pendingAuthBadge: '',
     hubDock: buildMineHubDock(),
     hubLinks: [],
-    hubFilter: 'all',
+    hubFilter: 'preview',
     hubEmptyTitle: '这里还没有服务',
     hubAlbums: [],
     hubFilters: [
       { key: 'all', label: '全部' },
       { key: 'active', label: '进行中' },
-      { key: 'confirm', label: '待确认' },
       { key: 'review', label: '待评价' },
     ],
     heroLine: '',
@@ -149,15 +147,14 @@ Page({
     )
     const showGuestH5Link =
       !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
-    const hubFilter = filterKey || this.data.hubFilter || 'all'
-    const reviewCount = (albums || []).filter((item) => item && item.pendingOwnerReview).length
+    const hubFilter = filterKey || this.data.hubFilter || 'preview'
     this.setData({
       menuSections: buildMineMenuSections(badges),
-      albumHeroCards: filterOwnerHubAlbums(albums, hubFilter),
+      albumHeroCards: visibleOwnerHubAlbums(albums, hubFilter),
       hubAlbums: albums,
       hubFilter,
       hubEmptyTitle: hubEmptyTitle(hubFilter),
-      hubLinks: buildOwnerHubLinks(reviewCount),
+      hubLinks: buildOwnerHubLinks(),
       pendingAuthBadge: '',
       todoSummary,
       vehicleSummary,
@@ -254,7 +251,7 @@ Page({
 
       const recentAlbums = enrichRecentAlbums(recentRaw).slice().sort(compareOwnerAlbums)
       const pendingCount = recentAlbums.filter((item) => needsOwnerConfirm(item)).length
-      const activeCount = filterOwnerHubAlbums(recentAlbums, 'active').length
+      const activeCount = visibleOwnerHubAlbums(recentAlbums, 'active').length
       heroLine = pendingCount
         ? `有 ${pendingCount} 份待你确认`
         : activeCount
@@ -439,10 +436,11 @@ Page({
   onHubFilterTap(e) {
     const key = e.currentTarget.dataset.key
     if (!key) return
+    const next = nextOwnerHubFilter(this.data.hubFilter, key)
     this.setData({
-      hubFilter: key,
-      albumHeroCards: filterOwnerHubAlbums(this.data.hubAlbums || [], key),
-      hubEmptyTitle: hubEmptyTitle(key),
+      hubFilter: next,
+      albumHeroCards: visibleOwnerHubAlbums(this.data.hubAlbums || [], next),
+      hubEmptyTitle: hubEmptyTitle(next),
     })
   },
 

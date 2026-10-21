@@ -1593,6 +1593,13 @@ function normalizePhotoDraft(raw = {}) {
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
     inspectionAiKey: String(raw.inspectionAiKey || '').trim(),
+    receiverName: String(raw.receiverName || '').trim(),
+    receivedAt: String(raw.receivedAt || '').trim(),
+    inspectorName: String(raw.inspectorName || '').trim(),
+    inspectedAt: String(raw.inspectedAt || '').trim(),
+    workerName: String(raw.workerName || '').trim(),
+    delivererName: String(raw.delivererName || '').trim(),
+    finishedAt: String(raw.finishedAt || '').trim(),
     recordVersions: Array.isArray(raw.recordVersions)
       ? raw.recordVersions
           .map((row) => ({
@@ -1663,6 +1670,13 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.inspectionAiKey != null) {
     next.inspectionAiKey = String(patch.inspectionAiKey || '').trim()
   }
+  if (patch.receiverName != null) next.receiverName = String(patch.receiverName || '').trim()
+  if (patch.receivedAt != null) next.receivedAt = String(patch.receivedAt || '').trim()
+  if (patch.inspectorName != null) next.inspectorName = String(patch.inspectorName || '').trim()
+  if (patch.inspectedAt != null) next.inspectedAt = String(patch.inspectedAt || '').trim()
+  if (patch.workerName != null) next.workerName = String(patch.workerName || '').trim()
+  if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
+  if (patch.finishedAt != null) next.finishedAt = String(patch.finishedAt || '').trim()
   if (patch.recordVersions != null) {
     next.recordVersions = normalizePhotoDraft({ recordVersions: patch.recordVersions }).recordVersions
   }

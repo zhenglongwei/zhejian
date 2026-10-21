@@ -552,12 +552,14 @@ Page({
   },
 
   onHide() {
+    this.flushClerkFields()
     this.writeLocalFlowDraft()
     this.stopAiReviewPoll()
     this.stopQuoteAssistPoll()
   },
 
   onUnload() {
+    this.flushClerkFields()
     this.writeLocalFlowDraft()
     this.stopAiReviewPoll()
     this.stopQuoteAssistPoll()
@@ -1336,6 +1338,10 @@ Page({
       const odometerUrl = String(this.data.odometerUrl || '').trim()
       return {
         chiefComplaint: this.data.chiefComplaint,
+        receiverName: String(this.data.receiverName || '').trim(),
+        receivedAt: String(this.data.receivedAt || '').trim(),
+        inspectorName: String(this.data.inspectorName || '').trim(),
+        inspectedAt: String(this.data.inspectedAt || '').trim(),
         vehicleBrand: String(this.data.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || '').trim(),
         vehicleYear: String(this.data.vehicleYear || '').trim(),
@@ -1877,13 +1883,7 @@ Page({
         docPayload,
         findings,
         chiefComplaint,
-        receiverName: String(photoDraft.receiverName || '').trim(),
-        receivedAt: String(photoDraft.receivedAt || '').trim(),
-        inspectorName: String(photoDraft.inspectorName || '').trim(),
-        inspectedAt: String(photoDraft.inspectedAt || '').trim(),
-        workerName: String(photoDraft.workerName || '').trim(),
-        delivererName: String(photoDraft.delivererName || docPayload.delivererName || '').trim(),
-        finishedAt: String(photoDraft.finishedAt || docPayload.finishedAt || '').trim(),
+        ...this.clerkFieldsFromNodes(flowNodes, photoDraft, docPayload),
         mileageKm,
         odometerUrl: isIntakePhotoStep ? String((sections[0] && sections[0].odometerUrl) || '').trim() : '',
         odometerImageId: isIntakePhotoStep
@@ -2191,13 +2191,131 @@ Page({
   nodeDraft(node) {
     const saved = (node && node.photoDraft) || {}
     const local = node && readLocalFlowDraft(this.albumId, node.id)
+    const merged = { ...saved, ...((local && local.photoDraft) || {}) }
     const live = this.data.activeNode && node && this.data.activeNode.id === node.id
-    return { ...saved, ...((local && local.photoDraft) || {}), ...(live ? this.liveClerkDraft(node.kind) : {}) }
+    if (!live) return merged
+    const patch = this.liveClerkDraft(node.kind)
+    Object.keys(patch).forEach((key) => {
+      const value = String(patch[key] == null ? '' : patch[key]).trim()
+      if (value) merged[key] = value
+    })
+    return merged
+  },
+
+  clerkFieldsFromNodes(flowNodes, activeDraft = {}, docPayload = {}) {
+    const list = flowNodes || []
+    const intake = list.find((node) => node && (node.kind === 'intake' || node.kind === 'intake_inspection'))
+    const inspection = list.find((node) => node && (node.kind === 'inspection' || node.kind === 'intake_inspection'))
+    const report = list.find((node) => node && node.kind === 'inspection_report')
+    const work = list.find((node) => node && node.kind === 'work')
+    const delivery = list.find((node) => node && node.kind === 'delivery_photos')
+    const repair = list.find((node) => node && node.kind === 'repair_report')
+    const intakeDraft = this.nodeDraft(intake)
+    const inspectionDraft = this.nodeDraft(inspection)
+    const workDraft = this.nodeDraft(work)
+    const deliveryDraft = this.nodeDraft(delivery)
+    const reportPayload = (report && report.document && report.document.payload) || {}
+    const repairPayload = (repair && repair.document && repair.document.payload) || {}
+    const text = (value) => String(value || '').trim()
+    return {
+      receiverName: text(intakeDraft.receiverName || activeDraft.receiverName),
+      receivedAt: text(intakeDraft.receivedAt || activeDraft.receivedAt),
+      inspectorName: text(inspectionDraft.inspectorName || reportPayload.inspectorName || docPayload.inspectorName),
+      inspectedAt: text(inspectionDraft.inspectedAt || reportPayload.inspectedAt || docPayload.inspectedAt),
+      workerName: text(workDraft.workerName || activeDraft.workerName),
+      delivererName: text(deliveryDraft.delivererName || repairPayload.delivererName || docPayload.delivererName),
+      finishedAt: text(deliveryDraft.finishedAt || repairPayload.finishedAt || docPayload.finishedAt),
+    }
+  },
+
+  flushClerkFields() {
+    if (this._clerkTimer) {
+      clearTimeout(this._clerkTimer)
+      this._clerkTimer = null
+    }
+    if (this._clerkKeys && this._clerkKeys.size) {
+      this.persistClerkFields().catch(() => {})
+    }
+  },
+
+  schedulePersistClerk(key) {
+    this._clerkKeys = this._clerkKeys || new Set()
+    if (key) this._clerkKeys.add(key)
+    if (this._clerkTimer) clearTimeout(this._clerkTimer)
+    this._clerkTimer = setTimeout(() => {
+      this._clerkTimer = null
+      this.persistClerkFields().catch((err) => {
+        this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+      })
+    }, 500)
+  },
+
+  async persistClerkFields() {
+    const keys = this._clerkKeys || new Set()
+    this._clerkKeys = new Set()
+    if (!keys.size || this.data.readOnly) return
+    const text = (name) => String(this.data[name] || '').trim()
+    const nodes = this._flowNodes || []
+    const jobs = []
+    const patchDraft = (node, patch) => {
+      if (!node || node.status === 'completed') return
+      jobs.push(
+        updateMerchantFlowNode(this.albumId, node.id, { photoDraft: patch }).then(() => {
+          node.photoDraft = { ...(node.photoDraft || {}), ...patch }
+        }),
+      )
+    }
+    const patchDoc = (node, patch) => {
+      if (!node || !node.document) return
+      const status = String(node.document.status || '')
+      if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled') return
+      jobs.push(
+        updateMerchantFlowNode(this.albumId, node.id, {
+          document: { status: status || 'draft', payload: patch },
+        }).then(() => {
+          node.document = {
+            ...node.document,
+            payload: { ...(node.document.payload || {}), ...patch },
+          }
+        }),
+      )
+    }
+    if (keys.has('receiverName') || keys.has('receivedAt')) {
+      const intake = nodes.find((node) => node && (node.kind === 'intake' || node.kind === 'intake_inspection'))
+      patchDraft(intake, { receiverName: text('receiverName'), receivedAt: text('receivedAt') })
+    }
+    if (keys.has('inspectorName') || keys.has('inspectedAt')) {
+      const patch = { inspectorName: text('inspectorName'), inspectedAt: text('inspectedAt') }
+      const inspection = nodes.find((node) => node && (node.kind === 'inspection' || node.kind === 'intake_inspection'))
+      patchDraft(inspection, patch)
+      patchDoc(nodes.find((node) => node && node.kind === 'inspection_report'), patch)
+    }
+    if (keys.has('workerName')) {
+      patchDraft(nodes.find((node) => node && node.kind === 'work'), { workerName: text('workerName') })
+    }
+    if (keys.has('delivererName') || keys.has('finishedAt')) {
+      const patch = { delivererName: text('delivererName'), finishedAt: text('finishedAt') }
+      patchDraft(nodes.find((node) => node && node.kind === 'delivery_photos'), patch)
+      patchDoc(nodes.find((node) => node && node.kind === 'repair_report'), patch)
+    }
+    if (!jobs.length) return
+    await Promise.all(jobs)
+    this.writeLocalFlowDraft()
+    this.setAutoSaveLabel('已自动保存')
+    if (this.data.workOpen) {
+      const stageBoard = buildMerchantStageBoard(this._album || {}, nodes, this.data.stageKey || 'intake')
+      this.setData({ stageBoard })
+    }
   },
 
   liveClerkDraft(kind) {
     if (kind === 'intake' || kind === 'intake_inspection') {
-      return { receiverName: this.data.receiverName, receivedAt: this.data.receivedAt }
+      const patch = { receiverName: this.data.receiverName, receivedAt: this.data.receivedAt }
+      if (kind === 'intake_inspection') {
+        patch.inspectorName = this.data.inspectorName
+        patch.inspectedAt = this.data.inspectedAt
+      }
+      return patch
     }
     if (kind === 'inspection') {
       return { inspectorName: this.data.inspectorName, inspectedAt: this.data.inspectedAt }
@@ -2782,8 +2900,7 @@ Page({
     const key = String((e.currentTarget.dataset && e.currentTarget.dataset.key) || '')
     if (!key || this.data.readOnly) return
     this.setData({ [key]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
-      if (this.data.activeIsDoc) this.scheduleAutoSaveDoc()
-      else this.scheduleAutoSaveDraftOnly()
+      this.schedulePersistClerk(key)
     })
   },
 

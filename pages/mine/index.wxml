@@ -54,7 +54,7 @@
             />
           </view>
         </block>
-        <block wx:elif="{{hubAlbums.length}}">
+        <block wx:elif="{{hubAlbums.length && hubFilter !== 'preview'}}">
           <ui-empty theme="album" title="{{hubEmptyTitle}}" />
         </block>
         <block wx:else>
