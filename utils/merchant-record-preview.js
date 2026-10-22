@@ -90,7 +90,7 @@ function stageChrome(stageKey, gate) {
     return { preview: false, label: '发给车主', action: 'sendQuote', locked: false }
   }
   if (stageKey === 'work') {
-    return { preview: false, label: '', action: '', locked: false }
+    return { preview: false, label: '确认并继续', action: 'completeWork', locked: false }
   }
   if (stageKey === 'finish') {
     if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered') {

@@ -45,24 +45,25 @@ test('分组建议只保留已经有的另一项', () => {
   assert.equal(got.groups[0].body, '这张更像是维修发动机。')
 })
 
-test('店员已写说明时保留原话，空说明才采用照片上的过程', () => {
+test('空说明才给车主向的描述，看图复述和已写说明都不出', () => {
   const got = parseWorkAdvice({
     gaps: [],
     items: [
       { id: 'a', body: '语句已经改顺了。', supplement: '照片里旧胶套已经拆下。' },
-      { id: 'b', body: '换好了下摆臂胶套。', supplement: '不要这句' },
-      { id: 'c', body: '编一段没拍到的。', supplement: '' },
+      { id: 'b', body: '更换了已经开裂的下摆臂胶套。', supplement: '不要这句' },
+      { id: 'c', body: '施工第1张可见技师整理套筒扳手。', supplement: '' },
+      { id: 'd', body: '编一段没拍到的。', supplement: '' },
     ],
   }, [
     { id: 'a', name: '下摆臂', note: '胶套开裂已换', photos: 1 },
-    { id: 'b', name: '拆检', note: '', photos: 2 },
-    { id: 'c', name: '平衡杆', note: '', photos: 0 },
+    { id: 'b', name: '下摆臂胶套', note: '', photos: 2 },
+    { id: 'c', name: '底盘', note: '', photos: 4 },
+    { id: 'd', name: '平衡杆', note: '', photos: 0 },
   ])
-  assert.equal(got.items.length, 2)
-  assert.equal(got.items[0].body, '胶套开裂已换')
-  assert.equal(got.items[0].supplement, '照片里旧胶套已经拆下。')
-  assert.equal(got.items[1].body, '换好了下摆臂胶套。')
-  assert.equal(got.items[1].supplement, '')
+  assert.equal(got.items.length, 1)
+  assert.equal(got.items[0].partName, '下摆臂胶套')
+  assert.equal(got.items[0].body, '更换了已经开裂的下摆臂胶套。')
+  assert.equal(got.items[0].display, '下摆臂胶套建议描述为：更换了已经开裂的下摆臂胶套。')
   assert.equal(got.gaps.length, 0)
 })
 

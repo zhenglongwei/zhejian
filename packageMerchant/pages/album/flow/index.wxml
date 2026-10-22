@@ -620,7 +620,6 @@
               </view>
             </view>
             <view wx:if="{{stageBoard.work.fault}}" class="st-faultbox">
-              <text class="st-faultbox__kicker">{{stageBoard.addonEntry}}</text>
               <text class="st-faultbox__title">{{stageBoard.work.fault.title}}</text>
               <text wx:if="{{stageBoard.work.fault.body}}" class="st-faultbox__body">{{stageBoard.work.fault.body}}</text>
               <text wx:if="{{stageBoard.work.fault.amount}}" class="st-faultbox__amt">补充报价 {{stageBoard.work.fault.amount}}</text>
@@ -1275,11 +1274,6 @@
 
               <view class="merchant-flow-page__step-foot">
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
-                <text
-                  wx:if="{{!readOnly && isWorkPhotoStep}}"
-                  class="text-caption merchant-flow-page__addon-link"
-                  bindtap="onAddAddonPlan"
-                >{{addonEntryLabel}}</text>
                 <view
                   wx:if="{{aiReview.isWaiting}}"
                   class="merchant-flow-page__ai-status"

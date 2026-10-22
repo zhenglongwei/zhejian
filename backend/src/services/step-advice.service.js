@@ -78,6 +78,13 @@ function clipItem(raw) {
   return { title, body }
 }
 
+function ownerProcessSentence(raw) {
+  const body = text(raw)
+  if (!body) return ''
+  if (/第\s*\d+\s*张|施工第|可见|展示了|展示的|红圈|技师|正在拆|正在拍|套筒|扳手/.test(body)) return ''
+  return body.slice(0, 80)
+}
+
 function parseWorkAdvice(raw, items, slots) {
   const parsed = parseReviewModelJson(raw) || {}
   const byId = new Map()
@@ -107,22 +114,21 @@ function parseWorkAdvice(raw, items, slots) {
   const written = (Array.isArray(items) ? items : [])
     .map((row) => {
       const noted = text(row && row.note)
+      const name = text(row && row.name)
       const hit = byId.get(text(row && row.id)) || null
-      const supplement = noted && hit && hit.supplement && hit.supplement !== noted ? hit.supplement : ''
-      const body = noted
-        ? noted.slice(0, 80)
-        : Number(row && row.photos) > 0 && hit
-          ? hit.body
-          : ''
+      if (noted || !name || !(Number(row && row.photos) > 0) || !hit) return null
+      const body = ownerProcessSentence(hit.body)
+      if (!body) return null
       return {
         id: text(row && row.id),
-        partName: text(row && row.name) || '这项',
-        sourceNote: noted,
+        partName: name,
+        sourceNote: '',
         body,
-        supplement,
+        display: `${name}建议描述为：${body}`,
+        supplement: '',
       }
     })
-    .filter((row) => row.body || row.supplement)
+    .filter(Boolean)
     .slice(0, 8)
   const names = new Set((Array.isArray(items) ? items : []).map((row) => text(row && row.name)).filter(Boolean))
   const bySlot = new Map((Array.isArray(slots) ? slots : []).map((row) => [row.slot, row]))
@@ -312,7 +318,7 @@ function contextOf(album) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'group',
+        v: 'owner',
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
         workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
@@ -398,7 +404,7 @@ async function runLlm(instruction, urls, label) {
 function workInstruction(ctx) {
   const slots = ctx.workPhotoSlots || []
   const photoLine = slots.length
-    ? '后面附了本步施工照片，按「施工第 N 张」的顺序看。只看这些图，不要编图里没有的工序。'
+    ? '后面附了本步施工照片，只用来判断这项做成了什么样。写出来的话里不要提第几张，也不要写看见、展示。'
     : '这一步没有可看的施工照片。没有照片也没有说明的项，不要编做了什么。'
   return [
     '你在对照报价和施工。不要改金额，不要自己把照片挪走。',
@@ -409,9 +415,10 @@ function workInstruction(ctx) {
     'kind 用 extra：施工做了，报价里没有。title 写施工项目名。',
     '只是还没拍照、没写说明，但这项施工里已经有：不要写进 gaps。',
     '对得上的不要写进 gaps，也不要写「和报价对得上」。',
-    'items：给车主看的施工过程，一项一句，不要太口语。',
-    '店员已经写了 note 的，body 照抄 note，不要改错字，不要改病句，不要说哪句不通顺。图里看得见、note 里没写的事实，写在 supplement。没有要补的事实，supplement 留空。',
-    'note 是空的、但有照片的，body 按照片写一句车主能看懂的过程，supplement 留空。',
+    'items：给车主看的施工描述，一项一句。车主关心这项做了什么、换下的零件坏成什么样。',
+    '不要写技师、工具、拍摄角度，不要写第几张、可见、展示、红圈，不要按照片逐张复述。',
+    '店员已经写了 note 的，不要出现在 items 里，也不要改他的句子。',
+    'note 是空的、但有照片的，body 只写那一句描述。例如：更换了已经开裂的下摆臂胶套。supplement 留空。',
     '没有照片也没有 note 的项不要出现在 items 里。',
     'groups：某张图更像已经有的另一项时才写。slot 用「施工第 N 张」的 N。partName 必须是 workItems 里已有的 name，并且和这张图现在所在的项不同。已经在对的项上不要写。没有对得上的已有项不要新造项目名。不要写怎么挪。最多 4 条。',
     `本单：${JSON.stringify({

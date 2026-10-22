@@ -2814,6 +2814,10 @@ Page({
       this.onOpenRecordPreview()
       return
     }
+    if (action === 'completeWork') {
+      this.onConfirmPhotoStep()
+      return
+    }
     if (action === 'addWork') {
       if (!this.data.isWorkPhotoStep) {
         wx.showToast({ title: '先做到施工这一步', icon: 'none' })
@@ -5554,11 +5558,11 @@ Page({
       }
     })
     items.forEach((row) => {
-      if (row.body) {
-        lines.push({ id: row.id, body: row.body, canApply: row.canApply })
-      }
-      if (row.supplement) {
-        lines.push({ id: `${row.id}_more`, body: row.supplement, canApply: false })
+      const sentence = String(row.body || '').trim()
+      const name = String(row.partName || '').trim()
+      const display = String(row.display || '').trim() || (name && sentence ? `${name}建议描述为：${sentence}` : '')
+      if (display) {
+        lines.push({ id: row.id, body: display, canApply: row.canApply })
       }
     })
     const groups = (Array.isArray(raw.groups) ? raw.groups : [])
