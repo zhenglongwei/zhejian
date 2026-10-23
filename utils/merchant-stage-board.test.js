@@ -147,6 +147,23 @@ test('报价合计来自明细，交车不写评价', () => {
   assert.equal(finish.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,交车')
 })
 
+test('空的补充报价不占导航，正在看这张单时才出现', () => {
+  const list = nodes()
+  list.splice(5, 0, {
+    id: 'addon-blank',
+    kind: 'quote_confirm',
+    sortOrder: 5.5,
+    insertedReason: 'addon',
+    status: 'in_progress',
+    document: { status: 'draft', payload: { lines: [{ name: '' }], discovery: { images: [], note: '' } } },
+  })
+  const finish = buildMerchantStageBoard(album(), list, 'finish')
+  assert.equal(finish.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,交车')
+  const editing = buildMerchantStageBoard(album(), list, 'quote:1')
+  assert.equal(editing.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,补充报价,交车')
+  assert.equal(editing.tabs.find((tab) => tab.short === '补充报价').mark, 'on')
+})
+
 test('补充报价单独占一格，施工图留在原来的施工', () => {
   const list = nodes()
   list.splice(

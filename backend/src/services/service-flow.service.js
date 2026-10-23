@@ -281,12 +281,6 @@ function unlockNextNode(nodes, index) {
   return nodes
 }
 
-function addonQuoteSettled(node) {
-  if (!node || node.kind !== 'quote_confirm' || String(node.insertedReason || '') !== 'addon') return false
-  const status = String((node.document && node.document.status) || '')
-  return status === 'confirmed' || status === 'cancelled'
-}
-
 function unlockNextLocked(nodes, index) {
   for (let i = index + 1; i < nodes.length; i += 1) {
     const next = nodes[i]
@@ -300,12 +294,9 @@ function unlockNextLocked(nodes, index) {
 function unlockAfterWorkComplete(nodes, index) {
   for (let i = index + 1; i < nodes.length; i += 1) {
     const next = nodes[i]
-    if (!next) continue
-    if (next.kind === 'quote_confirm' && String(next.insertedReason || '') === 'addon') {
-      if (addonQuoteSettled(next)) continue
-      return nodes
-    }
-    if (next.status === 'completed') continue
+    if (!next || next.status === 'completed') continue
+    if (next.kind === 'quote_confirm' && String(next.insertedReason || '') === 'addon') continue
+    if (next.kind === 'work' && String(next.insertedReason || '') === 'addon') continue
     if (next.status === 'locked' || next.status === 'pending') next.status = 'in_progress'
     return nodes
   }

@@ -85,6 +85,27 @@ function groupTitle(kind, quoteIndex) {
   return null
 }
 
+function addonQuoteHasProcess(node) {
+  if (!node) return false
+  const addon = node.kind === 'addon_quote_confirm' || String(node.insertedReason || '') === 'addon'
+  if (!addon) return node.kind === 'quote_confirm'
+  const status = String((node.document && node.document.status) || '')
+  if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled') {
+    return true
+  }
+  const payload = (node.document && node.document.payload) || {}
+  const lines = Array.isArray(payload.lines) ? payload.lines : []
+  if (lines.some((row) => String((row && row.name) || '').trim())) return true
+  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+  const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
+  return Boolean(images.length || String(discovery.note || '').trim())
+}
+
+function bucketOnTimeline(bucket) {
+  if (!bucket || !String(bucket.key).startsWith('quote') || bucket.key === 'quote:0') return true
+  return (bucket.nodes || []).some((node) => addonQuoteHasProcess(node))
+}
+
 function bucketNodes(nodes) {
   const buckets = []
   let quoteCount = 0
@@ -106,6 +127,14 @@ function bucketNodes(nodes) {
 }
 
 function bucketDone(bucket) {
+  if (
+    bucket &&
+    String(bucket.key).startsWith('quote') &&
+    bucket.key !== 'quote:0' &&
+    !(bucket.nodes || []).some((node) => addonQuoteHasProcess(node))
+  ) {
+    return true
+  }
   return bucket.nodes.every((node) => isFlowNodeDone(node))
 }
 
@@ -198,12 +227,7 @@ function actionLabel(current, finished) {
   return '去完工'
 }
 
-function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()) {
-  const vehicle = album.vehicle || {}
-  const nodes = (flowNodes || [])
-    .slice()
-    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
-  const buckets = bucketNodes(nodes)
+function presentBuckets(buckets, nodes) {
   const currentIndex = buckets.findIndex((bucket) => !bucketDone(bucket))
   const finished = buckets.length > 0 && currentIndex < 0
   const current = currentIndex >= 0 ? buckets[currentIndex] : null
@@ -226,6 +250,20 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
       canAddShot: showShots,
     }
   })
+  return { rows, current, finished }
+}
+
+function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()) {
+  const vehicle = album.vehicle || {}
+  const nodes = (flowNodes || [])
+    .slice()
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+  const buckets = bucketNodes(nodes)
+  const full = presentBuckets(buckets, nodes)
+  const timeline = presentBuckets(buckets.filter(bucketOnTimeline), nodes)
+  const rows = full.rows
+  const current = timeline.current
+  const finished = timeline.finished
   const intake = nodes.find((node) => node.kind === 'intake' || node.kind === 'intake_inspection')
   const report = nodes.find((node) => node.kind === 'inspection_report')
   const quote = nodes.find((node) => node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm')
@@ -260,6 +298,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
       docTile('交车报告', repair, { done: '已确认', live: '填写中' }),
     ].filter((item) => item.label !== '待生成' && item.label !== '填写中'),
     rows,
+    timelineRows: timeline.rows,
     action: actionLabel(current, finished),
     actionId: (current && (current.nodes.find((node) => !isFlowNodeDone(node)) || current.nodes[0] || {}).id) || '',
   }
@@ -363,4 +402,5 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
 module.exports = {
   buildMerchantAlbumOverview,
   buildMerchantDocBrief,
+  addonQuoteHasProcess,
 }

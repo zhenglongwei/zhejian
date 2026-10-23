@@ -234,7 +234,7 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.equal(nodes.find((n) => n.kind === 'quote_confirm' && !n.insertedReason).title, '方案确认')
 })
 
-test('已经收成完成的原施工，在补充报价还没确认时改回施工中', () => {
+test('确认并继续之后，没确认的补充报价不再把施工改回施工中', () => {
   const healed = reopenWorkBesideOpenAddon([
     {
       id: 'w1',
@@ -262,7 +262,7 @@ test('已经收成完成的原施工，在补充报价还没确认时改回施�
     },
   ])
   assert.equal(healed.changed, true)
-  assert.equal(healed.nodes.find((node) => node.id === 'w1').status, 'in_progress')
+  assert.equal(healed.nodes.find((node) => node.id === 'w1').status, 'completed')
   assert.equal(healed.nodes.some((node) => node.id === 'w2'), false)
   assert.equal(healed.nodes.find((node) => node.id === 'w1').photoDraft.findings[0].partName, '拆检')
 })

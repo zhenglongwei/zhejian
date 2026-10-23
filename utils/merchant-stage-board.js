@@ -2,7 +2,7 @@
  * 节点详情页的展示。只排已有记录，不编分数、工序和试车结论。
  */
 const { FINDING_RESULT } = require('../constants/service-flow-nodes')
-const { buildMerchantAlbumOverview } = require('./merchant-album-overview')
+const { buildMerchantAlbumOverview, addonQuoteHasProcess } = require('./merchant-album-overview')
 const { quoteFace } = require('./service-flow-quote-draft')
 
 const STAGES = [
@@ -395,6 +395,13 @@ function pickStageRow(rows, selectedKey) {
   return matches[0] || rows[0] || null
 }
 
+function rowOnQuickNav(row, grouped, selected) {
+  if (!row) return false
+  if (stageKeyOf(row.key) !== 'quote' || row.key === 'quote:0') return true
+  if (row.key === selected) return true
+  return (grouped[row.key] || []).some((node) => addonQuoteHasProcess(node))
+}
+
 function tabShort(row, extraQuoteCount, extraSeen) {
   const family = stageKeyOf(row.key)
   if (family === 'intake') return '接车'
@@ -424,7 +431,6 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
   const selectedRow = pickStageRow(rows, selectedKey)
   const selected = (selectedRow && selectedRow.key) || 'intake'
   const family = stageKeyOf(selected)
-  const selectedIndex = Math.max(0, rows.findIndex((row) => row.key === selected))
   const albumState = (selectedRow && selectedRow.state) || 'todo'
   const intakeImages = imagesOf(firstNode(grouped.intake || [], ['intake', 'intake_inspection']))
   const selectedNodes = grouped[selected] || []
@@ -446,7 +452,9 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
   const spec = [overview.vehicleName, year ? `${year}` : '', mileageLabel]
     .filter(Boolean)
     .join(' · ')
-  const extraQuoteCount = rows.filter((row) => stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0').length
+  const navRows = rows.filter((row) => rowOnQuickNav(row, grouped, selected))
+  const navSelectedIndex = Math.max(0, navRows.findIndex((row) => row.key === selected))
+  const extraQuoteCount = navRows.filter((row) => stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0').length
   let extraSeen = 0
   const face = quoteFace({ templateId: album.templateId, serviceName: album.serviceName })
   const addonQuote = family === 'quote' && selected !== 'quote:0'
@@ -472,14 +480,14 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
       line: spec,
       pill: overview.pill && overview.pill.text ? overview.pill.text : '进行中',
     },
-    tabs: rows.map((row, index) => {
+    tabs: navRows.map((row, index) => {
       const isExtraQuote = stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0'
       if (isExtraQuote) extraSeen += 1
       return {
         key: row.key,
         short: tabShort(row, extraQuoteCount, extraSeen),
         index: index + 1,
-        mark: index < selectedIndex ? 'before' : index === selectedIndex ? 'on' : 'after',
+        mark: index < navSelectedIndex ? 'before' : index === navSelectedIndex ? 'on' : 'after',
         state: row.state,
       }
     }),

@@ -62,6 +62,98 @@ test('施工中的详情用真实车牌和五张单据', () => {
   assert.equal(view.rows[3].shots.length, 1)
   assert.equal(view.rows[4].state, 'todo')
   assert.equal(view.action, '补充施工记录')
+  assert.equal(view.timelineRows.map((row) => row.title).join(','), '接车建档,全面检测,首次报价,维修施工,完工交车')
+})
+
+test('空的补充报价不出现在全过程留证，写了项目才留下', () => {
+  const album = { vehicle: { plate: '粤B7K52M', brand: '宝马', series: '3系' } }
+  const base = [
+    node({ kind: 'intake', sortOrder: 0, photoCount: 3 }),
+    node({ kind: 'inspection', sortOrder: 1 }),
+    node({ kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered', payload: {} } }),
+    node({
+      kind: 'quote_confirm',
+      sortOrder: 3,
+      document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+    }),
+    node({
+      id: 'work',
+      kind: 'work',
+      sortOrder: 4,
+      status: 'in_progress',
+      photoCount: 9,
+      photoDraft: { findings: [{ partName: '下摆臂胶套' }] },
+    }),
+    node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 6, status: 'locked' }),
+    node({ id: 'repair', kind: 'repair_report', sortOrder: 7, status: 'locked' }),
+  ]
+  const blank = buildMerchantAlbumOverview(album, [
+    ...base.slice(0, 5),
+    node({
+      id: 'addon',
+      kind: 'quote_confirm',
+      sortOrder: 5,
+      status: 'in_progress',
+      insertedReason: 'addon',
+      document: { status: 'draft', payload: { lines: [{ name: '' }], discovery: { images: [], note: '' } } },
+    }),
+    ...base.slice(5),
+  ])
+  assert.equal(blank.timelineRows.map((row) => row.title).join(','), '接车建档,全面检测,首次报价,维修施工,完工交车')
+  assert.equal(blank.timelineRows[3].mark, '进行中')
+  assert.equal(blank.timelineRows[4].index, 5)
+  assert.equal(blank.action, '补充施工记录')
+  const named = buildMerchantAlbumOverview(album, [
+    ...base.slice(0, 5),
+    node({
+      id: 'addon',
+      kind: 'quote_confirm',
+      sortOrder: 5,
+      status: 'in_progress',
+      insertedReason: 'addon',
+      document: { status: 'draft', payload: { lines: [{ name: '下摆臂胶套', amount: 380 }] } },
+    }),
+    ...base.slice(5),
+  ])
+  assert.equal(named.timelineRows.map((row) => row.title).join(','), '接车建档,全面检测,首次报价,维修施工,补充报价,完工交车')
+})
+
+test('施工完成后，空的补充报价不挡住交车', () => {
+  const view = buildMerchantAlbumOverview(
+    { vehicle: { plate: '粤B7K52M', brand: '宝马', series: '3系' } },
+    [
+      node({ kind: 'intake', sortOrder: 0, photoCount: 3 }),
+      node({ kind: 'inspection', sortOrder: 1 }),
+      node({ kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered', payload: {} } }),
+      node({
+        kind: 'quote_confirm',
+        sortOrder: 3,
+        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+      }),
+      node({
+        id: 'work',
+        kind: 'work',
+        sortOrder: 4,
+        status: 'completed',
+        photoCount: 9,
+        photoDraft: { findings: [{ partName: '下摆臂胶套' }] },
+      }),
+      node({
+        id: 'addon',
+        kind: 'quote_confirm',
+        sortOrder: 5,
+        status: 'in_progress',
+        insertedReason: 'addon',
+        document: { status: 'draft', payload: { lines: [{ name: '' }] } },
+      }),
+      node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 6, status: 'locked' }),
+      node({ id: 'repair', kind: 'repair_report', sortOrder: 7, status: 'locked' }),
+    ],
+  )
+  assert.equal(view.timelineRows.find((row) => row.state === 'current').title, '完工交车')
+  assert.equal(view.timelineRows.find((row) => row.title === '维修施工').mark, '已完成')
+  assert.equal(view.pill.text, '交车中')
+  assert.equal(view.timelineRows.some((row) => row.title === '补充报价'), false)
 })
 
 test('单据简要层用真实项目，未确认不盖存证章', () => {

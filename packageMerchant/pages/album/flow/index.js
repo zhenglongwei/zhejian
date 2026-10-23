@@ -1390,8 +1390,21 @@ Page({
       const status = album.status || SERVICE_ALBUM_STATUS.DRAFT
       const readOnly = album.contentLocked || album.editable === false
       const flowNodes = flow.flowNodes || []
+      let completedWorkNow = false
+      if (this._justCompletedWorkId) {
+        const doneId = this._justCompletedWorkId
+        this._justCompletedWorkId = ''
+        flowNodes.forEach((node) => {
+          if (node && node.id === doneId) {
+            node.status = 'completed'
+            completedWorkNow = true
+          }
+        })
+      }
       this._flowNodes = flowNodes
-      const progress = flow.progress || buildFlowProgressView(flowNodes)
+      const progress = completedWorkNow
+        ? buildFlowProgressView(flowNodes)
+        : flow.progress || buildFlowProgressView(flowNodes)
       const forceStage = Boolean(this._forceStageOpen)
       this._forceStageOpen = false
       const stageKeyForBoard = this._pendingStageKey || this.data.stageKey
@@ -1405,9 +1418,10 @@ Page({
           previewBoard.family === 'work' && focus && String(focus.status || '') === 'completed'
         const review = stageReviewForm(previewBoard, focus, flowNodes)
         const editorNode = stageEditorNode(previewBoard, focus, flowNodes)
+        const finishOpen = previewBoard.family === 'finish' && !review
         if (
           editorNode &&
-          (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus) || workDone || review)
+          (previewBoard.state === 'current' || focusStaysEditable(previewBoard, focus) || workDone || review || finishOpen)
         ) {
           active = editorNode
         }
@@ -2056,6 +2070,7 @@ Page({
     const stay = focusStaysEditable(board, focus)
     const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
     const review = stageReviewForm(board, focus, flowNodes)
+    const finishOpen = family === 'finish' && !review && !chrome.locked
     if (family === 'work' && workDone) {
       chrome = { preview: false, label: '', action: '', locked: false }
     } else if (family === 'work' && (!board || board.state !== 'current') && !stay) {
@@ -2071,7 +2086,7 @@ Page({
       stageEditor: Boolean(
         board &&
           family !== 'intake' &&
-          (((board.state === 'current' || stay || workDone) && !chrome.locked) || review || workDone),
+          (((board.state === 'current' || stay || workDone || finishOpen) && !chrome.locked) || review || workDone),
       ),
     }
   },
@@ -2095,7 +2110,8 @@ Page({
     } else if (family === 'work') {
       chrome = { ...chrome, preview: false }
     }
-    const bindEditor = stay || workDone || review || stageBoard.state === 'current'
+    const finishOpen = family === 'finish' && !review && !chrome.locked
+    const bindEditor = stay || workDone || review || stageBoard.state === 'current' || finishOpen
     if (bindEditor && editorNode && (!this.data.activeNode || this.data.activeNode.id !== editorNode.id)) {
       this._pendingStageKey = stageBoard.selectedKey
       this._forceStageOpen = true
@@ -2107,7 +2123,7 @@ Page({
       doneView: null,
       stageEditor:
         family !== 'intake' &&
-        (((stageBoard.state === 'current' || stay || workDone) && !chrome.locked) || review || workDone),
+        (((stageBoard.state === 'current' || stay || workDone || finishOpen) && !chrome.locked) || review || workDone),
       stageKey: stageBoard.selectedKey,
       stageBoard,
       stageShowPreview: chrome.preview,
@@ -6751,6 +6767,11 @@ Page({
           title: kind === 'intake' || kind === 'intake_inspection' ? '已发给车主' : (res && res.message) || '本步已完成',
           icon: 'success',
         })
+        if (kind === 'work') {
+          this._justCompletedWorkId = this.data.activeNode && this.data.activeNode.id
+          this._pendingStageKey = 'finish'
+          this._forceStageOpen = true
+        }
         await this.loadFlow({ silent: true })
         if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
         else if (kind === 'inspection') this.openStage('inspect')

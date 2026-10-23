@@ -153,13 +153,13 @@
         </view>
 
         <view class="ov-line">
-          <view wx:for="{{overview.rows}}" wx:key="key" class="ov-row ov-row--{{item.state}}">
+          <view wx:for="{{overview.timelineRows}}" wx:key="key" class="ov-row ov-row--{{item.state}}">
             <view class="ov-row__rail">
               <view class="ov-row__dot">
                 <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-white.png" mode="aspectFit" />
                 <text wx:else>{{item.index}}</text>
               </view>
-              <view wx:if="{{index < overview.rows.length - 1}}" class="ov-row__bar" />
+              <view wx:if="{{index < overview.timelineRows.length - 1}}" class="ov-row__bar" />
             </view>
             <view class="ov-row__main" data-id="{{item.nodeId}}" data-state="{{item.state}}" bindtap="onOpenOverview">
               <view class="ov-row__head">

@@ -96,19 +96,12 @@ function workHasMaterial(node) {
   return Array.isArray(node.photos) && node.photos.length > 0
 }
 
-/** 已发出的补充报价若把原施工收成完成，再打开时改回施工中，并去掉还没内容的空工单。 */
+/** 补充报价还没确认时，不再把已经完成的施工改回去。只去掉还没内容的空施工格。 */
 function reopenWorkBesideOpenAddon(nodes = []) {
   const list = sortNodes(nodes)
   const remove = new Set()
-  let changed = false
   list.forEach((node) => {
     if (!isOpenAddonQuote(node)) return
-    const parentId = String(node.parentNodeId || '')
-    const parent = list.find((item) => item && item.id === parentId && item.kind === 'work')
-    if (parent && parent.status === 'completed') {
-      parent.status = 'in_progress'
-      changed = true
-    }
     list.forEach((child) => {
       if (!child || child.kind !== 'work' || String(child.insertedReason || '') !== 'addon') return
       if (String(child.parentNodeId || '') !== node.id) return
@@ -117,7 +110,7 @@ function reopenWorkBesideOpenAddon(nodes = []) {
       }
     })
   })
-  if (!remove.size && !changed) return { nodes: list, changed: false }
+  if (!remove.size) return { nodes: list, changed: false }
   const next = list.filter((node) => node && !remove.has(node.id))
   next.forEach((node, index) => {
     node.sortOrder = index
