@@ -20,6 +20,39 @@ test('开口活补充报价预览用车主标题和明细', () => {
   assert.equal(preview.doc.needsConfirm, false)
 })
 
+test('交车报告用完整车牌，合计用报价金额', () => {
+  const preview = buildOwnerPreviewDoc({
+    family: 'finish',
+    album: {
+      storeName: '杭州盈简科技有限公司',
+      vehicle: {
+        plate: '粤B12345',
+        plateDisplay: '粤B****5',
+        brand: '大众',
+        series: '高尔夫',
+      },
+    },
+    mileageText: '里程 10,000 km',
+    workItems: [
+      { name: '更换下摆臂胶套', note: '更换了已经开裂的下摆臂胶套', amount: '' },
+    ],
+    totalAmount: 1400,
+  })
+  assert.equal(preview.doc.metaLine, '粤B12345 · 大众 高尔夫 · 里程 10,000 km')
+  assert.equal(preview.doc.totalAmountLabel, '合计 ¥1400.00')
+})
+
+test('交车报告带上全车和其他交车图', () => {
+  const preview = buildOwnerPreviewDoc({
+    family: 'finish',
+    deliveryPhotos: [{ url: 'from-work.jpg' }, { url: 'uploaded.jpg' }, { url: 'from-work.jpg' }],
+  })
+  assert.deepEqual(
+    preview.doc.deliveryPhotos.map((row) => row.url),
+    ['from-work.jpg', 'uploaded.jpg'],
+  )
+})
+
 test('检测预览带上检查项，施工不走这张预览', () => {
   const preview = buildOwnerPreviewDoc({
     family: 'inspect',

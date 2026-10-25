@@ -1809,6 +1809,8 @@ Page({
         ? buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
         : null
       const openStageBar = openStageBoard ? this.stageBarFields(flowNodes, openStageBoard, active) : {}
+      const openAdvice = Boolean(this._openAdviceAfterLoad)
+      this._openAdviceAfterLoad = false
 
       this._inspectionAiKey =
         (active && active.photoDraft && active.photoDraft.inspectionAiKey) || ''
@@ -1865,7 +1867,7 @@ Page({
           findings,
           isInspectionPhotoStep && (findings || []).some((row) => row && row.partName),
         ),
-        adviceOpen: options.silent ? this.data.adviceOpen : false,
+        adviceOpen: openAdvice ? true : options.silent ? this.data.adviceOpen : false,
         showQuoteAiCheck: Boolean(
           flow.nodeAiReview &&
             flow.nodeAiReview.entitled &&
@@ -2123,9 +2125,12 @@ Page({
       this.loadFlow({ silent: true })
       return
     }
+    const openAdvice = Boolean(this._openAdviceAfterLoad)
+    this._openAdviceAfterLoad = false
     this.setData({
       workOpen: true,
       doneView: null,
+      adviceOpen: openAdvice ? true : this.data.adviceOpen,
       stageEditor:
         family !== 'intake' &&
         (((stageBoard.state === 'current' || stay || workDone || finishOpen) && !chrome.locked) || review || workDone),
@@ -2466,27 +2471,68 @@ Page({
       })
     }
     const works = nodes.filter((node) => node && node.kind === 'work')
+    const quoteByName = {}
+    let quoteTotal = 0
+    nodes.forEach((node) => {
+      if (!node || (node.kind !== 'quote_confirm' && node.kind !== 'addon_quote_confirm')) return
+      const status = String((node.document && node.document.status) || '')
+      if (status === 'cancelled') return
+      const lines = (node.document && node.document.payload && node.document.payload.lines) || []
+      lines.forEach((line) => {
+        const name = String((line && line.name) || '').trim()
+        const amount = Number(line && line.amount)
+        if (!name || !Number.isFinite(amount)) return
+        quoteByName[name] = (quoteByName[name] || 0) + amount
+        quoteTotal += amount
+      })
+    })
     const workItems = []
     works.forEach((node) => {
       const findings = (this.nodeDraft(node).findings) || []
       findings.forEach((row) => {
         const name = String((row && row.partName) || '').trim()
         if (!name) return
+        const own = Number(row && row.amount)
+        const fromQuote = quoteByName[name]
         workItems.push({
           name,
           brand: String((row && row.brand) || '').trim(),
           note: String((row && row.caption) || '').trim(),
-          amount: row && row.amount != null ? row.amount : '',
+          amount: Number.isFinite(own) && own > 0 ? own : fromQuote != null ? fromQuote : '',
         })
       })
     })
-    const exterior = String(deliveryDraft.deliveryExteriorUrl || this.data.deliveryExteriorUrl || '').trim()
+    const onDelivery = Boolean(this.data.isDeliveryPhotoStep)
+    const liveExterior = String(this.data.deliveryExteriorUrl || '').trim()
+    const liveExtras = (this.data.workImagePool || [])
+      .filter((row) => row && row.selected && row.url && row.url !== liveExterior)
+      .map((row) => row.url)
+    const useLive = onDelivery && (liveExterior || liveExtras.length)
+    const exterior = useLive
+      ? liveExterior
+      : String(deliveryDraft.deliveryExteriorUrl || liveExterior || '').trim()
+    const extras = useLive
+      ? liveExtras
+      : Array.isArray(deliveryDraft.selectedDeliveryUrls)
+        ? deliveryDraft.selectedDeliveryUrls
+        : []
+    const deliveryPhotos = []
+    const seenPhoto = {}
+    const pushDeliveryPhoto = (url) => {
+      const text = String(url || '').trim()
+      if (!text || seenPhoto[text]) return
+      seenPhoto[text] = true
+      deliveryPhotos.push({ url: text })
+    }
+    pushDeliveryPhoto(exterior)
+    extras.forEach(pushDeliveryPhoto)
     return buildOwnerPreviewDoc({
       family: 'finish',
       album,
       mileageText,
       workItems,
-      deliveryPhotos: exterior ? [{ url: exterior }] : [],
+      totalAmount: quoteTotal,
+      deliveryPhotos,
       warrantyPeriod: deliveryDraft.warrantyPeriod || repairPayload.warrantyPeriod || this.data.warrantyPeriod,
       warrantyNotes: deliveryDraft.warrantyNotes || repairPayload.warrantyNotes || this.data.warrantyNotes,
       signName: deliveryDraft.delivererName || repairPayload.delivererName,
@@ -2747,6 +2793,15 @@ Page({
       return
     }
     const activeKind = this.data.activeNode && this.data.activeNode.kind
+    if (key === 'finish' && activeKind === 'delivery_photos') {
+      this.setData({ recordPreview: null })
+      if (this.data.photoConfirmDisabled) {
+        wx.showToast({ title: '正在检查，稍等', icon: 'none' })
+        return
+      }
+      this.onConfirmPhotoStep()
+      return
+    }
     if ((key === 'quote' || key === 'finish') && activeKind === kind) {
       this.setData({ recordPreview: null })
       this.onSendForOwnerConfirm()
@@ -2803,9 +2858,13 @@ Page({
     const nextStatus = key === 'inspect' ? 'delivered' : 'pending_confirm'
     this.setData({ confirming: true })
     try {
-      await updateMerchantFlowNode(this.albumId, node.id, {
+      const sent = await updateMerchantFlowNode(this.albumId, node.id, {
         document: { status: nextStatus, payload },
       })
+      if (sent && sent.nextAction === 'ai_review') {
+        this.applyInlineAiReview(sent.review, 'notify')
+        return
+      }
       const toast =
         key === 'inspect' ? '已生成检测报告' : key === 'finish' ? '已提醒车主' : '已发给车主'
       wx.showToast({ title: toast, icon: 'success' })
@@ -2897,6 +2956,12 @@ Page({
 
   onOpenOverview(e) {
     const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    this.openStage(this.resolveStageKey(id))
+  },
+
+  onOpenStepAdvice(e) {
+    const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    this._openAdviceAfterLoad = true
     this.openStage(this.resolveStageKey(id))
   },
 
@@ -6280,7 +6345,9 @@ Page({
       kind === 'intake_inspection' ||
       kind === 'intake' ||
       kind === 'inspection' ||
-      kind === 'work'
+      kind === 'work' ||
+      kind === 'delivery_photos' ||
+      kind === 'repair_report'
     ) {
       return
     }

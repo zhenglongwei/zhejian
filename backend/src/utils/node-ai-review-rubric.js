@@ -488,30 +488,14 @@ function resolveRunReviewStep(node = {}) {
  *  （车主端只渲染 buildOwnerFlowView 的单据节点，拍照步不镜像）。
  *  @returns {null | { step: string }} null 表示不查 */
 /**
- * 统一的检查决策入口：查不查、按哪个口径查，只在这里判。
- * event: 'expose'   内容要发到车主眼前之前（通知/送达）
- *        'complete' 节点完成时。目前只认工单——工单是如实记录施工过程的单据，
- *                   定稿那一刻要跟检测报告、报价单核一遍
+ * 统一的检查决策入口。
+ * 店员点「AI分析」才跑。完成施工、发出交车都不在这里排队。
+ * event: 'expose' 发给车主之前；'complete' 节点完成时。两者都不自动查。
  */
 function planNodeReview({ event, node } = {}) {
   if (!node) return null
-  const kind = String(node.kind || '')
-
-  if (event === 'complete') return null
-  if (event !== 'expose') return null
-  if (
-    kind === 'intake' ||
-    kind === 'inspection' ||
-    kind === 'intake_inspection' ||
-    kind === 'work' ||
-    kind === 'quote_confirm' ||
-    kind === 'inspection_report' ||
-    kind === 'addon_quote_confirm'
-  ) {
-    return null
-  }
-  const step = resolveReviewStep(kind)
-  return step === 'delivery' ? { step: 'delivery' } : null
+  if (event === 'complete' || event === 'expose') return null
+  return null
 }
 
 function getReviewRubric(templateId, kind, serviceName, stepOverride) {

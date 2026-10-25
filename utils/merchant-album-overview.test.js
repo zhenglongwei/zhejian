@@ -195,3 +195,50 @@ test('单据简要层用真实项目，未确认不盖存证章', () => {
   assert.equal(pending.sealed, false)
   assert.equal(pending.canSend, false)
 })
+
+test('时间线只摘这一步自己的分析，交车不借用施工的补拍提示', () => {
+  const view = buildMerchantAlbumOverview(
+    { vehicle: { plate: '粤B12345', brand: '大众', series: '高尔夫' } },
+    [
+      node({ kind: 'intake', sortOrder: 0, status: 'completed' }),
+      node({ kind: 'inspection', sortOrder: 1, status: 'completed' }),
+      node({ kind: 'inspection_report', sortOrder: 2, status: 'completed', document: { status: 'delivered' } }),
+      node({
+        kind: 'quote_confirm',
+        sortOrder: 3,
+        status: 'completed',
+        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+      }),
+      node({
+        id: 'work',
+        kind: 'work',
+        sortOrder: 4,
+        status: 'completed',
+        workAdvice: {
+          status: 'ready',
+          gaps: [{ kind: 'missing', title: '侧裙', body: '报价里的侧裙，施工没有做。' }],
+          items: [],
+        },
+        photoDraft: { findings: [{ id: 'f1', partName: '下摆臂胶套', caption: '已经更换' }] },
+      }),
+      node({
+        id: 'delivery',
+        kind: 'delivery_photos',
+        sortOrder: 5,
+        status: 'in_progress',
+        aiReview: { suggestions: [{ title: '侧裙/车门下沿修复近景' }] },
+        deliveryAdvice: {
+          status: 'ready',
+          repair: { title: '这次维修', body: '已完成下摆臂胶套更换。' },
+          warranty: { title: '质保', body: '质保期为1年。' },
+          care: { title: '用车', body: '新喷漆部位避免高压水枪。' },
+        },
+      }),
+      node({ id: 'repair', kind: 'repair_report', sortOrder: 6, status: 'in_progress', document: { status: 'draft' } }),
+    ],
+  )
+  const work = view.timelineRows.find((row) => row.title === '维修施工')
+  const finish = view.timelineRows.find((row) => row.title === '完工交车')
+  assert.equal(work.advice, '报价里的侧裙，施工没有做。')
+  assert.equal(finish.advice, '已完成下摆臂胶套更换。')
+})

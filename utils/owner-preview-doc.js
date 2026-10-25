@@ -53,9 +53,20 @@ function findingRows(findings) {
     .filter((row) => row.partName || row.advice || row.images.length)
 }
 
+function looksMaskedPlate(plate) {
+  return /\*{2,}/.test(String(plate || ''))
+}
+
+/** 交给车主的单据用完整车牌。展示号是打码后的，只在没有明文时才用。 */
 function albumMetaLine(album, mileageText) {
   const vehicle = (album && album.vehicle) || {}
-  const plate = String(vehicle.plateDisplay || vehicle.plate || '').trim()
+  const full = String(vehicle.plate || vehicle.plateNumber || '').trim()
+  const display = String(vehicle.plateDisplay || '').trim()
+  const plate =
+    (full && !looksMaskedPlate(full) && full) ||
+    (display && !looksMaskedPlate(display) && display) ||
+    full ||
+    display
   const name = [vehicle.brand, vehicle.series, vehicle.model]
     .map((part) => String(part || '').trim())
     .filter(Boolean)
@@ -194,7 +205,9 @@ function buildOwnerPreviewDoc(input = {}) {
     const deliveryPhotos = photoRows(input.deliveryPhotos)
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
-    const total = moneySum(workItems)
+    const lineTotal = moneySum(workItems)
+    const quoted = Number(input.totalAmount)
+    const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
     return {
       doc: {
         kind: 'repair_report',

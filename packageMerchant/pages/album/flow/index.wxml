@@ -167,7 +167,12 @@
                 <text class="ov-row__mark">{{item.mark}}</text>
               </view>
               <text class="ov-row__detail">{{item.detail}}</text>
-              <view wx:if="{{item.advice}}" class="ov-advice">
+              <view
+                wx:if="{{item.advice}}"
+                class="ov-advice"
+                catchtap="onOpenStepAdvice"
+                data-id="{{item.nodeId}}"
+              >
                 <view class="ov-advice__mark">
                   <image src="/assets/mch/spark-white.png" mode="aspectFit" />
                 </view>

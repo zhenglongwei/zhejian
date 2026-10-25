@@ -70,7 +70,7 @@ test('完成事件不再排队：工单按方案行施工，不对账', () => {
   assert.equal(planNodeReview({}), null)
 })
 
-test('expose 只强制交车对账，报价接车检测不拦通知', () => {
+test('发出和完成都不自动排队', () => {
   const step = (node) => {
     const plan = planNodeReview({ event: 'expose', node })
     return plan ? plan.step : undefined
@@ -78,11 +78,10 @@ test('expose 只强制交车对账，报价接车检测不拦通知', () => {
   assert.equal(step({ kind: 'quote_confirm' }), undefined)
   assert.equal(step({ kind: 'inspection_report' }), undefined)
   assert.equal(step({ kind: 'work' }), undefined)
-  assert.equal(step({ kind: 'repair_report' }), 'delivery')
-  assert.equal(step({ kind: 'delivery_photos' }), 'delivery')
+  assert.equal(step({ kind: 'repair_report' }), undefined)
+  assert.equal(step({ kind: 'delivery_photos' }), undefined)
   assert.equal(step({ kind: 'addon_quote_confirm' }), undefined)
-  assert.equal(step({ kind: 'quote_confirm', insertedReason: 'addon' }), undefined)
-  assert.equal(step({ kind: 'brand_new_kind' }), undefined)
+  assert.equal(planNodeReview({ event: 'complete', node: { kind: 'delivery_photos' } }), null)
 })
 
 test('工单核对提纲：文案可落地，照片沿用本品类施工口径', () => {

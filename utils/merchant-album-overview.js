@@ -50,14 +50,119 @@ function findingsOf(nodes) {
   return Array.isArray(fromDraft) ? fromDraft : []
 }
 
+function adviceText(value) {
+  return String(value || '').trim()
+}
+
+function adviceReady(advice) {
+  return Boolean(advice && advice.status === 'ready')
+}
+
+function findingCaption(node, partName, id) {
+  const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const name = adviceText(partName)
+  const hit = findings.find((row) => {
+    if (!row) return false
+    if (id && row.id === id) return true
+    return name && adviceText(row.partName) === name
+  })
+  return adviceText(hit && hit.caption)
+}
+
+/** 相册详情只摘这一步自己的分析里还没处理的一句。不读自动检查留下的旧提示。 */
 function adviceLine(node) {
-  const diagnosis = String((node && node.intakeAdvice && node.intakeAdvice.diagnosis) || '').trim()
-  if (diagnosis) return diagnosis
-  const suggestions = node && node.aiReview && node.aiReview.suggestions
-  if (!Array.isArray(suggestions) || !suggestions.length) return ''
-  const first = suggestions[0]
-  if (typeof first === 'string') return first.trim()
-  return String((first && (first.body || first.text || first.title)) || '').trim()
+  if (!node) return ''
+  const kind = node.kind
+  if (kind === 'intake' || kind === 'intake_inspection') return intakeAdviceLine(node)
+  if (kind === 'inspection' || kind === 'inspection_report') return inspectionAdviceLine(node)
+  if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') return quoteAdviceLine(node)
+  if (kind === 'work') return workAdviceLine(node)
+  if (kind === 'delivery_photos') return deliveryAdviceLine(node)
+  return ''
+}
+
+function intakeAdviceLine(node) {
+  const advice = node.intakeAdvice
+  if (!adviceReady(advice)) return ''
+  const risks = Array.isArray(advice.risks) ? advice.risks : []
+  const risk = risks.map((row) => adviceText(row && (row.title || row.body))).find(Boolean)
+  if (risk) return risk
+  if (advice.covered) return '车身四周都拍到了'
+  return ''
+}
+
+function inspectionAdviceLine(node) {
+  const advice = node.inspectionAdvice
+  if (!adviceReady(advice)) return ''
+  const shop = Array.isArray(advice.shop) ? advice.shop : []
+  const shopLine = shop.map((row) => adviceText(row && row.body)).find(Boolean)
+  if (shopLine) return shopLine
+  const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const items = Array.isArray(advice.items) ? advice.items : []
+  const pending = items.find((row) => {
+    const body = adviceText(row && row.body)
+    if (!body) return false
+    const name = adviceText(row && row.partName)
+    const current = findings.find((item) => name && adviceText(item && item.partName) === name)
+    const written = adviceText(current && (current.advice || current.caption))
+    return !written || written === '无需处理'
+  })
+  return adviceText(pending && pending.body)
+}
+
+function quoteAdviceLine(node) {
+  const advice = node.quoteAssist
+  if (!adviceReady(advice)) return ''
+  const omissions = Array.isArray(advice.omissions) ? advice.omissions : []
+  const omission = omissions.map((row) => adviceText(row && (row.body || row.title))).find(Boolean)
+  if (omission) return omission
+  const lines = (node.document && node.document.payload && node.document.payload.lines) || []
+  const names = new Set(lines.map((row) => adviceText(row && row.name)).filter(Boolean))
+  const suggested = Array.isArray(advice.suggestedLines) ? advice.suggestedLines : []
+  const pending = suggested.find((row) => {
+    const name = adviceText(row && (row.name || row.partName))
+    return name && !names.has(name)
+  })
+  return adviceText(pending && (pending.name || pending.partName))
+}
+
+function workAdviceLine(node) {
+  const advice = node.workAdvice
+  if (!adviceReady(advice)) return ''
+  const gaps = Array.isArray(advice.gaps) ? advice.gaps : []
+  const gap = gaps.map((row) => adviceText(row && row.body)).find(Boolean)
+  if (gap) return gap
+  const items = Array.isArray(advice.items) ? advice.items : []
+  const pending = items.find((row) => {
+    const body = adviceText(row && row.body)
+    if (!body) return false
+    return !findingCaption(node, row && row.partName, row && row.id)
+  })
+  if (pending) {
+    const sentence = adviceText(pending.body)
+    const name = adviceText(pending.partName)
+    return adviceText(pending.display) || (name ? `${name}建议描述为：${sentence}` : sentence)
+  }
+  const groups = Array.isArray(advice.groups) ? advice.groups : []
+  const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const group = groups.find((row) => {
+    const partName = adviceText(row && row.partName)
+    const url = adviceText(row && row.url)
+    if (!partName) return false
+    const host = findings.find((item) =>
+      (item.images || []).some((img) => adviceText((img && img.url) || img) === url),
+    )
+    return !host || adviceText(host.partName) !== partName
+  })
+  if (!group) return ''
+  return adviceText(group.body) || `这张更像是${adviceText(group.partName)}。`
+}
+
+function deliveryAdviceLine(node) {
+  const advice = node.deliveryAdvice
+  if (!adviceReady(advice)) return ''
+  const parts = [advice.repair, advice.warranty, advice.care]
+  return parts.map((row) => adviceText(row && row.body)).find(Boolean) || ''
 }
 
 function shotsOf(node) {
