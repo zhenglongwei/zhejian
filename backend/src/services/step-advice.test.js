@@ -67,6 +67,25 @@ test('空说明才给车主向的描述，看图复述和已写说明都不出',
   assert.equal(got.gaps.length, 0)
 })
 
+test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
+  const got = parseWorkAdvice({
+    gaps: [{ kind: 'extra', title: '平衡杆', body: '去重新报价。' }],
+    items: [
+      { id: 'a', body: '更换了已经松动的平衡杆。' },
+      { id: 'b', body: '更换了开裂的下摆臂胶套。' },
+    ],
+  }, [
+    { id: 'a', name: '平衡杆', note: '', photos: 2 },
+    { id: 'b', name: '下摆臂胶套', note: '', photos: 1 },
+  ])
+  assert.equal(got.gaps.length, 1)
+  assert.equal(got.gaps[0].body, '平衡杆是新增项，没有事先报价。')
+  assert.equal(got.items.length, 2)
+  assert.equal(got.items[0].partName, '平衡杆')
+  assert.equal(got.items[0].display, '平衡杆建议描述为：更换了已经松动的平衡杆。')
+  assert.equal(got.items[1].display, '下摆臂胶套建议描述为：更换了开裂的下摆臂胶套。')
+})
+
 test('检测按已写的发现解释，空发现不编后果', () => {
   const got = parseInspectionAdvice(
     {

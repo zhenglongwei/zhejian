@@ -54,19 +54,30 @@ function workRows(node) {
 }
 
 function workPhotoSlots(nodes) {
-  const slots = []
+  const buckets = []
   ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
     const findings = (node && node.photoDraft && node.photoDraft.findings) || []
     ;(Array.isArray(findings) ? findings : []).forEach((row) => {
       const partName = text(row && row.partName)
       const findingId = text(row && row.id)
+      const urls = []
       workImageList(row).forEach((img) => {
         const url = text(typeof img === 'object' && img ? img.url || img.rawUrl || img.maskedUrl : img)
-        if (!/^https?:\/\//.test(url) || slots.some((item) => item.url === url) || slots.length >= 6) return
-        slots.push({ slot: slots.length + 1, url, partName, findingId })
+        if (!/^https?:\/\//.test(url) || urls.includes(url)) return
+        urls.push(url)
       })
+      if (urls.length) buckets.push({ partName, findingId, urls })
     })
   })
+  const slots = []
+  const used = new Set()
+  const push = (bucket, url) => {
+    if (!url || used.has(url) || slots.length >= 8) return
+    used.add(url)
+    slots.push({ slot: slots.length + 1, url, partName: bucket.partName, findingId: bucket.findingId })
+  }
+  buckets.forEach((bucket) => push(bucket, bucket.urls[0]))
+  buckets.forEach((bucket) => bucket.urls.slice(1).forEach((url) => push(bucket, url)))
   return slots
 }
 
@@ -318,7 +329,7 @@ function contextOf(album) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'owner',
+        v: 'owner-all',
         quoteLines: ctx.quoteLines,
         workItems: ctx.workItems,
         workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
@@ -410,12 +421,12 @@ function workInstruction(ctx) {
     '你在对照报价和施工。不要改金额，不要自己把照片挪走。',
     photoLine,
     '意见写成一条条完整的话。不要写「给店里」「给车主」当标题。',
-    'gaps：只写和报价对不上的事实，最多 4 条。不要写怎么处理，不要写补充报价、重新报价、补照片、补说明、店里承担。',
-    'kind 用 missing：报价有这项，施工里没有这项。title 写报价项目名。',
-    'kind 用 extra：施工做了，报价里没有。title 写施工项目名。',
+    'gaps：只写和报价对不上的事实，最多 4 条。这是提醒，不代替施工描述。不要写怎么处理，不要写补充报价、重新报价、补照片、补说明、店里承担。',
+    'kind 用 missing：报价有这项，施工里没有这项。title 写报价项目名。这种没有施工步骤，不要写进 items。',
+    'kind 用 extra：施工做了，报价里没有。title 写施工项目名。这项只要说明是空的、并且有照片，还必须在 items 里写施工描述。',
     '只是还没拍照、没写说明，但这项施工里已经有：不要写进 gaps。',
     '对得上的不要写进 gaps，也不要写「和报价对得上」。',
-    'items：给车主看的施工描述，一项一句。车主关心这项做了什么、换下的零件坏成什么样。',
+    'items：施工里的每一项都要有给车主看的描述，一项一句。报价里没有的项也要写，不能只留在 gaps。车主关心这项做了什么、换下的零件坏成什么样。',
     '不要写技师、工具、拍摄角度，不要写第几张、可见、展示、红圈，不要按照片逐张复述。',
     '店员已经写了 note 的，不要出现在 items 里，也不要改他的句子。',
     'note 是空的、但有照片的，body 只写那一句描述。例如：更换了已经开裂的下摆臂胶套。supplement 留空。',
