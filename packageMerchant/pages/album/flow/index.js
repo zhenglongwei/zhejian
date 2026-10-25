@@ -32,7 +32,7 @@ const {
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
-const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
+const { buildFlowProgressView, deliveryReportSent } = require('../../../../utils/service-flow-progress')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
 const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
@@ -1819,7 +1819,12 @@ Page({
         statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
         readOnly:
           readOnly ||
-          Boolean(isWorkPhotoStep && active && active.status === 'completed') ||
+          Boolean(
+            isWorkPhotoStep &&
+              active &&
+              active.status === 'completed' &&
+              deliveryReportSent(flowNodes),
+          ) ||
           stageReviewForm(openStageBoard, openStageBoard && flowNodes.find((node) => node && node.id === openStageBoard.focusId), flowNodes),
         completedSteps,
         activeNode: active,
@@ -2130,7 +2135,7 @@ Page({
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
-      readOnly: workDone || review ? true : this.data.readOnly,
+      readOnly: (workDone && deliveryReportSent(this._flowNodes || [])) || review ? true : this.data.readOnly,
       intakePile: this.collectIntakePile(stageBoard),
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
@@ -2293,7 +2298,8 @@ Page({
     const nodes = this._flowNodes || []
     const jobs = []
     const patchDraft = (node, patch) => {
-      if (!node || node.status === 'completed') return
+      if (!node) return
+      if (node.status === 'completed' && !(node.kind === 'work' && !deliveryReportSent(nodes))) return
       jobs.push(
         updateMerchantFlowNode(this.albumId, node.id, { photoDraft: patch }).then(() => {
           node.photoDraft = { ...(node.photoDraft || {}), ...patch }

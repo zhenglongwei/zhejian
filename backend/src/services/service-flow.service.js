@@ -273,6 +273,12 @@ function mapFlowNodeForView(node, albumNodes = []) {
   }
 }
 
+function deliveryReportSent(nodes) {
+  const report = (nodes || []).find((node) => node && node.kind === 'repair_report')
+  const status = String((report && report.document && report.document.status) || '')
+  return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+}
+
 function unlockNextNode(nodes, index) {
   const next = nodes[index + 1]
   if (next && (next.status === 'locked' || next.status === 'pending')) {
@@ -657,9 +663,12 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   }
   const previewDocStatus = String((preview.document && preview.document.status) || '')
   if (preview.status === 'completed' && isPhotoFlowNode(preview) && payload.photoDraft != null) {
-    const err = new Error('该步骤已固定')
-    err.status = 409
-    throw err
+    const workStillEditable = preview.kind === 'work' && !deliveryReportSent(previewNodes)
+    if (!workStillEditable) {
+      const err = new Error('该步骤已固定')
+      err.status = 409
+      throw err
+    }
   }
   if (
     payload.document &&
@@ -1433,6 +1442,11 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   assertAlbumContentEditable(album)
 
   const existingNodes = sortFlowNodes(readFlowNodesRaw(album))
+  if (deliveryReportSent(existingNodes)) {
+    const err = new Error('交车已发给车主，不能再补充报价')
+    err.status = 409
+    throw err
+  }
   const workForSeed =
     existingNodes.find((n) => n && n.kind === 'work' && n.status === 'in_progress') ||
     existingNodes.find((n) => n && n.kind === 'work' && n.status !== 'locked') ||

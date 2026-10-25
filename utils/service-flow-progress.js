@@ -80,6 +80,12 @@ function buildFlowProgressView(nodes = []) {
   }
 }
 
+function deliveryReportSent(nodes) {
+  const report = (nodes || []).find((node) => node && node.kind === 'repair_report')
+  const status = String((report && report.document && report.document.status) || '')
+  return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+}
+
 function allDoneText(total) {
   if (!total) return ''
   return '全部步骤已完成'
@@ -106,6 +112,7 @@ function resolveActiveNodeCta(node = {}) {
 
 module.exports = {
   isFlowNodeDone,
+  deliveryReportSent,
   buildVisibleFlowNodes,
   buildFlowProgressView,
   resolveActiveNodeCta,
