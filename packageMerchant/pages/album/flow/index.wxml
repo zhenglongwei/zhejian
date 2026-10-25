@@ -273,14 +273,6 @@
           </view>
 
           <block wx:if="{{stageBoard.intake}}">
-            <view
-              wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
-              class="st-ai-bar"
-              catchtap="onIntakeHeaderAi"
-            >
-              <image src="/assets/mch/spark-white.png" mode="aspectFit" />
-              <text>{{intakeAdvice.isWaiting ? '正在看' : 'AI分析'}}</text>
-            </view>
             <view class="st-card">
               <view class="st-card__head">
                 <view>
@@ -387,14 +379,6 @@
 
           <block wx:if="{{stageBoard.inspect}}">
             <view class="st-hero st-hero--inspect">
-              <view
-                wx:if="{{isInspectionPhotoStep && !readOnly && !stageLocked}}"
-                class="st-hero__ai"
-                catchtap="onInspectionAi"
-              >
-                <image src="/assets/mch/spark-white.png" mode="aspectFit" />
-                <text>{{organizingPhotos ? '正在看' : 'AI分析'}}</text>
-              </view>
               <text class="st-kicker st-kicker--light">检测</text>
             </view>
             <view class="st-card">
@@ -452,14 +436,6 @@
 
           <block wx:if="{{stageBoard.quote}}">
             <view wx:if="{{stageBoard.quote.amount || (stageEditor && activeKind === 'quote_confirm')}}" class="st-hero st-hero--quote">
-              <view
-                wx:if="{{showQuoteAiCheck && !readOnly && !stageLocked}}"
-                class="st-hero__ai"
-                catchtap="onToggleAdvice"
-              >
-                <image src="/assets/mch/spark-white.png" mode="aspectFit" />
-                <text>{{quoteAssist.isWaiting || (aiReview && aiReview.isWaiting) ? '正在看' : 'AI分析'}}</text>
-              </view>
               <text class="st-hero__label">{{stageBoard.quoteHeroLabel}}</text>
               <view class="st-figure"><text>¥</text><text>{{stageEditor && activeKind === 'quote_confirm' ? quoteHeroAmount : stageBoard.quote.amount}}</text></view>
               <text class="st-hero__sub">{{stageBoard.quoteHeroSub}}</text>
@@ -694,14 +670,6 @@
           </block>
 
           <view wx:if="{{stageEditor}}" class="merchant-flow-page__active">
-            <view
-              wx:if="{{isWorkPhotoStep && !readOnly}}"
-              class="st-ai-bar"
-              catchtap="onWorkHeaderAi"
-            >
-              <image src="/assets/mch/spark-white.png" mode="aspectFit" />
-              <text>{{workAdvice.isWaiting ? '正在看' : 'AI分析'}}</text>
-            </view>
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">车主诉求</text>
@@ -727,14 +695,6 @@
                 wx:if="{{isDeliveryPhotoStep}}"
                 class="merchant-flow-page__doc-block merchant-flow-page__section merchant-flow-page__delivery"
               >
-                <view wx:if="{{!readOnly && !stageLocked}}" class="st-ai-chip-row">
-                  <view class="st-ai-chip" catchtap="onToggleAdvice">
-                    <view class="st-ai-chip__mark">
-                      <image src="/assets/mch/spark-white.png" mode="aspectFit" />
-                    </view>
-                    <text>{{aiReview.isWaiting ? '正在看' : 'AI分析'}}</text>
-                  </view>
-                </view>
                 <view class="merchant-flow-page__delivery-step">
                   <view class="merchant-flow-page__delivery-head">
                     <text class="merchant-flow-page__delivery-index">1</text>
@@ -1875,6 +1835,13 @@
     </view>
   </view>
 
+  <ai-fab
+    wx:if="{{workOpen && stageBoard}}"
+    hidden="{{adviceOpen || recordPreview || docBrief || showLibrary || showCancelAddonModal || showPickSheet}}"
+    waiting="{{(stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}"
+    bind:tap="onAiFab"
+  />
+
   <view wx:if="{{adviceOpen}}" class="merchant-flow-page__advice-mask" catchtouchmove="true" bindtap="onCloseAdvice">
     <view class="merchant-flow-page__advice" catchtap="onAdvicePanelTap">
       <view class="merchant-flow-page__advice-head">
@@ -1882,12 +1849,12 @@
         <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
       </view>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">
-        <view wx:if="{{(isWorkPhotoStep && workAdvice.isWaiting) || (isDeliveryPhotoStep && deliveryAdvice.isWaiting) || (isInspectionPhotoStep && inspectionAdvice.isWaiting) || (!isWorkPhotoStep && !isDeliveryPhotoStep && !isInspectionPhotoStep && (intakeAdvice.isWaiting || quoteAssist.isWaiting || (aiReview && aiReview.isWaiting)))}}" class="merchant-flow-page__ai-status">
+        <view wx:if="{{(stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}" class="merchant-flow-page__ai-status">
           <view class="merchant-flow-page__ai-status-spin"></view>
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
         <block wx:else>
-          <view wx:if="{{isWorkPhotoStep && workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
+          <view wx:if="{{stageBoard.family === 'work' && workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
             <view wx:for="{{workAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
               <image
                 wx:if="{{item.url}}"
@@ -1902,21 +1869,19 @@
                 data-id="{{item.id}}"
                 catchtap="onApplyWorkExplain"
               >应用</text>
+              <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
             </view>
           </view>
-          <block wx:elif="{{isDeliveryPhotoStep && deliveryAdvice.hasContent}}">
+          <block wx:elif="{{stageBoard.family === 'finish' && deliveryAdvice.hasContent}}">
             <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
           </block>
-          <block wx:elif="{{isIntakePhotoStep && intakeAdvice.hasContent}}">
+          <block wx:elif="{{stageBoard.family === 'intake' && intakeAdvice.hasContent}}">
             <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: false}}" />
           </block>
-          <block wx:elif="{{(activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm') && quoteAssist.hasContent}}">
+          <block wx:elif="{{stageBoard.family === 'quote' && quoteAssist.hasContent}}">
             <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
           </block>
-          <block wx:elif="{{aiReview && aiReview.merchantBrief.hasContent}}">
-            <template is="quoteMerchantBrief" data="{{brief: aiReview.merchantBrief}}" />
-          </block>
-          <view wx:if="{{isInspectionPhotoStep && inspectionAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
+          <view wx:elif="{{stageBoard.family === 'inspect' && inspectionAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
             <view wx:for="{{inspectionAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
               <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
               <text
@@ -1925,20 +1890,10 @@
                 data-id="{{item.id}}"
                 catchtap="onApplyOwnerExplain"
               >应用</text>
+              <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
             </view>
           </view>
-          <view wx:if="{{adviceApplyRows.length}}" class="merchant-flow-page__advice-sec">
-            <view wx:for="{{adviceApplyRows}}" wx:key="id" class="merchant-flow-page__advice-row">
-              <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
-              <text
-                wx:if="{{item.canApply}}"
-                class="merchant-flow-page__advice-apply"
-                data-id="{{item.id}}"
-                catchtap="onApplyAiSuggestion"
-              >应用</text>
-            </view>
-          </view>
-          <view wx:if="{{!adviceApplyRows.length && !(isInspectionPhotoStep && inspectionAdvice.hasLines) && !(isWorkPhotoStep && workAdvice.hasLines) && !((isDeliveryPhotoStep && deliveryAdvice.hasContent) || (isIntakePhotoStep && intakeAdvice.hasContent) || ((activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm') && quoteAssist.hasContent) || (aiReview && aiReview.merchantBrief.hasContent))}}" class="text-caption text-secondary">这次没有额外意见</view>
+          <view wx:else class="text-caption text-secondary">这次没有额外意见</view>
         </block>
       </scroll-view>
     </view>

@@ -240,5 +240,52 @@ test('时间线只摘这一步自己的分析，交车不借用施工的补拍�
   const work = view.timelineRows.find((row) => row.title === '维修施工')
   const finish = view.timelineRows.find((row) => row.title === '完工交车')
   assert.equal(work.advice, '报价里的侧裙，施工没有做。')
-  assert.equal(finish.advice, '已完成下摆臂胶套更换。')
+  assert.equal(finish.advice, '')
+})
+
+test('已经写上或只是告知的意见不进时间线', () => {
+  const view = buildMerchantAlbumOverview(
+    { vehicle: { plate: '粤B12345' } },
+    [
+      node({
+        kind: 'intake',
+        sortOrder: 0,
+        status: 'completed',
+        intakeAdvice: { status: 'ready', covered: true, risks: [], fixes: [] },
+      }),
+      node({ kind: 'inspection', sortOrder: 1, status: 'completed' }),
+      node({ kind: 'inspection_report', sortOrder: 2, status: 'completed', document: { status: 'delivered' } }),
+      node({
+        kind: 'quote_confirm',
+        sortOrder: 3,
+        status: 'completed',
+        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+      }),
+      node({
+        id: 'work',
+        kind: 'work',
+        sortOrder: 4,
+        status: 'completed',
+        workAdvice: {
+          status: 'ready',
+          gaps: [],
+          items: [{ id: 'f1', partName: '下摆臂胶套', body: '已经更换胶套。' }],
+        },
+        photoDraft: { findings: [{ id: 'f1', partName: '下摆臂胶套', caption: '已经更换胶套。' }] },
+      }),
+      node({
+        kind: 'delivery_photos',
+        sortOrder: 5,
+        status: 'in_progress',
+        deliveryAdvice: { status: 'ready', repair: { body: '已完成下摆臂胶套更换。' } },
+      }),
+      node({ kind: 'repair_report', sortOrder: 6, status: 'in_progress', document: { status: 'draft' } }),
+    ],
+  )
+  const intake = view.timelineRows.find((row) => row.title === '接车建档')
+  const work = view.timelineRows.find((row) => row.title === '维修施工')
+  const finish = view.timelineRows.find((row) => row.title === '完工交车')
+  assert.equal(intake.advice, '')
+  assert.equal(work.advice, '')
+  assert.equal(finish.advice, '')
 })

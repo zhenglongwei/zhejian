@@ -5634,6 +5634,7 @@ Page({
       const source = String((row && row.sourceNote) || '').trim()
       const body = String((row && row.body) || '').trim()
       const supplement = String((row && row.supplement) || '').trim()
+      const applied = Boolean(!source && body && caption && caption === body)
       return {
         id: `own_${findingIndex}`,
         findingId,
@@ -5642,6 +5643,7 @@ Page({
         body,
         supplement,
         canApply: Boolean(!source && body && !caption),
+        applied,
       }
     })
     items.forEach((row) => {
@@ -5649,7 +5651,7 @@ Page({
       const name = String(row.partName || '').trim()
       const display = String(row.display || '').trim() || (name && sentence ? `${name}建议描述为：${sentence}` : '')
       if (display) {
-        lines.push({ id: row.id, body: display, canApply: row.canApply })
+        lines.push({ id: row.id, body: display, canApply: row.canApply, applied: row.applied })
       }
     })
     const groups = (Array.isArray(raw.groups) ? raw.groups : [])
@@ -5663,12 +5665,20 @@ Page({
         const hostName = String((host && host.partName) || '').trim()
         const targets = findings.filter((item) => String((item && item.partName) || '').trim() === partName)
         const body = String((row && row.body) || '').trim() || (partName ? `这张更像是${partName}。` : '')
-        if (!key || !partName || !host || hostName === partName || targets.length !== 1 || !body) return null
-        return { id: `grp_${index}`, url, partName, body, canApply: true }
+        const placed = Boolean(host && hostName === partName)
+        if (!key || !partName || !body) return null
+        if (!placed && (!host || targets.length !== 1)) return null
+        return { id: `grp_${index}`, url, partName, body, canApply: !placed, applied: placed }
       })
       .filter(Boolean)
     groups.forEach((row) => {
-      lines.push({ id: row.id, body: row.body, url: row.url, canApply: true })
+      lines.push({
+        id: row.id,
+        body: row.body,
+        url: row.url,
+        canApply: row.canApply,
+        applied: row.applied,
+      })
     })
     if (!lines.length) {
       const note = String(raw.note || '').trim()
@@ -5709,12 +5719,17 @@ Page({
         canApply: canAdd,
       }
     }).filter((row) => row.body)
-    const lines = shop.map((row) => ({
-      id: row.id,
-      body: row.body,
-      canApply: false,
-      applyKind: '',
-    }))
+    const lines = shop.map((row) => {
+      const track = row.kind === 'miss' || row.kind === 'omit'
+      const applied = track && !row.canApply && names.has(row.title)
+      return {
+        id: row.id,
+        body: row.body,
+        canApply: row.canApply,
+        applied,
+        applyKind: row.canApply || applied ? 'shop' : '',
+      }
+    })
     const tidy = (body, timing) => {
       let text = String(body || '').trim().replace(/。{2,}/g, '。')
       const mark = `${String(timing || '').trim()}。`
@@ -5736,6 +5751,7 @@ Page({
       const timing = String((row && row.timing) || '').trim()
       const body = tidy(row && row.body, timing)
       const unchanged = !advice || advice === source || advice === '无需处理'
+      const applied = Boolean(body && advice === body)
       return {
         id: `own_${findingIndex}`,
         findingId,
@@ -5745,6 +5761,7 @@ Page({
         body,
         hasReason: Boolean(row && row.hasReason),
         canApply: Boolean(row && row.hasReason && body && unchanged && advice !== body),
+        applied,
         applyKind: 'copy',
       }
     })
@@ -5754,6 +5771,7 @@ Page({
         id: row.id,
         body: row.body,
         canApply: row.canApply,
+        applied: row.applied,
         applyKind: row.applyKind,
       })
     })
@@ -6958,15 +6976,21 @@ Page({
   },
 
   async onInspectionAi() {
-    if (this.data.readOnly || this.data.confirming || this.data.organizingPhotos) return
-    const kind = this.data.activeNode && this.data.activeNode.kind
+    if (this.data.confirming || this.data.organizingPhotos) return
+    if (this.data.adviceOpen) {
+      this.setData({ adviceOpen: false })
+      return
+    }
+    this.setData({ adviceOpen: true })
+    if (this.data.readOnly) return
+    const node =
+      (this._flowNodes || []).find((row) => row && row.kind === 'inspection') || this.data.activeNode
+    const kind = node && node.kind
     if (kind !== 'inspection' && kind !== 'intake_inspection') return
     const contentKey = this.inspectionContentKey()
     const storedKey =
       this._inspectionAiKey ||
-      (this.data.activeNode &&
-        this.data.activeNode.photoDraft &&
-        this.data.activeNode.photoDraft.inspectionAiKey) ||
+      (node.photoDraft && node.photoDraft.inspectionAiKey) ||
       ''
     if (storedKey && storedKey === contentKey) {
       this.setData({ adviceOpen: true })
@@ -7010,26 +7034,37 @@ Page({
   },
 
   onIntakeHeaderAi() {
-    if (this.data.readOnly || this.data.confirming || this.data.intakeSent) return
+    if (this.data.confirming) return
     if (this.data.adviceOpen) {
       this.setData({ adviceOpen: false })
       return
     }
     this.setData({ adviceOpen: true })
+    if (this.data.readOnly || this.data.intakeSent) return
     const advice = this.data.intakeAdvice
     if ((advice && advice.hasContent) || (advice && advice.isWaiting)) return
     this.onStartIntakeAdvice()
   },
 
   onWorkHeaderAi() {
-    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.confirming) return
     if (this.data.adviceOpen) {
       this.setData({ adviceOpen: false })
       return
     }
     this.setData({ adviceOpen: true })
+    if (this.data.readOnly) return
     if (this.data.workAdvice && this.data.workAdvice.isWaiting) return
     this.onStartWorkAdvice()
+  },
+
+  onAiFab() {
+    const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
+    if (family === 'intake') return this.onIntakeHeaderAi()
+    if (family === 'inspect') return this.onInspectionAi()
+    if (family === 'quote') return this.onToggleAdvice()
+    if (family === 'work') return this.onWorkHeaderAi()
+    if (family === 'finish') return this.onToggleAdvice()
   },
 
   onToggleAdvice() {
@@ -7045,7 +7080,7 @@ Page({
       this.onStartIntakeAdvice()
       return
     }
-    if (kind === 'inspection_report' || kind === 'quote_confirm') {
+    if (kind === 'inspection_report' || kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const assist = this.data.quoteAssist
       if ((assist && assist.hasContent) || (assist && assist.isWaiting)) return
       this.onStartQuoteAiCheck()
@@ -7135,8 +7170,11 @@ Page({
     const shop = (this.data.inspectionAdvice.shop || []).map((item) =>
       item && item.id === id ? { ...item, canApply: false } : item,
     )
+    const lines = (this.data.inspectionAdvice.lines || []).map((item) =>
+      item && item.id === id ? { ...item, canApply: false, applied: true } : item,
+    )
     this.setData({
-      inspectionAdvice: { ...this.data.inspectionAdvice, shop },
+      inspectionAdvice: { ...this.data.inspectionAdvice, shop, lines },
       autoSaveLabel: '保存中…',
     })
     this.persistPhotoDraft()
@@ -7254,6 +7292,13 @@ Page({
 
   onApplyOwnerExplain(e) {
     const lineId = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const line = ((this.data.inspectionAdvice && this.data.inspectionAdvice.lines) || []).find(
+      (row) => row && row.id === lineId,
+    )
+    if (line && line.applyKind === 'shop') {
+      this.onApplyShopGap(e)
+      return
+    }
     const item = ((this.data.inspectionAdvice && this.data.inspectionAdvice.items) || []).find(
       (row) => row && row.id === lineId && row.canApply,
     )
@@ -7279,7 +7324,8 @@ Page({
   },
 
   async onStartInspectionAdvice() {
-    const node = this.data.activeNode
+    const node =
+      (this._flowNodes || []).find((row) => row && row.kind === 'inspection') || this.data.activeNode
     if (!node || !node.id || this.data.readOnly) return
     if (this.data.inspectionAdvice && this.data.inspectionAdvice.isWaiting) {
       this.setData({ adviceOpen: true })

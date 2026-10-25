@@ -11,6 +11,7 @@
     "service-doc-sheet": "/components/service-doc-sheet/index",
     "flow-unmatched-photos": "/components/flow-unmatched-photos/index",
     "flow-finding-card": "/components/flow-finding-card/index",
-    "flow-pick-sheet": "/components/flow-pick-sheet/index"
+    "flow-pick-sheet": "/components/flow-pick-sheet/index",
+    "ai-fab": "/components/ai-fab/index"
   }
 }

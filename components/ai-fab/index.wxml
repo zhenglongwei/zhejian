@@ -1,0 +1,11 @@
+<view
+  class="ai-fab {{dragging || hidden ? '' : 'ai-fab--live'}} {{hidden ? 'ai-fab--off' : ''}}"
+  style="left: {{x}}px; top: {{y}}px;"
+  catchtouchstart="onTouchStart"
+  catchtouchmove="onTouchMove"
+  catchtouchend="onTouchEnd"
+  catchtouchcancel="onTouchEnd"
+>
+  <image class="ai-fab__icon" src="/assets/mch/spark-white.png" mode="aspectFit" />
+  <text class="ai-fab__label">{{waiting ? '正在看' : 'AI分析'}}</text>
+</view>

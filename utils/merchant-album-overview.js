@@ -69,7 +69,7 @@ function findingCaption(node, partName, id) {
   return adviceText(hit && hit.caption)
 }
 
-/** 相册详情只摘这一步自己的分析里还没处理的一句。不读自动检查留下的旧提示。 */
+/** 相册详情只留这一步还要店员动手的一句。已经写上、已经归位、只是告知的都不放。 */
 function adviceLine(node) {
   if (!node) return ''
   const kind = node.kind
@@ -87,24 +87,31 @@ function intakeAdviceLine(node) {
   const risks = Array.isArray(advice.risks) ? advice.risks : []
   const risk = risks.map((row) => adviceText(row && (row.title || row.body))).find(Boolean)
   if (risk) return risk
-  if (advice.covered) return '车身四周都拍到了'
-  return ''
+  const fixes = Array.isArray(advice.fixes) ? advice.fixes : []
+  return fixes.map((row) => adviceText(row && (row.title || row.body))).find(Boolean) || ''
 }
 
 function inspectionAdviceLine(node) {
   const advice = node.inspectionAdvice
   if (!adviceReady(advice)) return ''
-  const shop = Array.isArray(advice.shop) ? advice.shop : []
-  const shopLine = shop.map((row) => adviceText(row && row.body)).find(Boolean)
-  if (shopLine) return shopLine
   const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const names = new Set(findings.map((row) => adviceText(row && row.partName)).filter(Boolean))
+  const shop = Array.isArray(advice.shop) ? advice.shop : []
+  const shopHit = shop.find((row) => {
+    const kind = adviceText(row && row.kind)
+    const title = adviceText(row && row.title)
+    if (!adviceText(row && row.body) || !title) return false
+    if (kind !== 'miss' && kind !== 'omit') return false
+    return !names.has(title)
+  })
+  if (shopHit) return adviceText(shopHit.body)
   const items = Array.isArray(advice.items) ? advice.items : []
   const pending = items.find((row) => {
     const body = adviceText(row && row.body)
     if (!body) return false
     const name = adviceText(row && row.partName)
     const current = findings.find((item) => name && adviceText(item && item.partName) === name)
-    const written = adviceText(current && (current.advice || current.caption))
+    const written = adviceText(current && current.advice)
     return !written || written === '无需处理'
   })
   return adviceText(pending && pending.body)
@@ -158,11 +165,8 @@ function workAdviceLine(node) {
   return adviceText(group.body) || `这张更像是${adviceText(group.partName)}。`
 }
 
-function deliveryAdviceLine(node) {
-  const advice = node.deliveryAdvice
-  if (!adviceReady(advice)) return ''
-  const parts = [advice.repair, advice.warranty, advice.care]
-  return parts.map((row) => adviceText(row && row.body)).find(Boolean) || ''
+function deliveryAdviceLine() {
+  return ''
 }
 
 function shotsOf(node) {
