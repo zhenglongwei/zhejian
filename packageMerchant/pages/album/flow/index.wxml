@@ -1683,9 +1683,7 @@
                 <text class="text-caption text-secondary">已施工项目</text>
                 <view wx:for="{{docPayload.workItems}}" wx:key="name" class="merchant-flow-page__work-item">
                   <text class="text-body">{{item.name}}</text>
-                  <text class="text-caption">¥{{item.amount}}</text>
                 </view>
-                <text class="text-body merchant-flow-page__label">合计 ¥{{docPayload.totalAmount}}</text>
                 <text class="text-body merchant-flow-page__label">交付人</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">完工时间</text>

@@ -180,6 +180,19 @@
         <text wx:if="{{row.brand}}" class="service-doc-sheet__note">品牌：{{row.brand}}</text>
         <text wx:if="{{row.qty}}" class="service-doc-sheet__note">数量：{{row.qty}}</text>
         <text wx:if="{{row.note}}" class="service-doc-sheet__note">{{row.note}}</text>
+        <view wx:if="{{row.images.length}}" class="service-doc-sheet__finding-photos">
+          <image
+            wx:for="{{row.images}}"
+            wx:for-item="shot"
+            wx:key="url"
+            class="service-doc-sheet__finding-img image-placeholder"
+            src="{{shot.url}}"
+            mode="aspectFill"
+            data-url="{{shot.url}}"
+            data-urls="{{row.images}}"
+            bindtap="onPreviewImage"
+          />
+        </view>
       </view>
     </view>
   </block>

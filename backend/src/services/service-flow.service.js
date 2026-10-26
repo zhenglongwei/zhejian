@@ -1779,16 +1779,29 @@ function mapOwnerFriendlyLine(row = {}) {
   }
 }
 
-/** 工单条目 → 车主可见行：项目/用料/品牌/数量/说明/金额，均按门店如实登记的原文 */
+function ownerWorkImages(row = {}) {
+  const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+  const images = []
+  const list = Array.isArray(row.images) ? row.images : []
+  list.forEach((img) => {
+    const raw = typeof img === 'string' ? img : img && (img.url || img.src)
+    const url = resolveClientReadableMediaUrl(raw)
+    if (!url || images.some((item) => item.url === url)) return
+    images.push({ url })
+  })
+  return images
+}
+
+/** 工单条目 → 车主可见行：项目、说明、证物图。不带金额。 */
 function mapOwnerWorkSheetLine(row = {}) {
   const name = String(row.partName || '').trim()
   const material = String(row.material || '').trim()
   const brand = String(row.brand || '').trim()
   const qty = String(row.qty || '').trim()
   const note = stripFigureIndexTalk(row.caption)
-  if (!name && !material && !note) return null
-  const amount = parseAmount(row.amount)
-  return { name, brand, material, qty, note, amount: amount == null ? 0 : amount }
+  const images = ownerWorkImages(row)
+  if (!name && !material && !note && !images.length) return null
+  return { name, brand, material, qty, note, images }
 }
 
 /** 工单卡片：车主时间线上的只读单据，数据源是 photoDraft.findings，
@@ -1800,21 +1813,18 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
   const items = rows.map(mapOwnerWorkSheetLine).filter(Boolean)
   const photos = []
   const seen = new Set()
-  rows.forEach((row) => {
-    const list = Array.isArray(row && row.images) ? row.images : []
-    list.forEach((img) => {
-      const url = typeof img === 'string' ? img : img && img.url
-      if (!url || seen.has(url)) return
-      seen.add(url)
-      photos.push({ url, caption: String((row && row.caption) || '').trim() })
+  items.forEach((row) => {
+    ;(row.images || []).forEach((img) => {
+      if (!img.url || seen.has(img.url)) return
+      seen.add(img.url)
+      photos.push({ url: img.url, caption: String(row.note || '').trim() })
     })
   })
-  const totalAmount = items.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   const done = String(node.status || '') === 'completed'
   return {
     id: node.id,
     kind: 'work',
-    title: node.title || '工单',
+    title: node.title || '维修工单',
     segmentLabel: node.segmentLabel || '',
     isAddon: String(node.insertedReason || '') === 'addon',
     cancelled: false,
@@ -1837,8 +1847,12 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
     lines: [],
     items,
     workItems: items,
-    totalAmount,
-    totalAmountLabel: totalAmount > 0 ? `合计 ¥${totalAmount.toFixed(2)}` : '',
+    totalAmount: 0,
+    totalAmountLabel: '',
+    signLabel: '施工人',
+    signName: String(draft.workerName || '').trim(),
+    signAtLabel: '',
+    signAt: '',
     photos,
     deliveryPhotos: [],
     warrantyPeriod: '',
@@ -2059,6 +2073,34 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
           }
         })
       : doc.lines
+    const items = Array.isArray(doc.items)
+      ? doc.items.map((row) => {
+          if (!row || typeof row !== 'object' || !Array.isArray(row.images)) return row
+          return {
+            ...row,
+            images: row.images.map((photo) => {
+              if (typeof photo === 'string') {
+                const url = remapUrl(photo)
+                return url ? { url } : photo
+              }
+              if (!photo || typeof photo !== 'object') return photo
+              const url = remapUrl(photo.url)
+              return url && url !== photo.url ? { ...photo, url } : photo
+            }),
+          }
+        })
+      : doc.items
+    const photos = Array.isArray(doc.photos)
+      ? doc.photos.map((photo) => {
+          if (typeof photo === 'string') {
+            const url = remapUrl(photo)
+            return url || photo
+          }
+          if (!photo || typeof photo !== 'object') return photo
+          const url = remapUrl(photo.url)
+          return url && url !== photo.url ? { ...photo, url } : photo
+        })
+      : doc.photos
     const deliveryPhotos = Array.isArray(doc.deliveryPhotos)
       ? doc.deliveryPhotos.map((photo) => {
           if (typeof photo === 'string') {
@@ -2074,6 +2116,8 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
       ...doc,
       findings,
       lines,
+      items,
+      photos,
       deliveryPhotos,
       needsConfirm: false,
       locked: false,
