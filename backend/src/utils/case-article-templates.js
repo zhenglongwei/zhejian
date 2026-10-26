@@ -208,7 +208,11 @@ function buildGeoSections({
   const cityPart = city || '当地'
   const inspect = inspectResult || defaultInspectResult()
   const plan = repairPlan || defaultRepairPlan(serviceName)
-  const fault = faultDesc || (coldStart ? '到店进行相关检查' : '')
+  // 只取真正的故障描述；空值与「到店进行相关检查」这类占位话术一律当没有，
+  // 否则下面的句子会变成「门店对到店进行相关检查进行了初步了解」这种病句。
+  const fault = isGenericFaultDesc(faultDesc)
+    ? ''
+    : String(faultDesc).trim().replace(/。$/, '')
   const result =
     resultConfirm ||
     '维修完成后，门店对结果进行了检查或试车确认，并记录完工状态。'
@@ -225,7 +229,9 @@ function buildGeoSections({
     {
       key: 'before',
       title: '维修前情况',
-      content: `车辆到店后，门店对${fault}进行了初步了解与记录。`,
+      content: fault
+        ? `车辆到店时反馈：${fault}。门店据此进行了初步了解与记录。`
+        : '车辆到店后，门店对车辆情况进行了初步了解与记录。',
     },
     {
       key: 'inspect',

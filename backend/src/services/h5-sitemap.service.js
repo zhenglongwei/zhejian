@@ -196,6 +196,9 @@ function getRobotsTxt(baseUrl = config.publicBaseUrl) {
     'Disallow: /album/',
     'Disallow: /admin/',
     'Disallow: /api/',
+    // 脱敏过程图是公开案例的证据，必须让爬虫抓得到，否则 ImageObject 成了「有证不让验」。
+    // 只放行 desensitized 一支：原图在 uploads/YYYY/MM/ 下，靠上面的 Disallow: /api/ 继续挡住。
+    'Allow: /api/v1/media/files/uploads/desensitized/',
     '',
     `Sitemap: ${base}/sitemap.xml`,
     `LLMs-Txt: ${base}/llms.txt`,
