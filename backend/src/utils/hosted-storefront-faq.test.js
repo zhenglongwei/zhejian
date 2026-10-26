@@ -106,6 +106,67 @@ function testCollectHostedFaqPrefersStorefrontLayer() {
   assert.ok(picked[0].a.includes('钣金'))
 }
 
+/** 公开答案需 ≥30 字（MIN_PUBLISH_ANSWER_LEN），否则会被判为低质过滤掉 */
+const MACHINE_FAQ = [
+  {
+    q: '机器生成的问法：这例做了什么？',
+    a: '这例公开档案里，机器写了更换机油与机滤两项，属于常规保养范围内的项目，交车前做了复查。',
+  },
+]
+const MANUAL_FAQ = [
+  {
+    q: '门店改过的问法：这例做了什么？',
+    a: '这例公开档案里，门店写明更换全合成机油与机滤，并交代了下次保养里程。',
+  },
+]
+
+/** 人工改稿直接覆盖机器草稿（老板 2026-10-26 定：FAQ 按摘要的方式处理） */
+function testManualFaqOverrideWinsOverMachineDraft() {
+  const picked = collectHostedCaseFaq({
+    contentJson: { faq: MACHINE_FAQ, hostGeoLayer: { faq: MACHINE_FAQ } },
+    hostMeta: { faq: MANUAL_FAQ, faqOverridden: true, geoLayer: { faq: MACHINE_FAQ } },
+    enrichmentFaq: [],
+    draftFaq: [],
+  })
+  assert.equal(picked.length, 1)
+  assert.ok(picked[0].q.includes('门店改过'), '人工改稿必须覆盖机器草稿')
+  assert.ok(!picked[0].q.includes('机器生成'), '机器草稿不得出现在结果里')
+}
+
+/** 人工清空也是明确意图，不该把机器稿又捞回来 */
+function testManualFaqClearedStaysEmpty() {
+  const picked = collectHostedCaseFaq({
+    contentJson: { faq: MACHINE_FAQ, hostGeoLayer: { faq: MACHINE_FAQ } },
+    hostMeta: { faq: [], faqOverridden: true, geoLayer: { faq: MACHINE_FAQ } },
+    enrichmentFaq: [],
+    draftFaq: [],
+  })
+  assert.equal(picked.length, 0, '人工清空后不应回退到机器稿')
+}
+
+/** 未人工改过的存量数据：保留原有回退行为，不能开天窗 */
+function testLegacyFaqFallsBackToMachineDraft() {
+  const picked = collectHostedCaseFaq({
+    contentJson: { faq: [], hostGeoLayer: { faq: MACHINE_FAQ } },
+    hostMeta: { faq: [], geoLayer: { faq: MACHINE_FAQ } },
+    enrichmentFaq: [],
+    draftFaq: [],
+  })
+  assert.equal(picked.length, 1)
+  assert.ok(picked[0].q.includes('机器生成'), '未人工改过时应回退到机器稿')
+}
+
+/** 生效稿优先：确认公开时已把机器稿写进 hostMeta.faq 的情形 */
+function testEffectiveDraftPreferredBeforeFallback() {
+  const picked = collectHostedCaseFaq({
+    contentJson: { faq: [], hostGeoLayer: { faq: MACHINE_FAQ } },
+    hostMeta: { faq: MACHINE_FAQ },
+    enrichmentFaq: [],
+    draftFaq: [],
+  })
+  assert.equal(picked.length, 1)
+}
+
 testMaintenanceBank()
 testChassisKeepsHighlightAndGap()
 testSkipGapWhenThemeCovered()
@@ -113,4 +174,8 @@ testRejectThinAnswer()
 testScreenshotBodyShopAnswerIsPublishable()
 testMaterialGate()
 testCollectHostedFaqPrefersStorefrontLayer()
+testManualFaqOverrideWinsOverMachineDraft()
+testManualFaqClearedStaysEmpty()
+testLegacyFaqFallsBackToMachineDraft()
+testEffectiveDraftPreferredBeforeFallback()
 console.log('hosted-storefront-faq.test.js OK')

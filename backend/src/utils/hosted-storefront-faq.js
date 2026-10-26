@@ -158,20 +158,43 @@ function pickFirstPublishableFaq(...lists) {
   return []
 }
 
-/** 公开档案 FAQ：店页说明 / 托管层优先，空答与空数组不能盖住已有作答 */
+/**
+ * 公开档案 FAQ：人工改稿直接覆盖机器草稿（老板 2026-10-26 定，对齐摘要的处理方式）
+ *
+ * 摘要的存法是「只有一份生效稿，改了就覆盖」——`publicCase.summary` 是唯一权威，
+ * 快照里那份只是存档。FAQ 照做：`hostMeta.faq` 是生效稿，
+ * 确认公开时初始化为机器稿，人工改过之后直接覆盖它。
+ *
+ * 关键点：人工改过（faqOverridden）之后就以生效稿为准，**不再回退到机器稿**——
+ * 包括人工把 FAQ 清空的情况。清空也是明确意图，不该把机器稿又捞回来。
+ *
+ * faqOverridden 一旦置位就不再复位：机器生成的本来就是草稿，
+ * 让它盖掉人工终稿是错的（也避免门店二次确认时误冲掉自己的改稿）。
+ */
 function collectHostedCaseFaq({ contentJson, hostMeta, enrichmentFaq, draftFaq } = {}) {
   const content = contentJson && typeof contentJson === 'object' ? contentJson : {}
   const host = hostMeta && typeof hostMeta === 'object' ? hostMeta : {}
+  const hostCopy =
+    content.hostPublicCopy && typeof content.hostPublicCopy === 'object'
+      ? content.hostPublicCopy
+      : {}
   const geo =
     (host.geoLayer && typeof host.geoLayer === 'object' && host.geoLayer) ||
     (content.hostGeoLayer && typeof content.hostGeoLayer === 'object' && content.hostGeoLayer) ||
     {}
   const draft = host.geoDraft && typeof host.geoDraft === 'object' ? host.geoDraft : {}
+
+  if (host.faqOverridden) {
+    return filterPublishableFaq(host.faq)
+  }
+
+  // 未人工改过：生效稿优先（确认公开时已初始化为机器稿），逐级回退到历史存档
   return pickFirstPublishableFaq(
-    geo.faq,
     host.faq,
-    draft.faq,
+    hostCopy.faq,
     content.faq,
+    geo.faq,
+    draft.faq,
     enrichmentFaq,
     draftFaq,
   )

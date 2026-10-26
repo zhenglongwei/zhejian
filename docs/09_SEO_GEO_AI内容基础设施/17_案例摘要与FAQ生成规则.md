@@ -3,7 +3,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 文档名称 | 案例摘要与 FAQ 生成规则 |
-| 当前版本 | V1.3 · 2026-10-26 |
+| 当前版本 | V1.4 · 2026-10-26 |
 | 适用范围 | 公开案例详情页的 AI 摘要、页内 FAQ |
 | 核心目标 | **让 AI 摘得走**——摘要与 FAQ 必须是「脱离页面仍成立」的事实句 |
 | 生成方式 | **大模型生成**（两段式：先看图补图说，再一次生成摘要 + FAQ），规则只做校验与兜底 |
@@ -257,37 +257,40 @@ AI 读完不知道修了什么，无从引用。
 > 而**服务端预渲染才是 AI 爬虫读的那一份**，它读 `data.summary`。教训：判断「页面上显不显示」，
 > 必须两条渲染路径都看（客户端 JS + 服务端预渲染），看一条就下结论会以偏概全。
 
-#### 改 FAQ：分情况（2026-10-26 实测 `collectHostedCaseFaq`）
+#### 改 FAQ：改成和摘要一样的「覆盖」模型（老板 2026-10-26 定，**已实现**）
 
-`pickFirstPublishableFaq(geoLayer.faq → hostMeta.faq → geoDraft.faq → contentJson.faq → …)`，
-取**第一个有合格内容**的：
+**原来的设计（已废弃）**：机器稿和人工稿各存一个「抽屉」，显示时按优先级排队取——
+`geoLayer.faq` 排在 `hostMeta.faq` 前面，机器草稿压住人工终稿。
 
-| 场景 | 门店改的 FAQ |
-| --- | --- |
-| 没走 GEO 确认（`geoLayer.faq` 空） | ✅ 生效 |
-| **`geoLayer.faq` 有合格内容** | ❌ **不生效**，被压在第二位 |
-| `geoLayer.faq` 内容低质、被 `filterPublishableFaq` 过滤 | ✅ 生效 |
+**现在的设计**：不排队，**直接覆盖同一个字段**，和摘要完全一致。
 
-> **为什么这件事必须现在处理，不能拖**：新方案（§3）要求**每一单**的 FAQ 都走大模型生成，
-> 也就是每单都会写 `geoLayer.faq`。上表第二行会从「偶发」变成「必然」——
-> 门店改的 FAQ 一条都生效不了。这不是边缘情况。
+| | 生效稿字段 | 谁写它 | 存档（只读） |
+| --- | --- | --- | --- |
+| 摘要 | `publicCase.summary` | 确认公开时写机器稿；人工改时覆盖 | 快照里的 `summary` |
+| **FAQ** | **`hostMeta.faq`** | 确认公开时写机器稿；人工改时覆盖 | `geoLayer.faq` |
 
-**决定：人工优先（老板 2026-10-26 定）**
+**实现要点**：
 
-人改过的就用人改的，机器不再盖回去。三条理由：
+1. `saveHostedPublicCopy` 写 `hostMeta.faq` 时**同时置 `faqOverridden: true`**
+2. `collectHostedCaseFaq` 若见 `faqOverridden`，**直接返回生效稿，不再回退**——
+   包括人工把 FAQ 清空的情况。清空也是明确意图，不该把机器稿又捞回来
+3. `faqOverridden` **一旦置位就不再复位**：机器生成的本来就是草稿，
+   让它盖掉人工终稿是错的（也避免门店二次确认时误冲掉自己的改稿）
+4. 未人工改过的存量数据：保留原有回退链（`hostMeta.faq` → `hostPublicCopy.faq` →
+   `contentJson.faq` → `geoLayer.faq` → `geoDraft.faq` → …），**不会开天窗**
 
-1. 符合「案例主权归门店」（`docs/01_项目总览与业务架构/14_四件套产品架构与定位.md`）
-2. 消除「用户看到的 ≠ AI 看到的」不一致（见下）
-3. 机器生成的本来就是**草稿**，把它置于人工修订之上，等于草稿压终稿
+**为什么必须现在改**：新方案（§3）要求**每一单**的 FAQ 都走大模型生成，
+也就是每单的机器抽屉都是满的。旧设计下「人工改的被压住」会从偶发变成必然。
 
 > 风险：门店可能改出带价格、夸张宣传的文案。缓解：改稿界面沿用 §3.4 的硬约束文案提示，
 > 并在保存时用 `isLowInfoFaqAnswer` 之外的**金额 / 隐私正则**再兜一道（§5 第 10 项）。
 
-#### 遗留的不一致（一并归到 §5 第 10 项）
+#### 遗留的不一致（已一并修掉）
 
-客户端 `renderArchiveLead` 的优先级是 `hostGeoLayer.summary` > `hostPublicCopy.overview`，
-服务端预渲染读的是 `data.summary`。走过 GEO 确认的单，
-**用户眼睛看到的和 AI 爬虫看到的可能不是同一句**。改「人工优先」后两条路径即对齐。
+客户端 `renderArchiveLead` 原本是 `hostGeoLayer.summary` > `hostPublicCopy.overview`，
+服务端预渲染读 `data.summary`——走过 GEO 确认的单，
+**用户眼睛看到的和 AI 爬虫看到的可能不是同一句**。
+现已把客户端改为 `hostPublicCopy.overview` 优先，两条路径对齐。
 
 ---
 
@@ -304,7 +307,7 @@ AI 读完不知道修了什么，无从引用。
 | 7 | `backend/src/utils/merchant-case-job-faq.js` | **保留**，降级为 LLM 不可用时的兜底（§6 第 1 项已定） |
 | 8 | `backend/src/utils/case-faq.js` | 清掉无调用点的百科模板死代码 |
 | 9 | 商家端确认公开弹窗 | 加 §4.2 的后果提示与缺项清单（位置：发布确认页，§6 第 2 项已定） |
-| 10 | `backend/src/utils/hosted-storefront-faq.js` + `h5/shared/case-render.js` | 改为**人工优先**（§4.3，老板已定）：① `collectHostedCaseFaq` 把 `hostMeta.faq` / `hostPublicCopy.faq` 提到 `geoLayer.faq` 之前；② `renderArchiveLead` 让 `hostPublicCopy.overview` 优先于 `hostGeoLayer.summary`，与服务端预渲染对齐 |
+| 10 | `hosted-storefront-faq.js` / `case-hosting.service.js` / `h5/shared/case-render.js` | ✅ **已完成**：FAQ 改为「覆盖」模型——`saveHostedPublicCopy` 置 `faqOverridden`，`collectHostedCaseFaq` 见标记即直接返回生效稿、不回退；`renderArchiveLead` 让人工改的摘要优先，与服务端预渲染对齐 |
 
 ### 5.1 验收口径
 
@@ -333,7 +336,7 @@ AI 读完不知道修了什么，无从引用。
 
 | # | 事项 | 结论 | 落地位置 |
 | --- | --- | --- | --- |
-| 5 | 人工改稿与机器生成的优先级 | **人工优先**。人改过的就用人改的，机器不再盖回去。不加「改后过审」——一人公司扛不住审核成本；质量靠保存时的金额 / 隐私正则兜底 | §5 第 10 项 |
+| 5 | 人工改稿与机器生成的关系 | **不搞优先级排队，改成覆盖同一个字段**——跟摘要一模一样。人改过的就是生效稿，机器那份退化为只读存档。不加「改后过审」——一人公司扛不住审核成本；质量靠保存时的金额 / 隐私正则兜底 | §5 第 10 项（已完成） |
 
 ---
 
@@ -346,3 +349,4 @@ AI 读完不知道修了什么，无从引用。
 | 2026-10-26 | V1.2：删除 §4.2 不实承诺「补内容后自动重生成」——公开即冻结快照，补不回来（老板指出）；新增 §4.3「公开后还能改什么」；§6 四项待确认全部关闭，新增第 5 项 |
 | 2026-10-26 | V1.2.1 纠错：§4.3 原判「摘要改了被压住、FAQ 改了不显示」**有误**。实测确认：摘要改了**生效**（服务端预渲染读 `data.summary`，快照层不覆盖 `summary`）；FAQ 是**分情况**——只在 `geoLayer.faq` 有合格内容时被压住。根因是只看了客户端 `case-render.js`，漏了服务端预渲染这条主路径 |
 | 2026-10-26 | V1.3：§6.1 第 5 项定案——**人工改稿优先于机器生成**（老板定）。不加「改后过审」，质量靠保存时的金额 / 隐私正则兜底。落地清单第 10 项明确两个改动点 |
+| 2026-10-26 | V1.4：老板进一步简化——**不搞优先级排队，FAQ 直接按摘要的方式处理：人工改的覆盖同一个字段**。已实现：`saveHostedPublicCopy` 置 `faqOverridden`，`collectHostedCaseFaq` 见标记即返回生效稿不回退；`renderArchiveLead` 客户端对齐服务端。新增 4 条回归测试 |

@@ -940,6 +940,8 @@ async function saveHostedPublicCopy(albumId, { storeId, merchantId, overview, fa
     hosted: true,
     overview: revision.overview,
     faq: revision.faq,
+    // 人工改过 FAQ：生效稿就是这一份，不再回退到机器草稿（对齐摘要的覆盖语义）
+    faqOverridden: true,
     revisions,
   })
 

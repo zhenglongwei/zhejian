@@ -739,9 +739,11 @@
   function renderArchiveLead(data) {
     var hostCopy = (data.contentJson && data.contentJson.hostPublicCopy) || data.hostPublicCopy
     var geo = (data.contentJson && data.contentJson.hostGeoLayer) || data.hostGeoLayer
+    // 人工改过的摘要优先于机器稿，与服务端预渲染（读 data.summary）对齐，
+    // 避免「用户看到的 ≠ AI 看到的」
     var text =
-      (geo && geo.summary) ||
       (hostCopy && hostCopy.overview) ||
+      (geo && geo.summary) ||
       data.displayAiSummary ||
       data.aiSummary ||
       data.summary ||
