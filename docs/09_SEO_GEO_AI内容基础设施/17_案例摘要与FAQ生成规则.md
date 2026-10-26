@@ -230,29 +230,53 @@ AI 读完不知道修了什么，无从引用。
 | 内容 | 公开后 | 依据 |
 | --- | --- | --- |
 | 检查项 / 照片 / 施工内容（**案例事实**） | **不能改** | 发布时冻结快照，公开页读快照 |
-| 摘要 / FAQ（**文字稿**） | **能改，且不需要跑大模型** | 见下 |
+| 摘要（**文字稿**） | **能改，改了就生效** | `saveHostedPublicCopy` 直写 `publicCase.summary`，预渲染读 `data.summary` |
+| FAQ（**文字稿**） | **能改，但有条件** | `collectHostedCaseFaq` 的优先级，见下 |
 
 **为什么改摘要 / FAQ 不用跑大模型**（老板 2026-10-26 定）：事实原料没变，改的只是措辞。
 再跑一次大模型，是拿同一批原料重新措辞一遍——白花钱，还可能改出新的编造。
 
-**改稿通道现状（两条，一条可用，一条半残）**：
+**改稿通道两条**：
 
 | 通道 | 位置 | 状态 |
 | --- | --- | --- |
 | 运营后台 | `admin-case-article.service.js` 的 `manualFields` / `pick('aiSummary', …)` | ✅ 可用。冻结时 `assertSnapshotPayloadForbidden` 放行 `aiSummary` / `seoTitle` / `seoDescription`（`case-ops.test.js:70` 有断言） |
-| 门店端 | `PUT /service-albums/:albumId/host-public-copy` → `saveHostedPublicCopy` | ⚠️ **改了不生效**，两个 bug： |
+| 门店端 | `PUT /service-albums/:albumId/host-public-copy` → `saveHostedPublicCopy` | 摘要 ✅ / FAQ ⚠️ 见下 |
 
-**门店端通道的两个 bug（已核实，待修，见 §5 第 10 项）**
+#### 改摘要：生效（老板 2026-10-26 实测验证）
 
-1. **FAQ 改了不显示**：`collectRenderableFaq`（`h5/shared/case-render.js:1567`）只认
-   `data.faq` / `hostGeoLayer.faq` / `confirmedCaseDraft.faq` 三处，
-   而 `saveHostedPublicCopy` 存在 `contentJson.hostPublicCopy.faq`，**不在列表里**
-2. **摘要改了被压住**：`renderArchiveLead`（`case-render.js:739`）优先级是
-   `hostGeoLayer.summary` > `hostPublicCopy.overview` > `aiSummary` > `summary`。
-   走过 GEO 确认的单 `geoLayer.summary` 恒在，门店改的 overview **永远排不上**
+链路：`saveHostedPublicCopy` → `publicCase.summary`（`case-hosting.service.js:959`）
+→ `getCaseDetail` 的 `summary: row.summary`（`content.service.js:283`）
+→ 预渲染 `buildBotBodyHtml` 读 `data.summary`（`h5-case-prerender.service.js:72`）。
 
-> 「案例主权归门店」（`docs/01_项目总览与业务架构/14_四件套产品架构与定位.md`）要求门店
-> 能改自己的公开稿。只留运营后台一条通道，等于门店改稿要打电话求人。待老板定：修还是撤。
+快照层 `applySnapshotLayerToPublicCase`（`case-public-layers.js:55`）**只覆盖 `title` 与价格字段，
+不覆盖 `summary`**——所以改了就生效。
+
+> **纠错记录**：V1.2 初稿曾写「摘要改了被压住」，**是错的**。
+> 当时只读了客户端 `case-render.js:739` 的 `renderArchiveLead`，漏了服务端预渲染这条主路径。
+> 而**服务端预渲染才是 AI 爬虫读的那一份**，它读 `data.summary`。教训：判断「页面上显不显示」，
+> 必须两条渲染路径都看（客户端 JS + 服务端预渲染），看一条就下结论会以偏概全。
+
+#### 改 FAQ：分情况（2026-10-26 实测 `collectHostedCaseFaq`）
+
+`pickFirstPublishableFaq(geoLayer.faq → hostMeta.faq → geoDraft.faq → contentJson.faq → …)`，
+取**第一个有合格内容**的：
+
+| 场景 | 门店改的 FAQ |
+| --- | --- |
+| 没走 GEO 确认（`geoLayer.faq` 空） | ✅ 生效 |
+| **`geoLayer.faq` 有合格内容** | ❌ **不生效**，被压在第二位 |
+| `geoLayer.faq` 内容低质、被 `filterPublishableFaq` 过滤 | ✅ 生效 |
+
+> **为什么这件事必须现在处理，不能拖**：新方案（§3）要求**每一单**的 FAQ 都走大模型生成，
+> 也就是每单都会写 `geoLayer.faq`。上表第二行会从「偶发」变成「必然」——
+> 门店改的 FAQ 一条都生效不了。这不是边缘情况。
+
+#### 遗留的不一致（一并归到 §5 第 10 项）
+
+客户端 `renderArchiveLead` 的优先级是 `hostGeoLayer.summary` > `hostPublicCopy.overview`，
+服务端预渲染读的是 `data.summary`。走过 GEO 确认的单，
+**用户眼睛看到的和 AI 爬虫看到的可能不是同一句**。
 
 ---
 
@@ -269,7 +293,7 @@ AI 读完不知道修了什么，无从引用。
 | 7 | `backend/src/utils/merchant-case-job-faq.js` | **保留**，降级为 LLM 不可用时的兜底（§6 第 1 项已定） |
 | 8 | `backend/src/utils/case-faq.js` | 清掉无调用点的百科模板死代码 |
 | 9 | 商家端确认公开弹窗 | 加 §4.2 的后果提示与缺项清单（位置：发布确认页，§6 第 2 项已定） |
-| 10 | `h5/shared/case-render.js` + `case-hosting.service.js` | 修门店端改稿通道（§4.3 两个 bug）：FAQ 加进 `collectRenderableFaq` 的取值列表；摘要让 `hostPublicCopy.overview` 优先于 `hostGeoLayer.summary`。**待老板定修/撤后再动** |
+| 10 | `backend/src/utils/hosted-storefront-faq.js` + `h5/shared/case-render.js` | 修改稿优先级（§4.3）：① `collectHostedCaseFaq` 让门店改的 `hostMeta.faq` **优先于** `geoLayer.faq`（人工改的应当盖过机器生成的）；② `renderArchiveLead` 与服务端预渲染对齐，避免「用户看到的 ≠ AI 看到的」 |
 
 ### 5.1 验收口径
 
@@ -298,7 +322,7 @@ AI 读完不知道修了什么，无从引用。
 
 | # | 事项 | 说明 |
 | --- | --- | --- |
-| 5 | 门店端改稿通道修还是撤 | 现状两个 bug（§4.3）导致改了不生效。修好它（符合「案例主权归门店」），还是撤掉这个接口只留运营后台？ |
+| 5 | 人工改稿与机器生成的优先级 | 现规则是 `geoLayer`（机器）压过 `hostMeta`（人工）。新方案下每单都有机器生成的 FAQ，等于人工改的一律失效。建议改为「人工改的优先」——但需老板确认：门店改坏了算谁的？要不要加「改后过审」？ |
 
 ---
 
@@ -308,4 +332,5 @@ AI 读完不知道修了什么，无从引用。
 | --- | --- |
 | 2026-10-26 | V1.0：按新业务规则（诉求驱动、七步单据链）重写；指出摘要只读 note 且读已废弃 `stage_3` |
 | 2026-10-26 | V1.1：生成方式由「模板套句式」改为**大模型两段式生成**（老板定：诉求长短不定，套格式不通）；新增图片分流规则（已分析带结果、未分析送打码图，全部送）；公开门槛改为「可公开 + 充分告知后果」 |
-| 2026-10-26 | V1.2：删除 §4.2 不实承诺「补内容后自动重生成」——公开即冻结快照，补不回来（老板指出）；新增 §4.3「公开后还能改什么」，查明门店端改稿通道两个 bug（FAQ 不渲染、摘要被压住）；§6 四项待确认全部关闭，新增第 5 项 |
+| 2026-10-26 | V1.2：删除 §4.2 不实承诺「补内容后自动重生成」——公开即冻结快照，补不回来（老板指出）；新增 §4.3「公开后还能改什么」；§6 四项待确认全部关闭，新增第 5 项 |
+| 2026-10-26 | V1.2.1 纠错：§4.3 原判「摘要改了被压住、FAQ 改了不显示」**有误**。实测确认：摘要改了**生效**（服务端预渲染读 `data.summary`，快照层不覆盖 `summary`）；FAQ 是**分情况**——只在 `geoLayer.faq` 有合格内容时被压住。根因是只看了客户端 `case-render.js`，漏了服务端预渲染这条主路径 |
