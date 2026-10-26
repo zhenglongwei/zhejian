@@ -78,6 +78,89 @@
   border-color: var(--color-primary);
 }
 
+.merchant-host-page__mask-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0 var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 2rpx solid var(--color-border);
+  background-color: var(--color-bg-card);
+}
+
+.merchant-host-page__mask-board.is-warn {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.merchant-host-page__mask-board.is-ok {
+  border-color: var(--color-success);
+  background-color: var(--color-success-light);
+}
+
+.merchant-host-page__mask-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.merchant-host-page__mask-hint {
+  color: var(--color-text-secondary);
+}
+
+.merchant-host-page__mask-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.merchant-host-page__mask-cell {
+  position: relative;
+  height: 196rpx;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  border: 4rpx solid transparent;
+}
+
+.merchant-host-page__mask-cell.is-open {
+  border-color: var(--color-warning);
+}
+
+.merchant-host-page__mask-cell.is-done {
+  border-color: var(--color-success);
+}
+
+.merchant-host-page__mask-img {
+  width: 100%;
+  height: 100%;
+}
+
+.merchant-host-page__mask-tag {
+  position: absolute;
+  top: var(--space-xs);
+  left: var(--space-xs);
+  padding: 4rpx 12rpx;
+  border-radius: var(--radius-full);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: var(--font-weight-semibold);
+}
+
+.merchant-host-page__mask-tag.is-open {
+  color: var(--color-text-inverse);
+  background-color: var(--color-warning);
+}
+
+.merchant-host-page__mask-tag.is-done {
+  color: var(--color-text-inverse);
+  background-color: var(--color-success);
+}
+
+.merchant-host-page__actions--mask {
+  margin-top: 0;
+}
+
 .merchant-host-page__review {
   margin-top: var(--space-sm);
 }

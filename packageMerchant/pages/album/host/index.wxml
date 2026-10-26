@@ -73,8 +73,29 @@
     <!-- 步骤 2：通读本单报告，再脱敏 -->
     <block wx:elif="{{wizardStep === 2}}">
       <view class="merchant-host-page__section">
+        <text class="text-body merchant-host-page__label">公开前打码</text>
+        <view class="merchant-host-page__mask-board {{unmaskedCount ? 'is-warn' : 'is-ok'}}">
+          <text class="text-body merchant-host-page__mask-title">{{unmaskedCount ? '还有 ' + unmaskedCount + ' 张未打码' : (maskImages.length ? '照片都已打码' : '本单暂无照片')}}</text>
+          <text class="text-caption merchant-host-page__mask-hint">{{unmaskedCount ? '未打码的图不能上店页。点图手工打，或一键打码。' : '下面是通读全文；还要改码可再点图。'}}</text>
+          <view wx:if="{{maskImages.length}}" class="merchant-host-page__mask-grid">
+            <view
+              wx:for="{{maskImages}}"
+              wx:key="url"
+              class="merchant-host-page__mask-cell {{item.masked ? 'is-done' : 'is-open'}}"
+              data-url="{{item.url}}"
+              bindtap="onMaskThumbTap"
+            >
+              <image class="merchant-host-page__mask-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
+              <text class="merchant-host-page__mask-tag {{item.masked ? 'is-done' : 'is-open'}}">{{item.masked ? '已打码' : '未打码'}}</text>
+            </view>
+          </view>
+          <view class="merchant-host-page__actions merchant-host-page__actions--mask">
+            <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onRunHostAutoMask">
+              一键 AI 脱敏
+            </ui-button>
+          </view>
+        </view>
         <text class="text-body merchant-host-page__label">通读本单内容</text>
-        <text class="text-caption text-secondary">点图片去打码；打完后显示打码图。也可一键 AI 脱敏。</text>
 
         <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__review">
           <album-service-flow
@@ -101,12 +122,6 @@
             <text class="text-body">{{item.title}}</text>
             <text class="text-caption text-secondary">{{item.suggestion}}</text>
           </view>
-        </view>
-
-        <view class="merchant-host-page__actions">
-          <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onRunHostAutoMask">
-            一键 AI 脱敏
-          </ui-button>
         </view>
       </view>
     </block>

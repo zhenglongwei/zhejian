@@ -97,6 +97,66 @@ async function shouldIncludeReviewInAuthorizePreview(albumId) {
   return ['private', 'user_rejected'].includes(status)
 }
 
+function collectFlowReviewImageUrls(album) {
+  const pkg = album && album.contentPackageJson
+  const nodes = pkg && Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const urls = []
+  const seen = new Set()
+  const push = (raw) => {
+    const stored = String(
+      typeof raw === 'object' && raw ? raw.url || raw.src || raw.rawUrl || '' : raw || '',
+    ).trim()
+    if (!stored) return
+    let readable = stored
+    try {
+      readable = rewriteMediaUrlForCurrentBase(stored) || stored
+    } catch (_) {
+      readable = stored
+    }
+    const key = stripUrlQuery(readable)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    urls.push(readable)
+  }
+  nodes.forEach((node) => {
+    if (!node) return
+    const draft = node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}
+    const payload =
+      node.document && node.document.payload && typeof node.document.payload === 'object'
+        ? node.document.payload
+        : {}
+    ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
+    ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
+    ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
+      if (!row) return
+      if (row.url) push(row.url)
+      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
+    })
+    ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
+      if (!row) return
+      if (row.url) push(row.url)
+      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
+    })
+    ;(Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []).forEach(push)
+    if (draft.deliveryExteriorUrl) push(draft.deliveryExteriorUrl)
+    ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
+    ;(Array.isArray(payload.workItems) ? payload.workItems : []).forEach((row) => {
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+    })
+  })
+  return urls
+}
+
+function flowAssetId(url) {
+  const crypto = require('crypto')
+  return `flow_${crypto.createHash('sha1').update(stripUrlQuery(url)).digest('hex').slice(0, 16)}`
+}
+
+function assetCoversUrl(assets, url) {
+  const keys = new Set(rawUrlLookupKeys(url))
+  return (assets || []).some((row) => rawUrlLookupKeys(row && (row.rawUrl || row.url)).some((key) => keys.has(key)))
+}
+
 function mapPreMaskAssetToAuthorizeInput(asset) {
   return {
     assetId: asset.assetId,
@@ -1603,14 +1663,32 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     preMaskTask = await findPreMaskTask(albumId)
   }
 
-  if (!preMaskTask || !(preMaskTask.assets || []).length) {
+  const flowUrls = collectFlowReviewImageUrls(album)
+  if (!preMaskTask || (!(preMaskTask.assets || []).length && !flowUrls.length)) {
     const err = new Error('本单暂无过程图可脱敏')
     err.status = 409
     err.code = 'HOST_MASK_NO_ASSETS'
     throw err
   }
 
-  const assetInputs = (preMaskTask.assets || []).map(mapPreMaskAssetToAuthorizeInput)
+  const assetInputs = ((preMaskTask && preMaskTask.assets) || []).map(mapPreMaskAssetToAuthorizeInput)
+  flowUrls.forEach((url) => {
+    if (assetCoversUrl(assetInputs, url)) return
+    assetInputs.push({
+      assetId: flowAssetId(url),
+      mediaId: '',
+      nodeId: 'flow',
+      nodeTitle: '单据',
+      idx: assetInputs.length,
+      rawUrl: url,
+      maskedUrl: '',
+      preMaskedUrl: '',
+      status: ASSET_STATUS.RAW_UPLOADED,
+      previewed: false,
+      riskTags: [],
+      riskLevel: '',
+    })
+  })
   const taskId = buildHostMaskTaskId(albumId)
 
   const existing = await prisma.desensitizeTask.findUnique({
@@ -1623,8 +1701,9 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     Number(existing.preMaskVersion || 0) === Number(preMaskTask.preMaskVersion || 0) &&
     !existing.maskingConfirmed &&
     (existing.assets || []).length > 0
+  const missingFlow = flowUrls.filter((url) => !assetCoversUrl(existing && existing.assets, url))
 
-  if (sameVersion && !options.force) {
+  if (sameVersion && !options.force && !missingFlow.length) {
     const task = await getTaskById(taskId)
     return {
       albumId,

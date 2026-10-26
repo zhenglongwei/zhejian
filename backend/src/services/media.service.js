@@ -597,6 +597,25 @@ async function applyManualMaskToAsset({
   }
 }
 
+/** 交给模型的地址必须是打码图。打不成的这张不送原图。 */
+async function maskUrlsForModel(urls, context = {}) {
+  const out = []
+  const seen = new Set()
+  for (const raw of Array.isArray(urls) ? urls : []) {
+    const url = String(raw || '').trim()
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    try {
+      const masked = await resolveDesensitizedUrlForAsset(url, { ...context, force: false })
+      const next = masked && masked.ok ? String(masked.maskedUrl || '').trim() : ''
+      if (next) out.push(next)
+    } catch (_) {
+      /* 这张不送 */
+    }
+  }
+  return out
+}
+
 module.exports = {
   DESENSITIZE_STATUS,
   isDesensitizeTerminal,
@@ -606,6 +625,7 @@ module.exports = {
   getMediaById,
   runMediaDesensitize,
   resolveDesensitizedUrlForAsset,
+  maskUrlsForModel,
   applyManualMaskToAsset,
   normalizeManualRegions,
   parseObjectKeyFromPublicUrl,

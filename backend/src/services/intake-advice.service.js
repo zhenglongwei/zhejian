@@ -170,7 +170,9 @@ async function runIntakeAdviceJob(albumId) {
       },
     }))
     const urls = intakePhotoUrls(intake)
-    const parsed = urls.length ? await runGenerateLlm(urls) : null
+    const { maskUrlsForModel } = require('./media.service')
+    const maskedUrls = urls.length ? await maskUrlsForModel(urls, { albumId }) : []
+    const parsed = maskedUrls.length ? await runGenerateLlm(maskedUrls) : null
     await patchIntakeNode(albumId, (item) => ({
       ...item,
       intakeAdvice: !urls.length || parsed

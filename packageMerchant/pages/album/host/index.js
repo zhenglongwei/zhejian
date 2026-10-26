@@ -39,6 +39,49 @@ function withCacheBust(url, token) {
   return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`
 }
 
+function looksMaskedUrl(url) {
+  const value = String(url || '').trim()
+  if (!value) return false
+  return (
+    value.includes('/files/uploads/desensitized/') ||
+    value.includes('/media/files/uploads/desensitized/') ||
+    value.includes('/media/uploads/desensitized/') ||
+    value.includes('mock://desensitized/')
+  )
+}
+
+function collectMaskImagesFromDocs(docs) {
+  const rows = []
+  const seen = new Set()
+  const push = (raw) => {
+    const url = String(typeof raw === 'object' && raw ? raw.url || raw.src || '' : raw || '').trim()
+    if (!url) return
+    const key = stripUrlQuery(url)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    rows.push({ url, masked: looksMaskedUrl(url) })
+  }
+  ;(Array.isArray(docs) ? docs : []).forEach((doc) => {
+    if (!doc || doc.locked) return
+    ;(Array.isArray(doc.photos) ? doc.photos : []).forEach(push)
+    ;(Array.isArray(doc.findings) ? doc.findings : []).forEach((row) => {
+      push(row)
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+    })
+    ;(Array.isArray(doc.lines) ? doc.lines : []).forEach((row) => {
+      if (!row) return
+      push(row.evidenceUrl)
+      ;(Array.isArray(row.evidenceUrls) ? row.evidenceUrls : []).forEach(push)
+    })
+    ;(Array.isArray(doc.items) ? doc.items : []).forEach((row) => {
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+    })
+    ;(Array.isArray(doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach(push)
+    ;(Array.isArray(doc.discoveryImages) ? doc.discoveryImages : []).forEach(push)
+  })
+  return rows.sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+}
+
 /** 店页说明：空分区提示（商家口吻，不写实现叙事） */
 function buildGeoSectionHints(draft = {}) {
   const hasDetail = ['faultDesc', 'inspectResult', 'repairPlan', 'resultConfirm'].some((k) =>
@@ -155,19 +198,31 @@ function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
           return { ...row, evidenceUrl: nextUrl }
         })
       : doc.lines
+    const mapPhoto = (photo) => {
+      if (typeof photo === 'string') {
+        if (!match(photo)) return photo
+        changed = true
+        return nextUrl
+      }
+      if (!photo || !match(photo.url)) return photo
+      changed = true
+      return { ...photo, url: nextUrl }
+    }
     const deliveryPhotos = Array.isArray(doc.deliveryPhotos)
-      ? doc.deliveryPhotos.map((photo) => {
-          if (typeof photo === 'string') {
-            if (!match(photo)) return photo
-            changed = true
-            return nextUrl
-          }
-          if (!photo || !match(photo.url)) return photo
-          changed = true
-          return { ...photo, url: nextUrl }
-        })
+      ? doc.deliveryPhotos.map(mapPhoto)
       : doc.deliveryPhotos
-    return changed ? { ...doc, findings, lines, deliveryPhotos } : doc
+    const photos = Array.isArray(doc.photos) ? doc.photos.map(mapPhoto) : doc.photos
+    const mapRowImages = (row) => {
+      if (!row || !Array.isArray(row.images)) return row
+      const images = row.images.map(mapPhoto)
+      if (images.some((item, index) => item !== row.images[index])) {
+        changed = true
+        return { ...row, images }
+      }
+      return row
+    }
+    const items = Array.isArray(doc.items) ? doc.items.map(mapRowImages) : doc.items
+    return changed ? { ...doc, findings, lines, deliveryPhotos, photos, items } : doc
   })
 }
 
@@ -188,6 +243,8 @@ Page({
     privacyBlocks: [],
     qualitySuggestions: [],
     reviewDocs: [],
+    maskImages: [],
+    unmaskedCount: 0,
     previewTexts: [],
     previewImages: [],
     previewImageCount: 0,
@@ -336,9 +393,9 @@ Page({
     try {
       const face = await fetchHostPublicFace(this.albumId)
       const stamp = Date.now()
+      const bust = (u) => (u ? withCacheBust(u, stamp) : u)
       const reviewDocs = (Array.isArray(face.reviewDocs) ? face.reviewDocs : []).map((doc) => {
         if (!doc || doc.locked) return doc
-        const bust = (u) => (u ? withCacheBust(u, stamp) : u)
         return {
           ...doc,
           findings: Array.isArray(doc.findings)
@@ -356,10 +413,48 @@ Page({
                 return photo
               })
             : doc.deliveryPhotos,
+          photos: Array.isArray(doc.photos)
+            ? doc.photos.map((photo) => {
+                if (typeof photo === 'string') return bust(photo)
+                if (photo && photo.url) return { ...photo, url: bust(photo.url) }
+                return photo
+              })
+            : doc.photos,
+          items: Array.isArray(doc.items)
+            ? doc.items.map((row) => {
+                if (!row || !Array.isArray(row.images)) return row
+                return {
+                  ...row,
+                  images: row.images.map((photo) => {
+                    if (typeof photo === 'string') return bust(photo)
+                    if (photo && photo.url) return { ...photo, url: bust(photo.url) }
+                    return photo
+                  }),
+                }
+              })
+            : doc.items,
         }
       })
+      let maskImages = (Array.isArray(face.maskImages) ? face.maskImages : [])
+        .map((row) => ({
+          url: bust(row && row.url),
+          masked: Boolean(row && row.masked),
+        }))
+        .filter((row) => row.url)
+      if (!maskImages.length) {
+        maskImages = collectMaskImagesFromDocs(reviewDocs).map((row) => ({
+          url: bust(row.url),
+          masked: Boolean(row.masked),
+        }))
+      }
+      maskImages = maskImages
+        .slice()
+        .sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+      const unmaskedCount = maskImages.filter((row) => !row.masked).length
       this.setData({
         reviewDocs,
+        maskImages,
+        unmaskedCount,
         previewTexts: face.texts || [],
         previewImages: face.images || [],
         previewImageCount: face.imageCount || 0,
@@ -440,6 +535,8 @@ Page({
       this.setData({
         hostMode: 'private',
         reviewDocs: [],
+        maskImages: [],
+        unmaskedCount: 0,
         previewTexts: [],
         previewImages: [],
         privacyBlocks: [],
@@ -479,6 +576,11 @@ Page({
       throw err
     }
     return { taskId, assetId: hit.id }
+  },
+
+  onMaskThumbTap(e) {
+    const url = e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url
+    this.onReviewImageEdit({ detail: { url } })
   },
 
   async onReviewImageEdit(e) {
@@ -524,6 +626,7 @@ Page({
       )
       this.setData({ reviewDocs })
       this._maskEdit = null
+      await this.loadPublicFace({ silent: true })
     } catch (_) {
       /* 返回后仍可再点图 */
     }
@@ -585,6 +688,18 @@ Page({
 
   async onContinueAfterReview() {
     if (this.data.working) return
+    if (Number(this.data.unmaskedCount) > 0) {
+      const go = await new Promise((resolve) => {
+        wx.showModal({
+          title: '还有未打码的照片',
+          content: `还有 ${this.data.unmaskedCount} 张未打码。公开页不能用原图，建议先一键打码或点图处理。`,
+          confirmText: '去打码',
+          cancelText: '仍继续',
+          success: (res) => resolve(Boolean(res.confirm)),
+        })
+      })
+      if (go) return
+    }
     this.setData({ working: true })
     try {
       const audit = await auditHostedPublicPrivacy(this.albumId)

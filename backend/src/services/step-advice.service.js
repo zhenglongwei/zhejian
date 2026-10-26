@@ -377,12 +377,14 @@ async function patchNode(albumId, kind, mutator) {
 async function runLlm(instruction, urls, label) {
   const engines = resolveConfiguredNodeAiReviewEngines()
   if (!engines.length) return null
+  const { maskUrlsForModel } = require('./media.service')
+  const safeUrls = await maskUrlsForModel(urls)
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const tag = label || '照片'
-  const content = (urls || []).length
+  const content = safeUrls.length
     ? [{ type: 'text', text: instruction }].concat(
-        urls.map((url, index) => [
+        safeUrls.map((url, index) => [
           { type: 'text', text: `${tag}第 ${index + 1} 张` },
           { type: 'image_url', image_url: { url } },
         ]).flat(),

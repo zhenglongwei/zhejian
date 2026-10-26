@@ -551,6 +551,40 @@ async function cancelPublicHostIntent(albumId, { storeId, merchantId } = {}) {
   return { albumId, ...meta, message: '已改回仅私密托管', nextStep: 'done' }
 }
 
+function collectReviewMaskImages(docs) {
+  const { isDesensitizedMediaUrl } = require('../lib/media-url')
+  const { stripUrlQuery } = require('../lib/media-signed-url')
+  const rows = []
+  const seen = new Set()
+  const push = (raw) => {
+    const url = String(typeof raw === 'object' && raw ? raw.url || raw.src || '' : raw || '').trim()
+    if (!url) return
+    const key = stripUrlQuery(url)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    rows.push({ url, masked: isDesensitizedMediaUrl(url) })
+  }
+  ;(Array.isArray(docs) ? docs : []).forEach((doc) => {
+    if (!doc || doc.locked) return
+    ;(Array.isArray(doc.photos) ? doc.photos : []).forEach(push)
+    ;(Array.isArray(doc.findings) ? doc.findings : []).forEach((row) => {
+      push(row)
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+    })
+    ;(Array.isArray(doc.lines) ? doc.lines : []).forEach((row) => {
+      if (!row) return
+      push(row.evidenceUrl)
+      ;(Array.isArray(row.evidenceUrls) ? row.evidenceUrls : []).forEach(push)
+    })
+    ;(Array.isArray(doc.items) ? doc.items : []).forEach((row) => {
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+    })
+    ;(Array.isArray(doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach(push)
+    ;(Array.isArray(doc.discoveryImages) ? doc.discoveryImages : []).forEach(push)
+  })
+  return rows.slice().sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+}
+
 /** 将公开的图文预览（供核对页展示；脱敏图优先） */
 async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   const {
@@ -602,6 +636,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
 
   const albumNodes = mapNodesForView(album)
   const reviewDocs = buildHostContentReviewDocs(album, albumNodes, { resolveImageUrl })
+  const maskImages = collectReviewMaskImages(reviewDocs)
 
   const texts = []
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
@@ -639,6 +674,8 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     publicPublishStage: prev.publicPublishStage,
     privacyPassed: Boolean(prev.privacyAuditPassedAt),
     reviewDocs,
+    maskImages,
+    unmaskedCount: maskImages.filter((row) => !row.masked).length,
     texts,
     images: images.slice(0, 48),
     imageCount: images.length,
