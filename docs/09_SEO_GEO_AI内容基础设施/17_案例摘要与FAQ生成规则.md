@@ -3,7 +3,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 文档名称 | 案例摘要与 FAQ 生成规则 |
-| 当前版本 | V1.4 · 2026-10-26 |
+| 当前版本 | V1.5 · 2026-10-26 |
 | 适用范围 | 公开案例详情页的 AI 摘要、页内 FAQ |
 | 核心目标 | **让 AI 摘得走**——摘要与 FAQ 必须是「脱离页面仍成立」的事实句 |
 | 生成方式 | **大模型生成**（两段式：先看图补图说，再一次生成摘要 + FAQ），规则只做校验与兜底 |
@@ -46,6 +46,21 @@ AI 读完不知道修了什么，无从引用。
 
 **补充报价** = `addon_quote_confirm`（施工中新发现的问题，排在施工之后）。
 
+### 2.1.1 存在哪、怎么取（2026-10-26 实测）
+
+单据链存在 **`album.contentPackageJson.flowNodes`**（Prisma 列名 `content_package_json`）。
+
+取数有**两个坑**，都是实测踩出来的：
+
+| 坑 | 说明 |
+| --- | --- |
+| **工单节点没有 `document` 壳** | 工单项在 `work` 节点的 **`photoDraft.findings`**，不在 `document.payload`。`mapFlowNodeForView` 对 `work` 特判走 `mapOwnerWorkSheetCard`（`service-flow.service.js:1895`） |
+| **`inspection` 会被过滤掉** | `isOwnerDocumentKind` 不认 `inspection`，所以 `buildHostContentReviewDocs` 不返回它。检测结论要取 `inspection_report`，缺了才回退 `inspection` |
+
+**现成的读取函数 `buildHostContentReviewDocs(album, albumNodes)` 能用，但有两个短板**：
+工单项的 `outsideQuote`（增项标记）会被 `mapOwnerWorkSheetLine` 丢掉；
+`inspection` 节点拿不到。所以原料包走原始 `flowNodes` 解析（`utils/case-geo-factpack.js`）。
+
 ### 2.2 检测结论是结构化的
 
 `findings[]` 每一行长这样：
@@ -58,7 +73,11 @@ AI 读完不知道修了什么，无从引用。
 | `caption` | 用料短名（工单步填） | 更换小吊杆 |
 | `observation` | 完整观察 | 含读数、损伤范围 |
 | `outsideQuote` | 是否方案外 | true / false |
-| `imageKeys` | **这组图对应哪些图片** | 用于判断「这张图分析过没有」（§3.2） |
+| `images[]` | **这组图对应哪些图片**（每项 `{url, imageId}`） | 用于判断「这张图分析过没有」（§3.2） |
+
+> **字段名订正（2026-10-26 实测）**：规范化后是 `images`，**不是** `imageKeys`。
+> `imageKeys` 是原始草稿层（`backend/vendor/shared/utils/service-flow-docs.js`）的叫法，
+> 经 `mapFlowNodeForView` 规范化后变 `images`。照 `imageKeys` 写代码取不到值。
 
 **四档结论的取法**：只有「需处理」「需关注」喂给大模型；「状态良好」「仅记录」不喂（写进去等于刷屏）。
 
@@ -102,8 +121,8 @@ AI 读完不知道修了什么，无从引用。
 
 | 图片状态 | 判断方法 | 处理 |
 | --- | --- | --- |
-| **已分析过** | 该图的 key 出现在任一 `findings[].imageKeys` 中，或已有非空 `caption` / `advice` | **不送图**，只把已有的 `partName` + `result` + `advice` + `caption` 作为文字带进第二段 |
-| **未分析过** | 不在任何 `imageKeys` 里，且没有 `caption` | **送打码图**给多模态模型，生成一句 ≤40 字的客观图说 |
+| **已分析过** | 该图的 key 出现在任一 `findings[].images[].url` 中，或已有非空 `caption` / `advice` | **不送图**，只把已有的 `partName` + `result` + `advice` + `caption` 作为文字带进第二段 |
+| **未分析过** | 不在任何 `images` 里，且没有 `caption` | **送打码图**给多模态模型，生成一句 ≤40 字的客观图说 |
 
 **送图范围：全部未分析的脱敏图**（老板 2026-10-26 定）。
 
@@ -298,10 +317,10 @@ AI 读完不知道修了什么，无从引用。
 
 | # | 文件 | 改什么 |
 | --- | --- | --- |
-| 1 | `backend/src/services/case-geo-llm.service.js` | `loadCaseLlmContext` 改为取全量原料（§3.3），现在只喂 `nodes[].note`；`buildUserPrompt` 同步扩展 |
+| 1 | `case-geo-llm.service.js` + 新增 `utils/case-geo-factpack.js` | ✅ **已完成**：新增纯函数 `buildCaseFactPack(flowNodes)` 把七步单据链压成原料包；`loadCaseLlmContext` 挂 `ctx.factPack`；`buildUserPrompt` 加 `facts` 块；`prompts/case-geo-optimize.md` 说明新原料与优先级 |
 | 2 | `backend/src/services/case-geo-vision.service.js` | `enrichVisionCaptions` 加**图片分流**（§3.2）：已分析的跳过不送图，只未分析的送；图说复用为 ImageObject 的 `caption`/`alt` |
 | 3 | `backend/src/prompts/case-geo-optimize.md` | 输出格式加 `faq[]`（§3.5）；摘要写法改成「信息完整」而非「固定句式」（§3.4） |
-| 4 | `backend/src/utils/case-geo-llm-verify.js` | 扩展校验：FAQ 条目支撑检查、金额/隐私兜底、套话识别（§3.6） |
+| 4 | `backend/src/utils/case-geo-llm-verify.js` | **两项已随第 1 项一并修**（否则第 1 项白做）：① 单据链原料进证据池——否则真料写的摘要被判「无出处」打回；② 中文整句改用包含匹配——`tokenize` 把中文整句切成单个 token，只认全等会让模型任何改写都被拦。剩余（FAQ 支撑检查、金额/隐私兜底、套话识别）待做 |
 | 5 | `backend/src/utils/album-geo-extract.js` | 数据源换血（接 `chiefComplaint` / `findings[]` / 报价 / 工单），**去掉已废弃的 `stage_3`**，保留 stage 兼容回退（§2.4） |
 | 6 | `backend/src/utils/case-article-templates.js` | `resolveSeoNoindex` 加事实门槛（§4.1）；模板链路降级为**兜底**，不再是主路径 |
 | 7 | `backend/src/utils/merchant-case-job-faq.js` | **保留**，降级为 LLM 不可用时的兜底（§6 第 1 项已定） |
@@ -350,3 +369,4 @@ AI 读完不知道修了什么，无从引用。
 | 2026-10-26 | V1.2.1 纠错：§4.3 原判「摘要改了被压住、FAQ 改了不显示」**有误**。实测确认：摘要改了**生效**（服务端预渲染读 `data.summary`，快照层不覆盖 `summary`）；FAQ 是**分情况**——只在 `geoLayer.faq` 有合格内容时被压住。根因是只看了客户端 `case-render.js`，漏了服务端预渲染这条主路径 |
 | 2026-10-26 | V1.3：§6.1 第 5 项定案——**人工改稿优先于机器生成**（老板定）。不加「改后过审」，质量靠保存时的金额 / 隐私正则兜底。落地清单第 10 项明确两个改动点 |
 | 2026-10-26 | V1.4：老板进一步简化——**不搞优先级排队，FAQ 直接按摘要的方式处理：人工改的覆盖同一个字段**。已实现：`saveHostedPublicCopy` 置 `faqOverridden`，`collectHostedCaseFaq` 见标记即返回生效稿不回退；`renderArchiveLead` 客户端对齐服务端。新增 4 条回归测试 |
+| 2026-10-26 | V1.5：落地清单第 1 项完成（原料换血）。新增纯函数 `case-geo-factpack.js`，把七步单据链压成原料包喂给大模型。同修校验器两项：单据链原料进证据池、中文整句改包含匹配——否则真料写的摘要会被自己人拦下。订正字段 `imageKeys`→`images` |

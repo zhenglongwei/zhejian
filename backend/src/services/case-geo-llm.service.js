@@ -19,6 +19,10 @@ const {
 const { findGeoLlmViolation, sanitizeGeoLlmText } = require('../constants/geo-llm-compliance')
 const { verifyLlmDraftAgainstEvidence } = require('../utils/case-geo-llm-verify')
 const { buildCaseGeoVisionDraft } = require('./case-geo-vision.service')
+const {
+  buildCaseFactPack,
+  factPackHasEnoughFacts,
+} = require('../utils/case-geo-factpack')
 const { chatCompletion } = require('../lib/dashscope-chat')
 
 const PROMPT_PATH = path.join(__dirname, '../prompts/case-geo-optimize.md')
@@ -93,6 +97,14 @@ async function loadCaseLlmContext(caseId) {
     previousArticleVersion: row.articleVersion || 0,
   })
 
+  // 七步单据链才是干货的所在：诉求、检测结论、方案项目、工单、完工。
+  // 以前只喂相册节点的 note，大模型拿不到这些，只能说出「虽无具体故障描述」这类空话。
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const factPack = buildCaseFactPack(pkg.flowNodes)
+
   return {
     row,
     album,
@@ -101,18 +113,42 @@ async function loadCaseLlmContext(caseId) {
     templatePayload,
     coldStart,
     nodes: draft.contentJson?.nodes || albumView.nodes || [],
+    factPack,
+    enoughFacts: factPackHasEnoughFacts(factPack),
+  }
+}
+
+/**
+ * 把原料包压成提示词里的 facts 块
+ * 不喂金额、不喂 analyzedImageKeys（后者是给图片分流用的，不是素材）
+ */
+function buildFactsBlock(pack) {
+  return {
+    chiefComplaint: pack.chiefComplaint,
+    vehicle: pack.vehicle,
+    findings: pack.findings,
+    quoteItems: pack.quoteItems,
+    addonQuoteItems: pack.addonQuoteItems,
+    workItems: pack.workItems,
+    finish: pack.finish,
+    missing: pack.missing,
   }
 }
 
 function buildUserPrompt(ctx) {
-  const { templatePayload, albumView, nodes } = ctx
+  const { templatePayload, albumView, nodes, factPack } = ctx
   const geo = templatePayload.contentJson?.geo || {}
+
+  // 有单据链就喂真料；没有（老相册）只喂节点备注，交给提示词的兜底写法
+  const facts = factPack && factPack.hasFlow ? buildFactsBlock(factPack) : null
+
   return JSON.stringify(
     {
       city: ctx.row.city,
       storeName: ctx.row.storeName,
       serviceName: ctx.row.serviceName,
       vehicle: albumView.vehicle || {},
+      ...(facts ? { facts } : {}),
       nodes: (nodes || []).map((node) => ({
         id: node.id || node.nodeId,
         title: node.title || '',
@@ -279,6 +315,8 @@ async function runCaseGeoLlmOptimization(caseId) {
       planAmount: ctx.albumView.planAmount,
       storeNote: ctx.albumView.storeNote,
       coldStart: ctx.coldStart,
+      // 大模型依据 facts 写，校验就得认 facts 里的料，否则把真料判成编造
+      factPack: ctx.factPack,
     })
 
     if (!verify.passed) {
@@ -385,6 +423,8 @@ function mapTemplateOriginal(templatePayload) {
 module.exports = {
   getGeoLlmConfig,
   loadCaseLlmContext,
+  buildUserPrompt,
+  buildFactsBlock,
   runCaseGeoLlmOptimization,
   scheduleCaseGeoLlmOptimization,
   scheduleCaseGeoLlmForAlbum,
