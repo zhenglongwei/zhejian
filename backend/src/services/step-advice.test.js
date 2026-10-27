@@ -2,11 +2,11 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { parseWorkAdvice, parseDeliveryAdvice, parseInspectionAdvice } = require('./step-advice.service')
 
-test('施工对不上时写明没做或报价没有', () => {
+test('施工对不上时优先用模型写的实质意见', () => {
   const got = parseWorkAdvice({
     gaps: [
       { kind: 'missing', title: '下摆臂', body: '报价有这项，施工还没有照片。补上这一项的施工图。' },
-      { kind: 'extra', title: '平衡杆', body: '施工做了，报价没有。若要向车主另收，可以重新报价。报价已是最终价的，这项费用由店里承担。' },
+      { kind: 'extra', title: '平衡杆', body: '施工做了，报价没有。若要向车主另收，先走补充报价。' },
       { kind: 'photo', title: '轮胎', body: '报价有这项，施工没有说明。补一句做成了什么。' },
       { kind: 'nope', title: '丢掉', body: '丢掉。' },
     ],
@@ -15,9 +15,9 @@ test('施工对不上时写明没做或报价没有', () => {
   assert.equal(got.scope, 'process')
   assert.equal(got.gaps.length, 2)
   assert.equal(got.gaps[0].kind, 'missing')
-  assert.equal(got.gaps[0].body, '报价里的下摆臂，施工没有做。')
+  assert.equal(got.gaps[0].body, '报价有这项，施工还没有照片。补上这一项的施工图。')
   assert.equal(got.gaps[1].kind, 'extra')
-  assert.equal(got.gaps[1].body, '平衡杆是新增项，没有事先报价。')
+  assert.match(got.gaps[1].body, /补充报价|没有/)
 })
 
 test('分组建议只保留已经有的另一项', () => {
@@ -69,7 +69,7 @@ test('空说明才给车主向的描述，看图复述和已写说明都不出',
 
 test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
   const got = parseWorkAdvice({
-    gaps: [{ kind: 'extra', title: '平衡杆', body: '去重新报价。' }],
+    gaps: [{ kind: 'extra', title: '平衡杆', body: '施工做了平衡杆，报价表里没有这一行。' }],
     items: [
       { id: 'a', body: '更换了已经松动的平衡杆。' },
       { id: 'b', body: '更换了开裂的下摆臂胶套。' },
@@ -79,14 +79,14 @@ test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
     { id: 'b', name: '下摆臂胶套', note: '', photos: 1 },
   ])
   assert.equal(got.gaps.length, 1)
-  assert.equal(got.gaps[0].body, '平衡杆是新增项，没有事先报价。')
+  assert.match(got.gaps[0].body, /报价/)
   assert.equal(got.items.length, 2)
   assert.equal(got.items[0].partName, '平衡杆')
   assert.equal(got.items[0].display, '平衡杆建议描述为：更换了已经松动的平衡杆。')
   assert.equal(got.items[1].display, '下摆臂胶套建议描述为：更换了开裂的下摆臂胶套。')
 })
 
-test('检测按已写的发现解释，空发现不编后果', () => {
+test('检测只保留模型按实质写出的意见，不套空栏话术', () => {
   const got = parseInspectionAdvice(
     {
       shop: [
@@ -97,7 +97,7 @@ test('检测按已写的发现解释，空发现不编后果', () => {
       ],
       items: [
         { id: 'a', body: '接头已经老化。再拖可能接触不良，灯会闪。建议现在处理，不要再拖。' },
-        { id: 'b', body: '编一段没写过的漏油。' },
+        { id: 'b', body: '胎侧有细纹，可先观察，爆胎风险目前不高。' },
       ],
     },
     [
@@ -110,13 +110,14 @@ test('检测按已写的发现解释，空发现不编后果', () => {
   assert.equal(got.shop.length, 2)
   assert.equal(got.shop[0].kind, 'miss')
   assert.equal(got.shop[1].kind, 'wrong')
+  assert.equal(got.items.length, 2)
   assert.equal(got.items[0].timing, '建议现在处理')
   assert.match(got.items[0].body, /老化/)
   assert.equal(got.items[0].hasReason, true)
-  assert.match(got.items[1].body, /还空着/)
+  assert.match(got.items[1].body, /细纹|观察/)
   assert.equal(got.items[1].hasReason, false)
-  assert.equal(got.items[2].timing, '现在不用动')
-  assert.match(got.items[2].body, /刮得干净/)
+  assert.equal(got.items[1].canApply, true)
+  assert.equal(got.items.some((row) => row.id === 'c'), false)
 })
 
 test('交车分成维修、质保、用车', () => {

@@ -330,7 +330,7 @@
 | preview | `{ url, index }` 点图预览 |
 | assign | `{ index }` 并入 |
 | promote | `{ index }` 新开 |
-| remove | `{ index }` 删除（进本单图库，不删文件） |
+| remove | `{ index }` 删除（从本步卸下；本单图库已废除） |
 
 #### FlowPickSheet（`components/flow-pick-sheet` · 商家进度）
 

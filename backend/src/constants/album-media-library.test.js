@@ -18,7 +18,7 @@ test('excludeLibraryNodes drops the library stage', () => {
   )
 })
 
-test('patch work node parks leftover photos, keeps library photos', () => {
+test('patch work node detaches leftover photos and clears old library rows', () => {
   const ids = listDetachedImageIds(
     [
       { id: 'keep', nodeId: 'stage_5' },
@@ -28,10 +28,10 @@ test('patch work node parks leftover photos, keeps library photos', () => {
     ['keep'],
     { patchedNodeIds: ['stage_5'] },
   )
-  assert.deepEqual(ids, ['drop'])
+  assert.deepEqual(ids.sort(), ['drop', 'lib'].sort())
 })
 
-test('empty findings parks every photo on the patched node', () => {
+test('empty findings detaches every photo on the patched node', () => {
   const ids = listDetachedImageIds(
     [
       { id: 'a', nodeId: 'stage_5' },
@@ -43,7 +43,7 @@ test('empty findings parks every photo on the patched node', () => {
   assert.deepEqual(ids, ['a'])
 })
 
-test('replaceAll parks photos that are not in the new list, not library rows', () => {
+test('replaceAll detaches photos not in the new list including old library rows', () => {
   const ids = listDetachedImageIds(
     [
       { id: 'old', nodeId: 'stage_1' },
@@ -53,7 +53,7 @@ test('replaceAll parks photos that are not in the new list, not library rows', (
     ['keep'],
     { replaceAll: true },
   )
-  assert.deepEqual(ids, ['old'])
+  assert.deepEqual(ids.sort(), ['lib', 'old'].sort())
 })
 
 test('isLibraryNodeId', () => {

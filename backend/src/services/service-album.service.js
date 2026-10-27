@@ -823,42 +823,16 @@ function uniqueSyncAlbumNodes(nodesPayload = []) {
   return Array.from(map.values())
 }
 
-async function ensureLibraryAlbumNode(tx, albumId) {
-  await tx.albumNode.upsert({
-    where: { albumId_nodeId: { albumId, nodeId: LIBRARY_NODE_ID } },
-    create: {
-      albumId,
-      nodeId: LIBRARY_NODE_ID,
-      title: '图库',
-      sortOrder: 99,
-      status: 'pending',
-      note: '',
-      comparePairRows: [],
-      updatedAt: new Date(),
-    },
-    update: {
-      title: '图库',
-    },
-  })
-}
-
-async function parkDetachedImagesToLibrary(tx, albumId, imageIds = []) {
+/** 卸下项上的图：删相册图行（对象存储文件可留）。本单图库已废除，不再改挂 library 节点。 */
+async function removeDetachedAlbumImages(tx, albumId, imageIds = []) {
   const ids = (imageIds || []).filter(Boolean)
   if (!ids.length) return
-  await ensureLibraryAlbumNode(tx, albumId)
-  const existingLib = await tx.albumImage.count({
-    where: { albumId, nodeId: LIBRARY_NODE_ID, id: { notIn: ids } },
+  await tx.albumImage.deleteMany({
+    where: { albumId, id: { in: ids } },
   })
-  for (let i = 0; i < ids.length; i += 1) {
-    await tx.albumImage.update({
-      where: { id: ids[i] },
-      data: {
-        nodeId: LIBRARY_NODE_ID,
-        idx: existingLib + i,
-        caption: '',
-      },
-    })
-  }
+  await tx.albumNode.deleteMany({
+    where: { albumId, nodeId: LIBRARY_NODE_ID },
+  })
 }
 
 /** 图的身份是文件本身，不是「第几张」。并发保存不会因为序号相同撞主键。 */
@@ -1025,10 +999,10 @@ async function commitAlbumNodeImages(albumId, nodeRows, imageRows, options = {})
           replaceAll,
           patchedNodeIds,
         })
-        await parkDetachedImagesToLibrary(tx, albumId, detachedIds)
+        await removeDetachedAlbumImages(tx, albumId, detachedIds)
       }
       if (replaceAll) {
-        const keepNodeIds = nodeRows.map((row) => row.nodeId).concat([LIBRARY_NODE_ID])
+        const keepNodeIds = nodeRows.map((row) => row.nodeId)
         await tx.albumNode.deleteMany({
           where: { albumId, nodeId: { notIn: keepNodeIds } },
         })

@@ -107,16 +107,19 @@ async function runGenerateLlm(urls) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    '你在看接车时拍的车身照片。只判断车头、车尾、左侧、右侧有没有入镜。',
-    '某一侧完全没出现，放进 missing。值只能是：车头、车尾、左侧、右侧。',
-    '看不清是哪一侧，就不要猜，不要放进 missing。',
-    '不要写损伤部位、深浅、特写，不要改车主诉求，不要写检测或保养。',
-    '四周都能看到时 missing 为空数组。',
-    '输出 JSON：{"missing":[]}',
+    'You assist a Chinese auto shop clerk at vehicle intake (pre-repair check-in photos).',
+    'Goal: decide whether front / rear / left / right of the car are covered by the photos. Content over form — judge what is actually visible, not whether fields look filled.',
+    'Rules:',
+    '- Do NOT diagnose damage, severity, or repair order.',
+    '- Do NOT rewrite the owner complaint text.',
+    '- If a side is clearly missing, list it. If unsure, omit it.',
+    '- Output natural-language strings in Simplified Chinese. Keys in English.',
+    'Return JSON only:',
+    '{"coverage":{"front":true,"rear":true,"left":true,"right":true},"missing":["车头"|"车尾"|"左侧"|"右侧"],"tips":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
   const content = [{ type: 'text', text: instruction }].concat(
     (urls || []).flatMap((url, index) => [
-      { type: 'text', text: `第 ${index + 1} 张` },
+      { type: 'text', text: `Photo slot ${index + 1}` },
       { type: 'image_url', image_url: { url } },
     ]),
   )
@@ -129,7 +132,11 @@ async function runGenerateLlm(urls) {
         apiKey: engine.apiKey,
         model: engine.model,
         messages: [
-          { role: 'system', content: '只输出 JSON。' },
+          {
+            role: 'system',
+            content:
+              'Reply with JSON only. Natural-language string values must be Simplified Chinese.',
+          },
           { role: 'user', content: content },
         ],
         temperature: 0.2,
@@ -173,32 +180,50 @@ async function runIntakeAdviceJob(albumId) {
     const { maskUrlsForModel } = require('./media.service')
     const maskedUrls = urls.length ? await maskUrlsForModel(urls, { albumId }) : []
     const parsed = maskedUrls.length ? await runGenerateLlm(maskedUrls) : null
-    await patchIntakeNode(albumId, (item) => ({
-      ...item,
-      intakeAdvice: !urls.length || parsed
-        ? {
-            status: 'ready',
-            scope: 'coverage',
-            fingerprint,
-            noPhotos: !urls.length,
-            covered: parsed ? parsed.covered : false,
-            diagnosis: '',
-            photoTips: [],
-            askOwner: [],
-            checkpoints: [],
-            risks: parsed ? parsed.risks : [],
-            fixes: parsed ? parsed.fixes : [],
-            errorMessage: '',
-            updatedAt: new Date().toISOString(),
-          }
-        : {
-            ...(item.intakeAdvice || {}),
-            status: 'failed',
-            fingerprint,
-            errorMessage: '未能出意见',
-            updatedAt: new Date().toISOString(),
-          },
-    }))
+    await patchIntakeNode(albumId, (item) => {
+      const draft = (item.photoDraft && typeof item.photoDraft === 'object' ? item.photoDraft : {}) || {}
+      const imageNotes = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
+      const noteRows = Array.isArray(parsed && parsed.imageNotes) ? parsed.imageNotes : []
+      noteRows.forEach((row) => {
+        const slot = Number(row && row.slot)
+        const note = text(row && row.note)
+        const url = urls[slot - 1]
+        const key = String(url || '')
+          .trim()
+          .split('?')[0]
+          .split('#')[0]
+        if (key && note) imageNotes[key] = note.slice(0, 120)
+      })
+      const next = {
+        ...item,
+        photoDraft: { ...draft, imageNotes },
+        intakeAdvice: !urls.length || parsed
+          ? {
+              status: 'ready',
+              scope: 'coverage',
+              fingerprint,
+              noPhotos: !urls.length,
+              covered: parsed ? parsed.covered : false,
+              diagnosis: '',
+              photoTips: Array.isArray(parsed && parsed.tips) ? parsed.tips : [],
+              askOwner: [],
+              checkpoints: [],
+              risks: parsed ? parsed.risks : [],
+              fixes: parsed ? parsed.fixes : [],
+              imageNotes: noteRows,
+              errorMessage: '',
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              ...(item.intakeAdvice || {}),
+              status: 'failed',
+              fingerprint,
+              errorMessage: '未能出意见',
+              updatedAt: new Date().toISOString(),
+            },
+      }
+      return next
+    })
   } finally {
     jobsInFlight.delete(key)
   }

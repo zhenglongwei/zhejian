@@ -396,11 +396,9 @@ async function fetchMerchantFlowNodeAiReview(albumId, nodeId) {
   )
 }
 
-async function fetchMerchantAlbumMediaLibrary(albumId) {
-  if (ENV.mode === 'mock') {
-    return { items: [] }
-  }
-  return get(`/merchant/service-albums/${albumId}/media-library`, withStore())
+/** @deprecated 本单图库已删除；保留空实现避免旧引用报错 */
+async function fetchMerchantAlbumMediaLibrary() {
+  return { items: [], deprecated: true }
 }
 
 async function organizeMerchantFlowNodePhotos(albumId, nodeId, payload = {}) {

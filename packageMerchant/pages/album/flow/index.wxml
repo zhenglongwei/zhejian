@@ -16,8 +16,15 @@
       </view>
     </view>
     <view wx:if="{{brief.hasIssues}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">已写内容</text>
+      <text class="merchant-flow-page__quote-brief-sec-title">价格留意</text>
       <view wx:for="{{brief.issues}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+      </view>
+    </view>
+    <view wx:if="{{brief.hasNecessity}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">项目必要吗</text>
+      <view wx:for="{{brief.necessity}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
         <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
         <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
       </view>
@@ -25,6 +32,13 @@
     <view wx:if="{{brief.hasOmissions}}" class="merchant-flow-page__quote-brief-sec">
       <text class="merchant-flow-page__quote-brief-sec-title">可能漏了</text>
       <view wx:for="{{brief.omissions}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+      </view>
+    </view>
+    <view wx:if="{{brief.hasPhotoPlan}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">施工建议拍</text>
+      <view wx:for="{{brief.photoPlan}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
         <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
         <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
       </view>
@@ -1804,38 +1818,9 @@
     </view>
   </block>
 
-  <view wx:if="{{showLibrary}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseLibrary">
-    <view class="merchant-flow-page__library" catchtap="onLibraryPanelTap">
-      <view class="merchant-flow-page__library-head">
-        <text class="text-h3">本单图库</text>
-        <text class="text-caption text-secondary" catchtap="onCloseLibrary">关闭</text>
-      </view>
-      <scroll-view scroll-y class="merchant-flow-page__library-list">
-        <view wx:if="{{libraryBusy}}" class="text-caption text-secondary merchant-flow-page__library-empty">加载中</view>
-        <view wx:elif="{{!libraryItems.length}}" class="text-caption text-secondary merchant-flow-page__library-empty">这本相册还没有图</view>
-        <view
-          wx:for="{{libraryItems}}"
-          wx:for-item="shot"
-          wx:key="url"
-          class="merchant-flow-page__library-row {{shot.picked ? 'is-picked' : ''}} {{shot.inPending ? 'is-used' : ''}}"
-          data-url="{{shot.url}}"
-          bindtap="onToggleLibraryItem"
-        >
-          <image class="merchant-flow-page__library-thumb image-placeholder" src="{{shot.url}}" mode="aspectFill" />
-          <view class="merchant-flow-page__library-meta">
-            <text class="text-caption">{{shot.metaLine}}</text>
-            <text wx:if="{{shot.note}}" class="text-caption text-secondary merchant-flow-page__library-note">{{shot.note}}</text>
-            <text wx:if="{{shot.inPending}}" class="text-caption text-secondary">已选</text>
-          </view>
-        </view>
-      </scroll-view>
-      <ui-button type="primary" block="{{true}}" bind:btntap="onConfirmLibrary">选用</ui-button>
-    </view>
-  </view>
-
   <ai-fab
     wx:if="{{workOpen && stageBoard}}"
-    hidden="{{adviceOpen || recordPreview || docBrief || showLibrary || showCancelAddonModal || showPickSheet}}"
+    hidden="{{adviceOpen || recordPreview || docBrief || showCancelAddonModal || showPickSheet}}"
     waiting="{{(stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}"
     bind:tap="onAiFab"
   />

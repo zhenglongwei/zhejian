@@ -91,15 +91,18 @@ async function runGenerateLlm(facts, category) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    '你是汽修店员的方案助手。根据接车主诉和检测已写结果出建议报价。不要百科，不要编没写到的损伤。',
+    'You assist a Chinese auto shop clerk reviewing a repair quote (or drafting suggested lines from inspection).',
+    'Goal: necessity of lines, missing critical lines, price reasonableness, and which workmanship photos the shop should take later. Content over form. Never claim "no issues" only because the table has rows.',
+    'The CURRENT quote table in facts is ground truth when present. Do NOT discuss items that are not on the table as billable facts.',
+    'You MUST review every filled amount for being absurdly high or low for that service in a normal China independent shop; call out outliers in priceIssues.',
+    'Do NOT change amounts. Do NOT turn common industry talk into billable lines.',
+    'For suggestedLines (when drafting): name + work note; leave amounts empty. Use oem/brand/economy as wide reference bands, not live market prices.',
+    'Omissions stay in omissions — never as chargeable lines. Closed packages must keep the package main line. Open jobs: only visible actionable items and teardown; do not invent hidden parts.',
+    'Skip 状态良好 / 仅记录 / routine inspection-only rows as charge lines.',
     MECHANIC_VOICE_RULES,
-    '出建议报价表：项目名和施工方案，金额必须空着。同时给店员看意见：可能漏了、车主可能问、市场参考价档。',
-    '不要写成交金额。price 用原厂/品牌/经济件宽区间，不是实时行情。漏查只进 omissions，不要写成收费行。',
-    '封闭类目必须保住套餐主项；开口活只出可见需处理项和拆检，未拆开的隐藏件不要写成收费行。',
-    '状态良好、仅记录、巡检类不要出行。',
-    `类目约束：${JSON.stringify(facts.constraint)}`,
-    `本单事实：${JSON.stringify(facts.body)}`,
-    '输出 JSON：{"suggestedLines":[{"name","note","oem","brand","economy"}],"omissions":[{"title","body"}],"objections":[{"ask","heard","ours","say"}]}。objections 只给店员看：ask 是车主会问的一句，heard 是没看见这台车时常见的说法，ours 只引用本单已有的照片和项目，say 是当面要讲的一句。不要把 objections 写进报价行，不要改金额。开口活必须有一条说明第一个数不是拆开后的总价。事故车不要写维修费区间，say 写不要报这个数。',
+    `Category constraint: ${JSON.stringify(facts.constraint)}`,
+    `Job facts JSON: ${JSON.stringify(facts.body)}`,
+    'Return JSON only (Chinese strings): {"suggestedLines":[{"name","note","oem","brand","economy"}],"priceIssues":[{"lineName","body"}],"omissions":[{"title","body","suggestAdd":true}],"necessity":[{"lineName","body"}],"photoPlan":[{"title","body"}],"objections":[{"ask","heard","ours","say"}]}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -112,7 +115,11 @@ async function runGenerateLlm(facts, category) {
         apiKey: engine.apiKey,
         model: engine.model,
         messages: [
-          { role: 'system', content: '只输出 JSON。' },
+          {
+            role: 'system',
+            content:
+              'Reply with JSON only. Natural-language string values must be Simplified Chinese. Never say no advice merely because the form looks filled.',
+          },
           { role: 'user', content: instruction },
         ],
         temperature: 0.2,

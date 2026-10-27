@@ -1486,12 +1486,31 @@ function buildRepairReportPayload({
     warrantyScope: warranty.scope || photoDraft.warrantyScope,
     warrantyExclusions: warranty.exclusions || photoDraft.warrantyExclusions,
   })
-  const items = (workItems || []).map((item) => ({
-    name: String(item.name || '').trim(),
-    brand: String(item.brand || '').trim(),
-    amount: parseAmount(item.amount) == null ? 0 : parseAmount(item.amount),
-    note: String(item.note || '').trim(),
-  }))
+  const items = (workItems || []).map((item) => {
+    const images = []
+    const seen = {}
+    const push = (raw) => {
+      const url = String(
+        typeof raw === 'object' && raw ? raw.url || raw.src || '' : raw || '',
+      ).trim()
+      if (!url || seen[url]) return
+      seen[url] = true
+      const imageId =
+        typeof raw === 'object' && raw ? String(raw.imageId || raw.id || '').trim() : ''
+      images.push(imageId ? { url, imageId } : { url })
+    }
+    ;(Array.isArray(item.images) ? item.images : []).forEach(push)
+    if (!images.length && item.url) push(item)
+    return {
+      name: String(item.name || '').trim(),
+      brand: String(item.brand || '').trim(),
+      material: String(item.material || '').trim(),
+      qty: String(item.qty || '').trim(),
+      amount: parseAmount(item.amount) == null ? 0 : parseAmount(item.amount),
+      note: String(item.note || '').trim(),
+      images,
+    }
+  })
   const computedTotal =
     totalAmount != null
       ? parseAmount(totalAmount)

@@ -125,6 +125,27 @@ function collectFlowReviewImageUrls(album) {
       node.document && node.document.payload && typeof node.document.payload === 'object'
         ? node.document.payload
         : {}
+    const docStatus = String((node.document && node.document.status) || '')
+    const reportSealed =
+      docStatus === 'delivered' ||
+      docStatus === 'confirmed' ||
+      docStatus === 'pending_confirm' ||
+      docStatus === 'completed'
+    // 定稿后优先报告属性；未定稿才扫草稿，避免托管/脱敏再从散图拼一套
+    if (reportSealed) {
+      ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
+      ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
+        if (!row) return
+        if (row.url) push(row.url)
+        ;(Array.isArray(row.images) ? row.images : []).forEach(push)
+      })
+      ;(Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []).forEach(push)
+      ;(Array.isArray(payload.workItems) ? payload.workItems : []).forEach((row) => {
+        ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+        if (row && row.url) push(row.url)
+      })
+      return
+    }
     ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
     ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
     ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {

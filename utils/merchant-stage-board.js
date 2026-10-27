@@ -340,19 +340,13 @@ function bucketKeyForNode(node, counters) {
 function stageReviewForm(board, focus, nodes) {
   if (!board) return false
   const list = nodes || []
-  if (board.family === 'inspect') {
-    const report = list.find((node) => node && node.kind === 'inspection_report')
-    const status = docStatus(report)
-    return status === 'delivered' || status === 'confirmed'
+  const { isStageFrozen, isAddonNodeFrozen, familyOfStageKey } = require('./flow-stage-locks')
+  const family = board.family || familyOfStageKey(board.selectedKey || board.key)
+  if (family === 'quote' && focus && (focus.kind === 'addon_quote_confirm' || String(focus.insertedReason || '') === 'addon')) {
+    return isAddonNodeFrozen(focus)
   }
-  if (board.family === 'quote') {
-    const status = docStatus(focus)
-    return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled'
-  }
-  if (board.family === 'finish') {
-    const report = list.find((node) => node && node.kind === 'repair_report')
-    const status = docStatus(report)
-    return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+  if (family === 'intake' || family === 'inspect' || family === 'quote' || family === 'work' || family === 'finish') {
+    return isStageFrozen(list, family)
   }
   return false
 }

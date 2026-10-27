@@ -6,7 +6,6 @@ const {
   completeMerchantFlowNode,
   fetchMerchantFlowNodeAiReview,
   organizeMerchantFlowNodePhotos,
-  fetchMerchantAlbumMediaLibrary,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   deliverMerchantFlowNode,
@@ -33,6 +32,15 @@ const {
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
 const { buildFlowProgressView, deliveryReportSent } = require('../../../../utils/service-flow-progress')
+const {
+  canOpenStage,
+  canEnterStage,
+  isStageFrozen,
+  isNodeEditFrozen,
+  familyOfStageKey,
+  familyOfKind,
+  freezeMessage,
+} = require('../../../../utils/flow-stage-locks')
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
 const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
@@ -419,9 +427,6 @@ Page({
     fuelReading: '',
     intakeImagePool: [],
     isAppearanceService: false,
-    showLibrary: false,
-    libraryBusy: false,
-    libraryItems: [],
     canUseLibrary: false,
     organizedOnce: false,
     hasFindingItems: false,
@@ -1822,12 +1827,18 @@ Page({
         readOnly:
           readOnly ||
           Boolean(
-            isWorkPhotoStep &&
-              active &&
-              active.status === 'completed' &&
-              deliveryReportSent(flowNodes),
+            openStageBoard &&
+              isStageFrozen(flowNodes, openStageBoard.family || familyOfStageKey(openStageBoard.selectedKey)),
           ) ||
-          stageReviewForm(openStageBoard, openStageBoard && flowNodes.find((node) => node && node.id === openStageBoard.focusId), flowNodes),
+          Boolean(
+            openStageBoard &&
+              openStageBoard.family === 'quote' &&
+              stageReviewForm(
+                openStageBoard,
+                openStageBoard && flowNodes.find((node) => node && node.id === openStageBoard.focusId),
+                flowNodes,
+              ),
+          ),
         completedSteps,
         activeNode: active,
         activeTitle,
@@ -1904,9 +1915,6 @@ Page({
             sections.some((row) => row && row.findingMode && (row.findings || []).length),
         ),
         ...this.findingChromePatch(sections, photoDraft.pendingImages),
-        showLibrary: false,
-        libraryBusy: false,
-        libraryItems: [],
         walkaround,
         walkaroundParts: WALKAROUND_PARTS.map((row) => ({
           ...row,
@@ -2099,20 +2107,30 @@ Page({
   },
 
   openStage(stageKey) {
-    const stageBoard = buildMerchantStageBoard(this._album || {}, this._flowNodes || [], stageKey || 'intake')
-    const family = stageBoard.family || stageKeyOf(stageBoard.selectedKey)
-    const focus = (this._flowNodes || []).find((node) => node && node.id === stageBoard.focusId)
+    const nodes = this._flowNodes || []
+    const stageBoard = buildMerchantStageBoard(this._album || {}, nodes, stageKey || 'intake')
+    const family = stageBoard.family || stageKeyOf(stageBoard.selectedKey) || familyOfStageKey(stageKey)
+    if (!canOpenStage(nodes, family === 'addon' ? 'addon' : family)) {
+      wx.showToast({ title: '请先完成上一步', icon: 'none' })
+      return
+    }
+    const focus = nodes.find((node) => node && node.id === stageBoard.focusId)
     let chrome = stageChrome(
       family,
-      stageGateFor(this._flowNodes || [], family, family === 'quote' ? focus : this.data.activeNode),
+      stageGateFor(nodes, family, family === 'quote' ? focus : this.data.activeNode),
     )
     const stay = focusStaysEditable(stageBoard, focus)
     const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
-    const review = stageReviewForm(stageBoard, focus, this._flowNodes || [])
-    const editorNode = stageEditorNode(stageBoard, focus, this._flowNodes || [])
-    if (family === 'work' && workDone) {
+    const review = stageReviewForm(stageBoard, focus, nodes)
+    const frozen = Boolean(
+      review ||
+        isStageFrozen(nodes, family === 'addon' ? 'quote' : family) ||
+        (focus && isNodeEditFrozen(nodes, focus)),
+    )
+    const editorNode = stageEditorNode(stageBoard, focus, nodes)
+    if (family === 'work' && workDone && !frozen) {
       chrome = { preview: false, label: '', action: '', locked: false }
-    } else if (family === 'work' && stageBoard.state !== 'current' && !stay) {
+    } else if (family === 'work' && stageBoard.state !== 'current' && !stay && !workDone) {
       chrome = { preview: false, label: '', action: '', locked: true }
     } else if (family === 'work') {
       chrome = { ...chrome, preview: false }
@@ -2127,6 +2145,9 @@ Page({
     }
     const openAdvice = Boolean(this._openAdviceAfterLoad)
     this._openAdviceAfterLoad = false
+    const albumLocked = Boolean(
+      this._album && (this._album.contentLocked || this._album.editable === false),
+    )
     this.setData({
       workOpen: true,
       doneView: null,
@@ -2140,7 +2161,7 @@ Page({
       stagePrimary: chrome.label,
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
-      readOnly: (workDone && deliveryReportSent(this._flowNodes || [])) || review ? true : this.data.readOnly,
+      readOnly: albumLocked || frozen,
       intakePile: this.collectIntakePile(stageBoard),
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
@@ -4065,10 +4086,6 @@ Page({
       this.assignPendingWorkKey(this.data.assignPendingIndex, key)
       return
     }
-    if (kind === 'library-work') {
-      this.attachLibraryToWork(Number(key))
-      return
-    }
     if (kind === 'add-work') {
       const si = this.findingSectionIndex()
       if (key.indexOf('quote:') === 0) {
@@ -4624,7 +4641,7 @@ Page({
     }, 700)
   },
 
-  /** 从项上卸下的图立刻改挂到本单图库，不删文件 */
+  /** 从项上卸下的图：随 persist 从本步名单拿掉（后端删相册图行，不进图库） */
   scheduleParkDetachedPhotos() {
     if (this.data.readOnly) return
     if (this._parkTimer) clearTimeout(this._parkTimer)
@@ -4777,158 +4794,6 @@ Page({
     if (category === 'odometer') patch.mileageKm = parseMileageKm(value) || value
     if (category === 'fuel') patch.fuelReading = value
     this.setData(patch, () => this.scheduleAutoSaveDraftOnly())
-  },
-
-  onOpenLibrary() {
-    if (this.data.readOnly) return
-    this.setData({ showLibrary: true, libraryBusy: true, libraryItems: [] })
-    fetchMerchantAlbumMediaLibrary(this.data.albumId)
-      .then((res) => {
-        const pendingKeys = new Set(
-          normalizePendingImages(this.data.pendingImages).map((img) => mediaKey(img.url)),
-        )
-        const items = ((res && res.items) || []).map((item) => {
-          const inPending = pendingKeys.has(mediaKey(item.url))
-          return {
-            ...item,
-            metaLine: [item.timeLabel, item.stageTitle].filter(Boolean).join(' · '),
-            inPending,
-            picked: inPending,
-          }
-        })
-        this.setData({ libraryBusy: false, libraryItems: items })
-      })
-      .catch(() => {
-        this.setData({ libraryBusy: false, libraryItems: [] })
-        wx.showToast({ title: '图库加载失败', icon: 'none' })
-      })
-  },
-
-  onLibraryPanelTap() {},
-
-  onCloseLibrary() {
-    this.setData({ showLibrary: false, libraryBusy: false })
-  },
-
-  onToggleLibraryItem(e) {
-    const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
-    if (!url) return
-    const items = (this.data.libraryItems || []).map((item) => {
-      if (mediaKey(item.url) !== mediaKey(url) || item.inPending) return item
-      return { ...item, picked: !item.picked }
-    })
-    this.setData({ libraryItems: items })
-  },
-
-  attachLibraryToWork(findingIndex) {
-    const shots = Array.isArray(this._libraryPicked) ? this._libraryPicked : []
-    this._libraryPicked = []
-    if (this.data.readOnly || !shots.length || !Number.isInteger(findingIndex) || findingIndex < 0) return
-    const si = this.findingSectionIndex()
-    const section = this.data.sections[si]
-    if (!section || section.findingKind !== 'work') return
-    const findings = (section.findings || []).slice()
-    const current = normalizeWorkFinding(findings[findingIndex])
-    if (!current) return
-    const room = WORK_IMAGES_MAX - current.images.length
-    if (room < 1) {
-      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
-      this.closePickSheet()
-      return
-    }
-    const seen = new Set(current.images.map((img) => mediaKey(img.url)))
-    const extra = shots.filter((img) => {
-      const key = mediaKey(img && img.url)
-      return key && !seen.has(key)
-    }).slice(0, room)
-    if (!extra.length) {
-      this.closePickSheet()
-      return
-    }
-    findings[findingIndex] = {
-      ...current,
-      images: current.images.concat(extra),
-    }
-    const sections = this.data.sections.map((row, i) => {
-      if (i !== si) return row
-      return { ...row, findings, images: this.flattenWorkSectionImages(findings) }
-    })
-    this.setSectionsWithFindings(
-      sections,
-      {
-        autoSaveLabel: '保存中…',
-        showPickSheet: false,
-        pickSheetKind: '',
-        pickSheetGroups: [],
-        pickSheetExtra: '',
-        assignPendingIndex: -1,
-      },
-      `${si}:${findingIndex}`,
-    )
-    this.persistPhotos()
-      .then(() => this.persistPhotoDraft())
-      .then(() => this.setAutoSaveLabel('已自动保存'))
-      .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
-  },
-
-  onConfirmLibrary() {
-    const pending = normalizePendingImages(this.data.pendingImages)
-    const pendingKeys = new Set(pending.map((img) => mediaKey(img.url)))
-    const picked = (this.data.libraryItems || []).filter((item) => item.picked && !item.inPending)
-    const room = Math.max(0, 12 - pending.length)
-    const extra = picked.slice(0, room).filter((item) => !pendingKeys.has(mediaKey(item.url)))
-    if (!extra.length) {
-      this.setData({ showLibrary: false })
-      if (picked.length && room === 0) wx.showToast({ title: '一次最多 12 张', icon: 'none' })
-      return
-    }
-    const pickedImages = extra.map((item) => ({ url: item.url, imageId: item.imageId || '' }))
-    if (this.data.isWorkPhotoStep) {
-      const si = this.findingSectionIndex()
-      const findings = (this.data.sections[si] && this.data.sections[si].findings) || []
-      const items = findings
-        .map((row, index) => ({
-          key: String(index),
-          title: String((row && row.partName) || '').trim() || '未命名',
-          meta: '',
-        }))
-        .filter((row) => row.title)
-      this.setData({ showLibrary: false })
-      if (!items.length) {
-        wx.showToast({ title: '先加一项', icon: 'none' })
-        return
-      }
-      this._libraryPicked = pickedImages
-      this.openPickSheet({
-        kind: 'library-work',
-        title: '放到哪一项',
-        groups: [{ label: '', items }],
-      })
-      return
-    }
-    if (this.data.activeKind === 'inspection') {
-      this.setData({ showLibrary: false })
-      this.addBlankFinding(this.findingSectionIndex(), { images: pickedImages })
-      this.persistPhotoDraft()
-        .then(() => this.setAutoSaveLabel('已自动保存'))
-        .catch((err) => {
-          this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
-        })
-      return
-    }
-    const pendingImages = pending.concat(pickedImages)
-    this.setData({
-      showLibrary: false,
-      pendingImages,
-      autoSaveLabel: '保存中…',
-      ...this.findingChromePatch(this.data.sections, pendingImages),
-    })
-    this.persistPhotos()
-      .then(() => this.persistPhotoDraft())
-      .then(() => this.setAutoSaveLabel('已自动保存'))
-      .catch((err) => {
-        this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
-      })
   },
 
   onAddOdometerPhoto() {
@@ -5510,8 +5375,14 @@ Page({
     const status = String(raw.status || '')
     const suggestedLines = Array.isArray(raw.suggestedLines) ? raw.suggestedLines : []
     const brief = this.decorateMerchantBrief({
+      issues: (Array.isArray(raw.priceIssues) ? raw.priceIssues : []).map((row) => ({
+        title: (row && (row.lineName || row.title)) || '',
+        body: (row && row.body) || '',
+      })),
       omissions: raw.omissions,
       objections: raw.objections,
+      photoPlan: raw.photoPlan,
+      necessity: raw.necessity,
       priceBands: suggestedLines.map((row, lineIndex) => ({
         lineIndex,
         name: row && row.name,
@@ -5881,6 +5752,12 @@ Page({
     const omissions = (Array.isArray(brief.omissions) ? brief.omissions : [])
       .map((row) => this.decorateBriefItem(row))
       .filter((row) => row.hasTitle || row.hasBody)
+    const photoPlan = (Array.isArray(brief.photoPlan) ? brief.photoPlan : [])
+      .map((row) => this.decorateBriefItem(row))
+      .filter((row) => row.hasTitle || row.hasBody)
+    const necessity = (Array.isArray(brief.necessity) ? brief.necessity : [])
+      .map((row) => this.decorateBriefItem(row))
+      .filter((row) => row.hasTitle || row.hasBody)
     const objections = (Array.isArray(brief.objections) ? brief.objections : [])
       .map((row) => this.decorateObjection(row))
       .filter((row) => row.hasAsk || row.hasHeard || row.hasOurs || row.hasSay)
@@ -5902,15 +5779,21 @@ Page({
       kicker: 'AI意见',
       issues,
       omissions,
+      photoPlan,
+      necessity,
       objections,
       priceBands,
       hasIssues: issues.length > 0,
       hasOmissions: omissions.length > 0,
+      hasPhotoPlan: photoPlan.length > 0,
+      hasNecessity: necessity.length > 0,
       hasObjections: objections.length > 0,
       hasBands: priceBands.length > 0,
       hasContent:
         issues.length > 0 ||
         omissions.length > 0 ||
+        photoPlan.length > 0 ||
+        necessity.length > 0 ||
         objections.length > 0 ||
         priceBands.length > 0,
     }
@@ -7841,7 +7724,15 @@ Page({
         title: kind === 'repair_report' && autoDone ? '已确认并完工' : '已代确认',
         icon: 'success',
       })
+      const wasAddon =
+        kind === 'addon_quote_confirm' ||
+        (kind === 'quote_confirm' &&
+          String((this.data.activeNode && this.data.activeNode.insertedReason) || '') === 'addon')
       await this.loadFlow({ silent: true })
+      if (wasAddon || kind === 'quote_confirm') {
+        const work = (this._flowNodes || []).find((node) => node && node.kind === 'work')
+        this.openStage(work ? this.bucketKeyOf(work.id) : 'work')
+      }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {

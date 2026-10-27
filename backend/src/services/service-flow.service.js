@@ -392,7 +392,7 @@ function collectAllWorkOrderItems(nodes = []) {
     })
 }
 
-/** 工单条目 → 完工报告施工项。金额留空则记 0，合计回落规则见 buildRepairReportPayload */
+/** 工单条目 → 完工报告/工单定稿施工项。金额留空则记 0；图跟项一起写入报告属性。 */
 function mapWorkFindingToReportItem(row = {}) {
   const name = String(row.partName || '').trim()
   const note = String(row.caption || '').trim()
@@ -401,12 +401,27 @@ function mapWorkFindingToReportItem(row = {}) {
   const qty = String(row.qty || '').trim()
   if (!name && !note && !material) return null
   const amount = parseAmount(row.amount)
+  const images = []
+  const seen = new Set()
+  const pushImg = (raw) => {
+    const url = String(
+      typeof raw === 'object' && raw ? raw.url || raw.src || raw.rawUrl || '' : raw || '',
+    ).trim()
+    if (!url || seen.has(url)) return
+    seen.add(url)
+    const imageId =
+      typeof raw === 'object' && raw ? String(raw.imageId || raw.id || '').trim() : ''
+    images.push(imageId ? { url, imageId } : { url })
+  }
+  ;(Array.isArray(row.images) ? row.images : []).forEach(pushImg)
+  if (!images.length && row.url) pushImg(row)
   return {
     name,
     brand,
     material,
     qty,
     note,
+    images,
     amount: amount == null ? 0 : amount,
   }
 }
@@ -662,10 +677,29 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     throw err
   }
   const previewDocStatus = String((preview.document && preview.document.status) || '')
+  const {
+    isNodeEditFrozen,
+    familyOfKind,
+    freezeMessage,
+  } = require('../../vendor/shared/utils/flow-stage-locks')
+  const editFamily = familyOfKind(preview.kind, preview)
+  if (
+    (payload.photoDraft != null || payload.document) &&
+    isNodeEditFrozen(previewNodes, preview) &&
+    !payload.startIntakeAdvice &&
+    !payload.startWorkAdvice &&
+    !payload.startDeliveryAdvice &&
+    !payload.startInspectionAdvice &&
+    !payload.startQuoteAssist &&
+    !payload.startAiReview
+  ) {
+    const err = new Error(freezeMessage(editFamily === 'addon' ? 'addon' : editFamily))
+    err.status = 409
+    throw err
+  }
   if (preview.status === 'completed' && isPhotoFlowNode(preview) && payload.photoDraft != null) {
-    const workStillEditable = preview.kind === 'work' && !deliveryReportSent(previewNodes)
-    if (!workStillEditable) {
-      const err = new Error('该步骤已固定')
+    if (isNodeEditFrozen(previewNodes, preview)) {
+      const err = new Error(freezeMessage(editFamily))
       err.status = 409
       throw err
     }
@@ -946,6 +980,15 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     throw err
   }
 
+  {
+    const { isNodeEditFrozen, familyOfKind, freezeMessage } = require('../../vendor/shared/utils/flow-stage-locks')
+    if (isNodeEditFrozen(rawNodes, node)) {
+      const err = new Error(freezeMessage(familyOfKind(node.kind, node)))
+      err.status = 409
+      throw err
+    }
+  }
+
   const vehicle = album.vehicleJson || {}
   const incomingDraft = mergePhotoDraft(node.photoDraft || {}, {
     ...(payload.photoDraft || {}),
@@ -1057,8 +1100,24 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       status: 'completed',
       photoDraft: incomingDraft,
     }
-    if (list[idx].kind === 'work') unlockAfterWorkComplete(list, idx)
-    else unlockNextNode(list, idx)
+    if (list[idx].kind === 'work') {
+      const workItems = (Array.isArray(incomingDraft.findings) ? incomingDraft.findings : [])
+        .map(mapWorkFindingToReportItem)
+        .filter(Boolean)
+      list[idx] = {
+        ...list[idx],
+        document: {
+          ...(list[idx].document || emptyDocument('work')),
+          status: 'completed',
+          payload: {
+            workItems,
+            workerName: String(incomingDraft.workerName || '').trim(),
+            finishedAt: String(incomingDraft.finishedAt || '').trim(),
+          },
+        },
+      }
+      unlockAfterWorkComplete(list, idx)
+    } else unlockNextNode(list, idx)
 
     if (list[idx].kind === 'inspection' || list[idx].kind === 'intake_inspection') {
       const reportIdx = list.findIndex((n) => n.kind === 'inspection_report')
@@ -1761,10 +1820,18 @@ function ownerIntakePhotos(node = {}, payload = {}) {
     rows.push({ url })
   }
   ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
-  if (!rows.length) {
-    const pending = node.photoDraft && node.photoDraft.pendingImages
-    ;(Array.isArray(pending) ? pending : []).forEach(push)
+  if (rows.length) return rows
+  // 定稿后只读报告属性；未定稿才允许从草稿兜底
+  const docStatus = String((node.document && node.document.status) || '')
+  if (
+    docStatus === 'delivered' ||
+    docStatus === 'confirmed' ||
+    docStatus === 'pending_confirm'
+  ) {
+    return rows
   }
+  const pending = node.photoDraft && node.photoDraft.pendingImages
+  ;(Array.isArray(pending) ? pending : []).forEach(push)
   return rows
 }
 
@@ -1804,12 +1871,28 @@ function mapOwnerWorkSheetLine(row = {}) {
   return { name, brand, material, qty, note, images }
 }
 
-/** 工单卡片：车主时间线上的只读单据，数据源是 photoDraft.findings，
- *  工单节点没有 document 壳，这里不能走 payload */
+/** 工单卡片：定稿后读 document.payload.workItems（报告属性）；未定稿读 photoDraft.findings */
 function mapOwnerWorkSheetCard(node = {}, album = {}) {
   const draft =
     (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
-  const rows = Array.isArray(draft.findings) ? draft.findings : []
+  const docPayload =
+    (node.document && node.document.payload && typeof node.document.payload === 'object'
+      ? node.document.payload
+      : {}) || {}
+  const fromDoc = Array.isArray(docPayload.workItems) ? docPayload.workItems : []
+  const rows = fromDoc.length
+    ? fromDoc.map((row) => ({
+        partName: String((row && (row.partName || row.name)) || '').trim(),
+        caption: String((row && (row.caption || row.note)) || '').trim(),
+        brand: String((row && row.brand) || '').trim(),
+        material: String((row && row.material) || '').trim(),
+        qty: String((row && row.qty) || '').trim(),
+        images: Array.isArray(row && row.images) ? row.images : [],
+        url: row && row.url,
+      }))
+    : Array.isArray(draft.findings)
+      ? draft.findings
+      : []
   const items = rows.map(mapOwnerWorkSheetLine).filter(Boolean)
   const photos = []
   const seen = new Set()
@@ -1850,9 +1933,9 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
     totalAmount: 0,
     totalAmountLabel: '',
     signLabel: '施工人',
-    signName: String(draft.workerName || '').trim(),
+    signName: String(docPayload.workerName || draft.workerName || '').trim(),
     signAtLabel: '',
-    signAt: '',
+    signAt: String(docPayload.finishedAt || draft.finishedAt || '').trim(),
     photos,
     deliveryPhotos: [],
     warrantyPeriod: '',
@@ -1891,7 +1974,6 @@ function buildDocMetaLine({
 }
 
 function mapOwnerFlowDocCard(node = {}, album = {}) {
-  // 工单没有 document 壳：如实登记的施工内容在 photoDraft.findings 里
   if (node.kind === 'work') return mapOwnerWorkSheetCard(node, album)
   const doc = node.document || {}
   const payload = doc.payload || {}
@@ -2325,13 +2407,29 @@ function latestFlowActivityAt(album) {
  *  所以这里只放行后面的工单节点开工，不再塞一份items 给它 */
 function applyQuoteConfirmedSideEffects(nodes, index) {
   const node = nodes[index]
-  const isAddon = node && node.kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon'
+  const isAddon =
+    node &&
+    ((node.kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon') ||
+      node.kind === 'addon_quote_confirm')
   if (!isAddon) {
     unlockNextNode(nodes, index)
     return
   }
-  const parent = nodes.find((item) => item && node.parentNodeId && item.id === node.parentNodeId)
-  if (parent && parent.kind === 'work' && parent.status !== 'completed') return
+  // 补充报价确认或代确认后：回到施工（交车未发出前可继续补）
+  if (!deliveryReportSent(nodes)) {
+    let reopened = false
+    ;(nodes || []).forEach((item) => {
+      if (!item || item.kind !== 'work') return
+      const status = String(item.status || '')
+      if (status === 'completed' || status === 'locked' || status === 'pending') {
+        item.status = 'in_progress'
+        reopened = true
+      }
+    })
+    if (reopened) return
+    const parent = nodes.find((item) => item && node.parentNodeId && item.id === node.parentNodeId)
+    if (parent && parent.kind === 'work' && parent.status !== 'completed') return
+  }
   unlockNextLocked(nodes, index)
 }
 

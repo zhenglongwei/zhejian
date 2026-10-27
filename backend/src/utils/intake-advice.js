@@ -195,13 +195,14 @@ function parseIntakeAdvicePayload(raw) {
   const coverage = coverageFromList(parsed.missing || parsed.risks)
   return {
     diagnosis: '',
-    photoTips: [],
+    photoTips: parseTitleBodyList(parsed.tips || parsed.photoTips, 4),
     askOwner: [],
     checkpoints: [],
     scope: 'coverage',
     covered: coverage.covered,
     risks: coverage.risks,
     fixes: coverage.fixes,
+    imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
 }
 

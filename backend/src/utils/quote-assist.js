@@ -73,6 +73,12 @@ function parseQuoteAssistPayload(raw) {
     summary: '',
     reportPrefill: '',
     issues: [],
+    priceIssues: parseTitleBodyList(parsed.priceIssues || analysis.priceIssues, 8).map((row) => ({
+      ...row,
+      lineName: text(row.title),
+    })),
+    necessity: parseTitleBodyList(parsed.necessity || analysis.necessity, 8),
+    photoPlan: parseTitleBodyList(parsed.photoPlan || analysis.photoPlan, 8),
     omissions: parseTitleBodyList(parsed.omissions || analysis.omissions, 8),
     objections: parseOwnerAsks(parsed.objections || analysis.objections, 6),
     suggestedLines,
@@ -87,6 +93,9 @@ function quoteAssistHasContent(assist) {
     (lines && lines.length) ||
       (assist.omissions && assist.omissions.length) ||
       (assist.objections && assist.objections.length) ||
+      (assist.priceIssues && assist.priceIssues.length) ||
+      (assist.photoPlan && assist.photoPlan.length) ||
+      (assist.necessity && assist.necessity.length) ||
       hasBand,
   )
 }
@@ -100,6 +109,9 @@ function sanitizeQuoteAssistForView(assist) {
     suggestedLines: Array.isArray(assist.suggestedLines) ? assist.suggestedLines : [],
     omissions: Array.isArray(assist.omissions) ? assist.omissions : [],
     objections: Array.isArray(assist.objections) ? assist.objections : [],
+    priceIssues: Array.isArray(assist.priceIssues) ? assist.priceIssues : [],
+    necessity: Array.isArray(assist.necessity) ? assist.necessity : [],
+    photoPlan: Array.isArray(assist.photoPlan) ? assist.photoPlan : [],
     waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
     errorMessage: status === 'failed' ? text(assist.errorMessage) || '未能出意见' : '',
     updatedAt: text(assist.updatedAt),

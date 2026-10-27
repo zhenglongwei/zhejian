@@ -1,7 +1,7 @@
 /**
  * 施工、检测、交车的 AI 分析。
- * 施工只看本步的说明和照片，对照报价。前面各步的照片不再看。分组只给建议，不自动挪图。
- * 本步文字和照片没变就复用上次结果。
+ * 真源：docs/04_维修过程相册/29_节点AI分析_单据结构与状态流转梳理.md
+ * 当前节点全文 + 前序分析要点/图摘要；图每张一生只送模型一次；英文提示词、中文 JSON。
  */
 const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
@@ -108,17 +108,26 @@ function parseWorkAdvice(raw, items, slots) {
   const gaps = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
     .map((row) => {
       const kindText = text(row && row.kind)
-      const kind = kindText === 'extra' || kindText === 'addon'
-        ? 'extra'
-        : kindText === 'missing'
-          ? 'missing'
-          : ''
-      const title = text(row && (row.title || row.partName)).slice(0, 16)
-      if (!kind || !title) return null
-      const body = kind === 'extra'
-        ? `${title}是新增项，没有事先报价。`
-        : `报价里的${title}，施工没有做。`
-      return { kind, title, body }
+      const kind =
+        kindText === 'extra' || kindText === 'addon' || kindText === 'extra_work'
+          ? 'extra'
+          : kindText === 'missing' || kindText === 'missing_quote_item'
+            ? 'missing'
+            : kindText === 'missing_process_photo' ||
+                kindText === 'missing_brand' ||
+                kindText === 'missing_old_new'
+              ? 'missing'
+              : ''
+      const title = text(row && (row.title || row.partName || row.lineName)).slice(0, 16)
+      const body = text(row && row.body).slice(0, 120)
+      if (!kind || (!title && !body)) return null
+      return {
+        kind,
+        title: title || '提醒',
+        body:
+          body ||
+          (kind === 'extra' ? `${title}是新增项，没有事先报价。` : `报价里的${title}，施工没有做。`),
+      }
     })
     .filter(Boolean)
     .slice(0, 4)
@@ -161,16 +170,51 @@ function parseWorkAdvice(raw, items, slots) {
     })
     .filter(Boolean)
     .slice(0, 4)
-  return { scope: 'process', gaps, items: written, groups }
+  return {
+    scope: 'process',
+    gaps,
+    items: written,
+    groups,
+    imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
+  }
 }
 
 function parseDeliveryAdvice(raw) {
   const parsed = parseReviewModelJson(raw)
-  if (!parsed) return { repair: null, warranty: null, care: null }
+  if (!parsed) return { repair: null, warranty: null, care: null, processIssues: [], fill: null }
+  const talk = parsed.talk && typeof parsed.talk === 'object' ? parsed.talk : {}
+  const fill = parsed.fill && typeof parsed.fill === 'object' ? parsed.fill : {}
+  const repair =
+    clipItem(parsed.repair) ||
+    (text(talk.repair) ? { title: '这次维修', body: text(talk.repair).slice(0, 80) } : null)
+  const care =
+    clipItem(parsed.care) ||
+    (text(talk.care) ? { title: '用车', body: text(talk.care).slice(0, 80) } : null)
+  const warranty =
+    clipItem(parsed.warranty) ||
+    (text(fill.warrantyPeriod) || text(fill.warrantyNotes)
+      ? {
+          title: '质保',
+          body: [text(fill.warrantyPeriod), text(fill.warrantyNotes)].filter(Boolean).join('；').slice(0, 80),
+        }
+      : null)
+  const processIssues = (Array.isArray(parsed.processIssues) ? parsed.processIssues : [])
+    .map((row) => ({
+      step: text(row && row.step),
+      body: text(row && row.body).slice(0, 120),
+    }))
+    .filter((row) => row.body)
+    .slice(0, 6)
   return {
-    repair: clipItem(parsed.repair),
-    warranty: clipItem(parsed.warranty),
-    care: clipItem(parsed.care),
+    repair,
+    warranty,
+    care,
+    processIssues,
+    fill: {
+      warrantyPeriod: text(fill.warrantyPeriod).slice(0, 40),
+      warrantyNotes: text(fill.warrantyNotes).slice(0, 80),
+    },
+    imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
 }
 
@@ -190,7 +234,12 @@ function adviceHasContent(advice, kind) {
     return (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.shop) && advice.shop.length > 0)
   }
-  return Boolean(filled(advice.repair) || filled(advice.warranty) || filled(advice.care))
+  return Boolean(
+    filled(advice.repair) ||
+      filled(advice.warranty) ||
+      filled(advice.care) ||
+      (Array.isArray(advice.processIssues) && advice.processIssues.length > 0),
+  )
 }
 
 function nodeField(kind) {
@@ -252,44 +301,134 @@ function parseInspectionAdvice(raw, items) {
   const byId = new Map()
   ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
     const id = text(row && row.id)
-    const body = text(row && row.body).slice(0, 80)
-    if (id && body) byId.set(id, body)
+    const body = text(row && row.body).slice(0, 120)
+    if (id && body) byId.set(id, { body, canApply: row.canApplyToEmptyAdvice !== false })
   })
   const known = new Set((Array.isArray(items) ? items : []).map((row) => text(row.name)).filter(Boolean))
-  const shop = (Array.isArray(parsed.shop) ? parsed.shop : [])
+  const shop = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
+    .concat(Array.isArray(parsed.shop) ? parsed.shop : [])
     .map((row) => {
-      const kind = text(row && row.kind)
+      const kindRaw = text(row && row.kind)
+      const kind = SHOP_KIND[kindRaw]
+        ? kindRaw
+        : kindRaw === 'missing_item'
+          ? 'miss'
+          : kindRaw === 'unclear_photo' || kindRaw === 'follow_up'
+            ? 'how'
+            : kindRaw
       if (!SHOP_KIND[kind]) return null
       const title = text(row && (row.title || row.partName)).slice(0, 16)
-      const body = text(row && row.body).slice(0, 80)
+      const body = text(row && row.body).slice(0, 120)
       if (!title || !body) return null
       if ((kind === 'miss' || kind === 'omit') && known.has(title)) return null
       return { kind, title, body }
     })
     .filter(Boolean)
     .slice(0, 4)
+  // 只保留模型根据实质写出的意见；禁止「表单填满就没有意见」或空栏套话
+  const outItems = (Array.isArray(items) ? items : [])
+    .map((row) => {
+      const hit = byId.get(row.id)
+      const noted = text(row.note)
+      const body = hit ? hit.body : noted ? '' : ''
+      if (!body) return null
+      return {
+        id: row.id,
+        partName: row.name || '这项',
+        sourceNote: noted,
+        timing: OWNER_TIMING[row.result] || '',
+        body,
+        hasReason: Boolean(noted),
+        canApply: Boolean(hit && hit.canApply && !noted),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+  ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
+    if (text(row && row.id) || !text(row && row.title) || !text(row && row.body)) return
+    if (outItems.length >= 8) return
+    shop.push({
+      kind: 'miss',
+      title: text(row.title).slice(0, 16),
+      body: text(row.body).slice(0, 120),
+    })
+  })
   return {
     scope: 'flat',
-    shop,
-    items: (Array.isArray(items) ? items : [])
-      .map((row) => {
-        const noted = text(row.note)
-        const timing = OWNER_TIMING[row.result] || '先看这项'
-        const body = noted
-          ? byId.get(row.id) || `${noted}。${timing}。`
-          : '检查发现还空着。先写上看到的情况，再说明不处理会怎样。'
-        return {
-          id: row.id,
-          partName: row.name || '这项',
-          sourceNote: noted,
-          timing,
-          body,
-          hasReason: Boolean(noted),
-        }
-      })
-      .filter((row) => row.partName)
-      .slice(0, 8),
+    shop: shop.slice(0, 4),
+    items: outItems,
+    imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
+}
+
+function mediaBare(url) {
+  return String(url || '')
+    .trim()
+    .split('?')[0]
+    .split('#')[0]
+}
+
+/** 各步已落下的「图观察摘要」：跟图片身份走，跨步复用，禁止再附图 */
+function collectImageNotesMap(nodes = []) {
+  const map = {}
+  ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
+    const draft = (node && node.photoDraft) || {}
+    const notes = draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}
+    Object.keys(notes).forEach((key) => {
+      const note = text(notes[key])
+      if (key && note && !map[key]) map[key] = note
+    })
+    ;['intakeAdvice', 'inspectionAdvice', 'workAdvice', 'deliveryAdvice'].forEach((field) => {
+      const advice = node && node[field]
+      ;(Array.isArray(advice && advice.imageNotes) ? advice.imageNotes : []).forEach((row) => {
+        const key = mediaBare(row && (row.url || row.key))
+        const note = text(row && row.note)
+        if (key && note && !map[key]) map[key] = note
+      })
+    })
+  })
+  return map
+}
+
+function splitNewAndNotedUrls(urls = [], notesMap = {}) {
+  const fresh = []
+  const noted = []
+  ;(Array.isArray(urls) ? urls : []).forEach((url) => {
+    const key = mediaBare(url)
+    if (!key) return
+    if (notesMap[key]) noted.push({ url, note: notesMap[key] })
+    else fresh.push(url)
+  })
+  return { fresh, noted }
+}
+
+function inspectPhotoUrls(inspection) {
+  const draft = (inspection && inspection.photoDraft) || {}
+  const urls = []
+  const push = (raw) => {
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 8) return
+    urls.push(url)
+  }
+  ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
+    if (!row) return
+    if (row.url) push(row.url)
+    ;(Array.isArray(row.images) ? row.images : []).forEach(push)
+  })
+  return urls
+}
+
+function deliveryPhotoUrls(delivery) {
+  const draft = (delivery && delivery.photoDraft) || {}
+  const urls = []
+  const push = (raw) => {
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
+    urls.push(url)
+  }
+  if (draft.deliveryExteriorUrl) push(draft.deliveryExteriorUrl)
+  ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
+  return urls
 }
 
 function contextOf(album) {
@@ -306,23 +445,60 @@ function contextOf(album) {
   const draft = (delivery && delivery.photoDraft) || {}
   const reportPayload = (repair && repair.document && repair.document.payload) || {}
   const intakeAdvice = (intake && intake.intakeAdvice) || {}
+  const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
   const workAdvice = (works.find((item) => item.workAdvice) || {}).workAdvice || {}
+  const imageNotesMap = collectImageNotesMap(nodes)
+  const intakeUrls = intakePhotoUrls(intake)
+  const inspectUrls = inspectPhotoUrls(inspection)
+  const workSlots = workPhotoSlots(works)
+  const deliveryUrls = deliveryPhotoUrls(delivery)
+  const intakeSplit = splitNewAndNotedUrls(intakeUrls, imageNotesMap)
+  const inspectSplit = splitNewAndNotedUrls(inspectUrls, imageNotesMap)
+  const workFreshSlots = (workSlots || []).filter((row) => !imageNotesMap[mediaBare(row.url)])
+  const workNoted = (workSlots || [])
+    .filter((row) => imageNotesMap[mediaBare(row.url)])
+    .map((row) => ({ slot: row.slot, partName: row.partName, note: imageNotesMap[mediaBare(row.url)] }))
+  const deliverySplit = splitNewAndNotedUrls(deliveryUrls, imageNotesMap)
   return {
     complaint: text(intake && intake.photoDraft && intake.photoDraft.chiefComplaint),
     intakeBrief: intakeBrief(intake),
-    intakePhotoUrls: intakeBrief(intake) ? [] : intakePhotoUrls(intake),
+    intakeAdviceSummary: intakeBrief(intake),
+    intakePhotoUrls: intakeSplit.fresh,
+    intakeNoted: intakeSplit.noted,
     intakeRisks: (Array.isArray(intakeAdvice.risks) ? intakeAdvice.risks : [])
       .map((row) => text(row && row.title))
       .filter(Boolean),
     inspectItems: namedRows(inspection && inspection.photoDraft && inspection.photoDraft.findings),
+    inspectAdviceSummary: text(inspectionAdvice.updatedAt)
+      ? {
+          shop: Array.isArray(inspectionAdvice.shop) ? inspectionAdvice.shop.slice(0, 4) : [],
+          items: Array.isArray(inspectionAdvice.items)
+            ? inspectionAdvice.items.map((row) => ({ id: row.id, body: text(row.body) })).slice(0, 6)
+            : [],
+        }
+      : null,
+    inspectPhotoUrls: inspectSplit.fresh,
+    inspectNoted: inspectSplit.noted,
     quoteLines: quotes.reduce((all, node) => all.concat(linesOf(node)), []),
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
-    workPhotoSlots: workPhotoSlots(works),
+    workPhotoSlots: workFreshSlots,
+    workNoted,
+    workAdviceSummary: text(workAdvice.updatedAt)
+      ? {
+          gaps: Array.isArray(workAdvice.gaps) ? workAdvice.gaps.slice(0, 4) : [],
+          items: Array.isArray(workAdvice.items)
+            ? workAdvice.items.map((row) => ({ id: row.id, body: text(row.body) })).slice(0, 6)
+            : [],
+        }
+      : null,
     warrantyPeriod: text(draft.warrantyPeriod || reportPayload.warrantyPeriod),
     warrantyNotes: text(draft.warrantyNotes || reportPayload.warrantyNotes),
     hasExterior: Boolean(text(draft.deliveryExteriorUrl)),
     selectedCount: Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls.length : 0,
+    deliveryPhotoUrls: deliverySplit.fresh,
+    deliveryNoted: deliverySplit.noted,
     workAdviceAt: text(workAdvice.updatedAt),
+    imageNotesMap,
   }
 }
 
@@ -381,11 +557,11 @@ async function runLlm(instruction, urls, label) {
   const safeUrls = await maskUrlsForModel(urls)
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
-  const tag = label || '照片'
+  const tag = label || 'Photo'
   const content = safeUrls.length
     ? [{ type: 'text', text: instruction }].concat(
         safeUrls.map((url, index) => [
-          { type: 'text', text: `${tag}第 ${index + 1} 张` },
+          { type: 'text', text: `${tag} slot ${index + 1}` },
           { type: 'image_url', image_url: { url } },
         ]).flat(),
       )
@@ -398,7 +574,11 @@ async function runLlm(instruction, urls, label) {
         apiKey: engine.apiKey,
         model: engine.model,
         messages: [
-          { role: 'system', content: '只输出 JSON。' },
+          {
+            role: 'system',
+            content:
+              'You are an assistant for a Chinese auto repair shop. Reply with JSON only. All natural-language string values MUST be Simplified Chinese. Never say there is no advice merely because forms look filled.',
+          },
           { role: 'user', content },
         ],
         temperature: 0.2,
@@ -416,68 +596,114 @@ async function runLlm(instruction, urls, label) {
 
 function workInstruction(ctx) {
   const slots = ctx.workPhotoSlots || []
-  const photoLine = slots.length
-    ? '后面附了本步施工照片，只用来判断这项做成了什么样。写出来的话里不要提第几张，也不要写看见、展示。'
-    : '这一步没有可看的施工照片。没有照片也没有说明的项，不要编做了什么。'
   return [
-    '你在对照报价和施工。不要改金额，不要自己把照片挪走。',
-    photoLine,
-    '意见写成一条条完整的话。不要写「给店里」「给车主」当标题。',
-    'gaps：只写和报价对不上的事实，最多 4 条。这是提醒，不代替施工描述。不要写怎么处理，不要写补充报价、重新报价、补照片、补说明、店里承担。',
-    'kind 用 missing：报价有这项，施工里没有这项。title 写报价项目名。这种没有施工步骤，不要写进 items。',
-    'kind 用 extra：施工做了，报价里没有。title 写施工项目名。这项只要说明是空的、并且有照片，还必须在 items 里写施工描述。',
-    '只是还没拍照、没写说明，但这项施工里已经有：不要写进 gaps。',
-    '对得上的不要写进 gaps，也不要写「和报价对得上」。',
-    'items：施工里的每一项都要有给车主看的描述，一项一句。报价里没有的项也要写，不能只留在 gaps。车主关心这项做了什么、换下的零件坏成什么样。',
-    '不要写技师、工具、拍摄角度，不要写第几张、可见、展示、红圈，不要按照片逐张复述。',
-    '店员已经写了 note 的，不要出现在 items 里，也不要改他的句子。',
-    'note 是空的、但有照片的，body 只写那一句描述。例如：更换了已经开裂的下摆臂胶套。supplement 留空。',
-    '没有照片也没有 note 的项不要出现在 items 里。',
-    'groups：某张图更像已经有的另一项时才写。slot 用「施工第 N 张」的 N。partName 必须是 workItems 里已有的 name，并且和这张图现在所在的项不同。已经在对的项上不要写。没有对得上的已有项不要新造项目名。不要写怎么挪。最多 4 条。',
-    `本单：${JSON.stringify({
-      quoteLines: ctx.quoteLines,
+    'You assist a Chinese auto shop clerk during repair work documentation.',
+    'Goal: whether critical process photos exist, brand/spec of parts, old-vs-new comparison, and whether captions are clear for the car owner. Content over form.',
+    'Compare against confirmed quote lines. Do NOT change prices. Do NOT move photos yourself — only suggest groups.',
+    'Prior steps: use analysis summaries + image notes only; do not re-attach those images.',
+    'Current: work items and NEW work photos only (slots below). Already-noted photos are text only.',
+    'Owner cares about proof of work, what was replaced, and readable descriptions — not technician poses or tool close-ups.',
+    `Context JSON: ${JSON.stringify({
+      prior: {
+        intake: ctx.intakeAdviceSummary,
+        intakeNoted: ctx.intakeNoted,
+        inspect: ctx.inspectAdviceSummary,
+        inspectNoted: ctx.inspectNoted,
+        quoteLines: ctx.quoteLines,
+        workNoted: ctx.workNoted,
+      },
       workItems: ctx.workItems,
       photos: slots.map((row) => ({ slot: row.slot, on: row.partName })),
     })}`,
-    '输出 JSON：{"gaps":[{"kind":"missing","title":"","body":""}],"items":[{"id":"","body":"","supplement":""}],"groups":[{"slot":1,"partName":""}]}',
+    'Return JSON only: {"gaps":[{"kind":"missing_quote_item|extra_work|missing_process_photo|missing_brand|missing_old_new","title":"","body":""}],"items":[{"id":"","body":"","canApply":true}],"groups":[{"slot":1,"partName":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
 }
 
 function inspectionInstruction(ctx) {
-  const intakeLine = ctx.intakeBrief
-    ? `接车分析：${ctx.intakeBrief}。不要再看接车照片，也不要要求把接车已经拍过的正常外观再拍一遍。`
-    : '接车还没有分析。下面如果附了接车照片，只用来知道当时留了什么，不要把正常外观再列成检测要拍的项。'
   return [
-    intakeLine,
-    '剐蹭、漆面损伤只查受损的位置。正常的保险杠、翼子板、车门不要再要求补拍，那是接车已经做的事。',
-    '意见写成一条条完整的话。不要写「给店里」「给车主」「怎么查」「缺项」「漏项」「错项」当标题。',
-    'shop：还没写上的受损处、和诉求对不上的已有项、可以怎么核对。这些是文字意见，店员没法按一下就做完，不要写成能直接填进单据。已经有的部位不要再说漏了。最多 4 条。',
-    'items：把每一项已写下的发现写成车主能听懂的一句。看到了什么，不处理会怎样，现在做还是先观察。',
-    '结果为需处理就建议现在处理。需关注就说可以先观察。状态良好就说现在不用动。仅记录就说只是留了照片。',
-    '这些句子里不要出现「需处理」「需关注」「状态良好」。检查发现是空的就不要为这项编后果。',
-    `本单：${JSON.stringify({
+    'You assist a Chinese auto shop clerk during vehicle inspection.',
+    'Goal: produce owner-relevant advice from REAL content (photos + written findings + intake complaint). Never say "no extra advice" merely because forms have text or photos. If substance is solid, state a brief confirmation of what the findings mean for the owner.',
+    'Prior steps: use intake analysis summary and per-image notes only — do NOT ask to re-send those images.',
+    'Current step: use all inspection line items and any NEW photos not yet noted.',
+    'Owner cares about: what each finding means, whether action is needed now, consequence if ignored, how to watch later.',
+    'Write Chinese that a car owner understands. Do NOT use internal labels like 需处理 / 需关注 / 状态良好 inside sentences.',
+    'Do NOT invent damage absent from photos/text. Do NOT demand re-shooting normal exterior already covered at intake.',
+    `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
-      intake: ctx.intakeBrief,
+      intake: ctx.intakeAdviceSummary,
+      intakeNoted: ctx.intakeNoted,
       items: ctx.inspectItems,
+      inspectNoted: ctx.inspectNoted,
+      newPhotoSlots: (ctx.inspectPhotoUrls || []).map((_, i) => i + 1),
     })}`,
-    '输出 JSON：{"shop":[{"kind":"miss","title":"","body":""}],"items":[{"id":"","body":""}]}',
+    'Return JSON only: {"items":[{"id":"","body":"","title":"","canApplyToEmptyAdvice":true}],"gaps":[{"kind":"missing_item|unclear_photo|follow_up","title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
 }
 
 function deliveryInstruction(ctx) {
   return [
-    '你在看交车。只根据已经做好的项目和店员写的质保，给店员三句。',
-    'repair：这次做成了什么。warranty：质保还缺不缺；已经写了就说按已写的。care：之后用车要注意的一句，必须对着这次的项目。',
-    '不要编保养周期，不要编没写过的年限，不要改报价。',
-    `本单：${JSON.stringify({
+    'You assist a Chinese auto shop clerk at vehicle delivery / handover.',
+    'Goal: holistic review of the whole job using prior-step analysis summaries and image notes, plus current delivery photos and warranty fields. Content over form.',
+    'CRITICAL permissions:',
+    '- Intake report, inspection report, and confirmed quotes were already shown to the owner: you may POINT OUT issues but must NOT propose edits to those documents.',
+    '- If work evidence is weak, say the shop should go back to the work step to improve photos/captions — do not rewrite historical docs here.',
+    '- You MAY propose fills only for empty delivery-step fields (warranty period, care notes) and call out missing whole-car delivery photo.',
+    'Do not invent maintenance intervals. Do not change confirmed prices.',
+    'Do not output a mere "job completed" essay with nothing actionable.',
+    `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
+      intake: ctx.intakeAdviceSummary,
+      inspect: ctx.inspectAdviceSummary,
       quoteLines: ctx.quoteLines,
       workItems: ctx.workItems,
+      workAdvice: ctx.workAdviceSummary,
+      priorImageNotes: []
+        .concat(ctx.intakeNoted || [])
+        .concat(ctx.inspectNoted || [])
+        .concat(ctx.workNoted || [])
+        .concat(ctx.deliveryNoted || []),
       warrantyPeriod: ctx.warrantyPeriod,
       warrantyNotes: ctx.warrantyNotes,
+      hasExterior: ctx.hasExterior,
+      selectedCount: ctx.selectedCount,
     })}`,
-    '输出 JSON：{"repair":{"title":"这次维修","body":""},"warranty":{"title":"质保","body":""},"care":{"title":"用车","body":""}}',
+    'Return JSON only: {"processIssues":[{"step":"intake|inspect|quote|work|delivery","body":""}],"fill":{"warrantyPeriod":"","warrantyNotes":""},"talk":{"repair":"","care":""},"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
+}
+
+function mergeImageNotesFromSlots(node, slots, imageNotes, albumId) {
+  if (!node || !Array.isArray(imageNotes) || !imageNotes.length) return node
+  const draft = (node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}) || {}
+  const map = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
+  imageNotes.forEach((row) => {
+    const slot = Number(row && row.slot)
+    const note = text(row && row.note)
+    const hit = (Array.isArray(slots) ? slots : []).find((item) => Number(item.slot) === slot)
+    const url = hit ? hit.url : ''
+    const key = mediaBare(url)
+    if (key && note) map[key] = note.slice(0, 120)
+  })
+  return {
+    ...node,
+    photoDraft: { ...draft, imageNotes: map },
+  }
+}
+
+function mergeImageNotesFromUrlList(node, urls, imageNotes) {
+  if (!node || !Array.isArray(imageNotes) || !imageNotes.length) return node
+  const draft = (node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}) || {}
+  const map = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
+  imageNotes.forEach((row) => {
+    const slot = Number(row && row.slot)
+    const note = text(row && row.note)
+    const url = (Array.isArray(urls) ? urls : [])[slot - 1]
+    const key = mediaBare(url)
+    if (key && note) map[key] = note.slice(0, 120)
+  })
+  return {
+    ...node,
+    photoDraft: { ...draft, imageNotes: map },
+  }
 }
 
 async function runJob(albumId, kind) {
@@ -491,10 +717,16 @@ async function runJob(albumId, kind) {
     const ctx = contextOf(album)
     const fingerprint = fingerprintFor(kind, ctx)
     const { field, nodeKind } = nodeField(kind)
+    const urls =
+      kind === 'work'
+        ? (ctx.workPhotoSlots || []).map((row) => row.url)
+        : kind === 'inspect'
+          ? [].concat(ctx.intakePhotoUrls || [], ctx.inspectPhotoUrls || [])
+          : ctx.deliveryPhotoUrls || []
     const raw = await runLlm(
       kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
-      kind === 'work' ? (ctx.workPhotoSlots || []).map((row) => row.url) : kind === 'inspect' && !ctx.intakeBrief ? ctx.intakePhotoUrls : [],
-      kind === 'work' ? '施工' : '接车',
+      urls,
+      kind === 'work' ? 'Work' : kind === 'inspect' ? 'Inspect' : 'Delivery',
     )
     const parsed = kind === 'work'
       ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
@@ -502,12 +734,23 @@ async function runJob(albumId, kind) {
         ? parseInspectionAdvice(raw, ctx.inspectItems)
         : parseDeliveryAdvice(raw)
     const ok = adviceHasContent(parsed, kind)
-    await patchNode(albumId, nodeKind, (item) => ({
-      ...item,
-      [field]: ok
-        ? { status: 'ready', fingerprint, ...parsed, errorMessage: '', updatedAt: new Date().toISOString() }
-        : { ...(item[field] || {}), status: 'failed', fingerprint, errorMessage: '未能出意见', updatedAt: new Date().toISOString() },
-    }))
+    await patchNode(albumId, nodeKind, (item) => {
+      let next = {
+        ...item,
+        [field]: ok
+          ? { status: 'ready', fingerprint, ...parsed, errorMessage: '', updatedAt: new Date().toISOString() }
+          : { ...(item[field] || {}), status: 'failed', fingerprint, errorMessage: '未能出意见', updatedAt: new Date().toISOString() },
+      }
+      const notes = Array.isArray(parsed.imageNotes) ? parsed.imageNotes : []
+      if (kind === 'work') {
+        next = mergeImageNotesFromSlots(next, ctx.workPhotoSlots, notes)
+      } else if (kind === 'inspect') {
+        next = mergeImageNotesFromUrlList(next, urls, notes)
+      } else {
+        next = mergeImageNotesFromUrlList(next, urls, notes)
+      }
+      return next
+    })
   } finally {
     jobsInFlight.delete(key)
   }
@@ -577,6 +820,8 @@ function sanitizeStepAdviceForView(advice, kind) {
     repair: advice.repair || null,
     warranty: advice.warranty || null,
     care: advice.care || null,
+    processIssues: Array.isArray(advice.processIssues) ? advice.processIssues : [],
+    fill: advice.fill || null,
   }
 }
 
