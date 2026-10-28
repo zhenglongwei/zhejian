@@ -47,8 +47,8 @@ const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolve
 const { sanitizeAiReviewForView } = require('./node-ai-review.service')
 const { ownerVisiblePlate } = require('../utils/plate-mask')
 
-/** 接车定稿：报告 photos 必须来自节点 pendingImages（缺则写入；已有则保留） */
-function sealIntakePhotosPayload(node, payload = {}) {
+/** 接车定稿：报告 photos 必须来自节点 pendingImages（与节点当前留证一致） */
+function sealIntakePhotosPayload(node, payload = {}, options = {}) {
   const draft =
     (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
   const out = { ...(payload && typeof payload === 'object' ? payload : {}) }
@@ -57,7 +57,9 @@ function sealIntakePhotosPayload(node, payload = {}) {
     const url = typeof row === 'string' ? row : row && (row.url || row.src || row.rawUrl)
     return Boolean(String(url || '').trim())
   })
-  if (!hasPhotos) {
+  // force：改图后同步报告；默认缺图才补
+  const force = Boolean(options && options.force)
+  if (force || !hasPhotos) {
     out.photos = (Array.isArray(draft.pendingImages) ? draft.pendingImages : [])
       .map((img) => {
         const url = typeof img === 'string' ? img : img && (img.url || img.rawUrl)
@@ -1002,9 +1004,11 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
         ...((payload.document && payload.document.payload) || {}),
       }
       if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
+        // 发出/改图时强制与 pendingImages 对齐，避免报告残留已删图
         mergedPayload = sealIntakePhotosPayload(
           { ...prev, photoDraft: nextNode.photoDraft || prev.photoDraft },
           mergedPayload,
+          { force: true },
         )
       }
       nextNode.document = {
@@ -1017,6 +1021,22 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
         nextNode.document.ownerRejectReason = ''
         nextNode.document.ownerRejectedAt = ''
         if (nextNode.document.statusLabel === '车主未同意') nextNode.document.statusLabel = ''
+      }
+    } else if (
+      payload.photoDraft != null &&
+      (prev.kind === 'intake' || prev.kind === 'intake_inspection') &&
+      prev.document &&
+      String(prev.document.status || '') !== 'confirmed'
+    ) {
+      // 只改留证时：未确认的接车报告 photos 跟着节点走
+      const prevDoc = prev.document
+      nextNode.document = {
+        ...prevDoc,
+        payload: sealIntakePhotosPayload(
+          { ...prev, photoDraft: nextNode.photoDraft || prev.photoDraft },
+          prevDoc.payload || {},
+          { force: true },
+        ),
       }
     }
     if (payload.markComplete) {
@@ -1190,7 +1210,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
     if (list[idx].kind === 'intake' || list[idx].kind === 'intake_inspection') {
       const prevDoc = list[idx].document || emptyDocument('intake_confirm')
-      const sealed = sealIntakePhotosPayload(list[idx], prevDoc.payload || {})
+      const sealed = sealIntakePhotosPayload(list[idx], prevDoc.payload || {}, { force: true })
       const prevStatus = String(prevDoc.status || '')
       list[idx] = {
         ...list[idx],

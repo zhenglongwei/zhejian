@@ -2162,14 +2162,14 @@ Page({
       stagePrimaryAction: chrome.action,
       stageLocked: Boolean(chrome.locked),
       readOnly: albumLocked || frozen,
-      intakePile: this.collectIntakePile(stageBoard),
+      intakePile: [],
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
     })
-    // 接车堆以节点 pendingImages 为准（打开进度时服务端已并旧袋）
+    // 接车屏只绑节点 pendingImages 当场算出的列表
     if (family === 'intake') {
       const intake = this.intakeNode && this.intakeNode()
-      if (intake && intake.photoDraft) this.syncIntakePileFromDraft(intake.photoDraft)
+      this.syncIntakePileFromDraft((intake && intake.photoDraft) || {})
     }
   },
 
@@ -2181,27 +2181,19 @@ Page({
     this.setData({ complaintFocus: false })
   },
 
-  collectIntakePile(stageBoard) {
-    const board = stageBoard || this.data.stageBoard || {}
-    const saved = (board.intake && board.intake.photos) || []
-    const seen = {}
-    const pile = []
-    const push = (url) => {
-      const clean = String(url || '').trim()
-      const key = clean.replace(/[?#].*$/, '')
-      if (!key || seen[key]) return
-      seen[key] = true
-      pile.push({ url: clean })
-    }
-    saved.forEach((item) => push(item && (item.url || item)))
-    return pile
+  /** 接车留证：只从节点 photoDraft.pendingImages 当场算出，不读板子/preview 副本 */
+  collectIntakePile() {
+    const intake = this.intakeNode && this.intakeNode()
+    const draft =
+      (intake && intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) ||
+      {}
+    return this.intakePileFromPending(draft.pendingImages)
   },
 
-  /** 接车留证只认 pendingImages，不回灌界面旧列表 */
-  syncIntakePileFromDraft(draft = {}) {
+  intakePileFromPending(pendingImages) {
     const seen = {}
     const intakePile = []
-    normalizePendingImages(draft.pendingImages).forEach((item) => {
+    normalizePendingImages(pendingImages).forEach((item) => {
       const clean = String((item && item.url) || '').trim()
       const key = mediaKey(clean)
       if (!key || seen[key]) return
@@ -2212,6 +2204,12 @@ Page({
         caption: String((item && item.caption) || '').trim(),
       })
     })
+    return intakePile
+  },
+
+  /** 用节点草稿刷新屏上列表（屏上数组 = 节点当场投影，不另存真源） */
+  syncIntakePileFromDraft(draft = {}) {
+    const intakePile = this.intakePileFromPending(draft.pendingImages)
     const stageBoard = this.data.stageBoard
       ? {
           ...this.data.stageBoard,
@@ -2296,6 +2294,7 @@ Page({
           })
           intake.photoDraft = { ...draft, pendingImages }
           this.syncIntakePileFromDraft(intake.photoDraft)
+          if (typeof this.writeLocalFlowDraft === 'function') this.writeLocalFlowDraft()
           if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
             this.setData({
               intakeAdvice: {
@@ -2335,13 +2334,21 @@ Page({
     try {
       await updateMerchantFlowNode(this.albumId, intake.id, { photoDraft })
       intake.photoDraft = photoDraft
-      if (Array.isArray(intake.previewImages)) {
-        intake.previewImages = intake.previewImages.filter((item) => {
-          const itemUrl = typeof item === 'string' ? item : item && item.url
-          return mediaKey(itemUrl) !== mediaKey(url)
-        })
+      // 未确认报告跟节点走（服务端也会 force 对齐）；客户端不维护 previewImages 副本
+      if (intake.document && intake.document.payload && String(intake.document.status || '') !== 'confirmed') {
+        intake.document = {
+          ...intake.document,
+          payload: {
+            ...(intake.document.payload || {}),
+            photos: normalizePendingImages(photoDraft.pendingImages).map((item) => ({
+              url: item.url,
+              ...(item.imageId ? { imageId: item.imageId } : {}),
+            })),
+          },
+        }
       }
       this.syncIntakePileFromDraft(photoDraft)
+      if (typeof this.writeLocalFlowDraft === 'function') this.writeLocalFlowDraft()
       if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
         this.setData({
           intakeAdvice: {
@@ -2519,16 +2526,13 @@ Page({
     const repair = nodes.find((node) => node && node.kind === 'repair_report')
     const repairPayload = (repair && repair.document && repair.document.payload) || {}
     if (title === '接车报告') {
-      const photos = []
-      ;((intake && intake.previewImages) || []).concat(intakeDraft.pendingImages || []).forEach((item) => {
-        const url = typeof item === 'string' ? item : item && item.url
-        if (url) photos.push({ url })
-      })
+      // 只认节点当前 pendingImages（屏上列表也由此算出）
+      const photos = this.intakePileFromPending(intakeDraft.pendingImages)
       return buildOwnerPreviewDoc({
         family: 'intake',
         album,
         chiefComplaint: intakeDraft.chiefComplaint || this.intakeComplaintText(),
-        photos: photos.length ? photos : this.collectIntakePile(),
+        photos,
         mileageText,
         belongings: intakeDraft.belongings,
         signName: intakeDraft.receiverName,
@@ -2774,16 +2778,11 @@ Page({
   intakeDraftFields() {
     const intake = this.intakeNode()
     const draft = (intake && intake.photoDraft) || {}
-    const board = (this.data.stageBoard && this.data.stageBoard.intake) || {}
-    const pile =
-      this.data.intakePile && this.data.intakePile.length
-        ? this.data.intakePile
-        : this.collectIntakePile()
     return {
       intake,
-      pile,
+      pile: this.collectIntakePile(),
       complaint: String(
-        this.data.chiefComplaint || board.complaint || draft.chiefComplaint || '',
+        this.data.chiefComplaint || draft.chiefComplaint || '',
       ).trim(),
     }
   },

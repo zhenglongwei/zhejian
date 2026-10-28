@@ -106,16 +106,25 @@ function intakeRecord(nodes, album = {}) {
     seen[key] = true
     photos.push({ url: clean, caption: String(caption || '').trim() })
   }
-  // 接车留证唯一真源：pendingImages（打开进度时旧袋已并入）
+  // 未定稿：节点 pendingImages；已定稿且草稿空：报告 photos。禁止 previewImages 副本。
   const pending = Array.isArray(draft.pendingImages) ? draft.pendingImages : []
-  if (pending.length) {
-    pending.forEach((img) => {
-      const url = typeof img === 'string' ? img : img && img.url
-      pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
-    })
-  } else {
-    // 尚无草稿挂图时，才回落服务端投影（例如只读已发单）
-    imagesOf(photo).forEach((img) => pushPhoto(img.url, img.caption))
+  pending.forEach((img) => {
+    const url = typeof img === 'string' ? img : img && img.url
+    pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
+  })
+  if (!photos.length) {
+    const doc = (photo && photo.document) || {}
+    const docStatus = String(doc.status || '')
+    const sealed =
+      docStatus === 'pending_confirm' ||
+      docStatus === 'confirmed' ||
+      docStatus === 'delivered'
+    if (sealed && doc.payload && Array.isArray(doc.payload.photos)) {
+      doc.payload.photos.forEach((img) => {
+        const url = typeof img === 'string' ? img : img && img.url
+        pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
+      })
+    }
   }
   const all = photos
   const results = Array.isArray(draft.intakeResults) ? draft.intakeResults : []
