@@ -108,11 +108,13 @@ async function runGenerateLlm(urls) {
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
     'You assist a Chinese auto shop clerk at vehicle intake (pre-repair check-in photos).',
-    'Goal: decide whether front / rear / left / right of the car are covered by the photos. Content over form — judge what is actually visible, not whether fields look filled.',
+    'Goal: decide whether front / rear / left / right of the car are covered by the photos. Content over form — judge what is actually visible.',
     'Rules:',
     '- Do NOT diagnose damage, severity, or repair order.',
     '- Do NOT rewrite the owner complaint text.',
-    '- If a side is clearly missing, list it. If unsure, omit it.',
+    '- Count a side as covered if that side of the car body is clearly visible, including 3/4 angle shots. Perfect square-on panorama is NOT required.',
+    '- Only mark a side missing when it is clearly absent from all photos. If unsure, mark it covered (true) and omit it from missing.',
+    '- coverage and missing MUST agree: every false in coverage appears in missing; never put a side in missing when coverage says true.',
     '- Output natural-language strings in Simplified Chinese. Keys in English.',
     'Return JSON only:',
     '{"coverage":{"front":true,"rear":true,"left":true,"right":true},"missing":["车头"|"车尾"|"左侧"|"右侧"],"tips":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',

@@ -5442,13 +5442,8 @@ Page({
       options: [],
       hasOptions: false,
     }))
-    const fixes = this.decorateIntakeRows(raw.fixes, prev.fixes).map((row) => ({
-      ...row,
-      options: [],
-      hasOptions: false,
-    }))
     const covered = Boolean(raw.covered) && !risks.length
-    const fp = `${status}|${covered}|${risks.map((row) => row.title).join(',')}|${fixes.map((row) => row.title).join(',')}`
+    const fp = `${status}|${covered}|${risks.map((row) => row.title).join(',')}`
     if (status === 'ready' && this._askAdviceFp !== fp) {
       this._askAdviceFp = fp
       this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
@@ -5461,11 +5456,11 @@ Page({
       askOwner: [],
       checkpoints: [],
       risks,
-      fixes,
+      fixes: [],
       covered,
       hasRisks: risks.length > 0,
-      hasFixes: fixes.length > 0,
-      hasContent: Boolean(covered || risks.length || fixes.length),
+      hasFixes: false,
+      hasContent: Boolean(covered || risks.length),
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }

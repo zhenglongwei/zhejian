@@ -164,13 +164,19 @@ function parseCheckpoints(raw) {
 }
 
 const BODY_SIDES = ['车头', '车尾', '左侧', '右侧']
+const COVERAGE_KEYS = [
+  { key: 'front', label: '车头' },
+  { key: 'rear', label: '车尾' },
+  { key: 'left', label: '左侧' },
+  { key: 'right', label: '右侧' },
+]
 
 function sideName(value) {
   const line = text(value)
   return BODY_SIDES.find((side) => line.includes(side)) || ''
 }
 
-function coverageFromList(list) {
+function sidesFromList(list) {
   const missing = []
   const seen = new Set()
   ;(Array.isArray(list) ? list : []).forEach((item) => {
@@ -179,20 +185,49 @@ function coverageFromList(list) {
     seen.add(side)
     missing.push(side)
   })
+  return missing
+}
+
+/** 有 coverage 布尔字段时以它为准；某侧 true 绝不再进缺侧 */
+function missingSidesFromPayload(parsed = {}) {
+  const cov = parsed.coverage
+  const hasCoverageBool =
+    cov &&
+    typeof cov === 'object' &&
+    COVERAGE_KEYS.some(({ key }) => typeof cov[key] === 'boolean')
+  if (hasCoverageBool) {
+    return COVERAGE_KEYS.filter(({ key }) => cov[key] === false).map(({ label }) => label)
+  }
+  const fromList = sidesFromList(parsed.missing || parsed.risks)
+  if (cov && typeof cov === 'object') {
+    return fromList.filter((side) => {
+      const hit = COVERAGE_KEYS.find((row) => row.label === side)
+      return !(hit && cov[hit.key] === true)
+    })
+  }
+  return fromList
+}
+
+/** 只出一块「还缺」清单；不再平行生成「补全景」重复文案 */
+function buildCoverageResult(missingSides) {
+  const missing = Array.isArray(missingSides) ? missingSides : []
   return {
     covered: missing.length === 0,
-    risks: missing.map((side) => ({ title: `缺${side}`, body: '这一侧还没有全景。' })),
-    fixes: missing.map((side) => ({
-      title: `补${side}全景`,
-      body: '拍一张能看清这一侧的照片。',
-      options: [],
+    risks: missing.map((side) => ({
+      title: `缺${side}`,
+      body: `再拍一张能看清${side}的照片。`,
     })),
+    fixes: [],
   }
+}
+
+function coverageFromList(list) {
+  return buildCoverageResult(sidesFromList(list))
 }
 
 function parseIntakeAdvicePayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
-  const coverage = coverageFromList(parsed.missing || parsed.risks)
+  const coverage = buildCoverageResult(missingSidesFromPayload(parsed))
   return {
     diagnosis: '',
     photoTips: parseTitleBodyList(parsed.tips || parsed.photoTips, 4),
@@ -230,10 +265,10 @@ function sanitizeIntakeAdviceForView(advice) {
       ? advice.noPhotos
         ? {
             covered: false,
-            risks: [{ title: '还没有车身照片', body: '先把车身拍下来。' }],
-            fixes: [{ title: '拍车身', body: '车头、车尾、左右各一张全景。', options: [] }],
+            risks: [{ title: '还没有车身照片', body: '先拍车头、车尾、左右，能看清每一侧即可。' }],
+            fixes: [],
           }
-        : coverageFromList(advice.risks)
+        : buildCoverageResult(sidesFromList(advice.risks))
       : { covered: false, risks: [], fixes: [] }
   return {
     status,
@@ -244,7 +279,7 @@ function sanitizeIntakeAdviceForView(advice) {
     scope: advice.scope === 'coverage' ? 'coverage' : '',
     covered: coverage.covered,
     risks: coverage.risks,
-    fixes: coverage.fixes,
+    fixes: [],
     waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
     errorMessage: status === 'failed' ? text(advice.errorMessage) || '未能出意见' : '',
     updatedAt: text(advice.updatedAt),
@@ -265,4 +300,7 @@ module.exports = {
   intakeAdviceHasContent,
   checkpointId,
   defaultWalkaroundPhotoTips,
+  buildCoverageResult,
+  missingSidesFromPayload,
+  coverageFromList,
 }

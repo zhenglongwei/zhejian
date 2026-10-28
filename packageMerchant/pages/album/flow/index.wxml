@@ -63,15 +63,8 @@
     <text class="merchant-flow-page__advice-lead">车身四周都拍到了</text>
   </view>
   <view wx:if="{{advice.hasRisks}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">还没拍到</text>
+    <text class="merchant-flow-page__advice-sec-title">还缺这些</text>
     <view wx:for="{{advice.risks}}" wx:key="seq" class="merchant-flow-page__advice-ask">
-      <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
-      <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
-    </view>
-  </view>
-  <view wx:if="{{advice.hasFixes}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">补一张全景</text>
-    <view wx:for="{{advice.fixes}}" wx:key="seq" class="merchant-flow-page__advice-ask">
       <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
       <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
     </view>
