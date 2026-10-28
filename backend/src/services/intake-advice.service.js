@@ -49,16 +49,35 @@ function albumMileageKm(album) {
   return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
 }
 
-function intakePhotoUrls(intake) {
+function intakePhotoUrls(intake, options = {}) {
   const draft = (intake && intake.photoDraft) || {}
+  const limit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : 8
   const urls = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
-    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
+    if (!/^https?:\/\//.test(url) || urls.includes(url)) return
+    if (limit > 0 && urls.length >= limit) return
     urls.push(url)
   }
+  const odo = text(draft.odometerUrl)
+  if (odo) push(odo)
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
   return urls
+}
+
+/** 指纹用全部图身份，不截断；避免第 7 张起改图仍复用旧结论 */
+function intakePhotoFingerprintKeys(intake) {
+  const draft = (intake && intake.photoDraft) || {}
+  const keys = []
+  const push = (raw) => {
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    const key = url.split('?')[0].split('#')[0]
+    if (!key || keys.includes(key)) return
+    keys.push(key)
+  }
+  push(draft.odometerUrl)
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
+  return keys.sort()
 }
 
 function buildFingerprint(album) {
@@ -70,9 +89,9 @@ function buildFingerprint(album) {
     .createHash('sha1')
     .update(
       JSON.stringify({
-        v: 'coverage',
+        v: 'coverage-v2',
         c: intakeComplaintText(intake),
-        p: intakePhotoUrls(intake),
+        p: intakePhotoFingerprintKeys(intake),
         t: text(album && album.templateId),
         b: vehicle.vehicleBrand,
         s: vehicle.vehicleSeries,

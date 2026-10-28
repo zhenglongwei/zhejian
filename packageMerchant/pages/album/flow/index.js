@@ -2192,6 +2192,30 @@ Page({
     return pile
   },
 
+  syncIntakePileFromDraft(draft = {}) {
+    const seen = {}
+    const intakePile = []
+    const push = (url, caption) => {
+      const clean = String(url || '').trim()
+      const key = clean.replace(/[?#].*$/, '')
+      if (!key || seen[key]) return
+      seen[key] = true
+      intakePile.push({ url: clean, caption: String(caption || '').trim() })
+    }
+    const odo = String(draft.odometerUrl || '').trim()
+    if (odo) push(odo, '仪表里程')
+    normalizePendingImages(draft.pendingImages).forEach((item) => push(item && item.url))
+    this.collectIntakePile().forEach((item) => push(item && item.url, item && item.caption))
+    const stageBoard = this.data.stageBoard
+      ? {
+          ...this.data.stageBoard,
+          intake: { ...(this.data.stageBoard.intake || {}), photos: intakePile },
+        }
+      : this.data.stageBoard
+    this.setData({ intakePile, stageBoard, autoSaveLabel: '已保存' })
+    return intakePile
+  },
+
   onIntakeShoot() {
     if (this.data.readOnly || this.data.intakeSent) return
     const remain = Math.max(0, 12 - this.collectIntakePile().length)
@@ -2227,24 +2251,19 @@ Page({
             photoDraft: { pendingImages },
           })
           intake.photoDraft = { ...draft, pendingImages }
-          const seen = {}
-          const intakePile = []
-          const push = (url) => {
-            const clean = String(url || '').trim()
-            const key = clean.replace(/[?#].*$/, '')
-            if (!key || seen[key]) return
-            seen[key] = true
-            intakePile.push({ url: clean })
+          this.syncIntakePileFromDraft(intake.photoDraft)
+          if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
+            this.setData({
+              intakeAdvice: {
+                ...this.data.intakeAdvice,
+                hasContent: false,
+                covered: false,
+                risks: [],
+                hasRisks: false,
+                status: '',
+              },
+            })
           }
-          this.collectIntakePile().forEach((item) => push(item && item.url))
-          pendingImages.forEach((item) => push(item && item.url))
-          const stageBoard = this.data.stageBoard
-            ? {
-                ...this.data.stageBoard,
-                intake: { ...(this.data.stageBoard.intake || {}), photos: intakePile },
-              }
-            : this.data.stageBoard
-          this.setData({ intakePile, stageBoard, autoSaveLabel: '已保存' })
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -2252,6 +2271,61 @@ Page({
         }
       },
     })
+  },
+
+  async onRemoveIntakePhoto(e) {
+    if (this.data.readOnly || this.data.intakeSent || this.data.confirming) return
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    const key = url.replace(/[?#].*$/, '')
+    if (!key) return
+    const intake = this.intakeNode()
+    if (!intake) return
+    const draft = (intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) || {}
+    const pendingImages = normalizePendingImages(draft.pendingImages).filter((item) => {
+      const itemKey = String((item && item.url) || '')
+        .trim()
+        .replace(/[?#].*$/, '')
+      return itemKey !== key
+    })
+    const odoKey = String(draft.odometerUrl || '')
+      .trim()
+      .replace(/[?#].*$/, '')
+    const photoDraft = {
+      ...draft,
+      pendingImages,
+      ...(odoKey === key ? { odometerUrl: '' } : {}),
+    }
+    this.setData({ confirming: true })
+    try {
+      await updateMerchantFlowNode(this.albumId, intake.id, { photoDraft })
+      intake.photoDraft = photoDraft
+      // 预览列表可能仍含旧图：按当前草稿重建
+      if (Array.isArray(intake.previewImages)) {
+        intake.previewImages = intake.previewImages.filter((item) => {
+          const itemUrl = typeof item === 'string' ? item : item && item.url
+          return String(itemUrl || '').trim().replace(/[?#].*$/, '') !== key
+        })
+      }
+      this.syncIntakePileFromDraft(photoDraft)
+      // 图变了，清掉旧 AI 结论，下次点分析必重跑
+      if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
+        this.setData({
+          intakeAdvice: {
+            ...this.data.intakeAdvice,
+            hasContent: false,
+            covered: false,
+            risks: [],
+            hasRisks: false,
+            status: '',
+          },
+        })
+        intake.intakeAdvice = null
+      }
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '删除失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
   },
 
   nodeDraft(node) {
@@ -6919,8 +6993,8 @@ Page({
     }
     this.setData({ adviceOpen: true })
     if (this.data.readOnly || this.data.intakeSent) return
-    const advice = this.data.intakeAdvice
-    if ((advice && advice.hasContent) || (advice && advice.isWaiting)) return
+    // 改图后也要能重跑；后端按指纹决定复用或重生成
+    if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
     this.onStartIntakeAdvice()
   },
 
@@ -6953,8 +7027,7 @@ Page({
     this.setData({ adviceOpen: true })
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'intake') {
-      const advice = this.data.intakeAdvice
-      if ((advice && advice.hasContent) || (advice && advice.isWaiting)) return
+      if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
       this.onStartIntakeAdvice()
       return
     }

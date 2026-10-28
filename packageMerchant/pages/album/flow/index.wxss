@@ -2536,9 +2536,16 @@
 
 .st-card__head {
   display: flex;
+  flex-direction: row;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 16rpx;
   margin-bottom: 20rpx;
+}
+
+.st-card__head > view:first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .st-ai-bar {
@@ -2657,16 +2664,25 @@
 
 .st-count {
   display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
   align-items: center;
   gap: 6rpx;
   color: var(--color-mch-meta);
   font-size: var(--font-mch-micro);
   line-height: var(--font-mch-micro-lh);
+  white-space: nowrap;
 }
 
 .st-count image {
+  flex-shrink: 0;
   width: 28rpx;
   height: 28rpx;
+}
+
+.st-count__text {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .st-card__hint {
@@ -2821,6 +2837,21 @@
   background: var(--color-mch-green-deep);
   font-size: var(--font-mch-micro);
   line-height: var(--font-mch-micro-lh);
+}
+
+.st-photo__del {
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  z-index: 2;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 28rpx;
+  line-height: 40rpx;
+  text-align: center;
 }
 
 .st-note,

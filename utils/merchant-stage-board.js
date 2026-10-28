@@ -109,6 +109,11 @@ function intakeRecord(nodes, album = {}) {
   }
   if (odo) pushPhoto(odo, '仪表里程')
   all.forEach((img) => pushPhoto(img.url, img.caption))
+  // 预览列表偶发滞后时，草稿里的 pending 也要露出，否则删/加后界面丢图
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
+    const url = typeof img === 'string' ? img : img && img.url
+    pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
+  })
   const results = Array.isArray(draft.intakeResults) ? draft.intakeResults : []
   const reading = (id) => {
     const row = results.find((item) => item && item.category === id)

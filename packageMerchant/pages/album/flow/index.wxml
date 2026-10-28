@@ -289,7 +289,7 @@
                 </view>
                 <view wx:if="{{intakePile.length}}" class="st-count">
                   <image src="/assets/mch/camera-gray.png" mode="aspectFit" />
-                  <text>{{intakePile.length}} 张</text>
+                  <text class="st-count__text">{{intakePile.length}}张</text>
                 </view>
               </view>
               <view class="st-photos st-photos--intake">
@@ -303,6 +303,12 @@
                   <image src="{{item.url}}" mode="aspectFill" />
                   <text class="st-photo__cap">{{item.caption}}</text>
                   <text class="st-photo__badge">已留证</text>
+                  <view
+                    wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
+                    class="st-photo__del"
+                    data-url="{{item.url}}"
+                    catchtap="onRemoveIntakePhoto"
+                  >×</view>
                 </view>
                 <view
                   wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
