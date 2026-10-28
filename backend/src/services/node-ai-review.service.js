@@ -82,7 +82,9 @@ function collectNodeImageEntries(node = {}) {
   }
   const draft = node.photoDraft || {}
   push(draft.deliveryExteriorUrl, '全车外观')
-  push(draft.odometerUrl, '仪表里程')
+  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
+    push(img, '留证')
+  })
   ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach((url) => {
     push(url, '交车图')
   })

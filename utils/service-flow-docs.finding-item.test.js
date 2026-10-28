@@ -40,7 +40,7 @@ test('explicit empty photos are not restored from a leftover url', () => {
   assert.equal(saved.result, '需处理')
 })
 
-test('submit keeps the item when album urls do not match its photos', () => {
+test('定稿只认草稿 findings 挂图，不从旧阶段散图拼项', () => {
   const report = buildInspectionReportPayload({
     chiefComplaint: '漏油',
     findings: [hydraulic],
@@ -48,7 +48,7 @@ test('submit keeps the item when album urls do not match its photos', () => {
       id: 'stage_2',
       images: [
         { url: 'https://cdn.example/media/uploads/odo.jpg', caption: '仪表' },
-        { url: 'https://cdn.example/other/new-a.jpg', caption: '液压位' },
+        { url: 'https://cdn.example/other/orphan.jpg', caption: '散图' },
       ],
     }],
     photoDraft: {
@@ -59,7 +59,8 @@ test('submit keeps the item when album urls do not match its photos', () => {
   assert.equal(report.findings.length, 1)
   assert.equal(report.findings[0].partName, '液压位')
   assert.equal(report.findings[0].result, '需处理')
-  assert.ok(report.findings[0].images.length >= 2)
+  assert.equal(report.findings[0].images.length, 2)
+  assert.ok(!report.findings.some((row) => /orphan|散图/.test(JSON.stringify(row))))
   assert.deepEqual(collectInspectionReportGaps(report), [])
 })
 

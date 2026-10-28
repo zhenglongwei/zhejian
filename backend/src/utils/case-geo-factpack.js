@@ -45,7 +45,7 @@ function nodesOfKind(flowNodes, kind) {
   return (flowNodes || []).filter((node) => String((node && node.kind) || '') === kind)
 }
 
-/** 诉求：优先检测报告（跨节点合成的同一份），回退到接车节点 */
+/** 诉求：优先检测报告，其次接车报告，最后才回落接车草稿 */
 function pickChiefComplaint(flowNodes) {
   const reports = nodesOfKind(flowNodes, 'inspection_report')
   for (const node of reports) {
@@ -57,6 +57,10 @@ function pickChiefComplaint(flowNodes) {
     ...nodesOfKind(flowNodes, 'intake_inspection'),
   ]
   for (const node of intakes) {
+    const fromDoc = String(payloadOf(node).chiefComplaint || '').trim()
+    if (fromDoc) return fromDoc
+  }
+  for (const node of intakes) {
     const value = String(photoDraftOf(node).chiefComplaint || '').trim()
     if (value) return value
   }
@@ -64,19 +68,14 @@ function pickChiefComplaint(flowNodes) {
 }
 
 /**
- * 检测结论：优先检测报告，回退到检测节点
+ * 检测结论：只认检测报告定稿；报告未写入前才回落检测节点草稿 findings
  * 只保留需处理 / 需关注两档
  */
 function pickFindings(flowNodes) {
-  const source = [
-    ...nodesOfKind(flowNodes, 'inspection_report'),
-    ...nodesOfKind(flowNodes, 'inspection'),
-  ]
   const seen = new Set()
   const out = []
-  for (const node of source) {
-    const rows = payloadOf(node).findings
-    if (!Array.isArray(rows)) continue
+  const pushRows = (rows) => {
+    if (!Array.isArray(rows)) return
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue
       const result = String(row.result || '').trim()
@@ -89,6 +88,16 @@ function pickFindings(flowNodes) {
       seen.add(dedupe)
       out.push({ partName, result, advice })
     }
+  }
+  for (const node of nodesOfKind(flowNodes, 'inspection_report')) {
+    pushRows(payloadOf(node).findings)
+  }
+  if (out.length) return out
+  for (const node of [
+    ...nodesOfKind(flowNodes, 'inspection'),
+    ...nodesOfKind(flowNodes, 'intake_inspection'),
+  ]) {
+    pushRows(photoDraftOf(node).findings)
   }
   return out
 }
@@ -108,18 +117,19 @@ function pickQuoteItems(flowNodes, kind) {
 }
 
 /**
- * 工单项（实际做了什么）
- * 工单节点没有 document 壳，数据在 photoDraft.findings
+ * 工单项：优先定稿 document.payload.workItems；存量/进行中才回落 photoDraft.findings
  */
 function pickWorkItems(flowNodes) {
   const out = []
   for (const node of nodesOfKind(flowNodes, 'work')) {
-    const rows = photoDraftOf(node).findings
+    const sealed = payloadOf(node).workItems
+    const rows =
+      Array.isArray(sealed) && sealed.length ? sealed : photoDraftOf(node).findings
     if (!Array.isArray(rows)) continue
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue
-      const name = String(row.partName || '').trim()
-      const note = String(row.caption || '').trim()
+      const name = String(row.partName || row.name || '').trim()
+      const note = String(row.caption || row.note || '').trim()
       if (!name && !note) continue
       out.push({
         name,
@@ -177,14 +187,13 @@ function pickAnalyzedImageKeys(flowNodes) {
       }
     }
   }
-  for (const node of [
-    ...nodesOfKind(flowNodes, 'inspection_report'),
-    ...nodesOfKind(flowNodes, 'inspection'),
-  ]) {
+  for (const node of nodesOfKind(flowNodes, 'inspection_report')) {
     collect(payloadOf(node).findings)
   }
   for (const node of nodesOfKind(flowNodes, 'work')) {
-    collect(photoDraftOf(node).findings)
+    const sealed = payloadOf(node).workItems
+    if (Array.isArray(sealed) && sealed.length) collect(sealed)
+    else collect(photoDraftOf(node).findings)
   }
   return Array.from(keys)
 }

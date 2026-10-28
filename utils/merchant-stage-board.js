@@ -4,6 +4,7 @@
 const { FINDING_RESULT } = require('../constants/service-flow-nodes')
 const { buildMerchantAlbumOverview, addonQuoteHasProcess } = require('./merchant-album-overview')
 const { quoteFace } = require('./service-flow-quote-draft')
+const { mediaKey } = require('./service-flow-docs')
 
 const STAGES = [
   { key: 'intake', title: '接车建档', short: '接车' },
@@ -96,24 +97,27 @@ function maskedPhone(album = {}) {
 function intakeRecord(nodes, album = {}) {
   const photo = firstNode(nodes, ['intake', 'intake_inspection'])
   const draft = (photo && photo.photoDraft) || {}
-  const all = imagesOf(photo)
-  const odo = String(draft.odometerUrl || '').trim()
   const photos = []
   const seen = {}
   const pushPhoto = (url, caption) => {
     const clean = String(url || '').trim()
-    const key = clean.replace(/[?#].*$/, '')
+    const key = mediaKey(clean)
     if (!key || seen[key]) return
     seen[key] = true
     photos.push({ url: clean, caption: String(caption || '').trim() })
   }
-  if (odo) pushPhoto(odo, '仪表里程')
-  all.forEach((img) => pushPhoto(img.url, img.caption))
-  // 预览列表偶发滞后时，草稿里的 pending 也要露出，否则删/加后界面丢图
-  ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
-    const url = typeof img === 'string' ? img : img && img.url
-    pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
-  })
+  // 接车留证唯一真源：pendingImages（打开进度时旧袋已并入）
+  const pending = Array.isArray(draft.pendingImages) ? draft.pendingImages : []
+  if (pending.length) {
+    pending.forEach((img) => {
+      const url = typeof img === 'string' ? img : img && img.url
+      pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
+    })
+  } else {
+    // 尚无草稿挂图时，才回落服务端投影（例如只读已发单）
+    imagesOf(photo).forEach((img) => pushPhoto(img.url, img.caption))
+  }
+  const all = photos
   const results = Array.isArray(draft.intakeResults) ? draft.intakeResults : []
   const reading = (id) => {
     const row = results.find((item) => item && item.category === id)

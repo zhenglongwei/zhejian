@@ -1215,23 +1215,17 @@ function buildInspectionReportPayload({
   conclusion = '',
   photoDraft = {},
 } = {}) {
-  const intake = (albumNodes || []).find((n) => n.id === 'stage_1')
-  const inspection = (albumNodes || []).find((n) => n.id === 'stage_2')
-  // 统一入口：发现项来自 stage_2；存量 stage_1 并入
-  const mergedImages = omitOdometerImages(
-    []
-      .concat((intake && intake.images) || [])
-      .concat((inspection && inspection.images) || []),
-    photoDraft.odometerUrl,
-  )
+  // 定稿真源：检测节点草稿 findings（项对象 + 挂图）。不再从旧阶段散图拼项。
+  void albumNodes
   const draftFindings =
     Array.isArray(findingsInput) && findingsInput.length
       ? findingsInput
       : Array.isArray(photoDraft.findings)
         ? photoDraft.findings
         : []
-  const findings = mapFindingRows(mergedImages, draftFindings, {
+  const findings = mapFindingRows([], draftFindings, {
     odometerUrl: photoDraft.odometerUrl,
+    strictFindings: true,
   })
   return {
     vehicleBrand: String(photoDraft.vehicleBrand || vehicle.brand || ''),
@@ -1518,7 +1512,7 @@ function buildRepairReportPayload({
       ? parseAmount(totalAmount)
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
 
-  // 交车图优先用引用（外观 + 其他勾选），避免复制施工图进 stage_6
+  // 交车图只认本步草稿引用（外观 + 勾选）；deliveryImages 仅兼容存量空草稿
   const exterior = String(photoDraft.deliveryExteriorUrl || '').trim()
   const extras = Array.isArray(photoDraft.selectedDeliveryUrls)
     ? photoDraft.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)

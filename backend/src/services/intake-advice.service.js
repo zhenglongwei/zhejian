@@ -59,8 +59,7 @@ function intakePhotoUrls(intake, options = {}) {
     if (limit > 0 && urls.length >= limit) return
     urls.push(url)
   }
-  const odo = text(draft.odometerUrl)
-  if (odo) push(odo)
+  // 接车留证唯一真源：pendingImages
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
   return urls
 }
@@ -71,11 +70,13 @@ function intakePhotoFingerprintKeys(intake) {
   const keys = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
-    const key = url.split('?')[0].split('#')[0]
+    let key = url.split('?')[0].split('#')[0]
+    const mark = '/uploads/'
+    const at = key.lastIndexOf(mark)
+    if (at >= 0) key = key.slice(at + mark.length)
     if (!key || keys.includes(key)) return
     keys.push(key)
   }
-  push(draft.odometerUrl)
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
   return keys.sort()
 }

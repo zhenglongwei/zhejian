@@ -2166,6 +2166,11 @@ Page({
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
     })
+    // 接车堆以节点 pendingImages 为准（打开进度时服务端已并旧袋）
+    if (family === 'intake') {
+      const intake = this.intakeNode && this.intakeNode()
+      if (intake && intake.photoDraft) this.syncIntakePileFromDraft(intake.photoDraft)
+    }
   },
 
   onComplaintFocus() {
@@ -2192,28 +2197,67 @@ Page({
     return pile
   },
 
+  /** 接车留证只认 pendingImages，不回灌界面旧列表 */
   syncIntakePileFromDraft(draft = {}) {
     const seen = {}
     const intakePile = []
-    const push = (url, caption) => {
-      const clean = String(url || '').trim()
-      const key = clean.replace(/[?#].*$/, '')
+    normalizePendingImages(draft.pendingImages).forEach((item) => {
+      const clean = String((item && item.url) || '').trim()
+      const key = mediaKey(clean)
       if (!key || seen[key]) return
       seen[key] = true
-      intakePile.push({ url: clean, caption: String(caption || '').trim() })
-    }
-    const odo = String(draft.odometerUrl || '').trim()
-    if (odo) push(odo, '仪表里程')
-    normalizePendingImages(draft.pendingImages).forEach((item) => push(item && item.url))
-    this.collectIntakePile().forEach((item) => push(item && item.url, item && item.caption))
+      intakePile.push({
+        url: clean,
+        imageId: String((item && item.imageId) || ''),
+        caption: String((item && item.caption) || '').trim(),
+      })
+    })
     const stageBoard = this.data.stageBoard
       ? {
           ...this.data.stageBoard,
-          intake: { ...(this.data.stageBoard.intake || {}), photos: intakePile },
+          intake: {
+            ...(this.data.stageBoard.intake || {}),
+            photos: intakePile,
+            photoCount: intakePile.length,
+          },
         }
       : this.data.stageBoard
     this.setData({ intakePile, stageBoard, autoSaveLabel: '已保存' })
     return intakePile
+  },
+
+  /** 只从 pendingImages 卸下；顺带清掉存量旧袋里同键挂图，避免下次并回 */
+  purgeIntakeDraftPhoto(draft = {}, targetUrl = '') {
+    const key = mediaKey(targetUrl)
+    if (!key) return { ...(draft || {}) }
+    const dropImg = (raw) => {
+      const u = typeof raw === 'string' ? raw : raw && (raw.url || raw.rawUrl)
+      return mediaKey(u) !== key
+    }
+    const pendingImages = normalizePendingImages(draft.pendingImages).filter((item) =>
+      dropImg(item),
+    )
+    const odo = String(draft.odometerUrl || '').trim()
+    const findings = (Array.isArray(draft.findings) ? draft.findings : []).map((row) => {
+      if (!row || typeof row !== 'object') return row
+      const images = Array.isArray(row.images) ? row.images.filter(dropImg) : row.images
+      const keepUrl = row.url && mediaKey(row.url) === key ? '' : row.url
+      return { ...row, images, ...(keepUrl === '' ? { url: '' } : {}) }
+    })
+    const intakeResults = (Array.isArray(draft.intakeResults) ? draft.intakeResults : []).map(
+      (row) => {
+        if (!row || typeof row !== 'object') return row
+        const images = Array.isArray(row.images) ? row.images.filter(dropImg) : row.images
+        return { ...row, images }
+      },
+    )
+    return {
+      ...draft,
+      pendingImages,
+      findings,
+      intakeResults,
+      ...(mediaKey(odo) === key ? { odometerUrl: '', odometerImageId: '' } : {}),
+    }
   },
 
   onIntakeShoot() {
@@ -2275,39 +2319,29 @@ Page({
 
   async onRemoveIntakePhoto(e) {
     if (this.data.readOnly || this.data.intakeSent || this.data.confirming) return
-    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
-    const key = url.replace(/[?#].*$/, '')
-    if (!key) return
+    const ds = (e && e.currentTarget && e.currentTarget.dataset) || {}
+    const idx = Number(ds.index)
+    const pile = Array.isArray(this.data.intakePile) ? this.data.intakePile : []
+    // 优先用屏上序号对准这一张，避免 URL 签名参数对不上
+    const fromPile =
+      Number.isFinite(idx) && idx >= 0 && idx < pile.length ? pile[idx] : null
+    const url = String((fromPile && fromPile.url) || ds.url || '').trim()
+    if (!mediaKey(url)) return
     const intake = this.intakeNode()
     if (!intake) return
     const draft = (intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) || {}
-    const pendingImages = normalizePendingImages(draft.pendingImages).filter((item) => {
-      const itemKey = String((item && item.url) || '')
-        .trim()
-        .replace(/[?#].*$/, '')
-      return itemKey !== key
-    })
-    const odoKey = String(draft.odometerUrl || '')
-      .trim()
-      .replace(/[?#].*$/, '')
-    const photoDraft = {
-      ...draft,
-      pendingImages,
-      ...(odoKey === key ? { odometerUrl: '' } : {}),
-    }
+    const photoDraft = this.purgeIntakeDraftPhoto(draft, url)
     this.setData({ confirming: true })
     try {
       await updateMerchantFlowNode(this.albumId, intake.id, { photoDraft })
       intake.photoDraft = photoDraft
-      // 预览列表可能仍含旧图：按当前草稿重建
       if (Array.isArray(intake.previewImages)) {
         intake.previewImages = intake.previewImages.filter((item) => {
           const itemUrl = typeof item === 'string' ? item : item && item.url
-          return String(itemUrl || '').trim().replace(/[?#].*$/, '') !== key
+          return mediaKey(itemUrl) !== mediaKey(url)
         })
       }
       this.syncIntakePileFromDraft(photoDraft)
-      // 图变了，清掉旧 AI 结论，下次点分析必重跑
       if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
         this.setData({
           intakeAdvice: {

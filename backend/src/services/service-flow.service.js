@@ -37,7 +37,7 @@ const {
   parseAmount,
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
-const { planLegacyPhotoFold } = resolveShared('utils/flow-node-photos.js')
+const { planAllPhotoFolds } = resolveShared('utils/flow-node-photos.js')
 const { quoteFace } = resolveShared('utils/service-flow-quote-draft.js')
 const { applyAddonInsert, reopenWorkBesideOpenAddon } = resolveShared('utils/service-flow-addon-insert.js')
 
@@ -46,6 +46,44 @@ const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolve
 )
 const { sanitizeAiReviewForView } = require('./node-ai-review.service')
 const { ownerVisiblePlate } = require('../utils/plate-mask')
+
+/** 接车定稿：报告 photos 必须来自节点 pendingImages（缺则写入；已有则保留） */
+function sealIntakePhotosPayload(node, payload = {}) {
+  const draft =
+    (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const out = { ...(payload && typeof payload === 'object' ? payload : {}) }
+  const existing = Array.isArray(out.photos) ? out.photos : []
+  const hasPhotos = existing.some((row) => {
+    const url = typeof row === 'string' ? row : row && (row.url || row.src || row.rawUrl)
+    return Boolean(String(url || '').trim())
+  })
+  if (!hasPhotos) {
+    out.photos = (Array.isArray(draft.pendingImages) ? draft.pendingImages : [])
+      .map((img) => {
+        const url = typeof img === 'string' ? img : img && (img.url || img.rawUrl)
+        const clean = String(url || '').trim()
+        if (!clean) return null
+        const imageId =
+          typeof img === 'object' && img ? String(img.imageId || img.id || '').trim() : ''
+        const caption =
+          typeof img === 'object' && img ? String(img.caption || '').trim() : ''
+        return {
+          url: clean,
+          ...(imageId ? { imageId } : {}),
+          ...(caption ? { caption } : {}),
+        }
+      })
+      .filter(Boolean)
+  }
+  if (!String(out.chiefComplaint || '').trim()) {
+    const complaint = String(draft.chiefComplaint || '').trim()
+    if (complaint) out.chiefComplaint = complaint
+  }
+  if (!String(out.confirmCopy || '').trim()) {
+    out.confirmCopy = INTAKE_CONFIRM_COPY
+  }
+  return out
+}
 
 function albumQuoteOpts(album = {}) {
   return {
@@ -109,6 +147,18 @@ function resolveDocumentStatusLabel(doc = {}) {
   return ''
 }
 
+function mediaPathKey(url) {
+  const bare = String(url || '')
+    .trim()
+    .split('?')[0]
+    .split('#')[0]
+  if (!bare) return ''
+  const mark = '/uploads/'
+  const at = bare.lastIndexOf(mark)
+  if (at >= 0) return bare.slice(at + mark.length)
+  return bare
+}
+
 function collectNodePhotoList(node, albumNodes = []) {
   const seen = {}
   const out = []
@@ -117,7 +167,7 @@ function collectNodePhotoList(node, albumNodes = []) {
       typeof raw === 'object' && raw ? raw.url || raw.rawUrl || '' : raw || '',
     ).trim()
     if (!url) return
-    const key = url.replace(/[?#].*$/, '')
+    const key = mediaPathKey(url)
     if (!key || seen[key]) return
     seen[key] = true
     out.push({
@@ -128,7 +178,11 @@ function collectNodePhotoList(node, albumNodes = []) {
     })
   }
   const draft = (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
-  push(draft.odometerUrl, '仪表')
+  // 接车留证唯一真源：pendingImages（旧袋打开时已并入一次）
+  if (node && node.kind === 'intake') {
+    ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => push(img))
+    return out
+  }
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => push(img))
   ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((item) => {
     const shots =
@@ -138,11 +192,6 @@ function collectNodePhotoList(node, albumNodes = []) {
           ? [item]
           : []
     shots.forEach((img) => push(img, item && item.partName))
-  })
-  ;(Array.isArray(draft.intakeResults) ? draft.intakeResults : []).forEach((item) => {
-    ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) =>
-      push(img, item && item.partName),
-    )
   })
   // 接车 / 检测 / 工单只认节点草稿。旧阶段的图在打开进度时并入一次。
   // 交车仍从工单图勾选，缺的补拍落在交车阶段。
@@ -157,7 +206,7 @@ function collectNodePhotoList(node, albumNodes = []) {
 
 async function absorbLegacyStagePhotos(albumId, album, albumNodes) {
   const raw = sortFlowNodes(readFlowNodesRaw(album))
-  const folded = planLegacyPhotoFold(raw, albumNodes)
+  const folded = planAllPhotoFolds(raw, albumNodes)
   if (!folded) return album
   await writeFlowPackage(albumId, (pkg) => ({ ...pkg, flowNodes: folded }))
   const { loadAlbum } = require('./service-album.service')
@@ -356,8 +405,17 @@ function collectWorkSheetDeclaredAmounts(nodes = []) {
   ;(nodes || [])
     .filter((n) => n.kind === 'work')
     .forEach((n) => {
+      const sealed =
+        n.document &&
+        n.document.payload &&
+        Array.isArray(n.document.payload.workItems) &&
+        n.document.payload.workItems.length
+          ? n.document.payload.workItems
+          : null
       const findings =
-        (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) || []
+        sealed ||
+        (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) ||
+        []
       findings.forEach((row) => {
         const amount = parseAmount(row && row.amount)
         if (amount != null) out.push(amount)
@@ -386,6 +444,29 @@ function collectAllWorkOrderItems(nodes = []) {
   return (nodes || [])
     .filter((n) => n.kind === 'work')
     .flatMap((n) => {
+      const sealed =
+        n.document &&
+        n.document.payload &&
+        Array.isArray(n.document.payload.workItems) &&
+        n.document.payload.workItems.length
+          ? n.document.payload.workItems
+          : null
+      if (sealed) {
+        return sealed
+          .map((row) =>
+            mapWorkFindingToReportItem({
+              partName: (row && (row.partName || row.name)) || '',
+              caption: (row && (row.caption || row.note)) || '',
+              brand: (row && row.brand) || '',
+              material: (row && row.material) || '',
+              qty: (row && row.qty) || '',
+              amount: row && row.amount,
+              images: (row && row.images) || [],
+              url: row && row.url,
+            }),
+          )
+          .filter(Boolean)
+      }
       const findings =
         (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) || []
       return findings.map(mapWorkFindingToReportItem).filter(Boolean)
@@ -916,14 +997,21 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
     if (payload.document != null && (prev.document || prev.kind === 'intake' || prev.kind === 'intake_inspection')) {
       const prevDoc = prev.document || emptyDocument('intake_confirm')
+      let mergedPayload = {
+        ...(prevDoc.payload || {}),
+        ...((payload.document && payload.document.payload) || {}),
+      }
+      if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
+        mergedPayload = sealIntakePhotosPayload(
+          { ...prev, photoDraft: nextNode.photoDraft || prev.photoDraft },
+          mergedPayload,
+        )
+      }
       nextNode.document = {
         ...prevDoc,
         ...payload.document,
         docType: (payload.document && payload.document.docType) || prevDoc.docType || 'intake_confirm',
-        payload: {
-          ...(prevDoc.payload || {}),
-          ...((payload.document && payload.document.payload) || {}),
-        },
+        payload: mergedPayload,
       }
       if (String(payload.document.status || '') === 'pending_confirm') {
         nextNode.document.ownerRejectReason = ''
@@ -1100,6 +1188,28 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       status: 'completed',
       photoDraft: incomingDraft,
     }
+    if (list[idx].kind === 'intake' || list[idx].kind === 'intake_inspection') {
+      const prevDoc = list[idx].document || emptyDocument('intake_confirm')
+      const sealed = sealIntakePhotosPayload(list[idx], prevDoc.payload || {})
+      const prevStatus = String(prevDoc.status || '')
+      list[idx] = {
+        ...list[idx],
+        document: {
+          ...prevDoc,
+          docType: prevDoc.docType || 'intake_confirm',
+          status:
+            prevStatus === 'pending_confirm' ||
+            prevStatus === 'confirmed' ||
+            prevStatus === 'delivered'
+              ? prevStatus
+              : 'delivered',
+          ...(prevStatus === 'delivered' || prevStatus === 'pending_confirm' || prevStatus === 'confirmed'
+            ? {}
+            : { deliveredAt: new Date().toISOString() }),
+          payload: sealed,
+        },
+      }
+    }
     if (list[idx].kind === 'work') {
       const workItems = (Array.isArray(incomingDraft.findings) ? incomingDraft.findings : [])
         .map(mapWorkFindingToReportItem)
@@ -1197,6 +1307,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
             throw err
           }
         }
+        // 交车图只认本步草稿勾选/外观；禁止再从 stage_6 散图另拷一份
+        void delivery
         const draft = buildRepairReportPayload({
           chiefComplaint:
             (inspectionReport &&
@@ -1205,7 +1317,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
               inspectionReport.document.payload.chiefComplaint) ||
             '',
           workItems: collectAllWorkOrderItems(list),
-          deliveryImages: (delivery && delivery.images) || [],
+          deliveryImages: [],
           photoDraft: incomingDraft,
           // 工单没登记金额就回落报价合计；登记了则两者必然相等（上面已校验）
           totalAmount: quoteTotal,
@@ -1273,9 +1385,36 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       throw err
     }
     const prevDoc = nodes[index].document || emptyDocument('inspection_report')
-    const mergedPayload = {
+    let mergedPayload = {
       ...(prevDoc.payload || {}),
       ...((payload.document && payload.document.payload) || {}),
+    }
+    // 通知车主前：若报告 findings 缺挂图，从检测节点草稿再定稿一次
+    const findingsHaveShot = (Array.isArray(mergedPayload.findings) ? mergedPayload.findings : []).some(
+      (row) =>
+        row &&
+        ((Array.isArray(row.images) && row.images.length) || String(row.url || '').trim()),
+    )
+    if (!findingsHaveShot) {
+      const insp =
+        nodes.find((n) => n && n.kind === 'inspection') ||
+        nodes.find((n) => n && n.kind === 'intake_inspection')
+      const inspDraft =
+        (insp && insp.photoDraft && typeof insp.photoDraft === 'object' && insp.photoDraft) || {}
+      if (Array.isArray(inspDraft.findings) && inspDraft.findings.length) {
+        const sealed = buildInspectionReportPayload({
+          vehicle: album.vehicleJson || {},
+          photoDraft: inspDraft,
+          findings: inspDraft.findings,
+          chiefComplaint: mergedPayload.chiefComplaint || inspDraft.chiefComplaint || '',
+          conclusion: mergedPayload.conclusion || inspDraft.conclusion || '',
+        })
+        mergedPayload = {
+          ...mergedPayload,
+          ...sealed,
+          chiefComplaint: mergedPayload.chiefComplaint || sealed.chiefComplaint,
+        }
+      }
     }
     const gaps = collectInspectionReportGaps(mergedPayload)
     if (gaps.length) {
@@ -1778,11 +1917,8 @@ function isOwnerDocContentReady(node = {}) {
       }
       if (status !== 'completed') return false
       const payload = doc.payload || {}
-      const pending = node.photoDraft && node.photoDraft.pendingImages
-      const count =
-        (Array.isArray(payload.photos) ? payload.photos.length : 0) ||
-        (Array.isArray(pending) ? pending.length : 0)
-      return count > 0
+      // 已完成只认报告 photos，不回落草稿
+      return Array.isArray(payload.photos) && payload.photos.length > 0
     }
     case 'inspection_report':
       return docStatus === 'delivered' || docStatus === 'confirmed'
@@ -1821,15 +1957,18 @@ function ownerIntakePhotos(node = {}, payload = {}) {
   }
   ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
   if (rows.length) return rows
-  // 定稿后只读报告属性；未定稿才允许从草稿兜底
+  // 已定稿 / 已完成：禁止回落草稿（缺图就缺图）
   const docStatus = String((node.document && node.document.status) || '')
+  const nodeStatus = String(node.status || '')
   if (
     docStatus === 'delivered' ||
     docStatus === 'confirmed' ||
-    docStatus === 'pending_confirm'
+    docStatus === 'pending_confirm' ||
+    nodeStatus === 'completed'
   ) {
     return rows
   }
+  // 仅商家作业未发出时，允许预览草稿留证
   const pending = node.photoDraft && node.photoDraft.pendingImages
   ;(Array.isArray(pending) ? pending : []).forEach(push)
   return rows
@@ -1871,28 +2010,35 @@ function mapOwnerWorkSheetLine(row = {}) {
   return { name, brand, material, qty, note, images }
 }
 
-/** 工单卡片：定稿后读 document.payload.workItems（报告属性）；未定稿读 photoDraft.findings */
+/** 工单卡片：已完成只读 document.payload.workItems；进行中才读 photoDraft.findings */
 function mapOwnerWorkSheetCard(node = {}, album = {}) {
   const draft =
     (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const doc =
+    (node.document && typeof node.document === 'object' && node.document) || {}
   const docPayload =
-    (node.document && node.document.payload && typeof node.document.payload === 'object'
-      ? node.document.payload
-      : {}) || {}
+    (doc.payload && typeof doc.payload === 'object' ? doc.payload : {}) || {}
   const fromDoc = Array.isArray(docPayload.workItems) ? docPayload.workItems : []
-  const rows = fromDoc.length
-    ? fromDoc.map((row) => ({
-        partName: String((row && (row.partName || row.name)) || '').trim(),
-        caption: String((row && (row.caption || row.note)) || '').trim(),
-        brand: String((row && row.brand) || '').trim(),
-        material: String((row && row.material) || '').trim(),
-        qty: String((row && row.qty) || '').trim(),
-        images: Array.isArray(row && row.images) ? row.images : [],
-        url: row && row.url,
-      }))
-    : Array.isArray(draft.findings)
-      ? draft.findings
-      : []
+  const sealed =
+    String(node.status || '') === 'completed' ||
+    String(doc.status || '') === 'completed' ||
+    String(doc.status || '') === 'delivered'
+  const mapDocRow = (row) => ({
+    partName: String((row && (row.partName || row.name)) || '').trim(),
+    caption: String((row && (row.caption || row.note)) || '').trim(),
+    brand: String((row && row.brand) || '').trim(),
+    material: String((row && row.material) || '').trim(),
+    qty: String((row && row.qty) || '').trim(),
+    images: Array.isArray(row && row.images) ? row.images : [],
+    url: row && row.url,
+  })
+  const rows = sealed
+    ? fromDoc.map(mapDocRow)
+    : fromDoc.length
+      ? fromDoc.map(mapDocRow)
+      : Array.isArray(draft.findings)
+        ? draft.findings
+        : []
   const items = rows.map(mapOwnerWorkSheetLine).filter(Boolean)
   const photos = []
   const seen = new Set()

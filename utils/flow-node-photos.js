@@ -2,6 +2,7 @@
  * 旧相册阶段的图并进对应节点一次。
  * 真源：docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md
  * 接车 / 检测 / 工单只认节点草稿里的图。不把散图变成检测项或施工项。
+ * 接车挂图唯一真源：pendingImages；旧袋并一次后清空。
  */
 
 const FOLD_KINDS = {
@@ -12,7 +13,15 @@ const FOLD_KINDS = {
 }
 
 function photoKey(url) {
-  return String(url || '').trim().replace(/[?#].*$/, '')
+  const bare = String(url || '')
+    .trim()
+    .split('?')[0]
+    .split('#')[0]
+  if (!bare) return ''
+  const mark = '/uploads/'
+  const at = bare.lastIndexOf(mark)
+  if (at >= 0) return bare.slice(at + mark.length)
+  return bare
 }
 
 function imageUrl(raw) {
@@ -102,7 +111,144 @@ function planLegacyPhotoFold(flowNodes, albumNodes) {
   return changed ? next : null
 }
 
+function asPendingImage(raw, caption = '') {
+  const url = imageUrl(raw)
+  if (!url) return null
+  const imageId = String(
+    (typeof raw === 'object' && raw && (raw.imageId || raw.id)) || '',
+  ).trim()
+  const cap = String(
+    (typeof raw === 'object' && raw && raw.caption) || caption || '',
+  ).trim()
+  return imageId || cap ? { url, imageId, caption: cap } : { url, imageId }
+}
+
+/**
+ * 接车旧袋 → pendingImages 一次，并清空旧袋挂图。
+ * 纯 intake 才收 findings；intake_inspection 的检测 findings 不动。
+ * 没有要改的返回 null。
+ */
+function planIntakePhotoDraftFold(flowNodes) {
+  const list = Array.isArray(flowNodes) ? flowNodes : []
+  let changed = false
+  const next = list.map((node) => {
+    if (!node || (node.kind !== 'intake' && node.kind !== 'intake_inspection')) return node
+    const draft = (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+    const owned = {}
+    const pending = []
+    const pushPending = (raw, caption) => {
+      const img = asPendingImage(raw, caption)
+      if (!img) return
+      const key = photoKey(img.url)
+      if (!key || owned[key]) return
+      owned[key] = true
+      pending.push(img)
+    }
+    ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) =>
+      pushPending(img),
+    )
+    let bagTouched = false
+    const odo = String(draft.odometerUrl || '').trim()
+    if (odo) {
+      pushPending(
+        { url: odo, imageId: draft.odometerImageId || '' },
+        '仪表里程',
+      )
+      bagTouched = true
+    }
+    const rawResults = Array.isArray(draft.intakeResults) ? draft.intakeResults : []
+    let intakeResultsChanged = false
+    const intakeResults = []
+    rawResults.forEach((row) => {
+      if (!row || typeof row !== 'object') return
+      const shots = Array.isArray(row.images) ? row.images : []
+      if (shots.length) {
+        intakeResultsChanged = true
+        bagTouched = true
+        shots.forEach((img) => pushPending(img, row.partName || row.category || ''))
+      }
+      if (row.url) {
+        intakeResultsChanged = true
+        bagTouched = true
+        pushPending(row, row.partName || row.category || '')
+      }
+      const reading = String(row.reading || '').trim()
+      const category = String(row.category || '').trim()
+      const partName = String(row.partName || '').trim()
+      if (!reading && !category && !partName) {
+        if (shots.length || row.url) intakeResultsChanged = true
+        return
+      }
+      if (shots.length || row.url || row.imageId) intakeResultsChanged = true
+      intakeResults.push({
+        ...(category ? { category } : {}),
+        ...(partName ? { partName } : {}),
+        ...(reading ? { reading } : {}),
+      })
+    })
+
+    let findings = Array.isArray(draft.findings) ? draft.findings : null
+    let findingsCleared = false
+    if (node.kind === 'intake' && findings && findings.length) {
+      bagTouched = true
+      findingsCleared = true
+      findings.forEach((row) => {
+        const shots =
+          row && Array.isArray(row.images) && row.images.length
+            ? row.images
+            : row && row.url
+              ? [row]
+              : []
+        shots.forEach((img) => pushPending(img, row && row.partName))
+      })
+      findings = []
+    }
+
+    const hadOdo = Boolean(odo)
+    if (!bagTouched && !intakeResultsChanged && !findingsCleared && !hadOdo) return node
+    // 旧袋已空且 pending 未变：无需落库
+    if (
+      !hadOdo &&
+      !intakeResultsChanged &&
+      !findingsCleared &&
+      pending.length === (Array.isArray(draft.pendingImages) ? draft.pendingImages.length : 0)
+    ) {
+      return node
+    }
+    changed = true
+    const photoDraft = {
+      ...draft,
+      pendingImages: pending,
+      odometerUrl: '',
+      odometerImageId: '',
+      intakeResults,
+    }
+    if (findingsCleared) photoDraft.findings = findings
+    return { ...node, photoDraft }
+  })
+  return changed ? next : null
+}
+
+/** 旧阶段并入 + 接车旧袋并入，任一有改动则返回新列表 */
+function planAllPhotoFolds(flowNodes, albumNodes) {
+  let nodes = Array.isArray(flowNodes) ? flowNodes : []
+  let changed = false
+  const stage = planLegacyPhotoFold(nodes, albumNodes)
+  if (stage) {
+    nodes = stage
+    changed = true
+  }
+  const intake = planIntakePhotoDraftFold(nodes)
+  if (intake) {
+    nodes = intake
+    changed = true
+  }
+  return changed ? nodes : null
+}
+
 module.exports = {
   planLegacyPhotoFold,
+  planIntakePhotoDraftFold,
+  planAllPhotoFolds,
   photoKey,
 }

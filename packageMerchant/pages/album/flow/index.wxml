@@ -298,6 +298,7 @@
                   wx:key="url"
                   class="st-photo"
                   data-url="{{item.url}}"
+                  data-index="{{index}}"
                   bindtap="onPreviewStagePhoto"
                 >
                   <image src="{{item.url}}" mode="aspectFill" />
@@ -307,6 +308,7 @@
                     wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
                     class="st-photo__del"
                     data-url="{{item.url}}"
+                    data-index="{{index}}"
                     catchtap="onRemoveIntakePhoto"
                   >×</view>
                 </view>

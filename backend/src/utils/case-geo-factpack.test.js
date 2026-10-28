@@ -19,26 +19,23 @@ function fullFlowNodes() {
       document: { status: 'confirmed', payload: {} },
     }),
     node('inspection', {
-      document: {
-        status: 'confirmed',
-        payload: {
-          findings: [
-            {
-              partName: '右前小吊杆球头',
-              result: '需处理',
-              advice: '球头松旷，胶套开裂',
-              images: [{ url: 'https://x/insp1.jpg' }],
-            },
-            {
-              partName: '右前减震器',
-              result: '需关注',
-              advice: '轻微渗油',
-              images: [{ url: 'https://x/insp2.jpg' }],
-            },
-            { partName: '左前刹车片', result: '状态良好', advice: '无需处理', images: [] },
-            { partName: '轮胎花纹', result: '仅记录', advice: '', images: [] },
-          ],
-        },
+      photoDraft: {
+        findings: [
+          {
+            partName: '右前小吊杆球头',
+            result: '需处理',
+            advice: '球头松旷，胶套开裂',
+            images: [{ url: 'https://x/insp1.jpg' }],
+          },
+          {
+            partName: '右前减震器',
+            result: '需关注',
+            advice: '轻微渗油',
+            images: [{ url: 'https://x/insp2.jpg' }],
+          },
+          { partName: '左前刹车片', result: '状态良好', advice: '无需处理', images: [] },
+          { partName: '轮胎花纹', result: '仅记录', advice: '', images: [] },
+        ],
       },
     }),
     node('inspection_report', {
@@ -56,6 +53,14 @@ function fullFlowNodes() {
               advice: '球头松旷，胶套开裂',
               images: [{ url: 'https://x/insp1.jpg' }],
             },
+            {
+              partName: '右前减震器',
+              result: '需关注',
+              advice: '轻微渗油',
+              images: [{ url: 'https://x/insp2.jpg' }],
+            },
+            { partName: '左前刹车片', result: '状态良好', advice: '无需处理', images: [] },
+            { partName: '轮胎花纹', result: '仅记录', advice: '', images: [] },
           ],
         },
       },
@@ -92,7 +97,25 @@ function fullFlowNodes() {
           },
         ],
       },
-      document: { status: 'confirmed', payload: {} },
+      document: {
+        status: 'completed',
+        payload: {
+          workItems: [
+            {
+              name: '更换右前小吊杆',
+              note: '旧件胶套已开裂，新件装复后复紧',
+              outsideQuote: false,
+              images: [{ url: 'https://x/work1.jpg' }],
+            },
+            {
+              name: '右前减震器渗油处理',
+              note: '擦净油渍后复检',
+              outsideQuote: true,
+              images: [{ url: 'https://x/work2.jpg' }],
+            },
+          ],
+        },
+      },
     }),
     node('repair_report', {
       document: {

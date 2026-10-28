@@ -53,15 +53,12 @@ function collectDraftLibraryItems(album, seen) {
     const stageTitle = KIND_TITLE[node.kind] || node.title || ''
     const meta = { stageId: '', stageTitle }
     const walk = (img) => pushLibraryUrl(extra, seen, img, meta)
+    // 接车旧袋已并入 pendingImages；不再扫 odometer / intakeResults 挂图
     ;(draft.pendingImages || []).forEach(walk)
     ;(draft.findings || []).forEach((row) => {
       if (Array.isArray(row && row.images) && row.images.length) row.images.forEach(walk)
       else if (row && row.url) walk(row)
     })
-    ;(draft.intakeResults || []).forEach((row) => {
-      ;(row && row.images ? row.images : []).forEach(walk)
-    })
-    if (draft.odometerUrl) walk({ url: draft.odometerUrl, imageId: draft.odometerImageId || '' })
   })
   return extra
 }
