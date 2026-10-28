@@ -178,6 +178,43 @@ function decorateGeoCopyState(base, summary, faq) {
   return { qualitySuggestions, summaryHint, faqHint }
 }
 
+/** 打码状态文案：未打完软提醒；已打过的不要求再点一键 */
+function buildMaskStatusCopy(maskImages = [], options = {}) {
+  const list = Array.isArray(maskImages) ? maskImages : []
+  const unmaskedCount = list.filter((row) => !row.masked).length
+  const total = list.length
+  const autoRunning = Boolean(options.autoRunning)
+  const privacyTouched = Boolean(options.privacyTouched)
+  if (autoRunning) {
+    return {
+      unmaskedCount,
+      maskStatusTitle: '正在检查隐私…',
+      maskStatusHint: '平台自动处理未打码图片；已打过码的不会重打。',
+    }
+  }
+  if (!total) {
+    return {
+      unmaskedCount: 0,
+      maskStatusTitle: '本单暂无照片',
+      maskStatusHint: '仍可继续写店页说明；有图时请点图核对。',
+    }
+  }
+  if (unmaskedCount > 0) {
+    return {
+      unmaskedCount,
+      maskStatusTitle: `还有 ${unmaskedCount} 张未能上店页`,
+      maskStatusHint: '未打码原图不会出现在店页。可点图手工补打，也可先继续。',
+    }
+  }
+  return {
+    unmaskedCount: 0,
+    maskStatusTitle: privacyTouched ? '已为您做脱敏处理' : '照片已可公开',
+    maskStatusHint: privacyTouched
+      ? '检测到涉及客户隐私的内容，已处理。请预览核对后再公开。'
+      : '请预览下方档案；还需改码可点图。',
+  }
+}
+
 function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
   const nextUrl = withCacheBust(toUrl, Date.now())
   const match = (u) => urlsLikelyMatch(u, fromUrl) || urlsLikelyMatch(stripUrlQuery(u), stripUrlQuery(fromUrl))
@@ -245,6 +282,10 @@ Page({
     reviewDocs: [],
     maskImages: [],
     unmaskedCount: 0,
+    maskStatusTitle: '',
+    maskStatusHint: '',
+    maskAutoRunning: false,
+    privacyTouched: false,
     previewTexts: [],
     previewImages: [],
     previewImageCount: 0,
@@ -255,7 +296,7 @@ Page({
     geoHighlightsEmpty: true,
     geoFaqEmpty: true,
     geoFaqUnanswered: 0,
-    geoHighlightsEmptyHint: '暂无要点。可按标签补充，例如车型、检测、方案、结果。',
+    geoHighlightsEmptyHint: '',
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
     summaryHint: '',
@@ -297,6 +338,9 @@ Page({
       this.applyAlbum(album)
       if (this.data.wizardStep === 2 || this.data.wizardStep === 3) {
         await this.loadPublicFace({ silent: true })
+      }
+      if (this.data.wizardStep === 2 && this.data.hostMode === 'public') {
+        await this.ensureAutoMaskOnReview()
       }
       if (
         this.data.wizardStep === 3 &&
@@ -384,8 +428,11 @@ Page({
     if (!canVisitWizardStep(step, this.data.wizardMaxStep)) return
     if (step === this.data.wizardStep) return
     this.setData({ wizardStep: step })
-    if (step === 2 && !(this.data.reviewDocs || []).length) {
-      this.loadPublicFace({ silent: true })
+    if (step === 2) {
+      Promise.resolve()
+        .then(() => this.loadPublicFace({ silent: true }))
+        .then(() => this.ensureAutoMaskOnReview())
+        .catch(() => {})
     }
   },
 
@@ -450,11 +497,16 @@ Page({
       maskImages = maskImages
         .slice()
         .sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
-      const unmaskedCount = maskImages.filter((row) => !row.masked).length
+      const maskCopy = buildMaskStatusCopy(maskImages, {
+        autoRunning: this.data.maskAutoRunning,
+        privacyTouched: this.data.privacyTouched,
+      })
       this.setData({
         reviewDocs,
         maskImages,
-        unmaskedCount,
+        unmaskedCount: maskCopy.unmaskedCount,
+        maskStatusTitle: maskCopy.maskStatusTitle,
+        maskStatusHint: maskCopy.maskStatusHint,
         previewTexts: face.texts || [],
         previewImages: face.images || [],
         previewImageCount: face.imageCount || 0,
@@ -489,6 +541,7 @@ Page({
       })
       if (this.data.wizardStep === 2) {
         await this.loadPublicFace()
+        await this.ensureAutoMaskOnReview()
       }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
@@ -506,6 +559,7 @@ Page({
       this.applyAlbum(album)
       this.setData({ hostMode: 'public' })
       await this.loadPublicFace()
+      await this.ensureAutoMaskOnReview()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
@@ -632,57 +686,60 @@ Page({
     }
   },
 
-  async onRunHostAutoMask() {
-    if (this.data.working) return
-    this.setData({ working: true })
+  /**
+   * 进入核对步后台自动打码（无「一键」按钮）。
+   * 已打过的图由任务侧跳过；调用失败 ≠ 未检出隐私。
+   */
+  async ensureAutoMaskOnReview() {
+    if (this._autoMaskTried || this.data.maskAutoRunning) return
+    const pending = (this.data.maskImages || []).filter((row) => !row.masked)
+    if (!pending.length) {
+      const copy = buildMaskStatusCopy(this.data.maskImages, {
+        privacyTouched: this.data.privacyTouched,
+      })
+      this.setData({
+        unmaskedCount: copy.unmaskedCount,
+        maskStatusTitle: copy.maskStatusTitle,
+        maskStatusHint: copy.maskStatusHint,
+      })
+      return
+    }
+    this._autoMaskTried = true
+    this.setData({
+      maskAutoRunning: true,
+      ...buildMaskStatusCopy(this.data.maskImages, { autoRunning: true }),
+    })
     try {
       const taskId = await this.ensureMaskTask()
-      wx.showLoading({ title: '脱敏中…', mask: true })
       const task = await runAutoMask(taskId)
-      wx.hideLoading()
       const assets = (task && task.rawAssets) || []
-      const okCount = assets.filter((row) => row && String(row.maskedUrl || '').trim()).length
-      const total = assets.length
-      if (!total) {
-        wx.showToast({ title: '本单暂无过程图', icon: 'none' })
-        return
-      }
-      if (!okCount) {
-        wx.showModal({
-          title: '自动脱敏未完成',
-          content:
-            '引擎未产出脱敏图。请确认 backend/.env 已配置 ALIYUN_ACCESS_KEY_ID 与 ALIYUN_ACCESS_KEY_SECRET（或 ECS RAM 角色）；DASHSCOPE / 千帆密钥只用于文案，不能打码。也可点图片手工框选。',
-          showCancel: false,
-          confirmText: '知道了',
-        })
-        return
-      }
-      // 用任务里的脱敏图直接替换通读预览，避免只靠服务端映射漏掉
+      const maskedAssets = assets.filter((row) => row && String(row.maskedUrl || '').trim())
+      const privacyTouched = maskedAssets.length > 0
       let reviewDocs = this.data.reviewDocs || []
-      assets.forEach((row) => {
-        if (!row || !row.maskedUrl) return
+      maskedAssets.forEach((row) => {
         reviewDocs = patchReviewDocImageUrls(reviewDocs, row.url, row.maskedUrl)
         if (row.preMaskedUrl) {
           reviewDocs = patchReviewDocImageUrls(reviewDocs, row.preMaskedUrl, row.maskedUrl)
         }
       })
-      this.setData({ reviewDocs })
-      wx.showToast({
-        title: okCount < total ? `已脱敏 ${okCount}/${total} 张` : '脱敏完成',
-        icon: 'success',
-      })
+      this.setData({ reviewDocs, privacyTouched, maskAutoRunning: false })
       await this.loadPublicFace({ silent: true })
-    } catch (e) {
-      wx.hideLoading()
-      const msg = (e && e.message) || '脱敏失败'
-      wx.showModal({
-        title: '自动脱敏失败',
-        content: `${msg}\n可点图片改用手工打码。`,
-        showCancel: false,
-        confirmText: '知道了',
+      const copy = buildMaskStatusCopy(this.data.maskImages, { privacyTouched })
+      this.setData({
+        unmaskedCount: copy.unmaskedCount,
+        maskStatusTitle: copy.maskStatusTitle,
+        maskStatusHint: copy.maskStatusHint,
       })
-    } finally {
-      this.setData({ working: false })
+    } catch (e) {
+      const copy = buildMaskStatusCopy(this.data.maskImages, {
+        privacyTouched: this.data.privacyTouched,
+      })
+      this.setData({
+        maskAutoRunning: false,
+        unmaskedCount: copy.unmaskedCount,
+        maskStatusTitle: '自动处理未完成',
+        maskStatusHint: `${(e && e.message) || '打码服务暂不可用'}。可点图手工补打，也可先继续（未打码图不上店页）。`,
+      })
     }
   },
 
@@ -691,14 +748,14 @@ Page({
     if (Number(this.data.unmaskedCount) > 0) {
       const go = await new Promise((resolve) => {
         wx.showModal({
-          title: '还有未打码的照片',
-          content: `还有 ${this.data.unmaskedCount} 张未打码。公开页不能用原图，建议先一键打码或点图处理。`,
-          confirmText: '去打码',
-          cancelText: '仍继续',
+          title: '还有照片未能上店页',
+          content: `还有 ${this.data.unmaskedCount} 张未打码，公开页不会展示这些原图。可点图补打，或仍继续写店页说明。`,
+          confirmText: '仍继续',
+          cancelText: '回去看',
           success: (res) => resolve(Boolean(res.confirm)),
         })
       })
-      if (go) return
+      if (!go) return
     }
     this.setData({ working: true })
     try {
@@ -754,7 +811,7 @@ Page({
     if (this.data.working) return
     this.setData({ working: true })
     try {
-      const res = await generateHostedGeoDraft(this.albumId)
+      const res = await generateHostedGeoDraft(this.albumId, { forceRegen: true })
       this.setData({
         ...applyGeoDraftToPageData(res.geoDraft || {}),
         ...decorateGeoCopyState(
@@ -768,7 +825,10 @@ Page({
       this._baseQualitySuggestions = Array.isArray(res.qualitySuggestions)
         ? res.qualitySuggestions
         : this._baseQualitySuggestions
-      wx.showToast({ title: '已重新生成', icon: 'success' })
+      wx.showToast({
+        title: res.message && /暂不可用/.test(res.message) ? '请自行改写' : '已重新生成',
+        icon: 'none',
+      })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '生成失败', icon: 'none' })
     } finally {
@@ -872,12 +932,6 @@ Page({
       wx.showToast({ title: '请填写店页说明', icon: 'none' })
       return
     }
-    const highlights = (this.data.geoHighlights || [])
-      .map((row) => ({
-        label: String((row && row.label) || '').trim(),
-        value: String((row && row.value) || '').trim(),
-      }))
-      .filter((row) => row.label || row.value)
     // 空答不上网：仍把全量交给后端，由 filterPublishableFaq 过滤
     const faq = (this.data.geoFaq || []).map((row) => ({
       q: String((row && row.q) || '').trim(),
@@ -893,13 +947,16 @@ Page({
         (copyState.qualitySuggestions || []).map((row) => `· ${row.title}`),
         copyState.summaryHint ? '· 摘要还是目录句' : '',
         copyState.faqHint ? '· 常见问法还空着' : '',
+        Number(this.data.unmaskedCount) > 0
+          ? `· 还有 ${this.data.unmaskedCount} 张未打码图不会出现在店页`
+          : '',
       )
       .filter(Boolean)
     if (lines.length) {
       const ok = await new Promise((resolve) => {
         wx.showModal({
           title: '仍有可优化项',
-          content: `${lines.slice(0, 4).join('\n')}\n可回去改，或仍公开。`,
+          content: `${lines.slice(0, 5).join('\n')}\n可回去改，或仍公开（责任由本店承担）。`,
           confirmText: '仍要公开',
           cancelText: '回去改',
           success: (res) => resolve(Boolean(res.confirm)),
@@ -911,7 +968,7 @@ Page({
     try {
       await confirmHostedPublicPublish(this.albumId, {
         summary,
-        highlights,
+        highlights: [],
         faq,
       })
       wx.showToast({ title: '已上店页', icon: 'success' })

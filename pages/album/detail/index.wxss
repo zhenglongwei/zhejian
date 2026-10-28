@@ -594,6 +594,46 @@
   line-height: 1.5;
 }
 
+.op-archive {
+  margin-bottom: 8rpx;
+}
+
+.op-archive__summary {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  line-height: 1.55;
+}
+
+.op-archive__faq-title {
+  display: block;
+  margin-top: 24rpx;
+}
+
+.op-archive__faq {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 16rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: var(--color-bg-muted);
+}
+
+.op-archive__q {
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.op-archive__a {
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: 1.5;
+}
+
 .op-spacer {
   height: 24rpx;
 }

@@ -74,6 +74,25 @@
           </view>
         </view>
 
+        <view wx:if="{{archiveCopy && archiveCopy.summary}}" class="op-sec op-archive">
+          <text class="op-sec__kicker">本单说明</text>
+          <view class="op-sec__row">
+            <text class="op-sec__title">摘要</text>
+          </view>
+          <text class="op-archive__summary">{{archiveCopy.summary}}</text>
+          <block wx:if="{{archiveCopy.faq && archiveCopy.faq.length}}">
+            <text class="op-sec__title op-archive__faq-title">常见问法</text>
+            <view
+              wx:for="{{archiveCopy.faq}}"
+              wx:key="q"
+              class="op-archive__faq"
+            >
+              <text class="op-archive__q">{{item.q}}</text>
+              <text wx:if="{{item.a}}" class="op-archive__a">{{item.a}}</text>
+            </view>
+          </block>
+        </view>
+
         <view class="op-sec">
           <text class="op-sec__kicker">服务单据</text>
           <view class="op-sec__row">

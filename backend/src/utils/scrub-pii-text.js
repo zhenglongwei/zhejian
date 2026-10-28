@@ -1,5 +1,6 @@
 /**
- * PV-REFORM · 公开文案 PII  scrub（规则层）
+ * 公开/送模文案 PII scrub（规则层）
+ * 真源：docs/01_项目总览与业务架构/15_案例档案与托管状态机.md §6.1
  */
 
 function scrubPiiText(text = '') {
@@ -17,6 +18,31 @@ function scrubPiiText(text = '') {
   return value
 }
 
+/** 递归 scrub 对象/数组中的字符串；跳过 URL 字段以免破坏图片地址 */
+function scrubPiiDeep(value, options = {}) {
+  const skipKeys = new Set(
+    (options.skipKeys || ['url', 'rawUrl', 'maskedUrl', 'imageUrl', 'src']).map((k) =>
+      String(k),
+    ),
+  )
+  if (value == null) return value
+  if (typeof value === 'string') return scrubPiiText(value)
+  if (typeof value !== 'object') return value
+  if (Array.isArray(value)) {
+    return value.map((item) => scrubPiiDeep(item, options))
+  }
+  const out = {}
+  Object.keys(value).forEach((key) => {
+    if (skipKeys.has(key)) {
+      out[key] = value[key]
+      return
+    }
+    out[key] = scrubPiiDeep(value[key], options)
+  })
+  return out
+}
+
 module.exports = {
   scrubPiiText,
+  scrubPiiDeep,
 }

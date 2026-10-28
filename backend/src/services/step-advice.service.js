@@ -179,9 +179,34 @@ function parseWorkAdvice(raw, items, slots) {
   }
 }
 
+function parseArchiveCopyFromDelivery(parsed) {
+  const { normalizeArchiveCopy } = require('../utils/album-archive-copy')
+  const block =
+    (parsed && parsed.archiveCopy) ||
+    (parsed && parsed.publicCopy) ||
+    null
+  if (!block || typeof block !== 'object') return null
+  return normalizeArchiveCopy(
+    {
+      summary: block.summary || block.aiSummary,
+      faq: block.faq,
+    },
+    { source: 'delivery_ai' },
+  )
+}
+
 function parseDeliveryAdvice(raw) {
   const parsed = parseReviewModelJson(raw)
-  if (!parsed) return { repair: null, warranty: null, care: null, processIssues: [], fill: null }
+  if (!parsed) {
+    return {
+      repair: null,
+      warranty: null,
+      care: null,
+      processIssues: [],
+      fill: null,
+      archiveCopy: null,
+    }
+  }
   const talk = parsed.talk && typeof parsed.talk === 'object' ? parsed.talk : {}
   const fill = parsed.fill && typeof parsed.fill === 'object' ? parsed.fill : {}
   const repair =
@@ -215,6 +240,7 @@ function parseDeliveryAdvice(raw) {
       warrantyNotes: text(fill.warrantyNotes).slice(0, 80),
     },
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
+    archiveCopy: parseArchiveCopyFromDelivery(parsed),
   }
 }
 
@@ -433,6 +459,8 @@ function deliveryPhotoUrls(delivery) {
 
 function contextOf(album) {
   const nodes = readFlowNodes(album)
+  const { buildCaseFactPack } = require('../utils/case-geo-factpack')
+  const factPack = buildCaseFactPack(nodes)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
   const inspection = nodes.find((item) => item && item.kind === 'inspection')
   const quotes = nodes.filter((item) => {
@@ -499,6 +527,7 @@ function contextOf(album) {
     deliveryNoted: deliverySplit.noted,
     workAdviceAt: text(workAdvice.updatedAt),
     imageNotesMap,
+    factPack,
   }
 }
 
@@ -641,33 +670,38 @@ function inspectionInstruction(ctx) {
 }
 
 function deliveryInstruction(ctx) {
+  const { scrubPiiDeep } = require('../utils/scrub-pii-text')
+  const safeFacts = scrubPiiDeep({
+    complaint: ctx.complaint,
+    intake: ctx.intakeAdviceSummary,
+    inspect: ctx.inspectAdviceSummary,
+    quoteLines: ctx.quoteLines,
+    workItems: ctx.workItems,
+    workAdvice: ctx.workAdviceSummary,
+    factPack: ctx.factPack || null,
+    priorImageNotes: []
+      .concat(ctx.intakeNoted || [])
+      .concat(ctx.inspectNoted || [])
+      .concat(ctx.workNoted || [])
+      .concat(ctx.deliveryNoted || []),
+    warrantyPeriod: ctx.warrantyPeriod,
+    warrantyNotes: ctx.warrantyNotes,
+    hasExterior: ctx.hasExterior,
+    selectedCount: ctx.selectedCount,
+  })
   return [
     'You assist a Chinese auto shop clerk at vehicle delivery / handover.',
-    'Goal: holistic review of the whole job using prior-step analysis summaries and image notes, plus current delivery photos and warranty fields. Content over form.',
-    'CRITICAL permissions:',
-    '- Intake report, inspection report, and confirmed quotes were already shown to the owner: you may POINT OUT issues but must NOT propose edits to those documents.',
-    '- If work evidence is weak, say the shop should go back to the work step to improve photos/captions — do not rewrite historical docs here.',
-    '- You MAY propose fills only for empty delivery-step fields (warranty period, care notes) and call out missing whole-car delivery photo.',
+    'Part A — shop review (merchant only, NEVER paste into public case pages):',
+    'Holistic review using prior-step analysis summaries and image notes, plus current delivery photos and warranty fields.',
+    'CRITICAL: owner-facing historical docs may only be flagged, not rewritten; weak work evidence → tell shop to go back to work step.',
+    'You MAY propose fills only for empty delivery-step fields (warranty period, care notes) and call out missing whole-car delivery photo.',
     'Do not invent maintenance intervals. Do not change confirmed prices.',
-    'Do not output a mere "job completed" essay with nothing actionable.',
-    `Context JSON: ${JSON.stringify({
-      complaint: ctx.complaint,
-      intake: ctx.intakeAdviceSummary,
-      inspect: ctx.inspectAdviceSummary,
-      quoteLines: ctx.quoteLines,
-      workItems: ctx.workItems,
-      workAdvice: ctx.workAdviceSummary,
-      priorImageNotes: []
-        .concat(ctx.intakeNoted || [])
-        .concat(ctx.inspectNoted || [])
-        .concat(ctx.workNoted || [])
-        .concat(ctx.deliveryNoted || []),
-      warrantyPeriod: ctx.warrantyPeriod,
-      warrantyNotes: ctx.warrantyNotes,
-      hasExterior: ctx.hasExterior,
-      selectedCount: ctx.selectedCount,
-    })}`,
-    'Return JSON only: {"processIssues":[{"step":"intake|inspect|quote|work|delivery","body":""}],"fill":{"warrantyPeriod":"","warrantyNotes":""},"talk":{"repair":"","care":""},"imageNotes":[{"slot":1,"note":""}]}',
+    'Part B — archiveCopy for owner + storefront (citable GEO wording):',
+    'From the SAME case facts, write summary (first sentence = vehicle + main issue; 80–180 Chinese chars of meaning) and 2–6 FAQ items consumers care about (budget without amounts, materials, pitfalls, process).',
+    'No prices, no PII, no marketing fluff, no empty filler like "含过程图片记录". If facts are thin, return fewer FAQ or empty faq[].',
+    'Context JSON (PII already stripped):',
+    JSON.stringify(safeFacts),
+    'Return JSON only: {"processIssues":[{"step":"intake|inspect|quote|work|delivery","body":""}],"fill":{"warrantyPeriod":"","warrantyNotes":""},"talk":{"repair":"","care":""},"imageNotes":[{"slot":1,"note":""}],"archiveCopy":{"summary":"","faq":[{"q":"","a":""}]}}',
   ].join('\n')
 }
 
@@ -734,11 +768,20 @@ async function runJob(albumId, kind) {
         ? parseInspectionAdvice(raw, ctx.inspectItems)
         : parseDeliveryAdvice(raw)
     const ok = adviceHasContent(parsed, kind)
+    const archiveCopy = kind === 'delivery' ? parsed.archiveCopy : null
+    // 对账意见不把 archiveCopy 塞进 deliveryAdvice，避免和公开草稿混住
+    const advicePayload =
+      kind === 'delivery'
+        ? (() => {
+            const { archiveCopy: _drop, ...rest } = parsed
+            return rest
+          })()
+        : parsed
     await patchNode(albumId, nodeKind, (item) => {
       let next = {
         ...item,
         [field]: ok
-          ? { status: 'ready', fingerprint, ...parsed, errorMessage: '', updatedAt: new Date().toISOString() }
+          ? { status: 'ready', fingerprint, ...advicePayload, errorMessage: '', updatedAt: new Date().toISOString() }
           : { ...(item[field] || {}), status: 'failed', fingerprint, errorMessage: '未能出意见', updatedAt: new Date().toISOString() },
       }
       const notes = Array.isArray(parsed.imageNotes) ? parsed.imageNotes : []
@@ -751,6 +794,27 @@ async function runJob(albumId, kind) {
       }
       return next
     })
+    if (kind === 'delivery' && archiveCopy && archiveCopy.summary) {
+      try {
+        const { mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
+        const fresh = await loadAlbum(albumId)
+        const pkg =
+          fresh && fresh.contentPackageJson && typeof fresh.contentPackageJson === 'object'
+            ? fresh.contentPackageJson
+            : {}
+        const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
+          ...archiveCopy,
+          source: 'delivery_ai',
+          factFingerprint: fingerprint,
+        })
+        await prisma.album.update({
+          where: { id: albumId },
+          data: { contentPackageJson: nextPkg },
+        })
+      } catch (err) {
+        console.warn('[step-advice] save archiveCopy failed', albumId, err && err.message)
+      }
+    }
   } finally {
     jobsInFlight.delete(key)
   }

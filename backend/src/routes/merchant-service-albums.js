@@ -732,9 +732,12 @@ router.post(
     try {
       const storeId = resolveStoreId(req)
       const { generateHostedGeoDraft } = require('../services/case-hosting.service')
+      const forceRegen =
+        req.body && (req.body.forceRegen === true || req.body.forceRegen === 'true')
       const data = await generateHostedGeoDraft(req.params.albumId, {
         storeId,
         merchantId: req.auth.merchantId,
+        forceRegen,
       })
       return ok(res, data)
     } catch (e) {

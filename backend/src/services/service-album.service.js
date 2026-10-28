@@ -703,6 +703,14 @@ function buildMerchantView(album) {
         return { hosted: false, visibility: 'private', sourceLabel: '商家上传' }
       }
     })(),
+    archiveCopy: (() => {
+      try {
+        const { readArchiveCopyFromAlbum } = require('../utils/album-archive-copy')
+        return readArchiveCopyFromAlbum(album)
+      } catch (_) {
+        return null
+      }
+    })(),
     contentOptimize: (() => {
       const { summarizeOptimizeDraftForApi } = require('./album-content-optimize.service')
       return summarizeOptimizeDraftForApi(album)

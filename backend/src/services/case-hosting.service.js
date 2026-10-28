@@ -411,11 +411,13 @@ function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
   }
 }
 
-async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo) {
+async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) {
   const fs = require('fs')
   const path = require('path')
   const { config } = require('../config')
   const { chatCompletion } = require('../lib/dashscope-chat')
+  const { scrubPiiDeep } = require('../utils/scrub-pii-text')
+  const { buildCaseFactPack } = require('../utils/case-geo-factpack')
   const llm = config.geoLlm || {}
   const enabled = process.env.GEO_LLM_ENABLED === 'true' || llm.enabled === true
   const dryRun =
@@ -432,7 +434,26 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo) {
   } catch (_) {
     return null
   }
-  const userPayload = buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo)
+  const pkg =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const factPack = buildCaseFactPack(pkg.flowNodes)
+  const userPayload = scrubPiiDeep({
+    ...buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo),
+    facts: factPack && factPack.hasFlow
+      ? {
+          chiefComplaint: factPack.chiefComplaint,
+          vehicle: factPack.vehicle,
+          findings: factPack.findings,
+          quoteItems: factPack.quoteItems,
+          addonQuoteItems: factPack.addonQuoteItems,
+          workItems: factPack.workItems,
+          finish: factPack.finish,
+          missing: factPack.missing,
+        }
+      : null,
+  })
   try {
     const completion = await chatCompletion({
       apiKey,
@@ -463,6 +484,7 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo) {
     }
     const geoDraft = normalizeHostedGeoDraftFromLlm(parsed, ruleGeo)
     if (!geoDraft.summary) return null
+    geoDraft.highlights = []
     return geoDraft
   } catch (e) {
     console.warn('[case-hosting] storefront LLM failed, fallback rule', e && e.message)
@@ -470,9 +492,14 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo) {
   }
 }
 
-/** 公开托管：基于可公开面生成店页文案草稿（须先过隐私；优先 LLM 并集 v0） */
-async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
+/**
+ * 公开托管：店页说明草稿
+ * 优先复用交车 AI 写入的 archiveCopy；forceRegen 时才重跑模型。
+ * 规则拼句仅兜底。真源：15_ §6.1 · 17_ §0
+ */
+async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen = false } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
+  const { readArchiveCopyFromAlbum, mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -495,8 +522,56 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
 
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
-  const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo)
-  const geoDraft = llmDraft || ruleGeo.geoDraft
+  const existingCopy = readArchiveCopyFromAlbum(album)
+  let geoDraft = null
+  let message = '店页说明已生成，请核对后公开'
+
+  if (!forceRegen && existingCopy && existingCopy.summary) {
+    geoDraft = {
+      summary: existingCopy.summary,
+      highlights: [],
+      faq: existingCopy.faq || [],
+      faqHasMaterial: Boolean((existingCopy.faq || []).length),
+      faultDesc: '',
+      inspectResult: '',
+      repairPlan: '',
+      resultConfirm: '',
+      generatedAt: existingCopy.generatedAt || new Date().toISOString(),
+      source: existingCopy.source || 'delivery_ai',
+    }
+    message = '已载入交车时生成的说明，请核对后公开'
+  } else {
+    const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album)
+    geoDraft = llmDraft || {
+      ...ruleGeo.geoDraft,
+      highlights: [],
+      source: llmDraft ? llmDraft.source : 'rule_fallback',
+    }
+    if (geoDraft && geoDraft.summary) {
+      try {
+        const pkg =
+          album.contentPackageJson && typeof album.contentPackageJson === 'object'
+            ? album.contentPackageJson
+            : {}
+        const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
+          summary: geoDraft.summary,
+          faq: geoDraft.faq,
+          source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
+        })
+        const { prisma } = require('../lib/prisma')
+        await prisma.album.update({
+          where: { id: albumId },
+          data: { contentPackageJson: nextPkg },
+        })
+      } catch (_) {
+        /* 草稿落相册失败不挡托管 */
+      }
+    }
+    if (!llmDraft) {
+      message = '自动说明暂不可用，以下为简要草稿，请自行改写'
+    }
+  }
+
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
 
   const meta = await writeHostMeta(albumId, {
@@ -509,7 +584,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
     preview: ruleGeo.preview,
     qualitySuggestions: assessHostPublicContent({ album, view, geoDraft }).suggestions,
     ...meta,
-    message: '店页说明已生成，请核对后公开',
+    message,
   }
 }
 

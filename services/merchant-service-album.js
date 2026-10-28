@@ -221,8 +221,11 @@ async function auditHostedPublicPrivacy(albumId) {
   return post(`/merchant/service-albums/${albumId}/host/privacy-audit`, withStore())
 }
 
-async function generateHostedGeoDraft(albumId) {
-  return post(`/merchant/service-albums/${albumId}/host/generate-geo`, withStore())
+async function generateHostedGeoDraft(albumId, options = {}) {
+  return post(
+    `/merchant/service-albums/${albumId}/host/generate-geo`,
+    withStore({ forceRegen: Boolean(options.forceRegen) }),
+  )
 }
 
 async function confirmHostedPublicPublish(albumId, payload = {}) {

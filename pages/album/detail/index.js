@@ -332,6 +332,7 @@ Page({
     showOwnerFlow: false,
     ownerFlowDocs: [],
     ownerBoard: null,
+    archiveCopy: null,
     openDoc: null,
     statusBarHeight: 20,
     capsulePad: 96,
@@ -698,6 +699,10 @@ Page({
         showOwnerFlow,
         ownerFlowDocs,
         ownerBoard: showOwnerFlow ? buildOwnerProgressBoard(enriched, ownerFlowDocs) : null,
+        archiveCopy:
+          enriched && enriched.archiveCopy && enriched.archiveCopy.summary
+            ? enriched.archiveCopy
+            : null,
         openDoc: null,
         flowConfirmingId: '',
         flowScrollIntoView: '',

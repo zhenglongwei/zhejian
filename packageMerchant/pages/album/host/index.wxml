@@ -70,34 +70,18 @@
       </view>
     </block>
 
-    <!-- 步骤 2：通读本单报告，再脱敏 -->
+    <!-- 步骤 2：精简网页档案预览；后台自动打码；点图可手工补打 -->
     <block wx:elif="{{wizardStep === 2}}">
       <view class="merchant-host-page__section">
-        <text class="text-body merchant-host-page__label">公开前打码</text>
-        <view class="merchant-host-page__mask-board {{unmaskedCount ? 'is-warn' : 'is-ok'}}">
-          <text class="text-body merchant-host-page__mask-title">{{unmaskedCount ? '还有 ' + unmaskedCount + ' 张未打码' : (maskImages.length ? '照片都已打码' : '本单暂无照片')}}</text>
-          <text class="text-caption merchant-host-page__mask-hint">{{unmaskedCount ? '未打码的图不能上店页。点图手工打，或一键打码。' : '下面是通读全文；还要改码可再点图。'}}</text>
-          <view wx:if="{{maskImages.length}}" class="merchant-host-page__mask-grid">
-            <view
-              wx:for="{{maskImages}}"
-              wx:key="url"
-              class="merchant-host-page__mask-cell {{item.masked ? 'is-done' : 'is-open'}}"
-              data-url="{{item.url}}"
-              bindtap="onMaskThumbTap"
-            >
-              <image class="merchant-host-page__mask-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
-              <text class="merchant-host-page__mask-tag {{item.masked ? 'is-done' : 'is-open'}}">{{item.masked ? '已打码' : '未打码'}}</text>
-            </view>
-          </view>
-          <view class="merchant-host-page__actions merchant-host-page__actions--mask">
-            <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onRunHostAutoMask">
-              一键 AI 脱敏
-            </ui-button>
-          </view>
+        <view class="merchant-host-page__mask-status {{unmaskedCount ? 'is-warn' : 'is-ok'}}">
+          <text class="text-body">{{maskStatusTitle}}</text>
+          <text class="text-caption merchant-host-page__mask-hint">{{maskStatusHint}}</text>
         </view>
-        <text class="text-body merchant-host-page__label">通读本单内容</text>
 
-        <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__review">
+        <text class="text-body merchant-host-page__label">将公开的档案预览</text>
+        <text class="text-caption text-secondary merchant-host-page__hint">版式接近店页档案；点图可手工补打码。</text>
+
+        <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__archive">
           <album-service-flow
             docs="{{reviewDocs}}"
             imageTapMode="edit"
@@ -105,7 +89,7 @@
           />
         </view>
         <view wx:else class="merchant-host-page__empty">
-          <text class="text-caption text-secondary">暂无报告内容。请先在服务进度里完成检测/方案/工单/完工后再来。</text>
+          <text class="text-caption text-secondary">暂无公开内容。请先在服务进度里完成检测、方案、工单与交车后再来。</text>
         </view>
 
         <view wx:if="{{privacyBlocks.length}}" class="merchant-host-page__blocks">
@@ -137,45 +121,9 @@
           value="{{geoSummary}}"
           maxlength="500"
           bindinput="onGeoSummaryInput"
-          placeholder="用平常话写清：车主遇到什么、店里查到什么、怎么处理的"
+          placeholder="用平常话写清：什么车、什么问题、怎么处理、结果如何"
         />
         <text wx:if="{{summaryHint}}" class="text-caption merchant-host-page__field-hint">{{summaryHint}}</text>
-
-        <view class="merchant-host-page__highlights">
-          <text class="text-caption merchant-host-page__field-label">要点</text>
-          <text wx:if="{{geoHighlightsEmpty}}" class="text-caption text-secondary merchant-host-page__empty-hint">
-            {{geoHighlightsEmptyHint}}
-          </text>
-          <view wx:for="{{geoHighlights}}" wx:key="_k" class="merchant-host-page__edit-row">
-            <view class="merchant-host-page__edit-row-head">
-              <text class="text-caption text-secondary">要点 {{index + 1}}</text>
-              <text
-                class="text-caption merchant-host-page__edit-remove"
-                data-index="{{index}}"
-                bindtap="onRemoveHighlight"
-              >删除</text>
-            </view>
-            <input
-              class="merchant-host-page__input"
-              value="{{item.label}}"
-              data-index="{{index}}"
-              data-field="label"
-              bindinput="onHighlightFieldInput"
-              maxlength="12"
-              placeholder="标签，如车型 / 检测"
-            />
-            <input
-              class="merchant-host-page__input"
-              value="{{item.value}}"
-              data-index="{{index}}"
-              data-field="value"
-              bindinput="onHighlightFieldInput"
-              maxlength="40"
-              placeholder="对应内容，短句、好懂"
-            />
-          </view>
-          <ui-button type="ghost" size="sm" bind:btntap="onAddHighlight">添加要点</ui-button>
-        </view>
 
         <view class="merchant-host-page__faq">
           <text class="text-caption merchant-host-page__field-label">常见问法</text>
