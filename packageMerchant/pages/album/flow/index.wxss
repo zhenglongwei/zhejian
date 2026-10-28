@@ -1950,6 +1950,21 @@
   color: var(--color-text-primary);
 }
 
+.st-field-row {
+  display: flex;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.st-field-row .st-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-field--picker {
+  color: var(--color-text-primary);
+}
+
 .ov-doc {
   flex: 1;
   min-width: 0;

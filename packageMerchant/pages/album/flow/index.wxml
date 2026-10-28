@@ -367,14 +367,15 @@
                 bindinput="onClerkInput"
               />
               <text class="text-body merchant-flow-page__label">时间</text>
-              <input
-                class="st-field"
-                placeholder="例：10月20日 09:42"
-                value="{{receivedAt}}"
-                data-key="receivedAt"
-                disabled="{{readOnly || intakeSent}}"
-                bindinput="onClerkInput"
-              />
+              <view class="st-field-row" wx:if="{{!readOnly && !intakeSent}}">
+                <picker mode="date" value="{{receivedAtDate}}" data-key="receivedAt" data-part="date" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{receivedAtDate || '选择日期'}}</view>
+                </picker>
+                <picker mode="time" value="{{receivedAtTime}}" data-key="receivedAt" data-part="time" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{receivedAtTime || '选择时间'}}</view>
+                </picker>
+              </view>
+              <text wx:else class="st-quote">{{receivedAt || '未填'}}</text>
               <view wx:if="{{stageBoard.intake.cells.length}}" class="st-grid">
                 <view wx:for="{{stageBoard.intake.cells}}" wx:key="label">
                   <text>{{item.label}}</text>
@@ -408,15 +409,15 @@
               />
               <text wx:else class="st-quote">{{stageBoard.inspect.inspectorName || '未填'}}</text>
               <text class="text-body merchant-flow-page__label">时间</text>
-              <input
-                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
-                class="st-field"
-                placeholder="例：10月20日 11:06"
-                value="{{inspectedAt}}"
-                data-key="inspectedAt"
-                bindinput="onClerkInput"
-              />
-              <text wx:else class="st-quote">{{stageBoard.inspect.inspectedAt || '未填'}}</text>
+              <view class="st-field-row" wx:if="{{stageBoard.state === 'current' && !readOnly}}">
+                <picker mode="date" value="{{inspectedAtDate}}" data-key="inspectedAt" data-part="date" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{inspectedAtDate || '选择日期'}}</view>
+                </picker>
+                <picker mode="time" value="{{inspectedAtTime}}" data-key="inspectedAt" data-part="time" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{inspectedAtTime || '选择时间'}}</view>
+                </picker>
+              </view>
+              <text wx:else class="st-quote">{{stageBoard.inspect.inspectedAt || inspectedAt || '未填'}}</text>
             </view>
             <view wx:if="{{stageBoard.inspect.items.length && !isInspectionPhotoStep}}" class="st-card">
               <view class="st-card__head">
@@ -587,6 +588,16 @@
                 bindinput="onClerkInput"
               />
               <text wx:else class="st-quote">{{stageBoard.work.workerName || '未填'}}</text>
+              <text class="text-body merchant-flow-page__label">施工时间</text>
+              <view class="st-field-row" wx:if="{{stageBoard.state === 'current' && !readOnly}}">
+                <picker mode="date" value="{{workFinishedAtDate}}" data-key="workFinishedAt" data-part="date" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{workFinishedAtDate || '选择日期'}}</view>
+                </picker>
+                <picker mode="time" value="{{workFinishedAtTime}}" data-key="workFinishedAt" data-part="time" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{workFinishedAtTime || '选择时间'}}</view>
+                </picker>
+              </view>
+              <text wx:else class="st-quote">{{workFinishedAt || '未填'}}</text>
             </view>
             <view wx:if="{{stageBoard.work.tasks.length}}" class="st-card">
               <view class="st-card__head">
@@ -641,15 +652,15 @@
               />
               <text wx:else class="st-quote">{{stageBoard.finish.delivererName || '未填'}}</text>
               <text class="text-body merchant-flow-page__label">完工时间</text>
-              <input
-                wx:if="{{stageBoard.state === 'current' && !readOnly}}"
-                class="st-field"
-                placeholder="例：10月20日 18:20"
-                value="{{finishedAt}}"
-                data-key="finishedAt"
-                bindinput="onClerkInput"
-              />
-              <text wx:else class="st-quote">{{stageBoard.finish.finishedAt || '未填'}}</text>
+              <view class="st-field-row" wx:if="{{stageBoard.state === 'current' && !readOnly}}">
+                <picker mode="date" value="{{finishedAtDate}}" data-key="finishedAt" data-part="date" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{finishedAtDate || '选择日期'}}</view>
+                </picker>
+                <picker mode="time" value="{{finishedAtTime}}" data-key="finishedAt" data-part="time" bindchange="onClerkAtPick">
+                  <view class="st-field st-field--picker">{{finishedAtTime || '选择时间'}}</view>
+                </picker>
+              </view>
+              <text wx:else class="st-quote">{{stageBoard.finish.finishedAt || finishedAt || '未填'}}</text>
             </view>
             <view wx:if="{{stageBoard.finish.before || stageBoard.finish.after}}" class="st-card">
               <view class="st-card__head">
@@ -704,6 +715,16 @@
               <view wx:if="{{isWorkPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">施工人</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{workerName}}" data-key="workerName" disabled="{{readOnly}}" bindinput="onClerkInput" />
+                <text class="text-body merchant-flow-page__label">施工时间</text>
+                <view class="st-field-row" wx:if="{{!readOnly}}">
+                  <picker mode="date" value="{{workFinishedAtDate}}" data-key="workFinishedAt" data-part="date" bindchange="onClerkAtPick">
+                    <view class="st-field st-field--picker">{{workFinishedAtDate || '选择日期'}}</view>
+                  </picker>
+                  <picker mode="time" value="{{workFinishedAtTime}}" data-key="workFinishedAt" data-part="time" bindchange="onClerkAtPick">
+                    <view class="st-field st-field--picker">{{workFinishedAtTime || '选择时间'}}</view>
+                  </picker>
+                </view>
+                <text wx:else class="st-quote">{{workFinishedAt || '未填'}}</text>
               </view>
 
               <view
@@ -1226,7 +1247,15 @@
                 <text class="text-body merchant-flow-page__label">交付人</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">完工时间</text>
-                <input class="st-field" placeholder="例：10月20日 18:20" value="{{finishedAt}}" data-key="finishedAt" disabled="{{readOnly}}" bindinput="onClerkInput" />
+                <view class="st-field-row" wx:if="{{!readOnly}}">
+                  <picker mode="date" value="{{finishedAtDate}}" data-key="finishedAt" data-part="date" bindchange="onClerkAtPick">
+                    <view class="st-field st-field--picker">{{finishedAtDate || '选择日期'}}</view>
+                  </picker>
+                  <picker mode="time" value="{{finishedAtTime}}" data-key="finishedAt" data-part="time" bindchange="onClerkAtPick">
+                    <view class="st-field st-field--picker">{{finishedAtTime || '选择时间'}}</view>
+                  </picker>
+                </view>
+                <text wx:else class="st-quote">{{finishedAt || '未填'}}</text>
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -1702,7 +1731,15 @@
                 <text class="text-body merchant-flow-page__label">交付人</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">完工时间</text>
-                <input class="st-field" placeholder="例：10月20日 18:20" value="{{finishedAt}}" data-key="finishedAt" disabled="{{readOnly}}" bindinput="onClerkInput" />
+                <view class="st-field-row" wx:if="{{!readOnly}}">
+                  <picker mode="date" value="{{finishedAtDate}}" data-key="finishedAt" data-part="date" bindchange="onClerkAtPick">
+                    <view class="st-field st-field--picker">{{finishedAtDate || '选择日期'}}</view>
+                  </picker>
+                  <picker mode="time" value="{{finishedAtTime}}" data-key="finishedAt" data-part="time" bindchange="onClerkAtPick">
+                    <view class="st-field st-field--picker">{{finishedAtTime || '选择时间'}}</view>
+                  </picker>
+                </view>
+                <text wx:else class="st-quote">{{finishedAt || '未填'}}</text>
                 <text class="text-body merchant-flow-page__label">质保期限</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--field"

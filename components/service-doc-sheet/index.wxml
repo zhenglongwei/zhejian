@@ -17,11 +17,9 @@
       <text class="text-caption service-doc-sheet__label">来店原因</text>
       <text class="text-body service-doc-sheet__complaint">{{doc.chiefComplaint}}</text>
     </view>
-    <view wx:if="{{doc.mileageText || doc.belongings}}" class="service-doc-sheet__block">
-      <view wx:if="{{doc.mileageText}}" class="service-doc-sheet__field">
-        <text class="service-doc-sheet__field-v">{{doc.mileageText}}</text>
-      </view>
-      <view wx:if="{{doc.belongings}}" class="service-doc-sheet__field">
+    <!-- 里程只在页眉 metaLine，此处不再重复 -->
+    <view wx:if="{{doc.belongings}}" class="service-doc-sheet__block">
+      <view class="service-doc-sheet__field">
         <text class="service-doc-sheet__field-k">随车物品</text>
         <text class="service-doc-sheet__field-v">{{doc.belongings}}</text>
       </view>

@@ -96,7 +96,8 @@ function buildOwnerPreviewDoc(input = {}) {
       styleVariant: 'document',
       storeName,
       chiefComplaint,
-      mileageText: String(input.mileageText || '').trim(),
+      // 里程只在 metaLine，正文不再重复 mileageText
+      mileageText: '',
       fuelReading: String(input.fuelReading || '').trim(),
       belongings: String(input.belongings || '').trim(),
       photos,
@@ -110,7 +111,13 @@ function buildOwnerPreviewDoc(input = {}) {
     return {
       doc,
       quoteLines: [],
-      hasBody: Boolean(chiefComplaint || photos.length || doc.mileageText || doc.fuelReading || doc.belongings),
+      hasBody: Boolean(
+        chiefComplaint ||
+          photos.length ||
+          String(input.mileageText || '').trim() ||
+          doc.fuelReading ||
+          doc.belongings,
+      ),
     }
   }
   if (family === 'inspect') {

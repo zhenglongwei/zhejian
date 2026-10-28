@@ -99,6 +99,59 @@ const {
 } = require('../../../../utils/ai-review-target')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+/** 节点签字时间：统一存 YYYY-MM-DD HH:mm，便于选择器 */
+function formatClerkAtNow(date = new Date()) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
+function parseClerkAt(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return { date: '', time: '', text: '' }
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/)
+  if (iso) {
+    const date = `${iso[1]}-${iso[2]}-${iso[3]}`
+    const time = `${iso[4] || '00'}:${iso[5] || '00'}`
+    return { date, time, text: `${date} ${time}` }
+  }
+  const cn = raw.match(/^(\d{1,2})月(\d{1,2})日(?:\s+(\d{1,2}):(\d{2}))?/)
+  if (cn) {
+    const y = new Date().getFullYear()
+    const date = `${y}-${pad2(Number(cn[1]))}-${pad2(Number(cn[2]))}`
+    const time = `${pad2(Number(cn[3] || 0))}:${cn[4] || '00'}`
+    return { date, time, text: `${date} ${time}` }
+  }
+  // 无法解析时回落到此刻，保证选择器仍有合法 value
+  return parseClerkAt(formatClerkAtNow())
+}
+
+function clerkAtPartsPatch(key, value) {
+  const parts = parseClerkAt(value)
+  if (!parts.text) {
+    return {
+      [key]: '',
+      [`${key}Date`]: '',
+      [`${key}Time`]: '',
+    }
+  }
+  return {
+    [key]: parts.text,
+    [`${key}Date`]: parts.date,
+    [`${key}Time`]: parts.time,
+  }
+}
+
+/** 报告落款展示：10月20日 09:42 */
+function formatClerkAtForDoc(value) {
+  if (!String(value || '').trim()) return ''
+  const parts = parseClerkAt(value)
+  const bits = parts.date.split('-')
+  return `${Number(bits[1])}月${Number(bits[2])}日 ${parts.time}`
+}
+
 /** 系统选图最多 9 张；超过会直接失败且不弹界面。失败时再试 chooseImage。 */
 function pickLocalImages(options = {}) {
   const count = Math.max(1, Math.min(9, Number(options.count) || 1))
@@ -474,11 +527,20 @@ Page({
     chiefComplaint: '',
     receiverName: '',
     receivedAt: '',
+    receivedAtDate: '',
+    receivedAtTime: '',
     inspectorName: '',
     inspectedAt: '',
+    inspectedAtDate: '',
+    inspectedAtTime: '',
     workerName: '',
+    workFinishedAt: '',
+    workFinishedAtDate: '',
+    workFinishedAtTime: '',
     delivererName: '',
     finishedAt: '',
+    finishedAtDate: '',
+    finishedAtTime: '',
     mileageKm: '',
     odometerUrl: '',
     odometerImageId: '',
@@ -1924,7 +1986,10 @@ Page({
         docPayload,
         findings,
         chiefComplaint,
-        ...this.clerkFieldsFromNodes(flowNodes, photoDraft, docPayload),
+        ...this.buildClerkFieldData(flowNodes, photoDraft, docPayload, {
+          activeKind: (active && active.kind) || '',
+          readOnly: this.data.readOnly,
+        }),
         mileageKm,
         odometerUrl: isIntakePhotoStep ? String((sections[0] && sections[0].odometerUrl) || '').trim() : '',
         odometerImageId: isIntakePhotoStep
@@ -2148,6 +2213,32 @@ Page({
     const albumLocked = Boolean(
       this._album && (this._album.contentLocked || this._album.editable === false),
     )
+    const clerkKind =
+      family === 'intake'
+        ? 'intake'
+        : family === 'inspect'
+          ? 'inspection'
+          : family === 'work'
+            ? 'work'
+            : family === 'finish'
+              ? 'delivery_photos'
+              : ''
+    const clerkNode =
+      clerkKind === 'intake'
+        ? this.intakeNode && this.intakeNode()
+        : clerkKind === 'inspection'
+          ? this.inspectionNode && this.inspectionNode()
+          : clerkKind === 'work'
+            ? focus || (nodes || []).find((n) => n && n.kind === 'work')
+            : clerkKind === 'delivery_photos'
+              ? (nodes || []).find((n) => n && n.kind === 'delivery_photos')
+              : null
+    const clerkPatch = clerkKind
+      ? this.buildClerkFieldData(nodes, (clerkNode && clerkNode.photoDraft) || {}, {}, {
+          activeKind: clerkKind,
+          readOnly: albumLocked || frozen,
+        })
+      : {}
     this.setData({
       workOpen: true,
       doneView: null,
@@ -2165,6 +2256,7 @@ Page({
       intakePile: [],
       intakeDocStatus: this.intakeDocumentStatus(),
       intakeSent: this.intakeDocumentSent(),
+      ...clerkPatch,
     })
     // 接车屏只绑节点 pendingImages 当场算出的列表
     if (family === 'intake') {
@@ -2404,9 +2496,84 @@ Page({
       inspectorName: text(inspectionDraft.inspectorName || reportPayload.inspectorName || docPayload.inspectorName),
       inspectedAt: text(inspectionDraft.inspectedAt || reportPayload.inspectedAt || docPayload.inspectedAt),
       workerName: text(workDraft.workerName || activeDraft.workerName),
+      workFinishedAt: text(workDraft.finishedAt || activeDraft.finishedAt),
       delivererName: text(deliveryDraft.delivererName || repairPayload.delivererName || docPayload.delivererName),
       finishedAt: text(deliveryDraft.finishedAt || repairPayload.finishedAt || docPayload.finishedAt),
     }
+  },
+
+  /** 空时间默认此刻；附带选择器用的 date/time 分片 */
+  buildClerkFieldData(flowNodes, activeDraft = {}, docPayload = {}, options = {}) {
+    const fields = this.clerkFieldsFromNodes(flowNodes, activeDraft, docPayload)
+    const kind = String(options.activeKind || '')
+    const canEdit = !options.readOnly
+    const now = formatClerkAtNow()
+    const defaulted = []
+    if (canEdit) {
+      if (
+        (kind === 'intake' || kind === 'intake_inspection') &&
+        !fields.receivedAt &&
+        !this.data.intakeSent
+      ) {
+        fields.receivedAt = now
+        defaulted.push('receivedAt')
+      }
+      if (
+        (kind === 'inspection' || kind === 'intake_inspection') &&
+        !fields.inspectedAt
+      ) {
+        fields.inspectedAt = now
+        defaulted.push('inspectedAt')
+      }
+      if (kind === 'work' && !fields.workFinishedAt) {
+        fields.workFinishedAt = now
+        defaulted.push('workFinishedAt')
+      }
+      if (
+        (kind === 'delivery_photos' || kind === 'repair_report') &&
+        !fields.finishedAt
+      ) {
+        fields.finishedAt = now
+        defaulted.push('finishedAt')
+      }
+    }
+    if (defaulted.length) {
+      defaulted.forEach((key) => this.schedulePersistClerk(key))
+    }
+    return {
+      ...fields,
+      ...clerkAtPartsPatch('receivedAt', fields.receivedAt),
+      ...clerkAtPartsPatch('inspectedAt', fields.inspectedAt),
+      ...clerkAtPartsPatch('workFinishedAt', fields.workFinishedAt),
+      ...clerkAtPartsPatch('finishedAt', fields.finishedAt),
+    }
+  },
+
+  onClerkAtPick(e) {
+    if (this.data.readOnly) return
+    const ds = (e && e.currentTarget && e.currentTarget.dataset) || {}
+    const key = String(ds.key || '').trim()
+    const part = String(ds.part || '').trim()
+    const picked = String((e && e.detail && e.detail.value) || '').trim()
+    if (!key || (part !== 'date' && part !== 'time') || !picked) return
+    if (key === 'receivedAt' && this.data.intakeSent) return
+    const dateKey = `${key}Date`
+    const timeKey = `${key}Time`
+    const fallback = parseClerkAt(this.data[key] || formatClerkAtNow())
+    const date = part === 'date' ? picked : String(this.data[dateKey] || fallback.date)
+    const time = part === 'time' ? picked : String(this.data[timeKey] || fallback.time)
+    const text = `${date} ${time}`
+    this.setData(
+      {
+        [key]: text,
+        [dateKey]: date,
+        [timeKey]: time,
+        autoSaveLabel: '保存中…',
+      },
+      () => {
+        this.schedulePersistClerk(key)
+      },
+    )
   },
 
   flushClerkFields() {
@@ -2472,8 +2639,11 @@ Page({
       patchDraft(inspection, patch)
       patchDoc(nodes.find((node) => node && node.kind === 'inspection_report'), patch)
     }
-    if (keys.has('workerName')) {
-      patchDraft(nodes.find((node) => node && node.kind === 'work'), { workerName: text('workerName') })
+    if (keys.has('workerName') || keys.has('workFinishedAt')) {
+      patchDraft(nodes.find((node) => node && node.kind === 'work'), {
+        workerName: text('workerName'),
+        finishedAt: text('workFinishedAt'),
+      })
     }
     if (keys.has('delivererName') || keys.has('finishedAt')) {
       const patch = { delivererName: text('delivererName'), finishedAt: text('finishedAt') }
@@ -2502,7 +2672,9 @@ Page({
     if (kind === 'inspection') {
       return { inspectorName: this.data.inspectorName, inspectedAt: this.data.inspectedAt }
     }
-    if (kind === 'work') return { workerName: this.data.workerName }
+    if (kind === 'work') {
+      return { workerName: this.data.workerName, finishedAt: this.data.workFinishedAt }
+    }
     if (kind === 'delivery_photos' || kind === 'repair_report') {
       return { delivererName: this.data.delivererName, finishedAt: this.data.finishedAt }
     }
@@ -2536,7 +2708,7 @@ Page({
         mileageText,
         belongings: intakeDraft.belongings,
         signName: intakeDraft.receiverName,
-        signAt: intakeDraft.receivedAt,
+        signAt: formatClerkAtForDoc(intakeDraft.receivedAt || this.data.receivedAt),
       })
     }
     if (title === '检测报告') {
@@ -2567,7 +2739,9 @@ Page({
           ? nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason).document.payload.lines
           : [],
         signName: reportPayload.inspectorName || inspectionDraft.inspectorName,
-        signAt: reportPayload.inspectedAt || inspectionDraft.inspectedAt,
+        signAt: formatClerkAtForDoc(
+          reportPayload.inspectedAt || inspectionDraft.inspectedAt || this.data.inspectedAt,
+        ),
       })
     }
     if (title === '报价单') {
@@ -2599,8 +2773,8 @@ Page({
         album,
         mileageText,
         workItems: items,
-        signName: draft.workerName,
-        signAt: deliveryDraft.finishedAt || repairPayload.finishedAt,
+        signName: draft.workerName || this.data.workerName,
+        signAt: formatClerkAtForDoc(draft.finishedAt || this.data.workFinishedAt),
       })
     }
     const works = nodes.filter((node) => node && node.kind === 'work')
@@ -2669,7 +2843,9 @@ Page({
       warrantyPeriod: deliveryDraft.warrantyPeriod || repairPayload.warrantyPeriod || this.data.warrantyPeriod,
       warrantyNotes: deliveryDraft.warrantyNotes || repairPayload.warrantyNotes || this.data.warrantyNotes,
       signName: deliveryDraft.delivererName || repairPayload.delivererName,
-      signAt: deliveryDraft.finishedAt || repairPayload.finishedAt,
+      signAt: formatClerkAtForDoc(
+        deliveryDraft.finishedAt || repairPayload.finishedAt || this.data.finishedAt,
+      ),
     })
   },
 
