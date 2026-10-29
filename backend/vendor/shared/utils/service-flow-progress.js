@@ -20,8 +20,15 @@ function isFlowNodeDone(node = {}) {
     return Boolean(doc && (doc.status === 'delivered' || doc.status === 'confirmed'))
   }
 
-  // 接车确认单不决定这一步做完没有。店里保存并开始检测才往下走。
-  if (kind === 'intake' || kind === 'intake_inspection') return false
+  // 接车：发给车主即完成本步，并应解锁检测
+  if (kind === 'intake' || kind === 'intake_inspection') {
+    return Boolean(
+      doc &&
+        (doc.status === 'delivered' ||
+          doc.status === 'pending_confirm' ||
+          doc.status === 'confirmed'),
+    )
+  }
 
   // 方案确认 / 完工确认：需 confirmed；增项作废视作完成
   if (kind === 'quote_confirm' || kind === 'repair_report' || kind === 'addon_quote_confirm') {

@@ -111,7 +111,7 @@ function collectFindingImages(raw = {}) {
   }
   if (Array.isArray(raw.images)) raw.images.forEach(push)
   push({ url: raw.url, imageId: raw.imageId || raw.id })
-  return list.slice(0, FINDING_IMAGES_MAX)
+  return capImages(list, FINDING_IMAGES_MAX)
 }
 
 /**
@@ -198,7 +198,7 @@ function normalizeItemFinding(raw = {}, index = -1) {
   let images = hasImagesField
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
     : collectFindingImages(raw)
-  images = images.slice(0, FINDING_IMAGES_MAX)
+  images = capImages(images, FINDING_IMAGES_MAX)
   const caption = stripFigureIndexTalk(raw.caption)
   const result = normalizeFindingResult(raw.result)
   let advice = stripFigureIndexTalk(raw.advice)
@@ -271,7 +271,15 @@ function pickOdometerSlot(photoDraft = {}, findings = []) {
 }
 
 const WORK_IMAGES_MAX = 6
-const FINDING_IMAGES_MAX = 24
+/** 检测项每项张数：0 = 不限制（单次选图仍受微信上限） */
+const FINDING_IMAGES_MAX = 0
+
+function capImages(list = [], max = 0) {
+  const rows = Array.isArray(list) ? list : []
+  const n = Number(max)
+  if (!Number.isFinite(n) || n <= 0) return rows
+  return rows.slice(0, n)
+}
 
 function normalizeWorkImage(raw = {}) {
   const url = String(typeof raw === 'string' ? raw : (raw && raw.url) || '').trim()
@@ -500,7 +508,7 @@ function mergeFindingsByPart(list) {
       seen.add(key)
       images.push(img)
     })
-    host.images = images.slice(0, FINDING_IMAGES_MAX)
+    host.images = capImages(images, FINDING_IMAGES_MAX)
     host.url = (host.images[0] && host.images[0].url) || ''
     host.imageId = (host.images[0] && host.images[0].imageId) || ''
     if (!host.result && item.result) host.result = item.result
@@ -937,7 +945,7 @@ function applyOrganizeGroups({
     if (hostIdx >= 0) {
       const host = nextFindings[hostIdx]
       const cap = mode === 'work' ? WORK_IMAGES_MAX : FINDING_IMAGES_MAX
-      const images = (host.images || []).concat(fresh).slice(0, cap)
+      const images = capImages((host.images || []).concat(fresh), cap)
       if (mode === 'work') {
         nextFindings[hostIdx] = normalizeWorkFinding({
           ...host,
@@ -981,7 +989,7 @@ function applyOrganizeGroups({
         partName,
         result: suggestedResult,
         advice: suggestedAdvice,
-        images: fresh.slice(0, FINDING_IMAGES_MAX),
+        images: capImages(fresh, FINDING_IMAGES_MAX),
       }),
     )
   })
@@ -1113,7 +1121,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
       ? merged.find((item) => String(item.partName || '').trim() === part)
       : null
     if (host) {
-      const nextImages = host.images.concat([shot]).slice(0, FINDING_IMAGES_MAX)
+      const nextImages = capImages(host.images.concat([shot]), FINDING_IMAGES_MAX)
       Object.assign(
         host,
         normalizeItemFinding({
@@ -1881,6 +1889,7 @@ module.exports = {
   workFindingHasPhoto,
   WORK_IMAGES_MAX,
   FINDING_IMAGES_MAX,
+  capImages,
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
   collectWorkPhotoDraftGaps,

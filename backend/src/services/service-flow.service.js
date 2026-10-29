@@ -8,7 +8,6 @@ const {
   buildStandardFlowNodes,
   getFlowKindMeta,
   isPhotoFlowNode,
-  isDocumentFlowNode,
   resolveLegacyStageIdsForFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
@@ -235,7 +234,6 @@ function collectPreviewImages(node, albumNodes = []) {
 function mapFlowNodeForView(node, albumNodes = []) {
   const meta = getFlowKindMeta(node.kind) || {}
   const photo = isPhotoFlowNode(node)
-  const document = isDocumentFlowNode(node)
   const legacyStageIds = resolveLegacyStageIdsForFlowNode(node)
   const needConfirm = requiresOwnerConfirm(node)
 
@@ -305,7 +303,8 @@ function mapFlowNodeForView(node, albumNodes = []) {
         ? `已拍 ${countPhotosForFlowNode(node, albumNodes)} 张`
         : '待上传照片'
       : resolveDocumentStatusLabel(node.document),
-    document: document && node.document
+    // 拍照节点也可带定稿 document（接车发出、工单定稿等）；不得因 nodeCategory=photo 剥掉
+    document: node.document
       ? {
           ...node.document,
           statusLabel: resolveDocumentStatusLabel(node.document),
@@ -682,6 +681,31 @@ async function healOpenAddonBesideWork(albumId) {
   })
 }
 
+/** 接车已发出但未 completed / 未解锁检测：打开进度时收口 */
+async function healIntakeSentUnlock(albumId) {
+  const { isDocSentToOwner } = require('../../vendor/shared/utils/flow-stage-locks')
+  await writeFlowPackage(albumId, (pkg) => {
+    const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+    const idx = nodes.findIndex(
+      (n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection'),
+    )
+    if (idx < 0) return pkg
+    const node = nodes[idx]
+    if (!isDocSentToOwner(node.document)) return pkg
+    let changed = false
+    if (String(node.status || '') !== 'completed') {
+      nodes[idx] = { ...node, status: 'completed' }
+      changed = true
+    }
+    const next = nodes[idx + 1]
+    if (next && (next.status === 'locked' || next.status === 'pending')) {
+      nodes[idx + 1] = { ...next, status: 'in_progress' }
+      changed = true
+    }
+    return changed ? { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes } : pkg
+  })
+}
+
 async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, mapNodesForView } = require('./service-album.service')
   let album = await loadAlbum(albumId)
@@ -720,6 +744,7 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   }
   album = await absorbLegacyStagePhotos(albumId, album, nodes)
   await healOpenAddonBesideWork(albumId)
+  await healIntakeSentUnlock(albumId)
   album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
   const {
@@ -1089,11 +1114,18 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   }
 
   {
-    const { isNodeEditFrozen, familyOfKind, freezeMessage } = require('../../vendor/shared/utils/flow-stage-locks')
+    const { isNodeEditFrozen, familyOfKind, freezeMessage, isDocSentToOwner } = require('../../vendor/shared/utils/flow-stage-locks')
     if (isNodeEditFrozen(rawNodes, node)) {
-      const err = new Error(freezeMessage(familyOfKind(node.kind, node)))
-      err.status = 409
-      throw err
+      // 存量：接车已发出但未 completed / 未解锁检测时，允许本接口收口完成并解锁下一步
+      const intakeHeal =
+        (node.kind === 'intake' || node.kind === 'intake_inspection') &&
+        isDocSentToOwner(node.document) &&
+        String(node.status || '') !== 'completed'
+      if (!intakeHeal) {
+        const err = new Error(freezeMessage(familyOfKind(node.kind, node)))
+        err.status = 409
+        throw err
+      }
     }
   }
 

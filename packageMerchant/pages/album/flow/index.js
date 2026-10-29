@@ -62,6 +62,7 @@ const {
   workFindingHasPhoto,
   WORK_IMAGES_MAX,
   FINDING_IMAGES_MAX,
+  capImages,
   normalizeQuoteLine,
   mapFindingRows,
   mediaKey,
@@ -3015,30 +3016,36 @@ Page({
   async finishIntakeSend(fields) {
     const intake = fields && fields.intake
     if (!intake) return
+    // 已发出且已完成：只进检测，不再二次发送（避免「先 delivered 再 complete」被冻结）
+    if (this.intakeDocumentSent() && String(intake.status || '') === 'completed') {
+      await this.loadFlow({ silent: true })
+      this.openStage('inspect')
+      return
+    }
+    const photos = (fields.pile || [])
+      .map((item) => ({ url: String((item && item.url) || '').trim() }))
+      .filter((item) => item.url)
+    if (!photos.length) {
+      wx.showToast({ title: '请先拍留证', icon: 'none' })
+      return
+    }
     this.setData({ confirming: true })
     try {
-      const sent = await this.sendIntakeConfirm({ quiet: true })
-      if (!sent) {
-        wx.showToast({ title: '没能发给车主', icon: 'none' })
-        return
-      }
-      if (String(intake.status || '') !== 'completed') {
-        const photos = (fields.pile || [])
-          .map((item) => ({ url: String((item && item.url) || '').trim() }))
-          .filter((item) => item.url)
-        await completeMerchantFlowNode(this.albumId, intake.id, {
+      // 一次完成：定稿发出 + 节点 completed + 解锁检测（勿先 update document 再 complete）
+      await completeMerchantFlowNode(this.albumId, intake.id, {
+        chiefComplaint: fields.complaint,
+        photoDraft: {
           chiefComplaint: fields.complaint,
-          photoDraft: {
-            chiefComplaint: fields.complaint,
-            pendingImages: photos,
-          },
-        })
-      }
+          pendingImages: photos,
+          receiverName: String(this.data.receiverName || '').trim(),
+          receivedAt: String(this.data.receivedAt || '').trim(),
+        },
+      })
       wx.showToast({ title: '已发给车主', icon: 'success' })
       await this.loadFlow({ silent: true })
       this.openStage('inspect')
     } catch (err) {
-      wx.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+      wx.showToast({ title: (err && err.message) || '没能发给车主', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
     }
@@ -3639,13 +3646,18 @@ Page({
       })
       return
     }
-    const remain = Math.max(0, WORK_IMAGES_MAX - normalizeFinding(currentItem).images.length)
-    if (remain < 1) {
-      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+    // 检测项不限张数；单次最多选 9 张（微信上限）
+    const currentImages = normalizeFinding(currentItem).images || []
+    if (FINDING_IMAGES_MAX > 0 && currentImages.length >= FINDING_IMAGES_MAX) {
+      wx.showToast({ title: `每项最多 ${FINDING_IMAGES_MAX} 张`, icon: 'none' })
       return
     }
+    const remain =
+      FINDING_IMAGES_MAX > 0
+        ? Math.max(0, FINDING_IMAGES_MAX - currentImages.length)
+        : 9
     pickLocalImages({
-      count: Math.min(remain, 6),
+      count: Math.min(remain, 9),
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
@@ -3666,7 +3678,7 @@ Page({
             const findings = (row.findings || []).map((item, idx) => {
               if (idx !== fi) return item
               const base = normalizeFinding(item)
-              const images = base.images.concat(uploadedList).slice(0, WORK_IMAGES_MAX)
+              const images = capImages(base.images.concat(uploadedList), FINDING_IMAGES_MAX)
               return this.withFindingMeta(
                 item,
                 normalizeFinding({
@@ -3718,13 +3730,14 @@ Page({
     const currentItem = (this.data.findings || [])[fi]
     if (!currentItem) return
     const current = normalizeFinding(currentItem)
-    const remain = Math.max(0, FINDING_IMAGES_MAX - (current.images || []).length)
-    if (remain < 1) {
+    const have = (current.images || []).length
+    if (FINDING_IMAGES_MAX > 0 && have >= FINDING_IMAGES_MAX) {
       wx.showToast({ title: `每项最多 ${FINDING_IMAGES_MAX} 张`, icon: 'none' })
       return
     }
+    const remain = FINDING_IMAGES_MAX > 0 ? Math.max(0, FINDING_IMAGES_MAX - have) : 9
     pickLocalImages({
-      count: Math.min(remain, 6),
+      count: Math.min(remain, 9),
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
@@ -3742,7 +3755,7 @@ Page({
           const findings = (this.data.findings || []).map((row, idx) => {
             if (idx !== fi) return row
             const base = normalizeFinding(row)
-            const images = (base.images || []).concat(uploadedList).slice(0, FINDING_IMAGES_MAX)
+            const images = capImages((base.images || []).concat(uploadedList), FINDING_IMAGES_MAX)
             const first = images[0] || {}
             return {
               ...row,
@@ -6999,13 +7012,7 @@ Page({
         this.resyncSectionsAfterPersist()
         await this.persistPhotoDraft()
         this.clearLocalFlowDraft()
-        if (kind === 'intake' || kind === 'intake_inspection') {
-          const sent = await this.sendIntakeConfirm({ quiet: true })
-          if (!sent) {
-            wx.showToast({ title: '没能发给车主', icon: 'none' })
-            return
-          }
-        }
+        // 接车勿先单独写 document.delivered，否则 complete 会被「已发出冻结」拦住
         const res = await completeMerchantFlowNode(
           this.albumId,
           this.data.activeNode.id,

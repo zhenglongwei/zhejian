@@ -2,21 +2,21 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { isFlowNodeDone, deliveryReportSent } = require('./service-flow-progress')
 
-test('接车确认不代替保存并开始检测', () => {
-  const pending = {
+test('接车发给车主即完成本步', () => {
+  const draft = {
     id: 'fn_001',
     kind: 'intake',
     status: 'in_progress',
-    document: { docType: 'intake_confirm', status: 'pending_confirm' },
+    document: { docType: 'intake_confirm', status: 'draft' },
   }
-  const confirmed = {
-    ...pending,
-    document: { docType: 'intake_confirm', status: 'confirmed' },
+  const delivered = {
+    ...draft,
+    document: { docType: 'intake_confirm', status: 'delivered' },
   }
-  const saved = { ...confirmed, status: 'completed' }
-  assert.equal(isFlowNodeDone(pending), false)
-  assert.equal(isFlowNodeDone(confirmed), false)
-  assert.equal(isFlowNodeDone(saved), true)
+  const completed = { ...delivered, status: 'completed' }
+  assert.equal(isFlowNodeDone(draft), false)
+  assert.equal(isFlowNodeDone(delivered), true)
+  assert.equal(isFlowNodeDone(completed), true)
 })
 
 test('交车发给车主之后，施工不再改', () => {

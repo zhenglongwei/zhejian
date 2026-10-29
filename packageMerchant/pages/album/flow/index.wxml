@@ -1062,7 +1062,7 @@
                               >×</text>
                             </view>
                             <view
-                              wx:if="{{!readOnly && finding.images.length < 6}}"
+                              wx:if="{{!readOnly}}"
                               class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -1369,7 +1369,7 @@
                           />
                         </view>
                         <view
-                          wx:if="{{!readOnly && (item.images.length || 0) < 24}}"
+                          wx:if="{{!readOnly}}"
                           class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                           data-index="{{index}}"
                           catchtap="onAttachReportFindingPhoto"
