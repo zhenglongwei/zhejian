@@ -356,6 +356,26 @@ function parseInspectionAdvice(raw, items, photoUrls) {
     if (!Number.isInteger(n) || n < 1 || n > urls.length) return ''
     return text(urls[n - 1])
   }
+  const parseGroups = (list) =>
+    (Array.isArray(list) ? list : [])
+      .map((g) => {
+        const partName = zhOnly(g && g.partName, 16)
+        const advice = zhOnly(g && g.advice, 120)
+        const images = (Array.isArray(g && g.images) ? g.images : [])
+          .map((img) => {
+            const url = text(typeof img === 'object' && img ? img.url : img)
+            return url ? { url } : null
+          })
+          .filter(Boolean)
+        const fromSlots = (Array.isArray(g && g.imageSlots) ? g.imageSlots : [])
+          .map(slotUrl)
+          .filter(Boolean)
+          .map((url) => ({ url }))
+        const shots = images.length ? images : fromSlots
+        if (!partName || !shots.length) return null
+        return { partName, advice, result: '', images: shots }
+      })
+      .filter(Boolean)
 
   const faultAnalysis = isIntakeCoverageEcho(parsed.faultAnalysis)
     ? ''
@@ -374,83 +394,58 @@ function parseInspectionAdvice(raw, items, photoUrls) {
     .filter(Boolean)
     .slice(0, 6)
 
-  const edits = []
-  const pushEdit = (row) => {
-    if (!row || edits.length >= 10) return
-    const kind = text(row.kind)
-    const body = zhOnly(row.body, 120)
-    if (isIntakeCoverageEcho(body) && kind !== 'split') return
-    if (kind === 'text') {
-      const findingId = text(row.findingId || row.id)
-      const partName = zhOnly(row.partName || row.title, 16)
-      const advice = zhOnly(row.advice, 120)
-      if (!findingId || (!partName && !advice && !body)) return
-      const current = byItemId.get(findingId)
-      const emptyName = !text(current && current.name)
-      const emptyNote = !text(current && current.note)
-      const nextName = emptyName ? partName : ''
-      const nextAdvice = emptyNote ? advice || body : ''
-      if (!nextName && !nextAdvice) return
-      edits.push({
-        id: `edit_text_${findingId}`,
-        kind: 'text',
-        findingId,
-        partName: nextName,
-        advice: nextAdvice,
-        body: body || [nextName, nextAdvice].filter(Boolean).join(' · '),
-        canApply: true,
-      })
-      return
+  // 按检测项合并：拆图 + 文案只留一条
+  const byFinding = new Map()
+  const photos = []
+  const mergeItem = (row) => {
+    const findingId = text(row && (row.findingId || row.id))
+    if (!findingId || !byItemId.has(findingId)) return
+    const body = zhOnly(row && row.body, 120)
+    const partName = zhOnly(row && (row.partName || row.title), 16)
+    const advice = zhOnly(row && row.advice, 120)
+    const groups = parseGroups(row && row.groups)
+    const prev = byFinding.get(findingId) || {
+      findingId,
+      partName: '',
+      advice: '',
+      body: '',
+      groups: [],
     }
-    if (kind === 'split') {
-      const findingId = text(row.findingId || row.id)
-      if (!findingId) return
-      const groups = (Array.isArray(row.groups) ? row.groups : [])
-        .map((g) => {
-          const partName = zhOnly(g && g.partName, 16)
-          const advice = zhOnly(g && g.advice, 120)
-          const images = (Array.isArray(g && g.imageSlots) ? g.imageSlots : [])
-            .map(slotUrl)
-            .filter(Boolean)
-            .map((url) => ({ url }))
-          if (!partName || !images.length) return null
-          return { partName, advice, result: '', images }
-        })
-        .filter(Boolean)
-      if (groups.length < 2) return
-      edits.push({
-        id: `edit_split_${findingId}`,
-        kind: 'split',
-        findingId,
-        body: body || `可以拆成${groups.map((g) => `「${g.partName}」`).join('')}`,
-        groups,
-        canApply: true,
-      })
-      return
+    if (partName) prev.partName = partName
+    if (advice) prev.advice = advice
+    if (body && !isIntakeCoverageEcho(body)) prev.body = body
+    if (groups.length >= 2) prev.groups = groups
+    else if (groups.length === 1 && !prev.partName) {
+      prev.partName = groups[0].partName
+      if (groups[0].advice) prev.advice = groups[0].advice
     }
+    byFinding.set(findingId, prev)
+  }
+
+  ;(Array.isArray(parsed.edits) ? parsed.edits : []).forEach((row) => {
+    const kind = text(row && row.kind)
     if (kind === 'photo') {
-      if (!body) return
-      edits.push({
-        id: `edit_photo_${edits.length}`,
+      const body = zhOnly(row && row.body, 120)
+      if (!body || isIntakeCoverageEcho(body)) return
+      photos.push({
+        id: `edit_photo_${photos.length}`,
         kind: 'photo',
         findingId: text(row.findingId || row.id),
         body,
         canApply: false,
       })
+      return
     }
-  }
-  ;(Array.isArray(parsed.edits) ? parsed.edits : []).forEach(pushEdit)
-
-  // 兼容旧模型：items / gaps 收成 edits（不再展示接车式 shop 块）
+    // item / text / split 一律按项合并
+    if (kind === 'item' || kind === 'text' || kind === 'split' || !kind) mergeItem(row)
+  })
   ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
     const findingId = text(row && row.id)
     const body = zhOnly(row && row.body, 120)
-    const title = zhOnly(row && (row.title || row.partName), 16)
-    if (!findingId || !body || isIntakeCoverageEcho(body)) return
-    pushEdit({
-      kind: 'text',
+    if (!findingId || !body || isIntakeCoverageEcho(body) || byFinding.has(findingId)) return
+    mergeItem({
       findingId,
-      partName: title,
+      partName: zhOnly(row && (row.title || row.partName), 16),
       advice: body,
       body,
     })
@@ -461,15 +456,52 @@ function parseInspectionAdvice(raw, items, photoUrls) {
     const title = zhOnly(row && (row.title || row.partName), 16)
     if (!body || isIntakeCoverageEcho(body)) return
     if (kindRaw === 'unclear_photo' || kindRaw === 'follow_up' || kindRaw === 'how') {
-      pushEdit({ kind: 'photo', body: title ? `${title}：${body}` : body })
+      photos.push({
+        id: `edit_photo_${photos.length}`,
+        kind: 'photo',
+        findingId: '',
+        body: title ? `${title}：${body}` : body,
+        canApply: false,
+      })
       return
     }
     if (kindRaw === 'missing_item' || kindRaw === 'miss' || kindRaw === 'omit') {
-      pushEdit({
+      photos.push({
+        id: `edit_photo_${photos.length}`,
         kind: 'photo',
+        findingId: '',
         body: title ? `建议补查「${title}」。${body}` : body,
+        canApply: false,
       })
     }
+  })
+
+  const edits = []
+  byFinding.forEach((row) => {
+    if (edits.length >= 10) return
+    const current = byItemId.get(row.findingId)
+    const curName = text(current && current.name)
+    const curNote = text(current && current.note)
+    const groups = Array.isArray(row.groups) && row.groups.length >= 2 ? row.groups : []
+    const nextName = !curName ? row.partName : ''
+    const nextAdvice = !curNote ? row.advice || (!groups.length ? row.body : '') : ''
+    if (!groups.length && !nextName && !nextAdvice) return
+    const names = groups.map((g) => g.partName).filter(Boolean)
+    const body =
+      row.body ||
+      (groups.length
+        ? `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`
+        : [nextName, nextAdvice].filter(Boolean).join(' · '))
+    edits.push({
+      id: `edit_item_${row.findingId}`,
+      kind: 'item',
+      findingId: row.findingId,
+      partName: nextName,
+      advice: nextAdvice,
+      body,
+      groups,
+      canApply: true,
+    })
   })
 
   return {
@@ -477,8 +509,7 @@ function parseInspectionAdvice(raw, items, photoUrls) {
     faultAnalysis,
     inspectOrder,
     partHints,
-    edits,
-    // 兼容旧前端字段（空数组）
+    edits: edits.concat(photos).slice(0, 12),
     shop: [],
     items: [],
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
@@ -762,13 +793,13 @@ function workInstruction(ctx) {
 function inspectionInstruction(ctx) {
   return [
     'You assist a Chinese auto shop clerk during vehicle inspection.',
-    'Goal: from intake context + current inspection items/photos, produce faultAnalysis, inspectOrder, partHints, and actionable edits for THIS inspection step only.',
+    'Goal: faultAnalysis, inspectOrder, partHints, and ONE actionable edit per inspection finding (photos + text in the same edit).',
     'Hard rules:',
-    '- Intake coverage text (e.g. all four sides covered / missing side) is CONTEXT ONLY. NEVER copy or restate intake photo-coverage advice in any output field.',
-    '- All natural-language values MUST be Simplified Chinese. No English words in titles or bodies.',
-    '- Do NOT invent damage absent from photos/text. Do NOT use internal labels 需处理 / 需关注 / 状态良好 inside sentences.',
-    '- partHints are read-only. edits.kind=photo is reminder only. edits.kind=text fills empty partName/advice on that findingId. edits.kind=split splits one finding photos into 2+ groups with imageSlots referring to newPhotoSlots.',
-    '- Items may have photos but empty name/note — still analyze and propose text or split edits.',
+    '- Intake coverage is CONTEXT ONLY — never restate it in any output field.',
+    '- Simplified Chinese only in natural-language values. No English words.',
+    '- Do NOT invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好 in sentences.',
+    '- edits: at most ONE kind=item row per findingId. If that finding mixes several topics, put split+text together: groups[] each with partName, advice, imageSlots. If one topic only, set partName/advice and omit groups (or leave groups empty).',
+    '- kind=photo is reminder only (no apply). partHints are read-only.',
     `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
       intakeContext: ctx.intakeAdviceSummary,
@@ -777,7 +808,7 @@ function inspectionInstruction(ctx) {
       inspectNoted: ctx.inspectNoted,
       newPhotoSlots: (ctx.inspectPhotoUrls || []).map((_, i) => i + 1),
     })}`,
-    'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"text|split|photo","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]}],"imageNotes":[{"slot":1,"note":""}]}',
+    'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"item","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]},{"kind":"photo","findingId":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
 }
 

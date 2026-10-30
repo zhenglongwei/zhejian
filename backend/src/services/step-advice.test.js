@@ -86,37 +86,47 @@ test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
   assert.equal(got.items[1].display, '下摆臂胶套建议描述为：更换了开裂的下摆臂胶套。')
 })
 
-test('检测四块意见：过滤留证套话，文案空栏可应用', () => {
+test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
   const got = parseInspectionAdvice(
     {
       faultAnalysis: '左侧有剐蹭，先查叶子板与车门。',
       inspectOrder: ['先看左前叶子板', '再对右前门'],
       partHints: [{ title: '左前叶子板', body: '看变形和漆面' }],
       edits: [
+        {
+          kind: 'item',
+          findingId: 'pile',
+          body: '拆成叶子板与车门并写上发现',
+          groups: [
+            { partName: '左前叶子板', advice: '漆面擦伤', imageSlots: [1] },
+            { partName: '左前门', advice: '边缘有刮痕', imageSlots: [2] },
+          ],
+        },
         { kind: 'text', findingId: 'b', partName: '轮胎', advice: '胎侧有细纹，可先观察', body: '补写轮胎细纹' },
         { kind: 'photo', body: '车身四周都拍到了' },
         { kind: 'photo', body: '建议补拍清晰特写' },
       ],
-      items: [
-        { id: 'a', body: '接头已经老化。再拖可能接触不良。' },
-      ],
     },
     [
-      { id: 'a', name: '插头', result: '需处理', note: '接头老化' },
-      { id: 'b', name: '', result: '', note: '' },
+      { id: 'pile', name: '', note: '', photos: 2 },
+      { id: 'b', name: '', note: '', photos: 1 },
     ],
+    ['https://a/1.jpg', 'https://a/2.jpg'],
   )
   assert.equal(got.scope, 'inspect_v2')
   assert.match(got.faultAnalysis, /剐蹭/)
   assert.equal(got.inspectOrder.length, 2)
   assert.equal(got.partHints.length, 1)
-  assert.equal(got.shop.length, 0)
-  assert.equal(got.items.length, 0)
-  const textEdit = got.edits.find((row) => row.kind === 'text' && row.findingId === 'b')
-  assert.ok(textEdit)
-  assert.equal(textEdit.canApply, true)
-  assert.equal(textEdit.partName, '轮胎')
-  assert.match(textEdit.advice, /细纹/)
+  const split = got.edits.find((row) => row.kind === 'item' && row.findingId === 'pile')
+  assert.ok(split)
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].partName, '左前叶子板')
+  assert.match(split.groups[0].advice, /擦伤/)
+  const fill = got.edits.find((row) => row.kind === 'item' && row.findingId === 'b')
+  assert.ok(fill)
+  assert.equal(fill.partName, '轮胎')
+  assert.match(fill.advice, /细纹/)
+  assert.equal(got.edits.filter((row) => row.kind === 'item' && row.findingId === 'b').length, 1)
   assert.equal(got.edits.some((row) => /四周/.test(row.body || '')), false)
   assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
 })

@@ -5858,21 +5858,15 @@ Page({
       }))
       .filter((row) => row.title && row.body && !this.isIntakeCoverageEcho(row.body))
 
-    const seenApply = new Set()
+    // 本单修改：只认意见 edits；每项一条（图+文打包），不再并入项上识图建议
+    const seenFindings = new Set()
     const lines = []
-    const pushLine = (row) => {
-      if (!row || !row.body || this.isIntakeCoverageEcho(row.body) || seenApply.has(row.id)) return
-      seenApply.add(row.id)
-      lines.push(row)
-    }
-
     ;(Array.isArray(raw.edits) ? raw.edits : []).forEach((row, index) => {
       const kind = String((row && row.kind) || '')
-      const findingId = String((row && row.findingId) || '')
       const body = String((row && row.body) || '').trim()
       if (!body || this.isIntakeCoverageEcho(body)) return
       if (kind === 'photo') {
-        pushLine({
+        lines.push({
           id: String((row && row.id) || `edit_photo_${index}`),
           body,
           canApply: false,
@@ -5881,60 +5875,42 @@ Page({
         })
         return
       }
-      if (kind === 'split') {
-        pushLine({
-          id: String((row && row.id) || `edit_split_${findingId || index}`),
-          body,
-          canApply: Boolean(findingId && Array.isArray(row.groups) && row.groups.length >= 2),
-          applied: false,
-          applyKind: 'split',
-          findingId,
-          groups: row.groups,
-        })
-        return
+      // item / text / split 统一成「一项一条」
+      const findingId = String((row && row.findingId) || '')
+      if (!findingId || seenFindings.has(findingId)) return
+      seenFindings.add(findingId)
+      const current = byId.get(findingId)
+      const groups = Array.isArray(row.groups) ? row.groups : []
+      const wantSplit = groups.length >= 2
+      const partName = String((row && row.partName) || '').trim()
+      const advice = String((row && row.advice) || '').trim()
+      const curName = String((current && current.partName) || '').trim()
+      const curAdvice = String((current && current.advice) || '').trim()
+      const nextName = !curName ? partName : ''
+      const nextAdvice = !curAdvice ? advice : ''
+      const stillThere = Boolean(current)
+      let canApply = false
+      let applied = false
+      if (wantSplit) {
+        canApply = stillThere
+        applied = !stillThere
+      } else {
+        canApply = Boolean(stillThere && (nextName || nextAdvice))
+        applied = Boolean(
+          stillThere && (partName || advice) && !canApply && (!partName || curName) && (!advice || curAdvice),
+        )
       }
-      if (kind === 'text') {
-        const current = byId.get(findingId)
-        const partName = String((row && row.partName) || '').trim()
-        const advice = String((row && row.advice) || '').trim()
-        const emptyName = !String((current && current.partName) || '').trim()
-        const emptyAdvice = !String((current && current.advice) || '').trim()
-        const nextName = emptyName ? partName : ''
-        const nextAdvice = emptyAdvice ? advice : ''
-        const applied =
-          Boolean(current) &&
-          ((partName && String(current.partName || '').trim() === partName) ||
-            (advice && String(current.advice || '').trim() === advice))
-        const canApply = Boolean(findingId && current && (nextName || nextAdvice) && !applied)
-        pushLine({
-          id: String((row && row.id) || `edit_text_${findingId || index}`),
-          body,
-          canApply,
-          applied,
-          applyKind: 'text',
-          findingId,
-          partName: nextName,
-          advice: nextAdvice,
-        })
-      }
-    })
-
-    findings.forEach((row) => {
-      const apply = row && row.aiApply
-      if (!apply || !apply.id || !apply.body) return
-      const kind = String(apply.kind || '')
-      pushLine({
-        id: String(apply.id),
-        body: String(apply.body || '').trim(),
-        canApply: true,
-        applied: false,
-        applyKind: kind === 'split' ? 'split' : 'fill',
-        findingId: String((row && row.id) || ''),
-        groups: apply.groups,
-        partName: String(apply.partName || '').trim(),
-        advice: String(apply.advice || '').trim(),
-        result: String(apply.result || '').trim(),
-        onlyEmpty: apply.onlyEmpty !== false,
+      if (!canApply && !applied && !wantSplit) return
+      lines.push({
+        id: String((row && row.id) || `edit_item_${findingId}`),
+        body,
+        canApply,
+        applied,
+        applyKind: 'item',
+        findingId,
+        partName: nextName,
+        advice: nextAdvice,
+        groups: wantSplit ? groups : [],
       })
     })
 
@@ -7192,32 +7168,14 @@ Page({
       wx.showToast({ title: '先拍检查图或写检查项', icon: 'none' })
       return
     }
-    const shots = []
-    const seen = new Set()
-    findings.forEach((row) => {
-      ;(row.images || []).forEach((img) => {
-        const key = mediaKey(img && img.url)
-        if (!key || seen.has(key)) return
-        seen.add(key)
-        shots.push(img)
-      })
-    })
-    // 先落库再出意见；有图时先识图建议，再排队分析（避免服务端仍看到空项）
+    // 先落库再出意见。本单修改只认意见里「一项一条」（图+文打包），不再先挂识图建议，避免双「应用」
     try {
       await this.persistPhotoDraft()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '请先保存', icon: 'none' })
       return
     }
-    if (shots.length) {
-      await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
-      this._inspectionAiKey = contentKey
-      try {
-        await this.persistPhotoDraft()
-      } catch (_) {
-        /* 意见仍可继续 */
-      }
-    }
+    this._inspectionAiKey = contentKey
     await this.onStartInspectionAdvice()
   },
 
@@ -7487,114 +7445,63 @@ Page({
       this.onApplyShopGap(e)
       return
     }
-    if (line.applyKind === 'fill' || (line.applyKind === 'split' && String(line.id || '').indexOf('apply_') === 0)) {
-      this.applyFindingAiApply(line.id)
-      return
+    // 一项一条：拆图+文案同次应用
+    if (line.applyKind === 'item' || line.applyKind === 'text' || line.applyKind === 'split' || line.applyKind === 'fill') {
+      this.applyInspectionItemEdit(line)
     }
-    if (line.applyKind === 'split') {
-      this.applyInspectionSplitEdit(line)
-      return
-    }
-    if (line.applyKind !== 'text') return
-    const findingId = String(line.findingId || '')
-    const nextName = String(line.partName || '').trim()
-    const nextAdvice = String(line.advice || '').trim()
-    if (!findingId || (!nextName && !nextAdvice)) return
-    let expandKey = ''
-    const sections = (this.data.sections || []).map((section, si) => {
-      if (!section || !section.findingMode) return section
-      const findings = (section.findings || []).map((row, fi) => {
-        if (!row || String(row.id || '') !== findingId) return row
-        expandKey = `${si}:${fi}`
-        return {
-          ...row,
-          partName: String(row.partName || '').trim() || nextName,
-          advice: String(row.advice || '').trim() || nextAdvice,
-        }
-      })
-      return {
-        ...section,
-        findings,
-        images: this.findingImagesFromRows(findings, this.data.odometerUrl),
-      }
-    })
-    this.setSectionsWithFindings(
-      sections,
-      { autoSaveLabel: '保存中…' },
-      expandKey || this.data.expandedFindingKey,
-      () => {
-        this.setData({
-          inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
-        })
-        this.persistPhotoDraft()
-          .then(() => this.setAutoSaveLabel('已自动保存'))
-          .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
-      },
-    )
   },
 
-  applyFindingAiApply(applyId) {
-    const id = String(applyId || '')
-    if (!id) return
-    let expandKey = ''
-    let hit = false
-    const sections = (this.data.sections || []).map((section, si) => {
-      if (!section || !section.findingMode) return section
-      const list = section.findings || []
-      const idx = list.findIndex((row) => row && row.aiApply && row.aiApply.id === id)
-      if (idx < 0) return section
-      hit = true
-      expandKey = `${si}:${idx}`
-      const findings = applyInspectionSuggestion(list, id)
-      return {
-        ...section,
-        findings,
-        images:
-          section.findingKind === 'work'
-            ? this.flattenWorkSectionImages(findings)
-            : this.findingImagesFromRows(findings, this.data.odometerUrl),
-      }
-    })
-    if (!hit) return
-    this.setSectionsWithFindings(
-      sections,
-      { autoSaveLabel: '保存中…' },
-      expandKey || this.data.expandedFindingKey,
-      () => {
-        this.setData({
-          inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
-        })
-        this.persistPhotoDraft()
-          .then(() => this.setAutoSaveLabel('已自动保存'))
-          .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
-      },
-    )
-  },
-
-  applyInspectionSplitEdit(line) {
+  /** 本单修改应用：有 groups 则拆成多项并写入各组文案；否则只填该项空着的部位名/检查发现 */
+  applyInspectionItemEdit(line) {
     const findingId = String((line && line.findingId) || '')
+    if (!findingId) return
     const groups = Array.isArray(line && line.groups) ? line.groups : []
-    if (!findingId || groups.length < 2) return
+    const wantSplit = groups.length >= 2
+    const nextName = String((line && line.partName) || '').trim()
+    const nextAdvice = String((line && line.advice) || '').trim()
     let expandKey = ''
     const sections = (this.data.sections || []).map((section, si) => {
       if (!section || !section.findingMode) return section
       const list = section.findings || []
       const idx = list.findIndex((row) => row && String(row.id || '') === findingId)
       if (idx < 0) return section
-      const withApply = list.map((row, i) =>
-        i === idx
-          ? {
-              ...row,
-              aiApply: {
-                id: String(line.id || `edit_split_${findingId}`),
-                kind: 'split',
-                groups,
-              },
-            }
-          : row,
-      )
-      const findings = applyInspectionSuggestion(withApply, String(line.id || `edit_split_${findingId}`))
-      expandKey = `${si}:${idx}`
+      if (wantSplit) {
+        const applyId = String((line && line.id) || `edit_item_${findingId}`)
+        const withApply = list.map((row, i) =>
+          i === idx
+            ? {
+                ...row,
+                aiApply: {
+                  id: applyId,
+                  kind: 'split',
+                  groups: groups.map((g) => ({
+                    partName: String((g && g.partName) || '').trim(),
+                    advice: String((g && g.advice) || '').trim(),
+                    result: String((g && g.result) || '').trim(),
+                    images: Array.isArray(g && g.images) ? g.images : [],
+                  })),
+                },
+              }
+            : row,
+        )
+        const findings = applyInspectionSuggestion(withApply, applyId)
+        expandKey = `${si}:${idx}`
+        return {
+          ...section,
+          findings,
+          images: this.findingImagesFromRows(findings, this.data.odometerUrl),
+        }
+      }
+      const findings = list.map((row, fi) => {
+        if (!row || String(row.id || '') !== findingId) return row
+        expandKey = `${si}:${fi}`
+        return {
+          ...row,
+          partName: String(row.partName || '').trim() || nextName,
+          advice: String(row.advice || '').trim() || nextAdvice,
+          aiApply: null,
+        }
+      })
       return {
         ...section,
         findings,
