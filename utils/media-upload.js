@@ -2,9 +2,17 @@
  * B-MEDIA：本地临时图 → 服务端持久 URL
  * OSS 开启时：upload-token → PostObject 直传 → upload-complete
  * 否则：wx.uploadFile 到 POST /media/upload
+ *
+ * 批量：压缩后有限并发上传（默认 4 路），避免一张一张串行。
  */
 const { ENV } = require('../services/config')
 const { normalizePublicMediaUrl } = require('./desensitize-url')
+
+/** 批量上传默认并发；过大易打满弱网，过小仍慢 */
+const DEFAULT_UPLOAD_CONCURRENCY = 4
+/** 压缩长边；失败则回落原图 */
+const COMPRESS_LONG_EDGE = 1920
+const COMPRESS_QUALITY = 80
 
 function isPersistedRemoteUrl(url) {
   if (!url || typeof url !== 'string') return false
@@ -108,6 +116,30 @@ function guessFileName(tempFilePath) {
   const ext = m ? `.${m[1].toLowerCase()}` : '.jpg'
   const safe = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.jpg'
   return `upload${safe}`
+}
+
+/**
+ * 上传前压缩：缩小体积；不支持或失败时用原路径。
+ */
+function compressImageBeforeUpload(tempFilePath) {
+  const src = String(tempFilePath || '').trim()
+  if (!src) return Promise.resolve('')
+  if (typeof wx === 'undefined' || typeof wx.compressImage !== 'function') {
+    return Promise.resolve(src)
+  }
+  return new Promise((resolve) => {
+    wx.compressImage({
+      src,
+      quality: COMPRESS_QUALITY,
+      compressedWidth: COMPRESS_LONG_EDGE,
+      success(res) {
+        resolve(String((res && res.tempFilePath) || src).trim() || src)
+      },
+      fail() {
+        resolve(src)
+      },
+    })
+  })
 }
 
 function postObjectToOss(tempFilePath, token) {
@@ -214,30 +246,89 @@ async function uploadViaOss(tempFilePath) {
   return url
 }
 
-function uploadImage(tempFilePath) {
+async function uploadImage(tempFilePath, options = {}) {
   if (ENV.mode === 'mock') {
     return Promise.resolve(tempFilePath)
   }
-  // 优先 OSS 直传；服务端未开 OSS 时 upload-token 失败再降级 multipart
-  return uploadViaOss(tempFilePath).catch((err) => {
+  const raw = String(tempFilePath || '').trim()
+  if (!raw) {
+    throw { message: '缺少本地图片路径' }
+  }
+  const skipCompress = Boolean(options && options.skipCompress)
+  const filePath = skipCompress ? raw : await compressImageBeforeUpload(raw)
+  return uploadViaOss(filePath).catch((err) => {
     const msg = String((err && err.message) || '')
     if (
       msg.includes('OSS 未开启') ||
       msg.includes('请使用直传') ||
       (err && Number(err.code) === 503)
     ) {
-      return uploadViaServer(tempFilePath)
+      return uploadViaServer(filePath)
     }
     return Promise.reject(err)
   })
 }
 
+function normalizeUploadPath(file) {
+  if (typeof file === 'string') return String(file || '').trim()
+  if (!file || typeof file !== 'object') return ''
+  return String(file.tempFilePath || file.path || file.url || '').trim()
+}
+
+/**
+ * 批量上传：有限并发 + 上传前压缩。
+ * @param {Array<string|{tempFilePath?:string,path?:string}>} files
+ * @param {{ concurrency?: number, skipCompress?: boolean }} [options]
+ * @returns {Promise<Array<{ url: string, imageId: string }>>} 按入参顺序；失败项跳过
+ */
+async function uploadImagesBatch(files = [], options = {}) {
+  const paths = (files || []).map(normalizeUploadPath).filter(Boolean)
+  if (!paths.length) return []
+  const concurrency = Math.max(
+    1,
+    Math.min(
+      Number(options.concurrency) > 0 ? Number(options.concurrency) : DEFAULT_UPLOAD_CONCURRENCY,
+      paths.length,
+    ),
+  )
+  const results = new Array(paths.length)
+  let cursor = 0
+  const worker = async () => {
+    while (cursor < paths.length) {
+      const index = cursor
+      cursor += 1
+      try {
+        const uploaded = await uploadImage(paths[index], {
+          skipCompress: Boolean(options.skipCompress),
+        })
+        const url =
+          typeof uploaded === 'string'
+            ? uploaded
+            : uploaded && (uploaded.url || uploaded.mediaUrl)
+        if (!url) continue
+        results[index] = {
+          url: normalizeStoredImageUrl(String(url)),
+          imageId: String(
+            (uploaded && typeof uploaded === 'object' && (uploaded.id || uploaded.imageId)) || '',
+          ),
+        }
+      } catch (_) {
+        /* 单张失败跳过，其余继续 */
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  // 与入参同下标；失败为 null，调用方按需 filter
+  return results.map((row) => row || null)
+}
+
 /**
  * @returns {{ images: string[], droppedStaleCount: number }}
  */
-async function persistLocalImages(urls) {
+async function persistLocalImages(urls, options = {}) {
   const result = []
   let droppedStaleCount = 0
+  const pending = []
 
   for (const raw of urls || []) {
     const url =
@@ -256,8 +347,15 @@ async function persistLocalImages(urls) {
       droppedStaleCount += 1
       continue
     }
+    pending.push(url)
+  }
 
-    result.push(await uploadImage(url))
+  if (pending.length) {
+    const uploaded = await uploadImagesBatch(pending, options)
+    uploaded.forEach((row) => {
+      if (row && row.url) result.push(row.url)
+      else droppedStaleCount += 1
+    })
   }
 
   return { images: result, droppedStaleCount }
@@ -267,9 +365,11 @@ async function persistLocalImages(urls) {
  * ALB-UX · 过程图保留 caption；卷十五 · 保留 checklistItemKey
  * @returns {{ images: { url: string, caption: string, checklistItemKey?: string }[], droppedStaleCount: number }}
  */
-async function persistLocalImageEntries(entries) {
+async function persistLocalImageEntries(entries, options = {}) {
   const result = []
   let droppedStaleCount = 0
+  const pendingMeta = []
+  const pendingPaths = []
 
   for (const raw of entries || []) {
     const caption =
@@ -300,11 +400,23 @@ async function persistLocalImageEntries(entries) {
       droppedStaleCount += 1
       continue
     }
+    pendingPaths.push(url)
+    pendingMeta.push({ caption, checklistItemKey })
+  }
 
-    result.push({
-      url: await uploadImage(url),
-      caption,
-      checklistItemKey,
+  if (pendingPaths.length) {
+    const uploaded = await uploadImagesBatch(pendingPaths, options)
+    uploaded.forEach((row, i) => {
+      const meta = pendingMeta[i] || { caption: '', checklistItemKey: '' }
+      if (!row || !row.url) {
+        droppedStaleCount += 1
+        return
+      }
+      result.push({
+        url: row.url,
+        caption: meta.caption,
+        checklistItemKey: meta.checklistItemKey,
+      })
     })
   }
 
@@ -380,7 +492,10 @@ module.exports = {
   isPersistedRemoteUrl,
   isLocalTempImagePath,
   normalizeStoredImageUrl,
+  compressImageBeforeUpload,
   uploadImage,
+  uploadImagesBatch,
+  DEFAULT_UPLOAD_CONCURRENCY,
   persistLocalImages,
   persistLocalImageEntries,
   persistComparePairRows,

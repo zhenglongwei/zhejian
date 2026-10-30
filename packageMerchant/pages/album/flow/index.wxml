@@ -59,7 +59,10 @@
   </view>
 </template>
 <template name="intakeAdvicePanel">
-  <view wx:if="{{advice.covered && !advice.hasRisks}}" class="merchant-flow-page__advice-sec">
+  <view wx:if="{{advice.noPhotos}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-lead">还没有车身照片，先拍车头、车尾、左右</text>
+  </view>
+  <view wx:elif="{{advice.covered && !advice.hasRisks}}" class="merchant-flow-page__advice-sec">
     <text class="merchant-flow-page__advice-lead">车身四周都拍到了</text>
   </view>
   <view wx:if="{{advice.hasRisks}}" class="merchant-flow-page__advice-sec">
@@ -1914,7 +1917,9 @@
               <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
             </view>
           </view>
-          <view wx:else class="text-caption text-secondary">这次没有额外意见</view>
+          <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || deliveryAdvice.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
+          <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || deliveryAdvice.status === 'failed'}}" class="text-caption text-secondary">这次没出成，再点一次 AI</view>
+          <view wx:else class="text-caption text-secondary">还没有可展示的意见</view>
         </block>
       </scroll-view>
     </view>

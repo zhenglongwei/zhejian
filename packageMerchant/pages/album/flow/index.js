@@ -98,7 +98,11 @@ const {
   isOdometerSuggestion,
   resolveAiReviewFindingIndex,
 } = require('../../../../utils/ai-review-target')
-const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
+const {
+  persistAlbumNodeImages,
+  uploadImage,
+  uploadImagesBatch,
+} = require('../../../../utils/media-upload')
 
 function pad2(n) {
   return String(n).padStart(2, '0')
@@ -2367,16 +2371,7 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploadedList = []
-          for (let i = 0; i < files.length; i += 1) {
-            const uploaded = await uploadImage(files[i].tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (!url) continue
-            uploadedList.push({
-              url,
-              imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
-            })
-          }
+          const uploadedList = await this.uploadPickedFiles(files)
           if (!uploadedList.length) throw new Error('上传失败')
           const intake = this.intakeNode()
           if (!intake) throw new Error('还没有接车记录')
@@ -3593,12 +3588,7 @@ Page({
           if (!files.length) return
           try {
             wx.showLoading({ title: '上传中' })
-            const uploadedList = []
-            for (let i = 0; i < files.length; i += 1) {
-              const uploaded = await uploadImage(files[i].tempFilePath)
-              const url = uploaded && (uploaded.url || uploaded)
-              if (url) uploadedList.push({ url, imageId: '' })
-            }
+            const uploadedList = await this.uploadPickedFiles(files)
             if (!uploadedList.length) throw new Error('上传失败')
             const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
             const sections = this.data.sections.map((row, i) => {
@@ -3665,12 +3655,7 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploadedList = []
-          for (let i = 0; i < files.length; i += 1) {
-            const uploaded = await uploadImage(files[i].tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (url) uploadedList.push({ url, imageId: '' })
-          }
+          const uploadedList = await this.uploadPickedFiles(files)
           if (!uploadedList.length) throw new Error('上传失败')
           const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
           const sections = this.data.sections.map((row, i) => {
@@ -3745,12 +3730,7 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploadedList = []
-          for (let i = 0; i < files.length; i += 1) {
-            const uploaded = await uploadImage(files[i].tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (url) uploadedList.push({ url, imageId: '' })
-          }
+          const uploadedList = await this.uploadPickedFiles(files)
           if (!uploadedList.length) throw new Error('上传失败')
           const findings = (this.data.findings || []).map((row, idx) => {
             if (idx !== fi) return row
@@ -4077,24 +4057,8 @@ Page({
   },
 
   async uploadPickedFiles(files) {
-    const uploadedList = []
-    let cursor = 0
-    const worker = async () => {
-      while (cursor < files.length) {
-        const index = cursor
-        cursor += 1
-        const uploaded = await uploadImage(files[index].tempFilePath)
-        const url = uploaded && (uploaded.url || uploaded)
-        if (!url) continue
-        uploadedList.push({
-          url,
-          imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
-        })
-      }
-    }
-    const width = Math.min(3, files.length)
-    await Promise.all(Array.from({ length: width }, () => worker()))
-    return uploadedList
+    const rows = await uploadImagesBatch(files || [])
+    return (rows || []).filter((row) => row && row.url)
   },
 
   onAddFindingPhotos() {
@@ -5190,16 +5154,7 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploadedList = []
-          for (let i = 0; i < files.length; i += 1) {
-            const uploaded = await uploadImage(files[i].tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (!url) continue
-            uploadedList.push({
-              url,
-              imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
-            })
-          }
+          const uploadedList = await this.uploadPickedFiles(files)
           if (!uploadedList.length) throw new Error('上传失败')
           const sections = (this.data.sections || []).map((row, index) =>
             index === 0 ? { ...row, images: (row.images || []).concat(uploadedList) } : row,
@@ -5738,8 +5693,9 @@ Page({
       options: [],
       hasOptions: false,
     }))
-    const covered = Boolean(raw.covered) && !risks.length
-    const fp = `${status}|${covered}|${risks.map((row) => row.title).join(',')}`
+    const noPhotos = Boolean(raw.noPhotos)
+    const covered = Boolean(raw.covered) && !risks.length && !noPhotos
+    const fp = `${status}|${covered}|${noPhotos}|${risks.map((row) => row.title).join(',')}`
     if (status === 'ready' && this._askAdviceFp !== fp) {
       this._askAdviceFp = fp
       this._askComplaintBase = String(this.data.chiefComplaint || '').trim()
@@ -5753,10 +5709,11 @@ Page({
       checkpoints: [],
       risks,
       fixes: [],
+      noPhotos,
       covered,
       hasRisks: risks.length > 0,
       hasFixes: false,
-      hasContent: Boolean(covered || risks.length),
+      hasContent: Boolean(status === 'ready' && (covered || noPhotos || risks.length)),
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
@@ -7177,10 +7134,9 @@ Page({
     )
     if (!hasItem) {
       this.setData({ adviceOpen: true })
-      wx.showToast({ title: '先写下检查项', icon: 'none' })
+      wx.showToast({ title: '先拍检查图或写检查项', icon: 'none' })
       return
     }
-    this.onStartInspectionAdvice()
     const shots = []
     const seen = new Set()
     findings.forEach((row) => {
@@ -7191,14 +7147,23 @@ Page({
         shots.push(img)
       })
     })
-    if (!shots.length) {
-      this.setData({ adviceOpen: true })
+    // 先落库再出意见；有图时先识图建议，再排队分析（避免服务端仍看到空项）
+    try {
+      await this.persistPhotoDraft()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '请先保存', icon: 'none' })
       return
     }
-    const ran = await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
-    if (!ran) return
-    this._inspectionAiKey = contentKey
-    this.persistPhotoDraft().catch(() => {})
+    if (shots.length) {
+      await this.onOrganizePhotos({ images: shots, silentEmpty: true, suggestOnly: true })
+      this._inspectionAiKey = contentKey
+      try {
+        await this.persistPhotoDraft()
+      } catch (_) {
+        /* 意见仍可继续 */
+      }
+    }
+    await this.onStartInspectionAdvice()
   },
 
   onIntakeHeaderAi() {
@@ -7498,16 +7463,15 @@ Page({
       this.setData({ adviceOpen: true })
       return
     }
+    this.setData({ adviceOpen: true })
     try {
       await this.persistPhotoDraft()
       await updateMerchantFlowNode(this.albumId, node.id, { startInspectionAdvice: true })
       await this.loadFlow({ silent: true })
       this.setData({ adviceOpen: true })
     } catch (e) {
-      const message = (e && e.message) || ''
-      if (message && message !== '先写下检查项') {
-        wx.showToast({ title: message, icon: 'none' })
-      }
+      const message = (e && e.message) || '未能出意见'
+      wx.showToast({ title: message, icon: 'none' })
     }
   },
 
@@ -7708,14 +7672,9 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const urls = current.slice()
-          for (let i = 0; i < files.length && urls.length < 6; i += 1) {
-            const file = files[i]
-            if (!file || !file.tempFilePath) continue
-            const uploaded = await uploadImage(file.tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (url) urls.push(url)
-          }
+          const uploadedList = await this.uploadPickedFiles(files)
+          const urls = current.concat(uploadedList.map((row) => row.url).filter(Boolean)).slice(0, 6)
+          if (urls.length <= current.length) throw new Error('上传失败')
           this.setData({ addonDiscoveryImages: urls }, () => {
             this.persistAddonDocument().catch(() => {})
           })

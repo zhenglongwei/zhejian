@@ -304,6 +304,13 @@ function intakeBrief(intake) {
   return `接车留证还缺：${risks.join('、')}`
 }
 
+function findingPhotoCount(row) {
+  const images = Array.isArray(row && row.images) ? row.images : []
+  if (images.length) return images.length
+  return row && text(row.url) ? 1 : 0
+}
+
+/** 检测项：有部位/说明/结果，或已挂图，都算可分析（与前端「有图就能点 AI」一致） */
 function namedRows(findings) {
   return (Array.isArray(findings) ? findings : [])
     .map((row) => ({
@@ -311,8 +318,9 @@ function namedRows(findings) {
       name: text(row && row.partName),
       result: text(row && row.result),
       note: text(row && (row.advice || row.caption)),
+      photos: findingPhotoCount(row),
     }))
-    .filter((row) => row.name || row.note || row.result)
+    .filter((row) => row.name || row.note || row.result || row.photos > 0)
 }
 
 const SHOP_KIND = {
@@ -328,7 +336,8 @@ function parseInspectionAdvice(raw, items) {
   ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
     const id = text(row && row.id)
     const body = text(row && row.body).slice(0, 120)
-    if (id && body) byId.set(id, { body, canApply: row.canApplyToEmptyAdvice !== false })
+    const title = text(row && (row.title || row.partName)).slice(0, 16)
+    if (id && body) byId.set(id, { body, title, canApply: row.canApplyToEmptyAdvice !== false })
   })
   const known = new Set((Array.isArray(items) ? items : []).map((row) => text(row.name)).filter(Boolean))
   const shop = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
@@ -352,19 +361,20 @@ function parseInspectionAdvice(raw, items) {
     .filter(Boolean)
     .slice(0, 4)
   // 只保留模型根据实质写出的意见；禁止「表单填满就没有意见」或空栏套话
+  // 仅有图、尚未写部位时：仍采纳模型按 id 写出的 body，方便店员应用
   const outItems = (Array.isArray(items) ? items : [])
     .map((row) => {
       const hit = byId.get(row.id)
       const noted = text(row.note)
-      const body = hit ? hit.body : noted ? '' : ''
+      const body = hit ? hit.body : ''
       if (!body) return null
       return {
         id: row.id,
-        partName: row.name || '这项',
+        partName: row.name || text(hit && hit.title) || '这项',
         sourceNote: noted,
         timing: OWNER_TIMING[row.result] || '',
         body,
-        hasReason: Boolean(noted),
+        hasReason: Boolean(noted || (row.photos > 0 && hit)),
         canApply: Boolean(hit && hit.canApply && !noted),
       }
     })
@@ -654,6 +664,7 @@ function inspectionInstruction(ctx) {
     'Goal: produce owner-relevant advice from REAL content (photos + written findings + intake complaint). Never say "no extra advice" merely because forms have text or photos. If substance is solid, state a brief confirmation of what the findings mean for the owner.',
     'Prior steps: use intake analysis summary and per-image notes only — do NOT ask to re-send those images.',
     'Current step: use all inspection line items and any NEW photos not yet noted.',
+    'Items may have photos but empty name/note — still analyze those photos. Write one items[] entry per such id (what the photo likely shows for the owner). If a photo is unrelated/unclear, put a gaps row kind=unclear_photo instead of inventing damage.',
     'Owner cares about: what each finding means, whether action is needed now, consequence if ignored, how to watch later.',
     'Write Chinese that a car owner understands. Do NOT use internal labels like 需处理 / 需关注 / 状态良好 inside sentences.',
     'Do NOT invent damage absent from photos/text. Do NOT demand re-shooting normal exterior already covered at intake.',
@@ -831,7 +842,7 @@ async function queueIfNeeded(album, kind) {
     throw err
   }
   if (kind === 'inspect' && !ctx.inspectItems.length) {
-    const err = new Error('先写下检查项')
+    const err = new Error('先拍检查图或写检查项')
     err.status = 400
     throw err
   }
