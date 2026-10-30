@@ -375,6 +375,53 @@ function zhOnly(value, max = 120) {
     .slice(0, max)
 }
 
+/** 故障分析：兼容字符串或分点数组（避免 Array.toString 变成「1.…,2.…」） */
+function zhFaultAnalysis(value, max = 200) {
+  if (Array.isArray(value)) {
+    const lines = value
+      .map((row) => zhOnly(row, Math.min(max, 120)))
+      .filter(Boolean)
+    return zhOnly(lines.join('\n'), max)
+  }
+  return zhOnly(value, max)
+}
+
+/** imageNotes：兼容数组或 { "1": "观察" } 按槽对象 */
+function normalizeImageNotesInput(raw) {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((row) => {
+        if (!row || typeof row !== 'object') return null
+        const slot = resolveInspectSlotNumber(row.slot)
+        const note = zhOnly(row.note || row.body || row.text, 80)
+        const partName = zhOnly(row.partName || row.title, 16)
+        if (!slot || !note) return null
+        return { slot, partName, note }
+      })
+      .filter(Boolean)
+  }
+  if (raw && typeof raw === 'object') {
+    return Object.keys(raw)
+      .map((key) => {
+        const slot = resolveInspectSlotNumber(key)
+        const val = raw[key]
+        const note =
+          typeof val === 'string'
+            ? zhOnly(val, 80)
+            : zhOnly(val && (val.note || val.body || val.text), 80)
+        const partName =
+          typeof val === 'object' && val
+            ? zhOnly(val.partName || val.title, 16)
+            : ''
+        if (!slot || !note) return null
+        return { slot, partName, note }
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.slot - b.slot)
+  }
+  return []
+}
+
 /** 槽位号：认数字或「图N」 */
 function resolveInspectSlotNumber(slot) {
   if (typeof slot === 'number' && Number.isInteger(slot) && slot >= 1) return slot
@@ -455,9 +502,8 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
       })
       .filter(Boolean)
 
-  const faultAnalysis = isIntakeCoverageEcho(parsed.faultAnalysis)
-    ? ''
-    : zhOnly(parsed.faultAnalysis, 200)
+  const faultRaw = zhFaultAnalysis(parsed.faultAnalysis, 200)
+  const faultAnalysis = isIntakeCoverageEcho(faultRaw) ? '' : faultRaw
   const inspectOrder = (Array.isArray(parsed.inspectOrder) ? parsed.inspectOrder : [])
     .map((row) => zhOnly(row, 40))
     .filter((row) => row && !isIntakeCoverageEcho(row))
@@ -590,7 +636,7 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
     edits: edits.concat(photos).slice(0, 12),
     shop: [],
     items: [],
-    imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
+    imageNotes: normalizeImageNotesInput(parsed.imageNotes),
   }
 }
 
@@ -1061,17 +1107,20 @@ function inspectionInstruction(ctx, options = {}) {
     '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots).',
     '2) Decide which inspection topic each slot shows (body paint, brake disc, chassis, etc.).',
     '3) If one findingId owns 2+ slots with DIFFERENT topics, emit exactly ONE edits[] row for that findingId with groups[]:',
-    '   - one group per topic; fields: partName, advice, imageSlots (numeric slot ids only)',
+    '   - one group per topic; EVERY group MUST have non-empty partName, advice, imageSlots (numeric slot ids only)',
     '   - every slot of that findingId must appear in exactly one group; do not leave a slot out',
     '4) If faultAnalysis lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding.',
     '5) Omit groups ONLY when all slots of that finding share one topic, or you truly cannot tell topics apart.',
     '6) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent "pile".',
+    '7) FORBIDDEN: groups:[{},{}] or any group missing partName or imageSlots. Empty shells are INVALID.',
+    '8) faultAnalysis: prefer one string with newlines (1. …\\n2. …), not a JSON array of strings.',
+    '9) imageNotes: array of {slot, partName, note} — not a map keyed by slot string.',
     '',
     ...(required.length
       ? ['REQUIRED split checks for this request:', ...required, '']
       : []),
     exampleLead,
-    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"…","imageSlots":[${s1}]},{"partName":"制动系统","advice":"…","imageSlots":[${s2}]},{"partName":"底盘悬挂","advice":"…","imageSlots":[${s3}]}]}]}`,
+    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"漆面剥落需钣喷","imageSlots":[${s1}]},{"partName":"制动系统","advice":"盘面磨损需测厚","imageSlots":[${s2}]},{"partName":"底盘悬挂","advice":"锈斑需进一步检查","imageSlots":[${s3}]}]}]}`,
     '',
     'Other rules:',
     '- Intake is context only — never restate intake coverage.',
@@ -1159,29 +1208,67 @@ function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
   const missingIds = multiPhotoFindingIds(ctx).filter(
     (id) => !inspectionHasSplitForFinding(previousParsed, id, ctx, attachedUrlKeys),
   )
-  const slotPlan = missingIds.map((id) => ({
-    findingId: id,
-    slots: slotsForFinding(ctx, id).map((row) => Number(row.slot)),
-  }))
+  const notes = Array.isArray(previousParsed && previousParsed.imageNotes)
+    ? previousParsed.imageNotes
+    : []
+  const slotPlan = missingIds.map((id) => {
+    const slots = slotsForFinding(ctx, id).map((row) => Number(row.slot))
+    const slotHints = slots.map((slot) => {
+      const hit = notes.find((row) => Number(row && row.slot) === slot)
+      return {
+        slot,
+        note: text(hit && hit.note),
+        partNameHint: text(hit && hit.partName),
+      }
+    })
+    return { findingId: id, slots, slotHints }
+  })
+  const exampleId = (slotPlan[0] && slotPlan[0].findingId) || 'FINDING_ID'
+  const exampleSlots = (slotPlan[0] && slotPlan[0].slots) || [1, 2]
+  const filledExample = {
+    edits: [
+      {
+        kind: 'item',
+        findingId: exampleId,
+        body: '按主题拆开',
+        groups: exampleSlots.slice(0, 2).map((slot, index) => {
+          const hint =
+            (slotPlan[0] &&
+              Array.isArray(slotPlan[0].slotHints) &&
+              slotPlan[0].slotHints.find((row) => Number(row.slot) === slot)) ||
+            null
+          return {
+            partName: text(hint && hint.partNameHint) || (index === 0 ? '车身漆面' : '制动系统'),
+            advice: text(hint && hint.note) || (index === 0 ? '漆面损伤需钣喷' : '盘面磨损需测厚'),
+            imageSlots: [slot],
+          }
+        }),
+      },
+    ],
+  }
+  // 同主题槽位应合并：示例里若有第 3 槽，提示模型可并入相近主题
+  if (exampleSlots.length >= 3 && filledExample.edits[0].groups.length >= 2) {
+    filledExample.edits[0].groups[1].imageSlots = exampleSlots.slice(1)
+  }
   return [
-    'Your previous JSON distinguished multiple inspection topics but did NOT return valid edits[].groups for photo split.',
-    'This response is INVALID without groups. Fix it now by looking at the attached photos again.',
+    'Your previous JSON distinguished multiple inspection topics but groups were EMPTY or incomplete.',
+    'FORBIDDEN (never return this): "groups":[{},{}]  — empty objects are INVALID.',
+    'Each group MUST include non-empty partName, advice, and imageSlots (numbers from missingSplitPlan).',
+    'Use missingSplitPlan[].slotHints (from your own previous imageNotes) as material to FILL groups.',
+    'Merge slots that show the SAME topic into ONE group; different topics → different groups.',
     'Keep faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
-    'For EACH entry in missingSplitPlan, emit exactly ONE kind=item edit:',
-    '- findingId must equal missingSplitPlan[].findingId exactly (never invent "pile")',
-    '- groups[]: one group per distinct topic visible in that finding\'s slots',
-    '- each group: partName, advice, imageSlots (numeric ids from missingSplitPlan[].slots)',
-    '- every slot listed for that findingId must appear in exactly one group',
+    'For EACH entry in missingSplitPlan, emit exactly ONE kind=item edit with findingId copied exactly.',
     'Natural-language string values: Simplified Chinese only.',
-    'Do not invent damage. Do not use imageNotes or inspectOrder as a substitute for looking at photos.',
+    'Do not invent damage beyond photos and slotHints.',
     `missingSplitPlan: ${JSON.stringify(slotPlan)}`,
     `photoSlots: ${JSON.stringify(payload.photoSlots)}`,
+    `VALID filled shape example (adapt partName/advice/imageSlots to the photos; do not leave fields blank): ${JSON.stringify(filledExample)}`,
     `Previous JSON: ${JSON.stringify({
       faultAnalysis: previousParsed && previousParsed.faultAnalysis,
       inspectOrder: previousParsed && previousParsed.inspectOrder,
       partHints: previousParsed && previousParsed.partHints,
       edits: previousParsed && previousParsed.edits,
-      imageNotes: previousParsed && previousParsed.imageNotes,
+      imageNotes: notes,
     })}`,
     'Return the full corrected JSON only (same keys as before).',
   ].join('\n')

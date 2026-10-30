@@ -391,6 +391,65 @@ test('多图分主题但 groups 未盖全槽位时仍需补跑', () => {
   assert.equal(needsInspectGroupsRepair(complete, ctx), false)
 })
 
+test('faultAnalysis 为分点数组时不拼成逗号串', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: [
+        '1. 车门下沿漆面剥落。',
+        '2. 制动盘表面磨损。',
+      ],
+      inspectOrder: ['先看漆面', '再测刹车盘'],
+      partHints: [],
+      edits: [],
+      imageNotes: {
+        1: '车门下沿漆面剥落',
+        2: '制动盘磨损环带',
+      },
+    },
+    [{ id: 'fid_a', name: '车门下沿', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_a' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_a' },
+    ],
+  )
+  assert.match(got.faultAnalysis, /车门下沿/)
+  assert.match(got.faultAnalysis, /制动盘/)
+  assert.equal(/,2\./.test(got.faultAnalysis), false)
+  assert.equal(got.imageNotes.length, 2)
+  assert.equal(got.imageNotes[0].slot, 1)
+  assert.equal(got.imageNotes[1].slot, 2)
+})
+
+test('空壳 groups 不算合格拆分', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.漆面剥落。2.刹车盘磨损。',
+      inspectOrder: [],
+      partHints: [],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'fid_a',
+          body: '该条目混合了车身与制动',
+          groups: [{}, {}],
+        },
+      ],
+      imageNotes: [],
+    },
+    [{ id: 'fid_a', name: '', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_a' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_a' },
+    ],
+  )
+  assert.equal(
+    got.edits.some((row) => Array.isArray(row.groups) && row.groups.length >= 2),
+    false,
+  )
+})
+
 test('覆盖校验只要求实际送出的槽位', () => {
   const ctx = {
     inspectItems: [{ id: 'fid_pile', name: '', note: '', photos: 3 }],
