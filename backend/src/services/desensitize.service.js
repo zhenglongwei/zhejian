@@ -1015,12 +1015,13 @@ async function runAutoMask(taskId, options = {}) {
     err.status = 400
     throw err
   }
-  // 托管公开任务：整案必跑一轮；成功态复用，失败/需人工/未跑过则重打或新打
+  // 托管公开任务：整案必跑一轮；仅媒体 success+产物可复用；无落痕/失败强制打
   const hostPublicRetry =
     String(task.taskId || '').startsWith('task_host_mask_') ||
     task.bizType === BIZ_TYPE.MERCHANT_HISTORY
   const updates = await Promise.all(
     (task.assets || []).map(async (asset) => {
+      // retryFailed：仅 media success+产物复用；失败/无落痕必打（不看任务行误标）
       const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
         albumId: task.bizId,
         nodeId: asset.nodeId,
@@ -1690,7 +1691,8 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
   }
 
   const flowUrls = collectFlowReviewImageUrls(album)
-  if (!preMaskTask || (!(preMaskTask.assets || []).length && !flowUrls.length)) {
+  // 交车 deliveryPhotos 等可能仅在 flow 侧；无 pre-mask 时仍须用 flow 图建托管任务
+  if (!flowUrls.length && (!(preMaskTask && preMaskTask.assets) || !(preMaskTask.assets || []).length)) {
     const err = new Error('本单暂无过程图可脱敏')
     err.status = 409
     err.code = 'HOST_MASK_NO_ASSETS'
@@ -1716,26 +1718,37 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     })
   })
   const taskId = buildHostMaskTaskId(albumId)
+  const preMaskTaskId = (preMaskTask && preMaskTask.taskId) || ''
+  const preMaskVersion = (preMaskTask && preMaskTask.preMaskVersion) || 0
 
   const existing = await prisma.desensitizeTask.findUnique({
     where: { taskId },
     include: { assets: true },
   })
+  const missingFlow = flowUrls.filter((url) => !assetCoversUrl(existing && existing.assets, url))
+  // 任务行无成功产物（无 maskedUrl）也视为未齐，避免早退漏打交车图
+  const incompleteAssets = ((existing && existing.assets) || []).filter((row) => {
+    const product = String((row && (row.maskedUrl || row.preMaskedUrl)) || '').trim()
+    const ready = [ASSET_STATUS.MASKED_READY, ASSET_STATUS.MANUAL_MASKED, ASSET_STATUS.CONFIRMED].includes(
+      String((row && row.status) || ''),
+    )
+    return !product || !ready
+  })
   const sameVersion =
     existing &&
-    existing.preMaskTaskId === preMaskTask.taskId &&
-    Number(existing.preMaskVersion || 0) === Number(preMaskTask.preMaskVersion || 0) &&
+    String(existing.preMaskTaskId || '') === String(preMaskTaskId) &&
+    Number(existing.preMaskVersion || 0) === Number(preMaskVersion) &&
     !existing.maskingConfirmed &&
     (existing.assets || []).length > 0
-  const missingFlow = flowUrls.filter((url) => !assetCoversUrl(existing && existing.assets, url))
 
-  if (sameVersion && !options.force && !missingFlow.length) {
+  // 仅当 flow 齐套且行上都有成功产物时才早退；否则重建/补齐资产后由 auto-mask 落痕
+  if (sameVersion && !options.force && !missingFlow.length && !incompleteAssets.length) {
     const task = await getTaskById(taskId)
     return {
       albumId,
       taskId,
-      fromPreMask: true,
-      preMaskStatus: preMaskTask.preMaskStatus || '',
+      fromPreMask: Boolean(preMaskTaskId),
+      preMaskStatus: (preMaskTask && preMaskTask.preMaskStatus) || '',
       assetCount: (task && task.rawAssets && task.rawAssets.length) || existing.assets.length,
       task,
     }
@@ -1750,9 +1763,9 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
       orderId: album.orderId || null,
       operatorRole: 'merchant',
       liabilityType: 'merchant',
-      preMaskTaskId: preMaskTask.taskId,
-      preMaskVersion: preMaskTask.preMaskVersion || 0,
-      fromPreMask: true,
+      preMaskTaskId: preMaskTaskId || null,
+      preMaskVersion,
+      fromPreMask: Boolean(preMaskTaskId),
       maskingConfirmed: false,
       assets: { create: assetInputs },
     },
@@ -1762,9 +1775,9 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
       orderId: album.orderId || null,
       operatorRole: 'merchant',
       liabilityType: 'merchant',
-      preMaskTaskId: preMaskTask.taskId,
-      preMaskVersion: preMaskTask.preMaskVersion || 0,
-      fromPreMask: true,
+      preMaskTaskId: preMaskTaskId || null,
+      preMaskVersion,
+      fromPreMask: Boolean(preMaskTaskId),
       maskingConfirmed: false,
       maskingConfirmedAt: null,
       assets: {
@@ -1778,8 +1791,8 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
   return {
     albumId,
     taskId,
-    fromPreMask: true,
-    preMaskStatus: preMaskTask.preMaskStatus || '',
+    fromPreMask: Boolean(preMaskTaskId),
+    preMaskStatus: (preMaskTask && preMaskTask.preMaskStatus) || '',
     assetCount: (task && task.rawAssets && task.rawAssets.length) || assetInputs.length,
     task,
   }

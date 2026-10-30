@@ -110,6 +110,54 @@ test('buildPublicServiceFlow 用核对打码图覆盖事实层原图', () => {
   assert.equal(flow.chapters[0].photos[0].url, MASK)
 })
 
+test('交车图经 maskLookup 换成打码图，不回落原图', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW, caption: '交车外观' }],
+          },
+        },
+      },
+    ],
+    maskLookup: { byRawUrl: new Map([[RAW, MASK]]) },
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.ok(done)
+  assert.equal(done.photos[0].url, MASK)
+})
+
+test('maskLookup 产物 URL 非标准脱敏路径时仍写入映射', () => {
+  const oddMasked = 'https://cdn.example.com/custom/out/masked-delivery.jpg'
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW }],
+          },
+        },
+      },
+    ],
+    maskLookup: new Map([[RAW, oddMasked]]),
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.equal(done.photos[0].url, oddMasked)
+})
+
 test('buildPublicServiceFlow 无流转则空章节', () => {
   assert.deepEqual(buildPublicServiceFlow({}).chapters, [])
 })

@@ -646,15 +646,29 @@ function annotateMaskImageRow(url, outcomeIndex) {
       riskTags: [],
     })
   } else {
+    // 预览仍是原图路径且无任务落痕 → 未成功，不得标可公开
     classified = classifyHostMaskOutcome({})
+  }
+  // 展示仍为原图、且无成功落痕时，强制 pending（防止回落原图被当成已处理）
+  const showingRaw = Boolean(url) && !isDesensitizedMediaUrl(url)
+  const noSuccessMarker = !classified.maskSucceeded
+  if (showingRaw && noSuccessMarker) {
+    classified = {
+      outcome: HOST_MASK_OUTCOME.PENDING,
+      needsManual: false,
+      publishSafe: false,
+      maskSucceeded: false,
+      needsRemask: true,
+    }
   }
   return {
     url,
     outcome: classified.outcome,
     needsManual: classified.needsManual,
+    needsRemask: Boolean(classified.needsRemask),
     // 兼容旧字段：publishSafe 才算「处理完」；勿再用「是否脱敏目录 URL」
     masked: classified.publishSafe,
-    pending: classified.outcome === HOST_MASK_OUTCOME.PENDING,
+    pending: classified.outcome === HOST_MASK_OUTCOME.PENDING || Boolean(classified.needsRemask),
   }
 }
 

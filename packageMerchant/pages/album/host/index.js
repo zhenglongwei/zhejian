@@ -592,8 +592,10 @@ Page({
     }
   },
 
-  async ensureMaskTask() {
-    const res = await ensureHostDesensitizeTask(this.albumId)
+  async ensureMaskTask(options = {}) {
+    const res = await ensureHostDesensitizeTask(this.albumId, {
+      force: Boolean(options.force),
+    })
     const taskId = res && res.taskId
     if (!taskId) {
       const err = new Error('脱敏任务未就绪')
@@ -601,6 +603,41 @@ Page({
     }
     this._maskTaskId = taskId
     return taskId
+  },
+
+  countUnresolvedMaskImages(maskImages = []) {
+    return (Array.isArray(maskImages) ? maskImages : []).filter(
+      (row) => row && (row.pending || row.needsRemask || row.needsManual),
+    ).length
+  },
+
+  applyAutoMaskTaskResult(task) {
+    const assets = (task && task.rawAssets) || []
+    const privacyTouched = assets.some(
+      (row) =>
+        row &&
+        String(row.maskedUrl || '').trim() &&
+        Array.isArray(row.riskTags) &&
+        row.riskTags.length > 0,
+    )
+    let archiveChapters = this.data.archiveChapters || []
+    assets.forEach((row) => {
+      const maskedUrl = row && String(row.maskedUrl || row.preMaskedUrl || '').trim()
+      if (!maskedUrl) return
+      archiveChapters = patchArchiveChapterImageUrls(
+        archiveChapters,
+        row.url || row.rawUrl,
+        maskedUrl,
+      )
+      if (row.preMaskedUrl && row.maskedUrl) {
+        archiveChapters = patchArchiveChapterImageUrls(
+          archiveChapters,
+          row.preMaskedUrl,
+          row.maskedUrl,
+        )
+      }
+    })
+    this.setData({ archiveChapters, privacyTouched })
   },
 
   async findMaskAssetId(imageUrl) {
@@ -680,7 +717,7 @@ Page({
 
   /**
    * 进入公开预览：整案必调一轮自动打码。
-   * 单图：节点 AI 已打码成功（含未检出隐私）→ 复用；OCR/贴码失败或从未跑过 → 重打/新打。
+   * 有成功落痕复用；无落痕/仍原图路径 → 对账补进任务后再打一轮。
    */
   async ensureAutoMaskOnReview() {
     if (this._autoMaskTried || this.data.maskAutoRunning) return
@@ -691,39 +728,28 @@ Page({
       ...buildMaskStatusCopy(this.data.maskImages, { autoRunning: true }),
     })
     try {
-      const taskId = await this.ensureMaskTask()
-      const task = await runAutoMask(taskId)
-      const assets = (task && task.rawAssets) || []
-      const privacyTouched = assets.some(
-        (row) =>
-          row &&
-          String(row.maskedUrl || '').trim() &&
-          Array.isArray(row.riskTags) &&
-          row.riskTags.length > 0,
-      )
-      let archiveChapters = this.data.archiveChapters || []
-      assets.forEach((row) => {
-        const maskedUrl = row && String(row.maskedUrl || row.preMaskedUrl || '').trim()
-        if (!maskedUrl) return
-        archiveChapters = patchArchiveChapterImageUrls(
-          archiveChapters,
-          row.url || row.rawUrl,
-          maskedUrl,
-        )
-        if (row.preMaskedUrl && row.maskedUrl) {
-          archiveChapters = patchArchiveChapterImageUrls(
-            archiveChapters,
-            row.preMaskedUrl,
-            row.maskedUrl,
-          )
-        }
-      })
-      this.setData({ archiveChapters, privacyTouched, maskAutoRunning: false })
+      let taskId = await this.ensureMaskTask()
+      let task = await runAutoMask(taskId)
+      this.applyAutoMaskTaskResult(task)
       await this.loadPublicFace({ silent: true })
+
+      // 仍有无落痕原图：force 对账交车等 flow 图，再打一轮
+      if (this.countUnresolvedMaskImages(this.data.maskImages) > 0) {
+        this.setData({
+          ...buildMaskStatusCopy(this.data.maskImages, { autoRunning: true }),
+        })
+        taskId = await this.ensureMaskTask({ force: true })
+        task = await runAutoMask(taskId)
+        this.applyAutoMaskTaskResult(task)
+        await this.loadPublicFace({ silent: true })
+      }
+
       const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
+        maskAutoRunning: false,
         unmaskedCount: copy.needsManualCount,
         needsManualCount: copy.needsManualCount,
+        pendingMaskCount: (this.data.maskImages || []).filter((row) => row.pending).length,
         showMaskBanner: copy.showMaskBanner,
         maskAutoFailed: false,
         maskStatusTitle: copy.maskStatusTitle,
@@ -738,8 +764,8 @@ Page({
         needsManualCount: copy.needsManualCount,
         showMaskBanner: false,
         maskAutoFailed: false,
-        maskStatusTitle: '',
         maskStatusHint: '',
+        maskStatusTitle: '',
       })
     }
   },

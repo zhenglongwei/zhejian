@@ -72,3 +72,10 @@ test('ok_no_privacy counts as mask success even without privacy hits', () => {
   assert.equal(row.maskSucceeded, true)
   assert.equal(row.needsRemask, false)
 })
+
+test('no marker means not success', () => {
+  const row = classifyHostMaskOutcome({})
+  assert.equal(row.maskSucceeded, false)
+  assert.equal(row.needsRemask, true)
+  assert.equal(row.publishSafe, false)
+})

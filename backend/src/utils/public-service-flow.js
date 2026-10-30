@@ -37,10 +37,13 @@ function publicizeUrl(url, lookup) {
 }
 
 function rememberUrl(lookup, from, to) {
-  const pub = resolvePublicCaseMediaUrl(to) || resolveStoreProcessedPublicUrl(to) || ''
-  if (!pub) return
+  const target = text(to)
+  if (!target) return
+  // 解析失败仍写入映射，避免打码产物被静默丢掉后预览回落原图
+  const pub =
+    resolvePublicCaseMediaUrl(target) || resolveStoreProcessedPublicUrl(target) || target
   if (from) lookup.set(urlKey(from), pub)
-  lookup.set(urlKey(to), pub)
+  lookup.set(urlKey(target), pub)
   lookup.set(urlKey(pub), pub)
 }
 
