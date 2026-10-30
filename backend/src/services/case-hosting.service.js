@@ -515,12 +515,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     err.status = 409
     throw err
   }
-  if (!prev.privacyAuditPassedAt) {
-    const err = new Error('请先核对将公开的内容')
-    err.status = 409
-    err.code = 'PRIVACY_REQUIRED'
-    throw err
-  }
+  // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
 
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
@@ -576,9 +571,13 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
 
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
 
+  // 未过隐私前保持 awaiting_privacy；已过则进入待确认店页说明
+  const nextStage = prev.privacyAuditPassedAt
+    ? 'awaiting_geo_confirm'
+    : prev.publicPublishStage || 'awaiting_privacy'
   const meta = await writeHostMeta(albumId, {
     geoDraft,
-    publicPublishStage: 'awaiting_geo_confirm',
+    publicPublishStage: nextStage,
   })
   return {
     albumId,

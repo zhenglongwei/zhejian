@@ -5,7 +5,6 @@ const assert = require('assert')
 const {
   buildHostedArchiveSnapshot,
   readHostMeta,
-  generateHostedGeoDraft,
 } = require('./case-hosting.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 
@@ -155,26 +154,13 @@ function testContentLockedWhenFactLayerLocked() {
   assert.strictEqual(isAlbumContentLocked(album), true)
 }
 
-async function testGenerateGeoRequiresPrivacy() {
-  const albumMod = require('./service-album.service')
-  const origLoad = albumMod.loadAlbum
-  const origAssert = albumMod.assertMerchantAlbum
-  albumMod.loadAlbum = async () =>
-    sampleAlbum({
-      contentPackageJson: {
-        hostMeta: { hosted: true, factLayerLocked: true },
-      },
-    })
-  albumMod.assertMerchantAlbum = () => {}
-  try {
-    await generateHostedGeoDraft('alb_host_smoke', { storeId: 'store1', merchantId: 'm1' })
-    throw new Error('expected PRIVACY_REQUIRED')
-  } catch (err) {
-    assert.strictEqual(err.code, 'PRIVACY_REQUIRED')
-  } finally {
-    albumMod.loadAlbum = origLoad
-    albumMod.assertMerchantAlbum = origAssert
-  }
+/** 两步托管：预览步即可拉店页草稿，不再要求先过隐私校验 */
+function testGenerateGeoNoLongerRequiresPrivacyGate() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'case-hosting.service.js'), 'utf8')
+  assert.ok(
+    !/code:\s*'PRIVACY_REQUIRED'/.test(src),
+    'generateHostedGeoDraft 不应再抛 PRIVACY_REQUIRED（隐私在继续公开时校验）',
+  )
 }
 
 testArchiveSnapshotExcludesDraft()
@@ -242,10 +228,11 @@ function testMapHostedCaseListVisibilityAndPath() {
 testContentPackagePreservesHostMeta()
 testMapHostedCaseListVisibilityAndPath()
 
+testGenerateGeoNoLongerRequiresPrivacyGate()
+
 ;(async () => {
   await testGenerateCaseBlockedForNewAlbum()
   await testGenerateCaseBlockedWhenHosted()
-  await testGenerateGeoRequiresPrivacy()
   console.log('case-hosting smoke ok')
 })().catch((err) => {
   console.error(err)
