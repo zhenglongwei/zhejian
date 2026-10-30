@@ -864,7 +864,7 @@ function workInstruction(ctx) {
   ].join('\n')
 }
 
-function inspectionInstruction(ctx, options = {}) {
+function inspectionContextPayload(ctx, options = {}) {
   const force = Boolean(options && options.force)
   const visionUrls = Array.isArray(options && options.visionUrls)
     ? options.visionUrls
@@ -874,37 +874,152 @@ function inspectionInstruction(ctx, options = {}) {
     findingId: row.findingId,
     partName: row.partName || '',
   }))
-  const visionSlots = visionUrls.map((url) => {
-    const hit = (ctx.inspectPhotoSlots || []).find((row) => mediaBare(row.url) === mediaBare(url))
-    return hit ? hit.slot : null
-  }).filter(Boolean)
+  const visionSlots = visionUrls
+    .map((url) => {
+      const hit = (ctx.inspectPhotoSlots || []).find((row) => mediaBare(row.url) === mediaBare(url))
+      return hit ? hit.slot : null
+    })
+    .filter(Boolean)
+  return {
+    complaint: ctx.complaint,
+    intakeContext: ctx.intakeAdviceSummary,
+    intakeNoted: ctx.intakeNoted,
+    items: ctx.inspectItems,
+    inspectNoted: force ? [] : ctx.inspectNoted,
+    photoSlots,
+    newPhotoSlots: visionSlots.length ? visionSlots : visionUrls.map((_, i) => i + 1),
+  }
+}
+
+function inspectionInstruction(ctx, options = {}) {
+  const payload = inspectionContextPayload(ctx, options)
   return [
-    'You assist a Chinese auto shop clerk during vehicle inspection.',
-    'Goal: faultAnalysis, inspectOrder, partHints, and ONE actionable edit per inspection finding (photos + text in the same edit).',
-    'Hard rules:',
-    '- Intake coverage is CONTEXT ONLY — never restate it in any output field.',
-    '- Simplified Chinese only in natural-language values. No English words.',
-    '- Do NOT invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好 in sentences.',
-    '- photoSlots[].slot is the stable id of each photo; newPhotoSlots lists slots of images attached this turn. imageSlots / imageNotes.slot MUST use those slot numbers.',
-    '- First judge each attached photo by slot: what inspection topic it shows. Then classify into groups.',
-    '- edits: at most ONE kind=item row per findingId. If slots under that finding show different topics (e.g. body paint vs brake vs chassis) — including when you already listed them as separate points in faultAnalysis — you MUST put groups[] in that SAME row: each with partName, advice, imageSlots; every slot of that finding in exactly one group. Listing 1.2.3. in faultAnalysis without groups is incomplete. Only when topics are the same or you truly cannot tell them apart may you omit groups.',
-    '- faultAnalysis must cover every distinct topic in the photos and the complaint, not only the majority topic. Never claim a topic is missing if its photo slot is attached.',
-    '- imageNotes: one short observation per attached slot (reuse later). Never a substitute for groups.',
-    '- kind=photo is reminder only (no apply). partHints are read-only.',
-    `Context JSON: ${JSON.stringify({
-      complaint: ctx.complaint,
-      intakeContext: ctx.intakeAdviceSummary,
-      intakeNoted: ctx.intakeNoted,
-      items: ctx.inspectItems,
-      // 强制刷新时以本次附图为准，旧观察摘要不参与，避免「只认底盘」之类偏见
-      inspectNoted: force ? [] : ctx.inspectNoted,
-      photoSlots,
-      newPhotoSlots: visionSlots.length
-        ? visionSlots
-        : visionUrls.map((_, i) => i + 1),
-    })}`,
-    'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"item","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]},{"kind":"photo","findingId":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
+    'You assist a Chinese auto-shop clerk on the inspection step.',
+    'Output: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
+    '',
+    'CRITICAL — photo split (groups):',
+    '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots).',
+    '2) Decide which inspection topic each slot shows (body paint, brake disc, chassis, etc.).',
+    '3) If one findingId owns 2+ slots with DIFFERENT topics, emit exactly ONE edits[] row for that findingId with groups[]:',
+    '   - one group per topic; fields: partName, advice, imageSlots',
+    '   - every slot of that findingId must appear in exactly one group',
+    '4) If faultAnalysis already lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding. Prose alone is NOT enough — the clerk applies groups, not faultAnalysis.',
+    '5) Omit groups ONLY when all slots share one topic, or you truly cannot tell topics apart.',
+    '',
+    'Example when finding "pile" has slot1=paint, slot2=brake, slot3=chassis:',
+    '{"edits":[{"kind":"item","findingId":"pile","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"…","imageSlots":[1]},{"partName":"制动系统","advice":"…","imageSlots":[2]},{"partName":"底盘悬挂","advice":"…","imageSlots":[3]}]}]}',
+    '',
+    'Other rules:',
+    '- Intake is context only — never restate intake coverage.',
+    '- Natural-language JSON string values: Simplified Chinese only (no English words inside those strings).',
+    '- Do not invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好.',
+    '- Cover every distinct topic visible in photos + complaint in faultAnalysis.',
+    '- imageNotes: one short observation per attached slot; never a substitute for groups.',
+    '- kind=photo edits are reminders only (no apply). partHints are read-only.',
+    `Context JSON: ${JSON.stringify(payload)}`,
+    'Return JSON only with keys: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
   ].join('\n')
+}
+
+/** 故障分析是否已分出多个主题（模型已能区分，却可能漏写 groups） */
+function faultAnalysisLooksMultiTopic(faultAnalysis) {
+  const s = text(faultAnalysis)
+  if (!s) return false
+  const marks = s.match(/[1-9]\s*[.、．]/g) || []
+  if (marks.length >= 2) return true
+  return (s.match(/；|;/g) || []).length >= 2 && s.length >= 40
+}
+
+function multiPhotoFindingIds(ctx) {
+  const counts = new Map()
+  ;(Array.isArray(ctx.inspectPhotoSlots) ? ctx.inspectPhotoSlots : []).forEach((row) => {
+    const id = text(row && row.findingId)
+    if (!id) return
+    counts.set(id, (counts.get(id) || 0) + 1)
+  })
+  return [...counts.entries()].filter(([, n]) => n >= 2).map(([id]) => id)
+}
+
+function inspectionHasSplitForFinding(parsed, findingId) {
+  const id = text(findingId)
+  return (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).some(
+    (row) =>
+      text(row && row.kind) !== 'photo' &&
+      text(row && row.findingId) === id &&
+      Array.isArray(row.groups) &&
+      row.groups.length >= 2,
+  )
+}
+
+/** 已能分主题（分点分析或部件参考≥2）但多图项仍无 groups → 需要英文补跑 */
+function needsInspectGroupsRepair(parsed, ctx) {
+  const multi = multiPhotoFindingIds(ctx)
+  if (!multi.length) return false
+  const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id))
+  if (!missing) return false
+  const hints = Array.isArray(parsed && parsed.partHints) ? parsed.partHints.length : 0
+  return faultAnalysisLooksMultiTopic(parsed && parsed.faultAnalysis) || hints >= 2
+}
+
+function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
+  const payload = inspectionContextPayload(ctx, options)
+  const missingIds = multiPhotoFindingIds(ctx).filter((id) => !inspectionHasSplitForFinding(previousParsed, id))
+  return [
+    'You previously returned inspection JSON but omitted edits[].groups even though topics were already distinguished.',
+    'Fix that now. Keep the same faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
+    'For each findingId listed in missingFindingIds that has 2+ photo slots with different topics, add ONE kind=item edit with groups[] (partName, advice, imageSlots). Every slot of that finding must appear in exactly one group.',
+    'Natural-language string values: Simplified Chinese only.',
+    'Do not invent damage. Do not use imageNotes as a substitute for groups.',
+    `missingFindingIds: ${JSON.stringify(missingIds)}`,
+    `photoSlots: ${JSON.stringify(payload.photoSlots)}`,
+    `Previous JSON: ${JSON.stringify({
+      faultAnalysis: previousParsed && previousParsed.faultAnalysis,
+      inspectOrder: previousParsed && previousParsed.inspectOrder,
+      partHints: previousParsed && previousParsed.partHints,
+      edits: previousParsed && previousParsed.edits,
+      imageNotes: previousParsed && previousParsed.imageNotes,
+    })}`,
+    'Return the full corrected JSON only (same keys as before).',
+  ].join('\n')
+}
+
+function mergeInspectAdvicePreferringGroups(base, repair) {
+  if (!repair || typeof repair !== 'object') return base
+  const baseEdits = Array.isArray(base && base.edits) ? base.edits.slice() : []
+  const repairEdits = Array.isArray(repair.edits) ? repair.edits : []
+  repairEdits.forEach((row) => {
+    if (!row || text(row.kind) === 'photo') return
+    const findingId = text(row.findingId)
+    if (!findingId || !Array.isArray(row.groups) || row.groups.length < 2) return
+    const idx = baseEdits.findIndex(
+      (item) => text(item && item.kind) !== 'photo' && text(item && item.findingId) === findingId,
+    )
+    if (idx >= 0) baseEdits[idx] = { ...baseEdits[idx], ...row, groups: row.groups, canApply: true }
+    else baseEdits.push({ ...row, canApply: true })
+  })
+  return {
+    ...base,
+    faultAnalysis: text(base && base.faultAnalysis) || text(repair.faultAnalysis),
+    inspectOrder:
+      Array.isArray(base && base.inspectOrder) && base.inspectOrder.length
+        ? base.inspectOrder
+        : Array.isArray(repair.inspectOrder)
+          ? repair.inspectOrder
+          : [],
+    partHints:
+      Array.isArray(base && base.partHints) && base.partHints.length
+        ? base.partHints
+        : Array.isArray(repair.partHints)
+          ? repair.partHints
+          : [],
+    edits: baseEdits,
+    imageNotes:
+      Array.isArray(base && base.imageNotes) && base.imageNotes.length
+        ? base.imageNotes
+        : Array.isArray(repair.imageNotes)
+          ? repair.imageNotes
+          : [],
+  }
 }
 
 function deliveryInstruction(ctx) {
@@ -994,20 +1109,33 @@ async function runJob(albumId, kind, options = {}) {
         : kind === 'inspect'
           ? (reVisionInspect ? inspectAll : inspectFresh)
           : ctx.deliveryPhotoUrls || []
-    const raw = await runLlm(
+    const inspectOpts = { force: reVisionInspect, visionUrls: urls }
+    let raw = await runLlm(
       kind === 'work'
         ? workInstruction(ctx)
         : kind === 'inspect'
-          ? inspectionInstruction(ctx, { force: reVisionInspect, visionUrls: urls })
+          ? inspectionInstruction(ctx, inspectOpts)
           : deliveryInstruction(ctx),
       urls,
       kind === 'work' ? 'Work' : kind === 'inspect' ? 'Inspect' : 'Delivery',
     )
-    const parsed = kind === 'work'
+    let parsed = kind === 'work'
       ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         : parseDeliveryAdvice(raw)
+    // 检测：分析已分主题却漏 groups → 英文补跑一次，仍由模型按图填 groups
+    if (kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx)) {
+      const repairRaw = await runLlm(
+        inspectionGroupsRepairInstruction(ctx, parsed, inspectOpts),
+        urls,
+        'InspectGroups',
+      )
+      if (repairRaw) {
+        const repaired = parseInspectionAdvice(repairRaw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
+        parsed = mergeInspectAdvicePreferringGroups(parsed, repaired)
+      }
+    }
     const ok = adviceHasContent(parsed, kind)
     // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
     const advicePayload =
@@ -1154,4 +1282,7 @@ module.exports = {
   parseWorkAdvice,
   parseDeliveryAdvice,
   parseInspectionAdvice,
+  needsInspectGroupsRepair,
+  mergeInspectAdvicePreferringGroups,
+  faultAnalysisLooksMultiTopic,
 }

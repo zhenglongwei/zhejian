@@ -1,6 +1,13 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { parseWorkAdvice, parseDeliveryAdvice, parseInspectionAdvice } = require('./step-advice.service')
+const {
+  parseWorkAdvice,
+  parseDeliveryAdvice,
+  parseInspectionAdvice,
+  needsInspectGroupsRepair,
+  mergeInspectAdvicePreferringGroups,
+  faultAnalysisLooksMultiTopic,
+} = require('./step-advice.service')
 
 test('施工对不上时优先用模型写的实质意见', () => {
   const got = parseWorkAdvice({
@@ -133,6 +140,70 @@ test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
   assert.equal(got.edits.filter((row) => row.kind === 'item' && row.findingId === 'b').length, 1)
   assert.equal(got.edits.some((row) => /四周/.test(row.body || '')), false)
   assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
+})
+
+test('故障分析分点写清时判定为多主题', () => {
+  assert.equal(
+    faultAnalysisLooksMultiTopic(
+      '1.车门下沿漆面剥落。2.前刹车盘有磨损纹路。3.后悬挂与排气管有锈斑。',
+    ),
+    true,
+  )
+  assert.equal(faultAnalysisLooksMultiTopic('底盘整体未见明显变形。'), false)
+})
+
+test('多图项已有分点分析但无 groups 时需要补跑', () => {
+  const ctx = {
+    inspectPhotoSlots: [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+      { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+    ],
+  }
+  const parsed = {
+    faultAnalysis: '1.漆面剥落。2.刹车盘磨损。3.底盘锈斑。',
+    partHints: [],
+    edits: [],
+  }
+  assert.equal(needsInspectGroupsRepair(parsed, ctx), true)
+  const withGroups = {
+    ...parsed,
+    edits: [
+      {
+        kind: 'item',
+        findingId: 'pile',
+        body: '拆开',
+        groups: [
+          { partName: '车身', advice: 'a', images: [{ url: 'https://a/1.jpg' }] },
+          { partName: '制动', advice: 'b', images: [{ url: 'https://a/2.jpg' }] },
+        ],
+      },
+    ],
+  }
+  assert.equal(needsInspectGroupsRepair(withGroups, ctx), false)
+})
+
+test('补跑结果把 groups 合并进原意见', () => {
+  const base = {
+    faultAnalysis: '1.漆 2.刹',
+    edits: [{ kind: 'item', findingId: 'pile', body: '建议补写', groups: [], canApply: true }],
+  }
+  const repair = {
+    edits: [
+      {
+        kind: 'item',
+        findingId: 'pile',
+        body: '拆成漆面与制动',
+        groups: [
+          { partName: '车身漆面', advice: '剥落', images: [{ url: 'https://a/1.jpg' }] },
+          { partName: '制动系统', advice: '磨损', images: [{ url: 'https://a/2.jpg' }] },
+        ],
+      },
+    ],
+  }
+  const got = mergeInspectAdvicePreferringGroups(base, repair)
+  assert.equal(got.edits[0].groups.length, 2)
+  assert.match(got.edits[0].body, /拆成/)
 })
 
 test('模型未给 groups 时不根据 imageNotes 拼拆分条', () => {
