@@ -578,6 +578,9 @@ Page({
     notifyConfirmDisabled: false,
     showQuoteAiCheck: false,
     adviceOpen: false,
+    adviceStale: false,
+    adviceCanRefresh: false,
+    adviceWaitHint: '',
     adviceApplyRows: [],
     inspectAdviceOpen: true,
     quoteNotifyReady: true,
@@ -1132,7 +1135,15 @@ Page({
       autoSaveLabel: '保存中…',
     }
     if (this.data.quoteAssist && this.data.quoteAssist.hasContent) {
-      patch.quoteAssist = this.decorateQuoteAssist(this.data.quoteAssist, quoteLines)
+      // 改表后不自动重跑；标「内容有变」提示可刷新
+      patch.quoteAssist = {
+        ...this.decorateQuoteAssist(this.data.quoteAssist, quoteLines),
+        stale: true,
+      }
+      if (this.data.adviceOpen) {
+        patch.adviceStale = true
+        patch.adviceCanRefresh = !this.data.readOnly
+      }
     }
     this.setData(patch, () => this.scheduleAutoSaveDoc())
   },
@@ -2057,6 +2068,7 @@ Page({
         stageBoard: openStageBoard,
         ...openStageBar,
       }, () => {
+        this.syncAdviceChrome()
         if (this._foldInspectionPending) {
           this._foldInspectionPending = false
           this.persistPhotoDraft().catch(() => {})
@@ -5773,9 +5785,16 @@ Page({
       hasQuoteRefs,
       omissions,
       hasOmissions,
-      hasContent: status === 'ready' && (hasQuoteRefs || hasOmissions),
+      hasContent: hasQuoteRefs || hasOmissions,
+      stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
-      waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
+      waitHint:
+        raw.waitHint ||
+        (status === 'queued' || status === 'running'
+          ? hasQuoteRefs || hasOmissions
+            ? '正在更新'
+            : '正在出意见'
+          : ''),
     }
   },
 
@@ -5839,9 +5858,16 @@ Page({
       covered,
       hasRisks: risks.length > 0,
       hasFixes: false,
-      hasContent: Boolean(status === 'ready' && (covered || noPhotos || risks.length)),
+      hasContent: Boolean(covered || noPhotos || risks.length),
+      stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
-      waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
+      waitHint:
+        raw.waitHint ||
+        (status === 'queued' || status === 'running'
+          ? covered || noPhotos || risks.length
+            ? '正在更新'
+            : '正在出意见'
+          : ''),
     }
   },
 
@@ -5953,8 +5979,16 @@ Page({
       photoPlan,
       hasPhotoPlan: photoPlan.length > 0,
       hasLines: lines.length > 0 || photoPlan.length > 0,
-      hasContent: status === 'ready' && (lines.length > 0 || photoPlan.length > 0),
+      hasContent: lines.length > 0 || photoPlan.length > 0,
+      stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
+      waitHint:
+        raw.waitHint ||
+        (status === 'queued' || status === 'running'
+          ? lines.length > 0 || photoPlan.length > 0
+            ? '正在更新'
+            : '正在出意见'
+          : ''),
     }
   },
 
@@ -6074,8 +6108,16 @@ Page({
       items: [],
       lines,
       hasLines,
-      hasContent: status === 'ready' && (hasFault || hasOrder || hasParts || hasLines),
+      hasContent: hasFault || hasOrder || hasParts || hasLines,
+      stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
+      waitHint:
+        raw.waitHint ||
+        (status === 'queued' || status === 'running'
+          ? hasFault || hasOrder || hasParts || hasLines
+            ? '正在更新'
+            : '正在出意见'
+          : ''),
     }
   },
 
@@ -6092,13 +6134,22 @@ Page({
     const repair = block(raw.repair, '这次维修')
     const warranty = block(raw.warranty, '质保')
     const care = block(raw.care, '用车')
+    const hasContent = Boolean(repair.hasBody || warranty.hasBody || care.hasBody)
     return {
       status,
       repair,
       warranty,
       care,
-      hasContent: Boolean(repair.hasBody || warranty.hasBody || care.hasBody),
+      hasContent,
+      stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
+      waitHint:
+        raw.waitHint ||
+        (status === 'queued' || status === 'running'
+          ? hasContent
+            ? '正在更新'
+            : '正在出意见'
+          : ''),
     }
   },
 
@@ -7290,77 +7341,82 @@ Page({
     })
   },
 
-  async onInspectionAi() {
-    if (this.data.confirming || this.data.organizingPhotos) return
-    if (this.data.adviceOpen) {
+  currentAdviceBundle() {
+    const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
+    if (family === 'intake') return this.data.intakeAdvice
+    if (family === 'inspect') return this.data.inspectionAdvice
+    if (family === 'quote') return this.data.quoteAssist
+    if (family === 'work') return this.data.workAdvice
+    if (family === 'finish') return this.data.deliveryAdvice
+    return null
+  },
+
+  syncAdviceChrome() {
+    const advice = this.currentAdviceBundle()
+    const hasContent = Boolean(advice && advice.hasContent)
+    const failed = Boolean(advice && advice.status === 'failed')
+    const isWaiting = Boolean(advice && advice.isWaiting)
+    this.setData({
+      adviceStale: Boolean(advice && advice.stale),
+      adviceCanRefresh: !this.data.readOnly && (hasContent || failed),
+      adviceWaitHint:
+        (advice && advice.waitHint) ||
+        (isWaiting ? (hasContent ? '正在更新' : '正在出意见') : ''),
+    })
+  },
+
+  /**
+   * 打开 AI 面板：有上次结果默认只展示；force 才重跑。
+   */
+  openAdvicePanel(options = {}) {
+    const force = Boolean(options && options.force)
+    if (this.data.confirming) return
+    if (this.data.adviceOpen && !force) {
       this.setData({ adviceOpen: false })
       return
     }
-    this.setData({ adviceOpen: true })
-    if (this.data.readOnly) return
-    const node =
-      (this._flowNodes || []).find((row) => row && row.kind === 'inspection') || this.data.activeNode
-    const kind = node && node.kind
-    if (kind !== 'inspection' && kind !== 'intake_inspection') return
-    const contentKey = this.inspectionContentKey()
-    const storedKey =
-      this._inspectionAiKey ||
-      (node.photoDraft && node.photoDraft.inspectionAiKey) ||
-      ''
-    if (storedKey && storedKey === contentKey) {
-      this.setData({ adviceOpen: true })
-      const advice = this.data.inspectionAdvice || {}
-      if (!(advice.hasContent || advice.isWaiting)) {
-        this.onStartInspectionAdvice()
-      }
-      return
-    }
-    const findings = this.collectFindingsFromSections()
-    const hasItem = findings.some(
-      (row) =>
-        String((row && row.partName) || '').trim() ||
-        String((row && row.advice) || '').trim() ||
-        (row.images && row.images.length),
+    const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
+    const advice = this.currentAdviceBundle()
+    const hasPrior = Boolean(
+      advice && (advice.hasContent || advice.isWaiting || advice.status === 'failed'),
     )
-    if (!hasItem) {
-      this.setData({ adviceOpen: true })
-      wx.showToast({ title: '先拍检查图或写检查项', icon: 'none' })
-      return
-    }
-    // 先落库再出意见。本单修改只认意见里「一项一条」（图+文打包），不再先挂识图建议，避免双「应用」
-    try {
-      await this.persistPhotoDraft()
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '请先保存', icon: 'none' })
-      return
-    }
-    this._inspectionAiKey = contentKey
-    await this.onStartInspectionAdvice()
+    this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+    if (this.data.readOnly) return
+    if (advice && advice.isWaiting) return
+    if (!force && hasPrior && advice.hasContent) return
+    if (family === 'intake') return this.onStartIntakeAdvice({ force })
+    if (family === 'inspect') return this.onStartInspectionAdvice({ force })
+    if (family === 'quote') return this.onStartQuoteAiCheck({ force })
+    if (family === 'work') return this.onStartWorkAdvice({ force })
+    if (family === 'finish') return this.onStartDeliveryStepAdvice({ force })
+  },
+
+  onRefreshAdvice() {
+    if (this.data.readOnly || this.data.confirming) return
+    const advice = this.currentAdviceBundle()
+    if (advice && advice.isWaiting) return
+    this.openAdvicePanel({ force: true })
+  },
+
+  async onInspectionAi() {
+    if (this.data.organizingPhotos) return
+    return this.openAdvicePanel()
   },
 
   onIntakeHeaderAi() {
-    if (this.data.confirming) return
-    if (this.data.adviceOpen) {
+    if (this.data.intakeSent && !this.data.adviceOpen) {
+      this.openAdvicePanel()
+      return
+    }
+    if (this.data.intakeSent) {
       this.setData({ adviceOpen: false })
       return
     }
-    this.setData({ adviceOpen: true })
-    if (this.data.readOnly || this.data.intakeSent) return
-    // 改图后也要能重跑；后端按指纹决定复用或重生成
-    if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
-    this.onStartIntakeAdvice()
+    return this.openAdvicePanel()
   },
 
   onWorkHeaderAi() {
-    if (this.data.confirming) return
-    if (this.data.adviceOpen) {
-      this.setData({ adviceOpen: false })
-      return
-    }
-    this.setData({ adviceOpen: true })
-    if (this.data.readOnly) return
-    if (this.data.workAdvice && this.data.workAdvice.isWaiting) return
-    this.onStartWorkAdvice()
+    return this.openAdvicePanel()
   },
 
   onAiFab() {
@@ -7373,27 +7429,7 @@ Page({
   },
 
   onToggleAdvice() {
-    if (this.data.adviceOpen) {
-      this.setData({ adviceOpen: false })
-      return
-    }
-    this.setData({ adviceOpen: true })
-    const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind === 'intake') {
-      if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
-      this.onStartIntakeAdvice()
-      return
-    }
-    if (kind === 'inspection_report' || kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
-      // 改过报价行也要能重跑；内容没变时服务端按指纹复用上次结果
-      if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
-      this.onStartQuoteAiCheck()
-      return
-    }
-    if (kind === 'repair_report' || kind === 'delivery_photos') {
-      if (this.data.deliveryAdvice && this.data.deliveryAdvice.isWaiting) return
-      this.onStartDeliveryStepAdvice()
-    }
+    return this.openAdvicePanel()
   },
 
   onCloseAdvice() {
@@ -7402,7 +7438,8 @@ Page({
 
   onAdvicePanelTap() {},
 
-  async onStartIntakeAdvice() {
+  async onStartIntakeAdvice(options = {}) {
+    const force = Boolean(options && options.force)
     if (this.data.readOnly || this.data.confirming) return
     if (this.data.intakeAdvice && this.data.intakeAdvice.isWaiting) return
     if (!this.intakeComplaintText()) {
@@ -7422,9 +7459,10 @@ Page({
       await this.persistPhotoDraft()
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         startIntakeAdvice: true,
+        forceRefresh: force,
       })
       await this.loadFlow({ silent: true })
-      this.setData({ adviceOpen: true })
+      this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
     } finally {
@@ -7432,7 +7470,8 @@ Page({
     }
   },
 
-  async onStartQuoteAiCheck() {
+  async onStartQuoteAiCheck(options = {}) {
+    const force = Boolean(options && options.force)
     if (this.data.readOnly || this.data.confirming) return
     if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
     if (!this._nodeAiReviewEntitled) return
@@ -7451,10 +7490,11 @@ Page({
         await updateMerchantFlowNode(this.albumId, quoteNodeId, {
           document: { status: 'draft', payload: quotePayload },
           startQuoteAssist: true,
+          forceRefresh: force,
         })
       }
       await this.loadFlow({ silent: true })
-      this.setData({ adviceOpen: true })
+      this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
     } finally {
@@ -7682,45 +7722,67 @@ Page({
     )
   },
 
-  async onStartInspectionAdvice() {
+  async onStartInspectionAdvice(options = {}) {
+    const force = Boolean(options && options.force)
     const node =
       (this._flowNodes || []).find((row) => row && row.kind === 'inspection') || this.data.activeNode
     if (!node || !node.id || this.data.readOnly) return
     if (this.data.inspectionAdvice && this.data.inspectionAdvice.isWaiting) {
-      this.setData({ adviceOpen: true })
+      this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
       return
+    }
+    if (!force) {
+      const findings = this.collectFindingsFromSections()
+      const hasItem = findings.some(
+        (row) =>
+          String((row && row.partName) || '').trim() ||
+          String((row && row.advice) || '').trim() ||
+          (row.images && row.images.length),
+      )
+      if (!hasItem) {
+        this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+        wx.showToast({ title: '先拍检查图或写检查项', icon: 'none' })
+        return
+      }
     }
     this.setData({ adviceOpen: true })
     try {
       await this.persistPhotoDraft()
-      await updateMerchantFlowNode(this.albumId, node.id, { startInspectionAdvice: true })
+      await updateMerchantFlowNode(this.albumId, node.id, {
+        startInspectionAdvice: true,
+        forceRefresh: force,
+      })
       await this.loadFlow({ silent: true })
-      this.setData({ adviceOpen: true })
+      this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
     } catch (e) {
       const message = (e && e.message) || '未能出意见'
       wx.showToast({ title: message, icon: 'none' })
     }
   },
 
-  async onStartWorkAdvice() {
-    await this.startStepAdvice('startWorkAdvice', '先有报价或施工项')
+  async onStartWorkAdvice(options = {}) {
+    await this.startStepAdvice('startWorkAdvice', '先有报价或施工项', options)
   },
 
-  async onStartDeliveryStepAdvice() {
-    await this.startStepAdvice('startDeliveryAdvice', '未能出意见')
+  async onStartDeliveryStepAdvice(options = {}) {
+    await this.startStepAdvice('startDeliveryAdvice', '未能出意见', options)
   },
 
-  async startStepAdvice(flag, emptyTitle) {
+  async startStepAdvice(flag, emptyTitle, options = {}) {
+    const force = Boolean(options && options.force)
     if (this.data.readOnly || this.data.confirming) return
     const node = this.data.activeNode
     if (!node || !node.id) return
     this.setData({ confirming: true, adviceOpen: true })
     try {
       await this.persistPhotoDraft()
-      const res = await updateMerchantFlowNode(this.albumId, node.id, { [flag]: true })
+      const res = await updateMerchantFlowNode(this.albumId, node.id, {
+        [flag]: true,
+        forceRefresh: force,
+      })
       await this.loadFlow({ silent: true })
-      this.setData({ adviceOpen: true })
-      if (res && !res.queued && !res.reuse) {
+      this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+      if (res && !res.queued && !res.reuse && force) {
         wx.showToast({ title: '暂不可用', icon: 'none' })
       }
     } catch (e) {

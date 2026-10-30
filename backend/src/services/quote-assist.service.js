@@ -10,6 +10,7 @@ const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 const {
   parseQuoteAssistPayload,
   sanitizeQuoteAssistForView,
+  quoteAssistHasContent,
   lineHasMarketBand,
 } = require('../utils/quote-assist')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
@@ -307,7 +308,8 @@ async function flushQueuedQuoteAssistForAlbum(albumId) {
   }
 }
 
-async function queueQuoteAssistIfNeeded(album, merchantId) {
+async function queueQuoteAssistIfNeeded(album, merchantId, options = {}) {
+  const force = Boolean(options && options.force)
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(merchantId)
   if (!capability || !capability.entitled || !capability.llmEnabled) {
@@ -317,24 +319,31 @@ async function queueQuoteAssistIfNeeded(album, merchantId) {
   if (!quote) return { queued: false }
   const fingerprint = buildAssistFingerprint(album)
   const current = quote.quoteAssist || {}
-  if (current.status === 'ready' && current.fingerprint === fingerprint) {
-    return { queued: false, reuse: true }
+  const hasReady = current.status === 'ready' && quoteAssistHasContent(current)
+  // 有上次结果默认复用；仅 force 才重跑（改价/应用不自动重跑）
+  if (hasReady && !force) {
+    return {
+      queued: false,
+      reuse: true,
+      stale: text(current.fingerprint) !== fingerprint,
+    }
   }
-  await patchQuoteNode(album.id, (item) => ({
-    ...item,
-    quoteAssist: {
-      status: 'queued',
-      fingerprint,
-      suggestedLines: [],
-      issues: [],
-      omissions: [],
-      objections: [],
-      generateEngine: '',
-      updatedAt: new Date().toISOString(),
-    },
-  }))
+  await patchQuoteNode(album.id, (item) => {
+    const prev = (item && item.quoteAssist) || {}
+    return {
+      ...item,
+      quoteAssist: {
+        ...prev,
+        status: 'queued',
+        fingerprint,
+        // 刷新时保留旧意见，前端可边看边等
+        generateEngine: force ? '' : prev.generateEngine || '',
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  })
   queueQuoteAssistGenerate({ albumId: album.id, merchantId })
-  return { queued: true }
+  return { queued: true, stale: false }
 }
 
 function pickReviewSkipEngineId(quoteNode) {

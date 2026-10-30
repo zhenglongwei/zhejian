@@ -975,7 +975,7 @@ async function runJob(albumId, kind) {
   }
 }
 
-async function queueIfNeeded(album, kind) {
+async function queueIfNeeded(album, kind, options = {}) {
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(album.merchantId)
   if (!capability || !capability.entitled || !capability.llmEnabled) return { queued: false, skipped: true }
@@ -990,29 +990,56 @@ async function queueIfNeeded(album, kind) {
     err.status = 400
     throw err
   }
+  const force = Boolean(options && options.force)
   const fingerprint = fingerprintFor(kind, ctx)
   const { field, nodeKind } = nodeField(kind)
   const node = readFlowNodes(album).find((item) => item && item.kind === nodeKind)
   const current = (node && node[field]) || {}
-  if (current.status === 'ready' && current.fingerprint === fingerprint && adviceHasContent(current, kind)) {
-    return { queued: false, reuse: true }
+  const hasReady = current.status === 'ready' && adviceHasContent(current, kind)
+  // 有上次结果默认复用；仅 force 才重跑
+  if (hasReady && !force) {
+    return {
+      queued: false,
+      reuse: true,
+      stale: text(current.fingerprint) !== fingerprint,
+    }
   }
-  await patchNode(album.id, nodeKind, (item) => ({
-    ...item,
-    [field]: { status: 'queued', fingerprint, updatedAt: new Date().toISOString() },
-  }))
+  await patchNode(album.id, nodeKind, (item) => {
+    const prev = (item && item[field]) || {}
+    return {
+      ...item,
+      [field]: {
+        ...prev,
+        status: 'queued',
+        fingerprint,
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  })
   setImmediate(() => {
     runJob(album.id, kind).catch(() => {})
   })
-  return { queued: true }
+  return { queued: true, stale: false }
 }
 
-function sanitizeStepAdviceForView(advice, kind) {
+function sanitizeStepAdviceForView(advice, kind, options = {}) {
   if (!advice || typeof advice !== 'object' || !text(advice.status)) return null
   const status = text(advice.status)
+  const fingerprint = text(advice.fingerprint)
+  const contentFingerprint = text(options.contentFingerprint)
+  const hasBody = adviceHasContent(advice, kind)
+  const stale =
+    Boolean(fingerprint) &&
+    Boolean(contentFingerprint) &&
+    fingerprint !== contentFingerprint &&
+    (status === 'ready' || hasBody)
+  const isWaiting = status === 'queued' || status === 'running'
   const base = {
     status,
-    isWaiting: status === 'queued' || status === 'running',
+    fingerprint,
+    stale,
+    isWaiting,
+    waitHint: isWaiting ? (hasBody ? '正在更新' : '正在出意见') : '',
     errorMessage: status === 'failed' ? text(advice.errorMessage) || '未能出意见' : '',
     updatedAt: text(advice.updatedAt),
   }
@@ -1050,9 +1077,11 @@ function sanitizeStepAdviceForView(advice, kind) {
 }
 
 module.exports = {
-  queueWorkAdviceIfNeeded: (album) => queueIfNeeded(album, 'work'),
-  queueDeliveryAdviceIfNeeded: (album) => queueIfNeeded(album, 'delivery'),
-  queueInspectionAdviceIfNeeded: (album) => queueIfNeeded(album, 'inspect'),
+  queueWorkAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'work', options),
+  queueDeliveryAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'delivery', options),
+  queueInspectionAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'inspect', options),
+  fingerprintFor,
+  contextOf,
   sanitizeStepAdviceForView,
   parseWorkAdvice,
   parseDeliveryAdvice,

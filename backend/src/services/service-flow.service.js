@@ -231,11 +231,48 @@ function collectPreviewImages(node, albumNodes = []) {
   return collectNodePhotoList(node, albumNodes)
 }
 
-function mapFlowNodeForView(node, albumNodes = []) {
+function buildAdviceFingerprints(album) {
+  if (!album) {
+    return { quote: '', intake: '', work: '', inspect: '', delivery: '' }
+  }
+  let quote = ''
+  let intake = ''
+  let work = ''
+  let inspect = ''
+  let delivery = ''
+  try {
+    const { buildAssistFingerprint } = require('./quote-assist.service')
+    quote = buildAssistFingerprint(album)
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    const { buildFingerprint } = require('./intake-advice.service')
+    intake = buildFingerprint(album)
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    const { fingerprintFor, contextOf } = require('./step-advice.service')
+    const ctx = contextOf(album)
+    work = fingerprintFor('work', ctx)
+    inspect = fingerprintFor('inspect', ctx)
+    delivery = fingerprintFor('delivery', ctx)
+  } catch (_) {
+    /* ignore */
+  }
+  return { quote, intake, work, inspect, delivery }
+}
+
+function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
   const meta = getFlowKindMeta(node.kind) || {}
   const photo = isPhotoFlowNode(node)
   const legacyStageIds = resolveLegacyStageIdsForFlowNode(node)
   const needConfirm = requiresOwnerConfirm(node)
+  const fps = adviceFingerprints || {}
+  const quoteContentFp = String(fps.quote || '')
+  const intakeContentFp = String(fps.intake || '')
+  const stepContentFp = (kind) => String(fps[kind] || '')
 
   return {
     id: node.id,
@@ -261,7 +298,9 @@ function mapFlowNodeForView(node, albumNodes = []) {
     quoteAssist: (() => {
       try {
         const { sanitizeQuoteAssistForView } = require('./quote-assist.service')
-        return sanitizeQuoteAssistForView(node.quoteAssist)
+        return sanitizeQuoteAssistForView(node.quoteAssist, {
+          contentFingerprint: quoteContentFp,
+        })
       } catch (_) {
         return null
       }
@@ -269,7 +308,9 @@ function mapFlowNodeForView(node, albumNodes = []) {
     intakeAdvice: (() => {
       try {
         const { sanitizeIntakeAdviceForView } = require('./intake-advice.service')
-        return sanitizeIntakeAdviceForView(node.intakeAdvice)
+        return sanitizeIntakeAdviceForView(node.intakeAdvice, {
+          contentFingerprint: intakeContentFp,
+        })
       } catch (_) {
         return null
       }
@@ -277,7 +318,9 @@ function mapFlowNodeForView(node, albumNodes = []) {
     workAdvice: (() => {
       try {
         const { sanitizeStepAdviceForView } = require('./step-advice.service')
-        return sanitizeStepAdviceForView(node.workAdvice, 'work')
+        return sanitizeStepAdviceForView(node.workAdvice, 'work', {
+          contentFingerprint: stepContentFp('work'),
+        })
       } catch (_) {
         return null
       }
@@ -285,7 +328,9 @@ function mapFlowNodeForView(node, albumNodes = []) {
     inspectionAdvice: (() => {
       try {
         const { sanitizeStepAdviceForView } = require('./step-advice.service')
-        return sanitizeStepAdviceForView(node.inspectionAdvice, 'inspect')
+        return sanitizeStepAdviceForView(node.inspectionAdvice, 'inspect', {
+          contentFingerprint: stepContentFp('inspect'),
+        })
       } catch (_) {
         return null
       }
@@ -293,7 +338,9 @@ function mapFlowNodeForView(node, albumNodes = []) {
     deliveryAdvice: (() => {
       try {
         const { sanitizeStepAdviceForView } = require('./step-advice.service')
-        return sanitizeStepAdviceForView(node.deliveryAdvice, 'delivery')
+        return sanitizeStepAdviceForView(node.deliveryAdvice, 'delivery', {
+          contentFingerprint: stepContentFp('delivery'),
+        })
       } catch (_) {
         return null
       }
@@ -557,7 +604,8 @@ async function initFlowOnAlbum(albumId) {
 function buildFlowView(album, albumNodes = []) {
   const flowVersion = readFlowVersion(album)
   const rawNodes = sortFlowNodes(readFlowNodesRaw(album))
-  const flowNodes = rawNodes.map((node) => mapFlowNodeForView(node, albumNodes))
+  const adviceFingerprints = buildAdviceFingerprints(album)
+  const flowNodes = rawNodes.map((node) => mapFlowNodeForView(node, albumNodes, adviceFingerprints))
   const progress = buildFlowProgressView(flowNodes)
   const active = progress.activeNode
     ? {
@@ -824,19 +872,25 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     throw err
   }
 
+  const forceAdviceRefresh = Boolean(payload.forceRefresh || payload.force_refresh)
+
   if (payload.startIntakeAdvice) {
     const { queueIntakeAdviceIfNeeded } = require('./intake-advice.service')
     const startAlbum = await loadAlbum(albumId)
-    const queued = await queueIntakeAdviceIfNeeded(startAlbum, merchantId)
+    const queued = await queueIntakeAdviceIfNeeded(startAlbum, merchantId, {
+      force: forceAdviceRefresh,
+    })
     const fresh = await loadAlbum(albumId)
     const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
     const viewNodes = mapNodesForView(fresh)
+    const adviceFingerprints = buildAdviceFingerprints(fresh)
     return {
       queued: Boolean(queued && queued.queued),
       reuse: Boolean(queued && queued.reuse),
+      stale: Boolean(queued && queued.stale),
       nextAction: 'intake_advice',
       unlockedNext: false,
-      node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+      node: startNode ? mapFlowNodeForView(startNode, viewNodes, adviceFingerprints) : null,
     }
   }
 
@@ -848,20 +902,23 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       queueInspectionAdviceIfNeeded,
     } = require('./step-advice.service')
     const startAlbum = await loadAlbum(albumId)
+    const queueOpts = { force: forceAdviceRefresh }
     const queued = kind === 'work'
-      ? await queueWorkAdviceIfNeeded(startAlbum)
+      ? await queueWorkAdviceIfNeeded(startAlbum, queueOpts)
       : kind === 'inspect'
-        ? await queueInspectionAdviceIfNeeded(startAlbum)
-        : await queueDeliveryAdviceIfNeeded(startAlbum)
+        ? await queueInspectionAdviceIfNeeded(startAlbum, queueOpts)
+        : await queueDeliveryAdviceIfNeeded(startAlbum, queueOpts)
     const fresh = await loadAlbum(albumId)
     const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
     const viewNodes = mapNodesForView(fresh)
+    const adviceFingerprints = buildAdviceFingerprints(fresh)
     return {
       queued: Boolean(queued && queued.queued),
       reuse: Boolean(queued && queued.reuse),
+      stale: Boolean(queued && queued.stale),
       nextAction: kind === 'work' ? 'work_advice' : 'delivery_advice',
       unlockedNext: false,
-      node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+      node: startNode ? mapFlowNodeForView(startNode, viewNodes, adviceFingerprints) : null,
     }
   }
 
@@ -891,14 +948,20 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
     const { queueQuoteAssistIfNeeded } = require('./quote-assist.service')
     const startAlbum = await loadAlbum(albumId)
-    await queueQuoteAssistIfNeeded(startAlbum, merchantId)
+    const queued = await queueQuoteAssistIfNeeded(startAlbum, merchantId, {
+      force: forceAdviceRefresh,
+    })
     const fresh = await loadAlbum(albumId)
     const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
     const viewNodes = mapNodesForView(fresh)
+    const adviceFingerprints = buildAdviceFingerprints(fresh)
     return {
+      queued: Boolean(queued && queued.queued),
+      reuse: Boolean(queued && queued.reuse),
+      stale: Boolean(queued && queued.stale),
       nextAction: 'quote_assist',
       unlockedNext: false,
-      node: startNode ? mapFlowNodeForView(startNode, viewNodes) : null,
+      node: startNode ? mapFlowNodeForView(startNode, viewNodes, adviceFingerprints) : null,
     }
   }
 

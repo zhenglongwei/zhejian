@@ -1855,14 +1855,22 @@
     <view class="merchant-flow-page__advice" catchtap="onAdvicePanelTap">
       <view class="merchant-flow-page__advice-head">
         <text class="text-h3">AI分析</text>
-        <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
+        <view class="merchant-flow-page__advice-head-actions">
+          <text
+            wx:if="{{adviceCanRefresh}}"
+            class="text-caption merchant-flow-page__advice-refresh"
+            catchtap="onRefreshAdvice"
+          >刷新</text>
+          <text class="text-caption text-secondary" catchtap="onCloseAdvice">收起</text>
+        </view>
       </view>
+      <text wx:if="{{adviceStale && !adviceWaitHint}}" class="text-caption merchant-flow-page__advice-stale">内容有变，可刷新</text>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">
         <view wx:if="{{(stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}" class="merchant-flow-page__ai-status">
           <view class="merchant-flow-page__ai-status-spin"></view>
-          <text class="merchant-flow-page__ai-status-text">正在出意见</text>
+          <text class="merchant-flow-page__ai-status-text">{{adviceWaitHint || '正在出意见'}}</text>
         </view>
-        <block wx:else>
+        <block wx:if="{{(stageBoard.family === 'work' && workAdvice.hasContent) || (stageBoard.family === 'finish' && deliveryAdvice.hasContent) || (stageBoard.family === 'inspect' && inspectionAdvice.hasContent) || (stageBoard.family === 'intake' && intakeAdvice.hasContent) || (stageBoard.family === 'quote' && quoteAssist.hasContent) || !((stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting))}}">
           <block wx:if="{{stageBoard.family === 'work' && workAdvice.hasContent}}">
             <view wx:if="{{workAdvice.hasPhotoPlan}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">施工留证建议</text>
@@ -1931,8 +1939,8 @@
               </view>
             </view>
           </block>
-          <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || deliveryAdvice.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
-          <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || deliveryAdvice.status === 'failed'}}" class="text-caption text-secondary">这次没出成，再点一次 AI</view>
+          <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || deliveryAdvice.isWaiting || quoteAssist.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
+          <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || deliveryAdvice.status === 'failed' || quoteAssist.status === 'failed'}}" class="text-caption text-secondary">这次没出成，点刷新再试</view>
           <view wx:else class="text-caption text-secondary">还没有可展示的意见</view>
         </block>
       </scroll-view>

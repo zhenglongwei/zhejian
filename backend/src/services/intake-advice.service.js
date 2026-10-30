@@ -251,7 +251,8 @@ async function runIntakeAdviceJob(albumId) {
   }
 }
 
-async function queueIntakeAdviceIfNeeded(album, merchantId) {
+async function queueIntakeAdviceIfNeeded(album, merchantId, options = {}) {
+  const force = Boolean(options && options.force)
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(merchantId || album.merchantId)
   if (!capability || !capability.entitled || !capability.llmEnabled) {
@@ -274,31 +275,36 @@ async function queueIntakeAdviceIfNeeded(album, merchantId) {
   }
   const fingerprint = buildFingerprint(album)
   const current = intake.intakeAdvice || {}
-  if (current.status === 'ready' && current.fingerprint === fingerprint && intakeAdviceHasContent(current)) {
-    return { queued: false, reuse: true }
+  const hasReady = current.status === 'ready' && intakeAdviceHasContent(current)
+  // 有上次结果默认复用；仅 force 才重跑
+  if (hasReady && !force) {
+    return {
+      queued: false,
+      reuse: true,
+      stale: text(current.fingerprint) !== fingerprint,
+    }
   }
-  await patchIntakeNode(album.id, (item) => ({
-    ...item,
-    intakeAdvice: {
-      status: 'queued',
-      fingerprint,
-      diagnosis: '',
-      photoTips: [],
-      askOwner: [],
-      checkpoints: [],
-      risks: [],
-      fixes: [],
-      updatedAt: new Date().toISOString(),
-    },
-  }))
+  await patchIntakeNode(album.id, (item) => {
+    const prev = (item && item.intakeAdvice) || {}
+    return {
+      ...item,
+      intakeAdvice: {
+        ...prev,
+        status: 'queued',
+        fingerprint,
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  })
   setImmediate(() => {
     runIntakeAdviceJob(album.id).catch(() => {})
   })
-  return { queued: true }
+  return { queued: true, stale: false }
 }
 
 module.exports = {
   queueIntakeAdviceIfNeeded,
   sanitizeIntakeAdviceForView,
   runIntakeAdviceJob,
+  buildFingerprint,
 }

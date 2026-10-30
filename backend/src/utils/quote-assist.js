@@ -161,20 +161,30 @@ function quoteAssistHasContent(assist) {
   return Boolean(hasLineAdvice || (assist.omissions && assist.omissions.length))
 }
 
-function sanitizeQuoteAssistForView(assist) {
+function sanitizeQuoteAssistForView(assist, options = {}) {
   if (!assist || typeof assist !== 'object') return null
   const status = text(assist.status)
   if (!status) return null
   const suggestedLines = parseSuggestedLines(assist.suggestedLines)
+  const fingerprint = text(assist.fingerprint)
+  const contentFingerprint = text(options.contentFingerprint)
+  const stale =
+    Boolean(fingerprint) &&
+    Boolean(contentFingerprint) &&
+    fingerprint !== contentFingerprint &&
+    (status === 'ready' || quoteAssistHasContent(assist))
+  const waiting = status === 'queued' || status === 'running'
   return {
     status,
+    fingerprint,
+    stale,
     suggestedLines,
     omissions: Array.isArray(assist.omissions) ? assist.omissions : [],
     objections: [],
     priceIssues: [],
     necessity: [],
     photoPlan: [],
-    waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
+    waitHint: waiting ? (quoteAssistHasContent(assist) ? '正在更新' : '正在出意见') : '',
     errorMessage: status === 'failed' ? text(assist.errorMessage) || '未能出意见' : '',
     updatedAt: text(assist.updatedAt),
   }

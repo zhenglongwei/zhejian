@@ -256,7 +256,7 @@ function unmatchedCheckpoints(checkpoints, findings) {
   })
 }
 
-function sanitizeIntakeAdviceForView(advice) {
+function sanitizeIntakeAdviceForView(advice, options = {}) {
   if (!advice || typeof advice !== 'object') return null
   const status = text(advice.status)
   if (!status) return null
@@ -270,8 +270,19 @@ function sanitizeIntakeAdviceForView(advice) {
           }
         : buildCoverageResult(sidesFromList(advice.risks))
       : { covered: false, risks: [], fixes: [] }
+  const fingerprint = text(advice.fingerprint)
+  const contentFingerprint = text(options.contentFingerprint)
+  const hasBody = intakeAdviceHasContent(advice) || coverage.covered || coverage.risks.length > 0
+  const stale =
+    Boolean(fingerprint) &&
+    Boolean(contentFingerprint) &&
+    fingerprint !== contentFingerprint &&
+    (status === 'ready' || hasBody)
+  const waiting = status === 'queued' || status === 'running'
   return {
     status,
+    fingerprint,
+    stale,
     diagnosis: '',
     photoTips: [],
     askOwner: [],
@@ -280,7 +291,7 @@ function sanitizeIntakeAdviceForView(advice) {
     covered: coverage.covered,
     risks: coverage.risks,
     fixes: [],
-    waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
+    waitHint: waiting ? (hasBody ? '正在更新' : '正在出意见') : '',
     errorMessage: status === 'failed' ? text(advice.errorMessage) || '未能出意见' : '',
     updatedAt: text(advice.updatedAt),
   }
