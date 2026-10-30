@@ -35,6 +35,8 @@ function readHostMeta(album) {
     archiveSnapshot: meta.archiveSnapshot || null,
     publicPublishStage: String(meta.publicPublishStage || ''),
     privacyAuditPassedAt: meta.privacyAuditPassedAt || null,
+    privacyAgreementAcceptedAt: meta.privacyAgreementAcceptedAt || null,
+    privacyAgreementVersion: meta.privacyAgreementVersion || '',
     geoDraft: meta.geoDraft || null,
     geoLayer: meta.geoLayer || null,
     revisions: Array.isArray(meta.revisions) ? meta.revisions : [],
@@ -620,6 +622,8 @@ async function cancelPublicHostIntent(albumId, { storeId, merchantId } = {}) {
     visibility: 'private',
     publicPublishStage: '',
     privacyAuditPassedAt: null,
+    privacyAgreementAcceptedAt: null,
+    privacyAgreementVersion: '',
     geoDraft: null,
     geoLayer: null,
   })
@@ -841,10 +845,20 @@ async function ensureHostDesensitizeTask(albumId, { storeId, merchantId, force =
   }
 }
 
-/** 确认 GEO 并公开（须隐私已过） */
+const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v1'
+
+/** 确认店页文案并公开（须隐私已过 + 门店同意隐私责任协议） */
 async function confirmHostedPublicPublish(
   albumId,
-  { storeId, merchantId, summary, highlights, faq } = {},
+  {
+    storeId,
+    merchantId,
+    summary,
+    highlights,
+    faq,
+    privacyAgreementAccepted,
+    privacyAgreementVersion,
+  } = {},
 ) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
   const { commitPublicCaseGoLive } = require('./public-case.service')
@@ -862,6 +876,19 @@ async function confirmHostedPublicPublish(
   if (!prev.hosted || !prev.privacyAuditPassedAt) {
     const err = new Error('请先完成托管与隐私校验')
     err.status = 409
+    throw err
+  }
+  if (!privacyAgreementAccepted) {
+    const err = new Error('请先同意隐私责任协议')
+    err.status = 400
+    err.code = 'PRIVACY_AGREEMENT_REQUIRED'
+    throw err
+  }
+  const agreementVersion = String(privacyAgreementVersion || HOST_PRIVACY_AGREEMENT_VERSION).trim()
+  if (agreementVersion !== HOST_PRIVACY_AGREEMENT_VERSION) {
+    const err = new Error('协议版本已更新，请重新确认')
+    err.status = 400
+    err.code = 'PRIVACY_AGREEMENT_VERSION'
     throw err
   }
 
@@ -886,6 +913,7 @@ async function confirmHostedPublicPublish(
 
   const overview = geoLayer.summary
   const faqList = geoLayer.faq
+  const agreedAt = new Date().toISOString()
   await writeHostMeta(albumId, {
     hosted: true,
     visibility: 'public',
@@ -893,6 +921,8 @@ async function confirmHostedPublicPublish(
     overview,
     faq: faqList,
     publicPublishStage: 'published',
+    privacyAgreementAcceptedAt: agreedAt,
+    privacyAgreementVersion: agreementVersion,
   })
 
   let pc = album.publicCase
@@ -979,7 +1009,7 @@ async function confirmHostedPublicPublish(
     albumId,
     ...readHostMeta(await loadAlbum(albumId)),
     publicCase: published,
-    message: '已确认 GEO 并公开',
+    message: '已上店页',
   }
 }
 
@@ -1242,6 +1272,7 @@ async function hardDeleteAlbum(albumId, { storeId, merchantId, confirmText }) {
 }
 
 module.exports = {
+  HOST_PRIVACY_AGREEMENT_VERSION,
   readHostMeta,
   writeHostMeta,
   resolveStoreSnapshot,

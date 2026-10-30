@@ -760,6 +760,8 @@ router.post(
         summary: body.summary,
         highlights: body.highlights,
         faq: body.faq,
+        privacyAgreementAccepted: Boolean(body.privacyAgreementAccepted),
+        privacyAgreementVersion: body.privacyAgreementVersion,
       })
       return ok(res, data)
     } catch (e) {

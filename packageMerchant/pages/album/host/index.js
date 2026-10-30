@@ -231,40 +231,49 @@ function decorateGeoCopyState(base, summary, faq) {
   return { qualitySuggestions, summaryHint, faqHint }
 }
 
-/** 打码状态文案：未打完软提醒；已打过的不要求再点一键 */
+const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v1'
+const HOST_PRIVACY_AGREEMENT_BODY =
+  '即将上店页的内容已由本店核对。公开图文的隐私合规责任由本店承担；平台提供打码工具，不担保零残留，不代本店担责。同意后将直接公开。'
+
+/** 仅自动中 / 失败 / 仍有未打码时出条；成功不常挂隐私唠叨 */
 function buildMaskStatusCopy(maskImages = [], options = {}) {
   const list = Array.isArray(maskImages) ? maskImages : []
   const unmaskedCount = list.filter((row) => !row.masked).length
-  const total = list.length
   const autoRunning = Boolean(options.autoRunning)
-  const privacyTouched = Boolean(options.privacyTouched)
+  const maskAutoFailed = Boolean(options.maskAutoFailed)
   if (autoRunning) {
     return {
       unmaskedCount,
-      maskStatusTitle: '正在检查隐私…',
-      maskStatusHint: '平台自动处理未打码图片；已打过码的不会重打。',
+      showMaskBanner: true,
+      maskAutoFailed: false,
+      maskStatusTitle: '正在处理图片…',
+      maskStatusHint: '未打码的会自动处理；已打过的不重打。',
     }
   }
-  if (!total) {
+  if (maskAutoFailed && unmaskedCount > 0) {
     return {
-      unmaskedCount: 0,
-      maskStatusTitle: '本单暂无照片',
-      maskStatusHint: '仍可继续写店页说明；有图时请点图核对。',
+      unmaskedCount,
+      showMaskBanner: true,
+      maskAutoFailed: true,
+      maskStatusTitle: '自动处理未完成',
+      maskStatusHint: `${options.failHint || '打码服务暂不可用'}。请点图手工补打后再公开。`,
     }
   }
   if (unmaskedCount > 0) {
     return {
       unmaskedCount,
-      maskStatusTitle: `还有 ${unmaskedCount} 张未能上店页`,
-      maskStatusHint: '未打码原图不会出现在店页。可点图手工补打，也可先继续。',
+      showMaskBanner: true,
+      maskAutoFailed: false,
+      maskStatusTitle: `还有 ${unmaskedCount} 张需补打码`,
+      maskStatusHint: '未打码原图不上店页。请点图手工补打。',
     }
   }
   return {
     unmaskedCount: 0,
-    maskStatusTitle: privacyTouched ? '已为您做脱敏处理' : '照片已可公开',
-    maskStatusHint: privacyTouched
-      ? '检测到涉及客户隐私的内容，已处理。请预览核对后再公开。'
-      : '请预览下方档案；还需改码可点图。',
+    showMaskBanner: false,
+    maskAutoFailed: false,
+    maskStatusTitle: '',
+    maskStatusHint: '',
   }
 }
 
@@ -288,9 +297,11 @@ Page({
     archiveChapters: [],
     maskImages: [],
     unmaskedCount: 0,
+    showMaskBanner: false,
     maskStatusTitle: '',
     maskStatusHint: '',
     maskAutoRunning: false,
+    maskAutoFailed: false,
     privacyTouched: false,
     previewTexts: [],
     previewImages: [],
@@ -342,34 +353,11 @@ Page({
         return
       }
       this.applyAlbum(album)
-      if (this.data.wizardStep === 2 || this.data.wizardStep === 3) {
+      if (this.data.wizardStep === 2) {
         await this.loadPublicFace({ silent: true })
-      }
-      if (this.data.wizardStep === 2 && this.data.hostMode === 'public') {
-        await this.ensureAutoMaskOnReview()
-      }
-      if (
-        this.data.wizardStep === 3 &&
-        this.data.privacyPassed &&
-        !String(this.data.geoSummary || '').trim()
-      ) {
-        try {
-          const res = await generateHostedGeoDraft(this.albumId)
-          const qualitySuggestions = Array.isArray(res.qualitySuggestions)
-            ? res.qualitySuggestions
-            : this.data.qualitySuggestions
-          this._baseQualitySuggestions = qualitySuggestions
-          this.setData({
-            ...applyGeoDraftToPageData(res.geoDraft || {}),
-            publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
-            ...decorateGeoCopyState(
-              qualitySuggestions,
-              (res.geoDraft && res.geoDraft.summary) || '',
-              (res.geoDraft && res.geoDraft.faq) || [],
-            ),
-          })
-        } catch (_) {
-          /* 留空由用户点重新生成 */
+        if (this.data.hostMode === 'public') {
+          await this.ensureAutoMaskOnReview()
+          await this.ensureGeoDraftForPreview()
         }
       }
     } catch (e) {
@@ -438,6 +426,7 @@ Page({
       Promise.resolve()
         .then(() => this.loadPublicFace({ silent: true }))
         .then(() => this.ensureAutoMaskOnReview())
+        .then(() => this.ensureGeoDraftForPreview())
         .catch(() => {})
     }
   },
@@ -484,13 +473,15 @@ Page({
         .sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
       const maskCopy = buildMaskStatusCopy(maskImages, {
         autoRunning: this.data.maskAutoRunning,
-        privacyTouched: this.data.privacyTouched,
+        maskAutoFailed: this.data.maskAutoFailed && maskImages.some((row) => !row.masked),
       })
       this.setData({
         archiveChapters: flowChapters,
         reviewDocs: Array.isArray(face.reviewDocs) ? face.reviewDocs : [],
         maskImages,
         unmaskedCount: maskCopy.unmaskedCount,
+        showMaskBanner: maskCopy.showMaskBanner,
+        maskAutoFailed: maskCopy.maskAutoFailed,
         maskStatusTitle: maskCopy.maskStatusTitle,
         maskStatusHint: maskCopy.maskStatusHint,
         previewTexts: face.texts || [],
@@ -522,12 +513,13 @@ Page({
       const album = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(album)
       wx.showToast({
-        title: this.data.hostMode === 'public' ? '已存档，请核对内容' : '已私密存档',
+        title: this.data.hostMode === 'public' ? '已存档，请预览' : '已私密存档',
         icon: 'success',
       })
       if (this.data.wizardStep === 2) {
         await this.loadPublicFace()
         await this.ensureAutoMaskOnReview()
+        await this.ensureGeoDraftForPreview()
       }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
@@ -546,6 +538,7 @@ Page({
       this.setData({ hostMode: 'public' })
       await this.loadPublicFace()
       await this.ensureAutoMaskOnReview()
+      await this.ensureGeoDraftForPreview()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
@@ -572,11 +565,14 @@ Page({
       await cancelPublicHostIntent(this.albumId)
       const album = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(album)
+      this._autoMaskTried = false
       this.setData({
         hostMode: 'private',
         reviewDocs: [],
         maskImages: [],
         unmaskedCount: 0,
+        showMaskBanner: false,
+        maskAutoFailed: false,
         previewTexts: [],
         previewImages: [],
         privacyBlocks: [],
@@ -677,18 +673,18 @@ Page({
   },
 
   /**
-   * 进入核对步后台自动打码（无「一键」按钮）。
-   * 已打过的图由任务侧跳过；调用失败 ≠ 未检出隐私。
+   * 进入预览步后台自动打码（无「一键」按钮）。
+   * 已打过的图由任务侧跳过；失败才提示手工补，成功不常挂唠叨。
    */
   async ensureAutoMaskOnReview() {
     if (this._autoMaskTried || this.data.maskAutoRunning) return
     const pending = (this.data.maskImages || []).filter((row) => !row.masked)
     if (!pending.length) {
-      const copy = buildMaskStatusCopy(this.data.maskImages, {
-        privacyTouched: this.data.privacyTouched,
-      })
+      const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
         unmaskedCount: copy.unmaskedCount,
+        showMaskBanner: copy.showMaskBanner,
+        maskAutoFailed: false,
         maskStatusTitle: copy.maskStatusTitle,
         maskStatusHint: copy.maskStatusHint,
       })
@@ -697,6 +693,7 @@ Page({
     this._autoMaskTried = true
     this.setData({
       maskAutoRunning: true,
+      maskAutoFailed: false,
       ...buildMaskStatusCopy(this.data.maskImages, { autoRunning: true }),
     })
     try {
@@ -722,39 +719,80 @@ Page({
       })
       this.setData({ archiveChapters, privacyTouched, maskAutoRunning: false })
       await this.loadPublicFace({ silent: true })
-      const copy = buildMaskStatusCopy(this.data.maskImages, { privacyTouched })
+      const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
         unmaskedCount: copy.unmaskedCount,
+        showMaskBanner: copy.showMaskBanner,
+        maskAutoFailed: false,
         maskStatusTitle: copy.maskStatusTitle,
         maskStatusHint: copy.maskStatusHint,
       })
     } catch (e) {
       const copy = buildMaskStatusCopy(this.data.maskImages, {
-        privacyTouched: this.data.privacyTouched,
+        maskAutoFailed: true,
+        failHint: (e && e.message) || '打码服务暂不可用',
       })
       this.setData({
         maskAutoRunning: false,
         unmaskedCount: copy.unmaskedCount,
-        maskStatusTitle: '自动处理未完成',
-        maskStatusHint: `${(e && e.message) || '打码服务暂不可用'}。可点图手工补打，也可先继续（未打码图不上店页）。`,
+        showMaskBanner: copy.showMaskBanner,
+        maskAutoFailed: copy.maskAutoFailed,
+        maskStatusTitle: copy.maskStatusTitle,
+        maskStatusHint: copy.maskStatusHint,
       })
     }
   },
 
-  async onContinueAfterReview() {
-    if (this.data.working) return
-    if (Number(this.data.unmaskedCount) > 0) {
-      const go = await new Promise((resolve) => {
-        wx.showModal({
-          title: '还有照片未能上店页',
-          content: `还有 ${this.data.unmaskedCount} 张未打码，公开页不会展示这些原图。可点图补打，或仍继续写店页说明。`,
-          confirmText: '仍继续',
-          cancelText: '回去看',
-          success: (res) => resolve(Boolean(res.confirm)),
-        })
-      })
-      if (!go) return
+  async ensureGeoDraftForPreview() {
+    if (shouldKeepExistingGeoDraft(this.data)) {
+      this.setData(
+        decorateGeoCopyState(
+          this._baseQualitySuggestions,
+          this.data.geoSummary,
+          this.data.geoFaq,
+        ),
+      )
+      return
     }
+    try {
+      const res = await generateHostedGeoDraft(this.albumId)
+      const draft = res.geoDraft || {}
+      const qualitySuggestions = Array.isArray(res.qualitySuggestions)
+        ? res.qualitySuggestions
+        : this.data.qualitySuggestions
+      this._baseQualitySuggestions = qualitySuggestions
+      this.setData({
+        ...applyGeoDraftToPageData(draft),
+        publicPublishStage: res.publicPublishStage || this.data.publicPublishStage,
+        ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
+      })
+    } catch (_) {
+      /* 摘要可手填 */
+    }
+  },
+
+  async onContinuePublish() {
+    if (this.data.working || this.data.maskAutoRunning) return
+    if (Number(this.data.unmaskedCount) > 0) {
+      wx.showToast({ title: '请先补打未处理的图', icon: 'none' })
+      return
+    }
+    const summary = String(this.data.geoSummary || '').trim()
+    if (!summary) {
+      wx.showToast({ title: '请填写店页摘要', icon: 'none' })
+      return
+    }
+    const agreed = await new Promise((resolve) => {
+      wx.showModal({
+        title: '隐私责任说明',
+        content: HOST_PRIVACY_AGREEMENT_BODY,
+        confirmText: '同意并公开',
+        cancelText: '再看看',
+        success: (res) => resolve(Boolean(res.confirm)),
+      })
+    })
+    if (!agreed) return
+
     this.setData({ working: true })
     try {
       const audit = await auditHostedPublicPrivacy(this.albumId)
@@ -768,67 +806,27 @@ Page({
       })
       if (!audit.passed) {
         wx.showToast({
-          title: (blocks[0] && blocks[0].message) || '还有需处理项',
+          title: (blocks[0] && blocks[0].message) || '还有需改的文案',
           icon: 'none',
         })
         return
       }
-      if (shouldKeepExistingGeoDraft(this.data)) {
-        this.setData({
-          wizardStep: 3,
-          wizardMaxStep: Math.max(3, Number(this.data.wizardMaxStep) || 1),
-          ...decorateGeoCopyState(
-            this._baseQualitySuggestions,
-            this.data.geoSummary,
-            this.data.geoFaq,
-          ),
-        })
-        return
-      }
-      const res = await generateHostedGeoDraft(this.albumId)
-      const draft = res.geoDraft || {}
-      const qualitySuggestions = Array.isArray(res.qualitySuggestions)
-        ? res.qualitySuggestions
-        : this.data.qualitySuggestions
-      this._baseQualitySuggestions = qualitySuggestions
-      this.setData({
-        ...applyGeoDraftToPageData(draft),
-        wizardStep: 3,
-        wizardMaxStep: 3,
-        publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
-        ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
+      const faq = (this.data.geoFaq || []).map((row) => ({
+        q: String((row && row.q) || '').trim(),
+        a: String((row && row.a) || '').trim(),
+      }))
+      await confirmHostedPublicPublish(this.albumId, {
+        summary,
+        highlights: [],
+        faq,
+        privacyAgreementAccepted: true,
+        privacyAgreementVersion: HOST_PRIVACY_AGREEMENT_VERSION,
       })
+      wx.showToast({ title: '已上店页', icon: 'success' })
+      const album = await fetchMerchantServiceAlbum(this.albumId)
+      this.applyAlbum(album)
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '继续失败', icon: 'none' })
-    } finally {
-      this.setData({ working: false })
-    }
-  },
-
-  async onRegenerateCopy() {
-    if (this.data.working) return
-    this.setData({ working: true })
-    try {
-      const res = await generateHostedGeoDraft(this.albumId, { forceRegen: true })
-      this.setData({
-        ...applyGeoDraftToPageData(res.geoDraft || {}),
-        ...decorateGeoCopyState(
-          Array.isArray(res.qualitySuggestions)
-            ? res.qualitySuggestions
-            : this._baseQualitySuggestions,
-          (res.geoDraft && res.geoDraft.summary) || '',
-          (res.geoDraft && res.geoDraft.faq) || [],
-        ),
-      })
-      this._baseQualitySuggestions = Array.isArray(res.qualitySuggestions)
-        ? res.qualitySuggestions
-        : this._baseQualitySuggestions
-      wx.showToast({
-        title: res.message && /暂不可用/.test(res.message) ? '请自行改写' : '已重新生成',
-        icon: 'none',
-      })
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '生成失败', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '公开失败', icon: 'none' })
     } finally {
       this.setData({ working: false })
     }
@@ -923,59 +921,4 @@ Page({
     })
   },
 
-  async onConfirmPublic() {
-    if (this.data.working) return
-    const summary = String(this.data.geoSummary || '').trim()
-    if (!summary) {
-      wx.showToast({ title: '请填写店页说明', icon: 'none' })
-      return
-    }
-    // 空答不上网：仍把全量交给后端，由 filterPublishableFaq 过滤
-    const faq = (this.data.geoFaq || []).map((row) => ({
-      q: String((row && row.q) || '').trim(),
-      a: String((row && row.a) || '').trim(),
-    }))
-    const copyState = decorateGeoCopyState(
-      this._baseQualitySuggestions,
-      summary,
-      faq,
-    )
-    const lines = []
-      .concat(
-        (copyState.qualitySuggestions || []).map((row) => `· ${row.title}`),
-        copyState.summaryHint ? '· 摘要还是目录句' : '',
-        copyState.faqHint ? '· 常见问法还空着' : '',
-        Number(this.data.unmaskedCount) > 0
-          ? `· 还有 ${this.data.unmaskedCount} 张未打码图不会出现在店页`
-          : '',
-      )
-      .filter(Boolean)
-    if (lines.length) {
-      const ok = await new Promise((resolve) => {
-        wx.showModal({
-          title: '仍有可优化项',
-          content: `${lines.slice(0, 5).join('\n')}\n可回去改，或仍公开（责任由本店承担）。`,
-          confirmText: '仍要公开',
-          cancelText: '回去改',
-          success: (res) => resolve(Boolean(res.confirm)),
-        })
-      })
-      if (!ok) return
-    }
-    this.setData({ working: true })
-    try {
-      await confirmHostedPublicPublish(this.albumId, {
-        summary,
-        highlights: [],
-        faq,
-      })
-      wx.showToast({ title: '已上店页', icon: 'success' })
-      const album = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(album)
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '公开失败', icon: 'none' })
-    } finally {
-      this.setData({ working: false })
-    }
-  },
 })

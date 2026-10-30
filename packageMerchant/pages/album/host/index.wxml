@@ -12,7 +12,7 @@
     <view class="merchant-host-page__intro">
       <text class="text-body">{{serviceName}}</text>
       <text class="text-caption text-secondary merchant-host-page__hint">
-        把本单原始档案存到案例站；要上店页时，再核对将公开的内容并写好说明。
+        把本单档案存到案例站；公开前预览店页稿，同意责任说明后即可上店页。
       </text>
     </view>
 
@@ -26,12 +26,7 @@
         class="merchant-host-page__step {{wizardStep === 2 ? 'is-on' : ''}} {{wizardMaxStep >= 2 && wizardStep !== 2 ? 'is-reached' : ''}} {{wizardMaxStep < 2 ? 'is-locked' : ''}}"
         data-step="2"
         bindtap="onWizardStepTap"
-      >2 核对内容</view>
-      <view
-        class="merchant-host-page__step {{wizardStep === 3 ? 'is-on' : ''}} {{wizardMaxStep >= 3 && wizardStep !== 3 ? 'is-reached' : ''}} {{wizardMaxStep < 3 ? 'is-locked' : ''}}"
-        data-step="3"
-        bindtap="onWizardStepTap"
-      >3 店页说明</view>
+      >2 预览公开</view>
     </view>
 
     <!-- 步骤 1：存档 -->
@@ -42,7 +37,7 @@
       </view>
       <view wx:elif="{{hosted && wizardMaxStep >= 2}}" class="merchant-host-page__status">
         <text class="text-body">正在准备公开</text>
-        <text class="text-caption text-secondary">点上方步骤可再核对或改说明。</text>
+        <text class="text-caption text-secondary">点上方「预览公开」继续。</text>
       </view>
       <view wx:elif="{{hosted}}" class="merchant-host-page__status">
         <text class="text-body">已私密托管</text>
@@ -64,22 +59,25 @@
           data-mode="public"
           bindtap="onSelectMode"
         >
-          <text class="text-body">准备公开</text>
-          <text class="text-caption text-secondary">下一步核对将公开的图文，再写店页说明</text>
+          <text class="text-body">公开托管</text>
+          <text class="text-caption text-secondary">自动打码后预览店页稿，同意责任说明即可公开</text>
         </view>
       </view>
     </block>
 
-    <!-- 步骤 2：精简网页档案预览；后台自动打码；点图可手工补打 -->
+    <!-- 步骤 2：打码后网页预览 + 摘要微调 → 协议后直公开 -->
     <block wx:elif="{{wizardStep === 2}}">
       <view class="merchant-host-page__section">
-        <view class="merchant-host-page__mask-status {{unmaskedCount ? 'is-warn' : 'is-ok'}}">
+        <view
+          wx:if="{{showMaskBanner}}"
+          class="merchant-host-page__mask-status {{unmaskedCount || maskAutoFailed ? 'is-warn' : 'is-ok'}}"
+        >
           <text class="text-body">{{maskStatusTitle}}</text>
           <text class="text-caption merchant-host-page__mask-hint">{{maskStatusHint}}</text>
         </view>
 
         <text class="text-body merchant-host-page__label">将公开的档案预览</text>
-        <text class="text-caption text-secondary merchant-host-page__hint">版式接近店页档案；点图可手工补打码。</text>
+        <text class="text-caption text-secondary merchant-host-page__hint">版式接近店页；需补打码时点图。</text>
 
         <view wx:if="{{archiveChapters.length}}" class="merchant-host-page__archive">
           <host-archive-preview
@@ -89,11 +87,66 @@
           />
         </view>
         <view wx:else class="merchant-host-page__empty">
-          <text class="text-caption text-secondary">暂无公开内容。请先在服务进度里完成检测、方案、工单与交车后再来。</text>
+          <text class="text-caption text-secondary">暂无可公开内容。请先在服务进度里完成检测、方案、工单与交车后再来。</text>
         </view>
 
         <view wx:if="{{privacyBlocks.length}}" class="merchant-host-page__blocks">
           <text wx:for="{{privacyBlocks}}" wx:key="issue" class="text-caption">{{item.message}}</text>
+        </view>
+
+        <view class="merchant-host-page__copy">
+          <text class="text-body merchant-host-page__label">店页摘要</text>
+          <textarea
+            class="merchant-host-page__textarea"
+            value="{{geoSummary}}"
+            maxlength="500"
+            bindinput="onGeoSummaryInput"
+            placeholder="什么车、什么问题、怎么处理、结果如何"
+          />
+          <text wx:if="{{summaryHint}}" class="text-caption merchant-host-page__field-hint">{{summaryHint}}</text>
+
+          <view class="merchant-host-page__faq">
+            <text class="text-caption merchant-host-page__field-label">常见问法</text>
+            <text
+              wx:if="{{faqHint}}"
+              class="text-caption merchant-host-page__field-hint"
+            >{{faqHint}}</text>
+            <text
+              wx:elif="{{geoFaqEmpty || geoFaqUnanswered}}"
+              class="text-caption text-secondary merchant-host-page__empty-hint"
+            >
+              {{geoFaqEmptyHint}}
+            </text>
+            <view wx:for="{{geoFaq}}" wx:key="_k" class="merchant-host-page__edit-row">
+              <view class="merchant-host-page__edit-row-head">
+                <text class="text-caption text-secondary">问答 {{index + 1}}{{item.needsAnswer || !item.a ? ' · 待填答' : ''}}</text>
+                <text
+                  class="text-caption merchant-host-page__edit-remove"
+                  data-index="{{index}}"
+                  bindtap="onRemoveFaq"
+                >删除</text>
+              </view>
+              <input
+                class="merchant-host-page__input"
+                value="{{item.q}}"
+                data-index="{{index}}"
+                data-field="q"
+                bindinput="onFaqFieldInput"
+                maxlength="40"
+                placeholder="车主可能怎么问"
+              />
+              <textarea
+                class="merchant-host-page__textarea merchant-host-page__textarea--sm"
+                value="{{item.a}}"
+                data-index="{{index}}"
+                data-field="a"
+                bindinput="onFaqFieldInput"
+                maxlength="280"
+                placeholder="本单怎么做；空着则店页不展示"
+              />
+            </view>
+            <ui-button type="ghost" size="sm" bind:btntap="onAddFaq">添加问法</ui-button>
+          </view>
         </view>
 
         <view wx:if="{{qualitySuggestions.length}}" class="merchant-host-page__tips">
@@ -107,82 +160,6 @@
             <text class="text-caption text-secondary">{{item.suggestion}}</text>
           </view>
         </view>
-      </view>
-    </block>
-
-    <!-- 步骤 3：店页说明 -->
-    <block wx:elif="{{wizardStep === 3}}">
-      <view class="merchant-host-page__section">
-        <text class="text-body merchant-host-page__label">将出现在店页上的说明</text>
-
-        <text class="text-caption merchant-host-page__field-label">摘要</text>
-        <textarea
-          class="merchant-host-page__textarea"
-          value="{{geoSummary}}"
-          maxlength="500"
-          bindinput="onGeoSummaryInput"
-          placeholder="用平常话写清：什么车、什么问题、怎么处理、结果如何"
-        />
-        <text wx:if="{{summaryHint}}" class="text-caption merchant-host-page__field-hint">{{summaryHint}}</text>
-
-        <view class="merchant-host-page__faq">
-          <text class="text-caption merchant-host-page__field-label">常见问法</text>
-          <text
-            wx:if="{{faqHint}}"
-            class="text-caption merchant-host-page__field-hint"
-          >{{faqHint}}</text>
-          <text
-            wx:elif="{{geoFaqEmpty || geoFaqUnanswered}}"
-            class="text-caption text-secondary merchant-host-page__empty-hint"
-          >
-            {{geoFaqEmptyHint}}
-          </text>
-          <view wx:for="{{geoFaq}}" wx:key="_k" class="merchant-host-page__edit-row">
-            <view class="merchant-host-page__edit-row-head">
-              <text class="text-caption text-secondary">问答 {{index + 1}}{{item.needsAnswer || !item.a ? ' · 待填答' : ''}}</text>
-              <text
-                class="text-caption merchant-host-page__edit-remove"
-                data-index="{{index}}"
-                bindtap="onRemoveFaq"
-              >删除</text>
-            </view>
-            <input
-              class="merchant-host-page__input"
-              value="{{item.q}}"
-              data-index="{{index}}"
-              data-field="q"
-              bindinput="onFaqFieldInput"
-              maxlength="40"
-              placeholder="车主可能怎么问"
-            />
-            <textarea
-              class="merchant-host-page__textarea merchant-host-page__textarea--sm"
-              value="{{item.a}}"
-              data-index="{{index}}"
-              data-field="a"
-              bindinput="onFaqFieldInput"
-              maxlength="280"
-              placeholder="平时常见怎么做、本单怎么做；空着则公开页不展示"
-            />
-          </view>
-          <ui-button type="ghost" size="sm" bind:btntap="onAddFaq">添加问法</ui-button>
-        </view>
-
-        <view wx:if="{{qualitySuggestions.length}}" class="merchant-host-page__tips merchant-host-page__tips--geo">
-          <text class="text-body merchant-host-page__label">可优化</text>
-          <view
-            wx:for="{{qualitySuggestions}}"
-            wx:key="issue"
-            class="merchant-host-page__tip"
-          >
-            <text class="text-body">{{item.title}}</text>
-            <text class="text-caption text-secondary">{{item.suggestion}}</text>
-          </view>
-        </view>
-
-        <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onRegenerateCopy">
-          重新生成说明
-        </ui-button>
       </view>
     </block>
   </block>
@@ -216,7 +193,7 @@
         block="{{true}}"
         loading="{{working}}"
         bind:btntap="onSwitchToPublic"
-      >准备公开</ui-button>
+      >公开托管</ui-button>
     </block>
 
     <block wx:elif="{{wizardStep === 2}}">
@@ -231,24 +208,8 @@
         slot="right"
         type="primary"
         loading="{{working}}"
-        bind:btntap="onContinueAfterReview"
-      >我已核对，继续</ui-button>
-    </block>
-
-    <block wx:elif="{{wizardStep === 3}}">
-      <ui-button
-        slot="left"
-        type="ghost"
-        size="sm"
-        loading="{{working}}"
-        bind:btntap="onCancelPublicIntent"
-      >改回仅私密</ui-button>
-      <ui-button
-        slot="right"
-        type="primary"
-        loading="{{working}}"
-        bind:btntap="onConfirmPublic"
-      >确认</ui-button>
+        bind:btntap="onContinuePublish"
+      >继续公开</ui-button>
     </block>
   </ui-fixed-bottom-bar>
 </view>

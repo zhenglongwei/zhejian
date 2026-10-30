@@ -123,6 +123,8 @@ async function main() {
         merchantId,
         summary: geo.geoDraft.summary,
         faq: geo.geoDraft.faq,
+        privacyAgreementAccepted: true,
+        privacyAgreementVersion: 'host_privacy_v1',
       })
       assert(pub.publicCase, 'confirm-public 应返回 publicCase')
       console.log('[hosting-smoke] FULL: 确认公开 OK status=', pub.publicCase.status || pub.status)

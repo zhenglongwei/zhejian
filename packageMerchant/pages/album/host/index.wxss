@@ -258,6 +258,10 @@
   min-height: 120rpx;
 }
 
+.merchant-host-page__copy {
+  margin-top: var(--space-lg);
+}
+
 .merchant-host-page__highlights,
 .merchant-host-page__faq {
   display: flex;
