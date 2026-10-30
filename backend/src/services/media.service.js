@@ -171,9 +171,14 @@ function shouldUseCachedDesensitize(media, context = {}) {
   return true
 }
 
+/**
+ * 默认：成功产物复用；失败/需人工不再自动重跑（避免节点侧反复烧 OCR）。
+ * 公开托管补跑传 retryFailed:true → 仅成功复用，失败/需人工必须重打。
+ */
 function shouldSkipRerunDesensitize(media, context = {}) {
   if (!media || context.force) return false
   if (shouldUseCachedDesensitize(media, context)) return true
+  if (context.retryFailed) return false
   return (
     media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL ||
     media.desensitizeStatus === DESENSITIZE_STATUS.FAILED

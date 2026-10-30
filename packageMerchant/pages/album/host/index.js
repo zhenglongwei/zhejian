@@ -360,12 +360,9 @@ Page({
         return
       }
       this.applyAlbum(album)
-      if (this.data.wizardStep === 2) {
-        await this.loadPublicFace({ silent: true })
-        if (this.data.hostMode === 'public') {
-          await this.ensureAutoMaskOnReview()
-          await this.ensureGeoDraftForPreview()
-        }
+      if (this.data.wizardStep === 2 && this.data.hostMode === 'public') {
+        this._autoMaskTried = false
+        await this.enterPublicPreview()
       }
     } catch (e) {
       this.setData({
@@ -430,10 +427,9 @@ Page({
     if (step === this.data.wizardStep) return
     this.setData({ wizardStep: step })
     if (step === 2) {
+      this._autoMaskTried = false
       Promise.resolve()
-        .then(() => this.loadPublicFace({ silent: true }))
-        .then(() => this.ensureAutoMaskOnReview())
-        .then(() => this.ensureGeoDraftForPreview())
+        .then(() => this.enterPublicPreview())
         .catch(() => {})
     }
   },
@@ -517,20 +513,19 @@ Page({
     if (this.data.working || this.data.hosted) return
     this.setData({ working: true })
     try {
+      const wantPublic = this.data.hostMode === 'public'
       await hostMerchantAlbum(this.albumId, {
         mode: this.data.hostMode,
         useDesensitizeTool: true,
       })
       const album = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(album)
-      wx.showToast({
-        title: this.data.hostMode === 'public' ? '已存档，请预览' : '已私密存档',
-        icon: 'success',
-      })
-      if (this.data.wizardStep === 2) {
-        await this.loadPublicFace()
-        await this.ensureAutoMaskOnReview()
-        await this.ensureGeoDraftForPreview()
+      if (wantPublic) {
+        this._autoMaskTried = false
+        await this.enterPublicPreview()
+        wx.showToast({ title: '已存档，请预览', icon: 'success' })
+      } else {
+        wx.showToast({ title: '已私密存档', icon: 'success' })
       }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
@@ -546,10 +541,8 @@ Page({
       await hostMerchantAlbum(this.albumId, { mode: 'public', useDesensitizeTool: true })
       const album = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(album)
-      this.setData({ hostMode: 'public' })
-      await this.loadPublicFace()
-      await this.ensureAutoMaskOnReview()
-      await this.ensureGeoDraftForPreview()
+      this._autoMaskTried = false
+      await this.enterPublicPreview()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
@@ -686,27 +679,11 @@ Page({
   },
 
   /**
-   * 进入预览步后台自动打码（无「一键」按钮）。
-   * 已打过的图由任务侧跳过；失败才提示手工补，成功不常挂唠叨。
+   * 进入公开预览：整案必调一轮自动打码。
+   * 单图：节点 AI 已打码成功（含未检出隐私）→ 复用；OCR/贴码失败或从未跑过 → 重打/新打。
    */
   async ensureAutoMaskOnReview() {
     if (this._autoMaskTried || this.data.maskAutoRunning) return
-    // 只跑尚未终态成功的图；已 ok_no_privacy / ok_masked 不重打
-    const pending = (this.data.maskImages || []).filter(
-      (row) => row.pending || row.needsManual,
-    )
-    if (!pending.length) {
-      const copy = buildMaskStatusCopy(this.data.maskImages, {})
-      this.setData({
-        unmaskedCount: copy.needsManualCount,
-        needsManualCount: copy.needsManualCount,
-        showMaskBanner: copy.showMaskBanner,
-        maskAutoFailed: false,
-        maskStatusTitle: copy.maskStatusTitle,
-        maskStatusHint: copy.maskStatusHint,
-      })
-      return
-    }
     this._autoMaskTried = true
     this.setData({
       maskAutoRunning: true,
@@ -765,6 +742,22 @@ Page({
         maskStatusHint: '',
       })
     }
+  },
+
+  /** 进公开预览：先切到预览步并露处理中，再拉面 → 打码 → 店页草稿 */
+  async enterPublicPreview() {
+    this.setData({
+      wizardStep: 2,
+      wizardMaxStep: Math.max(2, Number(this.data.wizardMaxStep) || 1),
+      hostMode: 'public',
+      showMaskBanner: true,
+      maskStatusTitle: '正在处理图片…',
+      maskStatusHint: '公开前自动核对隐私；已处理过的不重打。',
+    })
+    await this.loadPublicFace({ silent: true })
+    // 由 ensureAutoMaskOnReview 置 maskAutoRunning，避免此处先置 true 被当成「已在跑」而跳过
+    await this.ensureAutoMaskOnReview()
+    await this.ensureGeoDraftForPreview()
   },
 
   async ensureGeoDraftForPreview() {

@@ -1015,12 +1015,17 @@ async function runAutoMask(taskId, options = {}) {
     err.status = 400
     throw err
   }
+  // 托管公开任务：整案必跑一轮；成功态复用，失败/需人工/未跑过则重打或新打
+  const hostPublicRetry =
+    String(task.taskId || '').startsWith('task_host_mask_') ||
+    task.bizType === BIZ_TYPE.MERCHANT_HISTORY
   const updates = await Promise.all(
     (task.assets || []).map(async (asset) => {
       const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
         albumId: task.bizId,
         nodeId: asset.nodeId,
         idx: asset.idx,
+        retryFailed: hostPublicRetry,
       })
       const maskedUrl = masked.ok ? masked.maskedUrl : ''
       return prisma.desensitizeAsset.update({

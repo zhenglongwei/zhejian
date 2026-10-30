@@ -1,6 +1,12 @@
 /**
- * 托管自动打码状态树（15_ §6.1）：禁止把「未检出」当成失败。
- * call_failed / ok_detect_mask_failed 才需手工；ok_no_privacy / ok_masked 可上店页。
+ * 托管公开打码状态树（15_ §6.1）
+ *
+ * 打码成功 = 打码程序调用成功（不要求必须检出隐私）：
+ *   ok_no_privacy | ok_masked → 可复用，公开轮不重打
+ * 必须重打：
+ *   call_failed（OCR/网络未跑通）
+ *   ok_detect_mask_failed（检出了但贴码失败 / need_manual）
+ *   pending（从未跑过 / 仅原图）
  */
 
 const HOST_MASK_OUTCOME = {
@@ -32,33 +38,48 @@ function classifyHostMaskOutcome(row = {}) {
       outcome: HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED,
       needsManual: true,
       publishSafe: false,
+      maskSucceeded: false,
+      needsRemask: true,
     }
   }
 
+  // 打码成功：调用成功即可（含未检出隐私）
   if (mediaStatus === 'success' || (READY_ASSET_STATUSES.has(assetStatus) && hasMaskedUrl)) {
+    const outcome = tags.length
+      ? HOST_MASK_OUTCOME.OK_MASKED
+      : HOST_MASK_OUTCOME.OK_NO_PRIVACY
     return {
-      outcome: tags.length
-        ? HOST_MASK_OUTCOME.OK_MASKED
-        : HOST_MASK_OUTCOME.OK_NO_PRIVACY,
+      outcome,
       needsManual: false,
       publishSafe: true,
+      maskSucceeded: true,
+      needsRemask: false,
     }
   }
 
   if (mediaStatus === 'failed' || assetStatus === 'mask_failed') {
-    // 有检出却贴不上 → 打码失败；无检出标签多为 OCR/网络等客观失败
     const outcome = tags.length
       ? HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED
       : HOST_MASK_OUTCOME.CALL_FAILED
-    return { outcome, needsManual: true, publishSafe: false }
+    return {
+      outcome,
+      needsManual: true,
+      publishSafe: false,
+      maskSucceeded: false,
+      needsRemask: true,
+    }
   }
 
-  // 仅有脱敏 URL、无任务行：视为已处理可公开（无法区分是否检出）
   if (hasMaskedUrl && !assetStatus && !mediaStatus) {
+    const outcome = tags.length
+      ? HOST_MASK_OUTCOME.OK_MASKED
+      : HOST_MASK_OUTCOME.OK_NO_PRIVACY
     return {
-      outcome: tags.length ? HOST_MASK_OUTCOME.OK_MASKED : HOST_MASK_OUTCOME.OK_NO_PRIVACY,
+      outcome,
       needsManual: false,
       publishSafe: true,
+      maskSucceeded: true,
+      needsRemask: false,
     }
   }
 
@@ -66,18 +87,28 @@ function classifyHostMaskOutcome(row = {}) {
     outcome: HOST_MASK_OUTCOME.PENDING,
     needsManual: false,
     publishSafe: false,
+    maskSucceeded: false,
+    needsRemask: true,
   }
+}
+
+function isMaskCallSuccess(outcome) {
+  return (
+    outcome === HOST_MASK_OUTCOME.OK_NO_PRIVACY || outcome === HOST_MASK_OUTCOME.OK_MASKED
+  )
 }
 
 function needsHostMaskAction(outcome) {
   return (
     outcome === HOST_MASK_OUTCOME.CALL_FAILED ||
-    outcome === HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED
+    outcome === HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED ||
+    outcome === HOST_MASK_OUTCOME.PENDING
   )
 }
 
 module.exports = {
   HOST_MASK_OUTCOME,
   classifyHostMaskOutcome,
+  isMaskCallSuccess,
   needsHostMaskAction,
 }

@@ -55,8 +55,20 @@ test('need_manual media is detect_mask_failed', () => {
   assert.equal(needsHostMaskAction(row.outcome), true)
 })
 
-test('untouched asset stays pending', () => {
+test('untouched asset stays pending and needs remask', () => {
   const row = classifyHostMaskOutcome({ status: 'raw_uploaded' })
   assert.equal(row.outcome, HOST_MASK_OUTCOME.PENDING)
-  assert.equal(row.needsManual, false)
+  assert.equal(row.maskSucceeded, false)
+  assert.equal(row.needsRemask, true)
+  assert.equal(needsHostMaskAction(row.outcome), true)
+})
+
+test('ok_no_privacy counts as mask success even without privacy hits', () => {
+  const row = classifyHostMaskOutcome({
+    status: 'masked_ready',
+    maskedUrl: 'https://x/desensitized/clean.jpg',
+    riskTags: [],
+  })
+  assert.equal(row.maskSucceeded, true)
+  assert.equal(row.needsRemask, false)
 })
