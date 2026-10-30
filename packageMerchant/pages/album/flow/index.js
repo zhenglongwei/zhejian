@@ -5816,92 +5816,147 @@ Page({
     }
   },
 
+  isIntakeCoverageEcho(value) {
+    const s = String(value || '').trim()
+    return !s || /车身四周|接车留证|还缺这些侧面|补一张全景|四周都拍到/.test(s)
+  },
+
   decorateInspectionAdvice(raw, sections) {
     if (!raw || typeof raw !== 'object') {
-      return { status: '', isWaiting: false, hasContent: false, items: [] }
+      return {
+        status: '',
+        isWaiting: false,
+        hasContent: false,
+        items: [],
+        edits: [],
+        lines: [],
+        hasLines: false,
+        faultAnalysis: '',
+        inspectOrder: [],
+        partHints: [],
+        hasFault: false,
+        hasOrder: false,
+        hasParts: false,
+      }
     }
     const status = String(raw.status || '')
     const findings = this.collectFindingsFromSections(sections)
-    const names = new Set(findings.map((row) => String((row && row.partName) || '').trim()).filter(Boolean))
-    const shopLabel = { miss: '缺项', wrong: '错项', omit: '漏项', how: '怎么查' }
-    const shop = (Array.isArray(raw.shop) ? raw.shop : []).map((row, index) => {
-      const kind = String((row && row.kind) || '')
-      const title = String((row && row.title) || '').trim()
-      const body = String((row && row.body) || '').trim()
-      const canAdd = (kind === 'miss' || kind === 'omit') && title && !names.has(title)
-      return {
-        id: `shop_${index}`,
-        kind,
-        label: shopLabel[kind] || '怎么查',
-        title,
-        body,
-        canApply: canAdd,
-      }
-    }).filter((row) => row.body)
-    const lines = shop.map((row) => {
-      const track = row.kind === 'miss' || row.kind === 'omit'
-      const applied = track && !row.canApply && names.has(row.title)
-      return {
-        id: row.id,
-        body: row.body,
-        canApply: row.canApply,
-        applied,
-        applyKind: row.canApply || applied ? 'shop' : '',
-      }
-    })
-    const tidy = (body, timing) => {
-      let text = String(body || '').trim().replace(/。{2,}/g, '。')
-      const mark = `${String(timing || '').trim()}。`
-      if (mark === '。') return text
-      while (text.endsWith(mark) && text.slice(0, -mark.length).endsWith(mark)) {
-        text = text.slice(0, -mark.length)
-      }
-      return text
+    const byId = new Map(
+      findings.map((row) => [String((row && row.id) || ''), row]).filter((pair) => pair[0]),
+    )
+    const faultAnalysis = this.isIntakeCoverageEcho(raw.faultAnalysis)
+      ? ''
+      : String(raw.faultAnalysis || '').trim()
+    const inspectOrder = (Array.isArray(raw.inspectOrder) ? raw.inspectOrder : [])
+      .map((row) => String(row || '').trim())
+      .filter((row) => row && !this.isIntakeCoverageEcho(row))
+    const partHints = (Array.isArray(raw.partHints) ? raw.partHints : [])
+      .map((row, index) => ({
+        id: `part_${index}`,
+        title: String((row && row.title) || '').trim(),
+        body: String((row && row.body) || '').trim(),
+      }))
+      .filter((row) => row.title && row.body && !this.isIntakeCoverageEcho(row.body))
+
+    const seenApply = new Set()
+    const lines = []
+    const pushLine = (row) => {
+      if (!row || !row.body || this.isIntakeCoverageEcho(row.body) || seenApply.has(row.id)) return
+      seenApply.add(row.id)
+      lines.push(row)
     }
-    const items = (Array.isArray(raw.items) ? raw.items : []).map((row, index) => {
-      const storedId = String((row && row.findingId) || '')
-      const rawId = String((row && row.id) || '')
-      const findingId = storedId || (rawId.startsWith('own_') ? '' : rawId)
-      const findingIndex = Number.isInteger(row && row.findingIndex) ? row.findingIndex : index
-      const partName = String((row && row.partName) || '').trim()
-      const current = this.pickAdviceFinding(findings, { findingId, partName, findingIndex })
-      const advice = String((current && current.advice) || '').trim()
-      const source = String((row && row.sourceNote) || '').trim()
-      const timing = String((row && row.timing) || '').trim()
-      const body = tidy(row && row.body, timing)
-      const unchanged = !advice || advice === source || advice === '无需处理'
-      const applied = Boolean(body && advice === body)
-      return {
-        id: `own_${findingIndex}`,
-        findingId,
-        findingIndex,
-        partName,
-        timing,
-        body,
-        hasReason: Boolean(row && row.hasReason),
-        canApply: Boolean(row && row.hasReason && body && unchanged && advice !== body),
-        applied,
-        applyKind: 'copy',
+
+    ;(Array.isArray(raw.edits) ? raw.edits : []).forEach((row, index) => {
+      const kind = String((row && row.kind) || '')
+      const findingId = String((row && row.findingId) || '')
+      const body = String((row && row.body) || '').trim()
+      if (!body || this.isIntakeCoverageEcho(body)) return
+      if (kind === 'photo') {
+        pushLine({
+          id: String((row && row.id) || `edit_photo_${index}`),
+          body,
+          canApply: false,
+          applied: false,
+          applyKind: 'photo',
+        })
+        return
+      }
+      if (kind === 'split') {
+        pushLine({
+          id: String((row && row.id) || `edit_split_${findingId || index}`),
+          body,
+          canApply: Boolean(findingId && Array.isArray(row.groups) && row.groups.length >= 2),
+          applied: false,
+          applyKind: 'split',
+          findingId,
+          groups: row.groups,
+        })
+        return
+      }
+      if (kind === 'text') {
+        const current = byId.get(findingId)
+        const partName = String((row && row.partName) || '').trim()
+        const advice = String((row && row.advice) || '').trim()
+        const emptyName = !String((current && current.partName) || '').trim()
+        const emptyAdvice = !String((current && current.advice) || '').trim()
+        const nextName = emptyName ? partName : ''
+        const nextAdvice = emptyAdvice ? advice : ''
+        const applied =
+          Boolean(current) &&
+          ((partName && String(current.partName || '').trim() === partName) ||
+            (advice && String(current.advice || '').trim() === advice))
+        const canApply = Boolean(findingId && current && (nextName || nextAdvice) && !applied)
+        pushLine({
+          id: String((row && row.id) || `edit_text_${findingId || index}`),
+          body,
+          canApply,
+          applied,
+          applyKind: 'text',
+          findingId,
+          partName: nextName,
+          advice: nextAdvice,
+        })
       }
     })
-    items.forEach((row) => {
-      if (!row.body) return
-      lines.push({
-        id: row.id,
-        body: row.body,
-        canApply: row.canApply,
-        applied: row.applied,
-        applyKind: row.applyKind,
+
+    findings.forEach((row) => {
+      const apply = row && row.aiApply
+      if (!apply || !apply.id || !apply.body) return
+      const kind = String(apply.kind || '')
+      pushLine({
+        id: String(apply.id),
+        body: String(apply.body || '').trim(),
+        canApply: true,
+        applied: false,
+        applyKind: kind === 'split' ? 'split' : 'fill',
+        findingId: String((row && row.id) || ''),
+        groups: apply.groups,
+        partName: String(apply.partName || '').trim(),
+        advice: String(apply.advice || '').trim(),
+        result: String(apply.result || '').trim(),
+        onlyEmpty: apply.onlyEmpty !== false,
       })
     })
+
+    const hasFault = Boolean(faultAnalysis)
+    const hasOrder = inspectOrder.length > 0
+    const hasParts = partHints.length > 0
+    const hasLines = lines.length > 0
     return {
       status,
       scope: String(raw.scope || ''),
-      shop,
+      faultAnalysis,
+      inspectOrder,
+      partHints,
+      hasFault,
+      hasOrder,
+      hasParts,
+      edits: Array.isArray(raw.edits) ? raw.edits : [],
+      shop: [],
+      items: [],
       lines,
-      hasLines: lines.length > 0,
-      items,
-      hasContent: status === 'ready' && lines.length > 0,
+      hasLines,
+      hasContent: status === 'ready' && (hasFault || hasOrder || hasParts || hasLines),
       isWaiting: status === 'queued' || status === 'running',
     }
   },
@@ -7120,7 +7175,7 @@ Page({
     if (storedKey && storedKey === contentKey) {
       this.setData({ adviceOpen: true })
       const advice = this.data.inspectionAdvice || {}
-      if (!(advice.scope === 'flat' && (advice.hasContent || advice.isWaiting))) {
+      if (!(advice.hasContent || advice.isWaiting)) {
         this.onStartInspectionAdvice()
       }
       return
@@ -7425,34 +7480,140 @@ Page({
   onApplyOwnerExplain(e) {
     const lineId = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     const line = ((this.data.inspectionAdvice && this.data.inspectionAdvice.lines) || []).find(
-      (row) => row && row.id === lineId,
+      (row) => row && row.id === lineId && row.canApply,
     )
-    if (line && line.applyKind === 'shop') {
+    if (!line) return
+    if (line.applyKind === 'shop') {
       this.onApplyShopGap(e)
       return
     }
-    const item = ((this.data.inspectionAdvice && this.data.inspectionAdvice.items) || []).find(
-      (row) => row && row.id === lineId && row.canApply,
-    )
-    if (!item || !item.body) return
-    const sections = (this.data.sections || []).map((section) => {
+    if (line.applyKind === 'fill' || (line.applyKind === 'split' && String(line.id || '').indexOf('apply_') === 0)) {
+      this.applyFindingAiApply(line.id)
+      return
+    }
+    if (line.applyKind === 'split') {
+      this.applyInspectionSplitEdit(line)
+      return
+    }
+    if (line.applyKind !== 'text') return
+    const findingId = String(line.findingId || '')
+    const nextName = String(line.partName || '').trim()
+    const nextAdvice = String(line.advice || '').trim()
+    if (!findingId || (!nextName && !nextAdvice)) return
+    let expandKey = ''
+    const sections = (this.data.sections || []).map((section, si) => {
       if (!section || !section.findingMode) return section
-      const findings = section.findings || []
-      const target = this.pickAdviceFinding(findings, item)
-      if (!target) return section
+      const findings = (section.findings || []).map((row, fi) => {
+        if (!row || String(row.id || '') !== findingId) return row
+        expandKey = `${si}:${fi}`
+        return {
+          ...row,
+          partName: String(row.partName || '').trim() || nextName,
+          advice: String(row.advice || '').trim() || nextAdvice,
+        }
+      })
       return {
         ...section,
-        findings: findings.map((row) => (row === target ? { ...row, advice: item.body } : row)),
+        findings,
+        images: this.findingImagesFromRows(findings, this.data.odometerUrl),
       }
     })
-    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
-      this.setData({
-        inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
-      })
-      this.persistPhotoDraft()
-        .then(() => this.setAutoSaveLabel('已自动保存'))
-        .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+    this.setSectionsWithFindings(
+      sections,
+      { autoSaveLabel: '保存中…' },
+      expandKey || this.data.expandedFindingKey,
+      () => {
+        this.setData({
+          inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
+        })
+        this.persistPhotoDraft()
+          .then(() => this.setAutoSaveLabel('已自动保存'))
+          .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+      },
+    )
+  },
+
+  applyFindingAiApply(applyId) {
+    const id = String(applyId || '')
+    if (!id) return
+    let expandKey = ''
+    let hit = false
+    const sections = (this.data.sections || []).map((section, si) => {
+      if (!section || !section.findingMode) return section
+      const list = section.findings || []
+      const idx = list.findIndex((row) => row && row.aiApply && row.aiApply.id === id)
+      if (idx < 0) return section
+      hit = true
+      expandKey = `${si}:${idx}`
+      const findings = applyInspectionSuggestion(list, id)
+      return {
+        ...section,
+        findings,
+        images:
+          section.findingKind === 'work'
+            ? this.flattenWorkSectionImages(findings)
+            : this.findingImagesFromRows(findings, this.data.odometerUrl),
+      }
     })
+    if (!hit) return
+    this.setSectionsWithFindings(
+      sections,
+      { autoSaveLabel: '保存中…' },
+      expandKey || this.data.expandedFindingKey,
+      () => {
+        this.setData({
+          inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
+        })
+        this.persistPhotoDraft()
+          .then(() => this.setAutoSaveLabel('已自动保存'))
+          .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+      },
+    )
+  },
+
+  applyInspectionSplitEdit(line) {
+    const findingId = String((line && line.findingId) || '')
+    const groups = Array.isArray(line && line.groups) ? line.groups : []
+    if (!findingId || groups.length < 2) return
+    let expandKey = ''
+    const sections = (this.data.sections || []).map((section, si) => {
+      if (!section || !section.findingMode) return section
+      const list = section.findings || []
+      const idx = list.findIndex((row) => row && String(row.id || '') === findingId)
+      if (idx < 0) return section
+      const withApply = list.map((row, i) =>
+        i === idx
+          ? {
+              ...row,
+              aiApply: {
+                id: String(line.id || `edit_split_${findingId}`),
+                kind: 'split',
+                groups,
+              },
+            }
+          : row,
+      )
+      const findings = applyInspectionSuggestion(withApply, String(line.id || `edit_split_${findingId}`))
+      expandKey = `${si}:${idx}`
+      return {
+        ...section,
+        findings,
+        images: this.findingImagesFromRows(findings, this.data.odometerUrl),
+      }
+    })
+    this.setSectionsWithFindings(
+      sections,
+      { autoSaveLabel: '保存中…' },
+      expandKey || this.data.expandedFindingKey,
+      () => {
+        this.setData({
+          inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
+        })
+        this.persistPhotoDraft()
+          .then(() => this.setAutoSaveLabel('已自动保存'))
+          .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+      },
+    )
   },
 
   async onStartInspectionAdvice() {

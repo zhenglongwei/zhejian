@@ -257,7 +257,11 @@ function adviceHasContent(advice, kind) {
       Boolean(text(advice.note))
   }
   if (kind === 'inspect') {
-    return (Array.isArray(advice.items) && advice.items.length > 0) ||
+    return Boolean(text(advice.faultAnalysis)) ||
+      (Array.isArray(advice.inspectOrder) && advice.inspectOrder.length > 0) ||
+      (Array.isArray(advice.partHints) && advice.partHints.length > 0) ||
+      (Array.isArray(advice.edits) && advice.edits.length > 0) ||
+      (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.shop) && advice.shop.length > 0)
   }
   return Boolean(
@@ -323,76 +327,160 @@ function namedRows(findings) {
     .filter((row) => row.name || row.note || row.result || row.photos > 0)
 }
 
-const SHOP_KIND = {
-  miss: '缺项',
-  wrong: '错项',
-  omit: '漏项',
-  how: '怎么查',
+/** 接车留证套话：检测意见里一律丢掉 */
+function isIntakeCoverageEcho(value) {
+  const s = text(value)
+  return !s
+    ? true
+    : /车身四周|接车留证|还缺这些侧面|补一张全景|四周都拍到/.test(s)
 }
 
-function parseInspectionAdvice(raw, items) {
+/** 面向店员的句子：去掉英文词，避免意见里夹英文 */
+function zhOnly(value, max = 120) {
+  return text(value)
+    .replace(/[A-Za-z][A-Za-z0-9_\-]*/g, '')
+    .replace(/[（(]\s*[）)]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, max)
+}
+
+function parseInspectionAdvice(raw, items, photoUrls) {
   const parsed = parseReviewModelJson(raw) || {}
-  const byId = new Map()
-  ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
-    const id = text(row && row.id)
-    const body = text(row && row.body).slice(0, 120)
-    const title = text(row && (row.title || row.partName)).slice(0, 16)
-    if (id && body) byId.set(id, { body, title, canApply: row.canApplyToEmptyAdvice !== false })
-  })
-  const known = new Set((Array.isArray(items) ? items : []).map((row) => text(row.name)).filter(Boolean))
-  const shop = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
-    .concat(Array.isArray(parsed.shop) ? parsed.shop : [])
+  const byItemId = new Map(
+    (Array.isArray(items) ? items : []).map((row) => [text(row && row.id), row]).filter((pair) => pair[0]),
+  )
+  const urls = Array.isArray(photoUrls) ? photoUrls : []
+  const slotUrl = (slot) => {
+    const n = Number(slot)
+    if (!Number.isInteger(n) || n < 1 || n > urls.length) return ''
+    return text(urls[n - 1])
+  }
+
+  const faultAnalysis = isIntakeCoverageEcho(parsed.faultAnalysis)
+    ? ''
+    : zhOnly(parsed.faultAnalysis, 200)
+  const inspectOrder = (Array.isArray(parsed.inspectOrder) ? parsed.inspectOrder : [])
+    .map((row) => zhOnly(row, 40))
+    .filter((row) => row && !isIntakeCoverageEcho(row))
+    .slice(0, 6)
+  const partHints = (Array.isArray(parsed.partHints) ? parsed.partHints : [])
     .map((row) => {
-      const kindRaw = text(row && row.kind)
-      const kind = SHOP_KIND[kindRaw]
-        ? kindRaw
-        : kindRaw === 'missing_item'
-          ? 'miss'
-          : kindRaw === 'unclear_photo' || kindRaw === 'follow_up'
-            ? 'how'
-            : kindRaw
-      if (!SHOP_KIND[kind]) return null
-      const title = text(row && (row.title || row.partName)).slice(0, 16)
-      const body = text(row && row.body).slice(0, 120)
-      if (!title || !body) return null
-      if ((kind === 'miss' || kind === 'omit') && known.has(title)) return null
-      return { kind, title, body }
+      const title = zhOnly(row && (row.title || row.partName), 16)
+      const body = zhOnly(row && row.body, 80)
+      if (!title || !body || isIntakeCoverageEcho(body)) return null
+      return { title, body }
     })
     .filter(Boolean)
-    .slice(0, 4)
-  // 只保留模型根据实质写出的意见；禁止「表单填满就没有意见」或空栏套话
-  // 仅有图、尚未写部位时：仍采纳模型按 id 写出的 body，方便店员应用
-  const outItems = (Array.isArray(items) ? items : [])
-    .map((row) => {
-      const hit = byId.get(row.id)
-      const noted = text(row.note)
-      const body = hit ? hit.body : ''
-      if (!body) return null
-      return {
-        id: row.id,
-        partName: row.name || text(hit && hit.title) || '这项',
-        sourceNote: noted,
-        timing: OWNER_TIMING[row.result] || '',
+    .slice(0, 6)
+
+  const edits = []
+  const pushEdit = (row) => {
+    if (!row || edits.length >= 10) return
+    const kind = text(row.kind)
+    const body = zhOnly(row.body, 120)
+    if (isIntakeCoverageEcho(body) && kind !== 'split') return
+    if (kind === 'text') {
+      const findingId = text(row.findingId || row.id)
+      const partName = zhOnly(row.partName || row.title, 16)
+      const advice = zhOnly(row.advice, 120)
+      if (!findingId || (!partName && !advice && !body)) return
+      const current = byItemId.get(findingId)
+      const emptyName = !text(current && current.name)
+      const emptyNote = !text(current && current.note)
+      const nextName = emptyName ? partName : ''
+      const nextAdvice = emptyNote ? advice || body : ''
+      if (!nextName && !nextAdvice) return
+      edits.push({
+        id: `edit_text_${findingId}`,
+        kind: 'text',
+        findingId,
+        partName: nextName,
+        advice: nextAdvice,
+        body: body || [nextName, nextAdvice].filter(Boolean).join(' · '),
+        canApply: true,
+      })
+      return
+    }
+    if (kind === 'split') {
+      const findingId = text(row.findingId || row.id)
+      if (!findingId) return
+      const groups = (Array.isArray(row.groups) ? row.groups : [])
+        .map((g) => {
+          const partName = zhOnly(g && g.partName, 16)
+          const advice = zhOnly(g && g.advice, 120)
+          const images = (Array.isArray(g && g.imageSlots) ? g.imageSlots : [])
+            .map(slotUrl)
+            .filter(Boolean)
+            .map((url) => ({ url }))
+          if (!partName || !images.length) return null
+          return { partName, advice, result: '', images }
+        })
+        .filter(Boolean)
+      if (groups.length < 2) return
+      edits.push({
+        id: `edit_split_${findingId}`,
+        kind: 'split',
+        findingId,
+        body: body || `可以拆成${groups.map((g) => `「${g.partName}」`).join('')}`,
+        groups,
+        canApply: true,
+      })
+      return
+    }
+    if (kind === 'photo') {
+      if (!body) return
+      edits.push({
+        id: `edit_photo_${edits.length}`,
+        kind: 'photo',
+        findingId: text(row.findingId || row.id),
         body,
-        hasReason: Boolean(noted || (row.photos > 0 && hit)),
-        canApply: Boolean(hit && hit.canApply && !noted),
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 8)
+        canApply: false,
+      })
+    }
+  }
+  ;(Array.isArray(parsed.edits) ? parsed.edits : []).forEach(pushEdit)
+
+  // 兼容旧模型：items / gaps 收成 edits（不再展示接车式 shop 块）
   ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
-    if (text(row && row.id) || !text(row && row.title) || !text(row && row.body)) return
-    if (outItems.length >= 8) return
-    shop.push({
-      kind: 'miss',
-      title: text(row.title).slice(0, 16),
-      body: text(row.body).slice(0, 120),
+    const findingId = text(row && row.id)
+    const body = zhOnly(row && row.body, 120)
+    const title = zhOnly(row && (row.title || row.partName), 16)
+    if (!findingId || !body || isIntakeCoverageEcho(body)) return
+    pushEdit({
+      kind: 'text',
+      findingId,
+      partName: title,
+      advice: body,
+      body,
     })
   })
+  ;(Array.isArray(parsed.gaps) ? parsed.gaps : []).forEach((row) => {
+    const kindRaw = text(row && row.kind)
+    const body = zhOnly(row && row.body, 120)
+    const title = zhOnly(row && (row.title || row.partName), 16)
+    if (!body || isIntakeCoverageEcho(body)) return
+    if (kindRaw === 'unclear_photo' || kindRaw === 'follow_up' || kindRaw === 'how') {
+      pushEdit({ kind: 'photo', body: title ? `${title}：${body}` : body })
+      return
+    }
+    if (kindRaw === 'missing_item' || kindRaw === 'miss' || kindRaw === 'omit') {
+      pushEdit({
+        kind: 'photo',
+        body: title ? `建议补查「${title}」。${body}` : body,
+      })
+    }
+  })
+
   return {
-    scope: 'flat',
-    shop: shop.slice(0, 4),
-    items: outItems,
+    scope: 'inspect_v2',
+    faultAnalysis,
+    inspectOrder,
+    partHints,
+    edits,
+    // 兼容旧前端字段（空数组）
+    shop: [],
+    items: [],
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
 }
@@ -509,6 +597,19 @@ function contextOf(album) {
     inspectItems: namedRows(inspection && inspection.photoDraft && inspection.photoDraft.findings),
     inspectAdviceSummary: text(inspectionAdvice.updatedAt)
       ? {
+          faultAnalysis: text(inspectionAdvice.faultAnalysis).slice(0, 120),
+          inspectOrder: Array.isArray(inspectionAdvice.inspectOrder)
+            ? inspectionAdvice.inspectOrder.slice(0, 4)
+            : [],
+          partHints: Array.isArray(inspectionAdvice.partHints)
+            ? inspectionAdvice.partHints.slice(0, 4)
+            : [],
+          edits: Array.isArray(inspectionAdvice.edits)
+            ? inspectionAdvice.edits
+                .map((row) => ({ kind: text(row.kind), body: text(row.body) }))
+                .filter((row) => row.body)
+                .slice(0, 6)
+            : [],
           shop: Array.isArray(inspectionAdvice.shop) ? inspectionAdvice.shop.slice(0, 4) : [],
           items: Array.isArray(inspectionAdvice.items)
             ? inspectionAdvice.items.map((row) => ({ id: row.id, body: text(row.body) })).slice(0, 6)
@@ -555,11 +656,11 @@ function fingerprintFor(kind, ctx) {
       }
     : kind === 'inspect'
       ? {
-          v4: 'flat',
+          v5: 'inspect_v2',
           complaint: ctx.complaint,
           inspectItems: ctx.inspectItems,
           intakeBrief: ctx.intakeBrief,
-          intakePhotos: ctx.intakePhotoUrls,
+          inspectPhotos: ctx.inspectPhotoUrls,
         }
       : {
         complaint: ctx.complaint,
@@ -661,22 +762,22 @@ function workInstruction(ctx) {
 function inspectionInstruction(ctx) {
   return [
     'You assist a Chinese auto shop clerk during vehicle inspection.',
-    'Goal: produce owner-relevant advice from REAL content (photos + written findings + intake complaint). Never say "no extra advice" merely because forms have text or photos. If substance is solid, state a brief confirmation of what the findings mean for the owner.',
-    'Prior steps: use intake analysis summary and per-image notes only — do NOT ask to re-send those images.',
-    'Current step: use all inspection line items and any NEW photos not yet noted.',
-    'Items may have photos but empty name/note — still analyze those photos. Write one items[] entry per such id (what the photo likely shows for the owner). If a photo is unrelated/unclear, put a gaps row kind=unclear_photo instead of inventing damage.',
-    'Owner cares about: what each finding means, whether action is needed now, consequence if ignored, how to watch later.',
-    'Write Chinese that a car owner understands. Do NOT use internal labels like 需处理 / 需关注 / 状态良好 inside sentences.',
-    'Do NOT invent damage absent from photos/text. Do NOT demand re-shooting normal exterior already covered at intake.',
+    'Goal: from intake context + current inspection items/photos, produce faultAnalysis, inspectOrder, partHints, and actionable edits for THIS inspection step only.',
+    'Hard rules:',
+    '- Intake coverage text (e.g. all four sides covered / missing side) is CONTEXT ONLY. NEVER copy or restate intake photo-coverage advice in any output field.',
+    '- All natural-language values MUST be Simplified Chinese. No English words in titles or bodies.',
+    '- Do NOT invent damage absent from photos/text. Do NOT use internal labels 需处理 / 需关注 / 状态良好 inside sentences.',
+    '- partHints are read-only. edits.kind=photo is reminder only. edits.kind=text fills empty partName/advice on that findingId. edits.kind=split splits one finding photos into 2+ groups with imageSlots referring to newPhotoSlots.',
+    '- Items may have photos but empty name/note — still analyze and propose text or split edits.',
     `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
-      intake: ctx.intakeAdviceSummary,
+      intakeContext: ctx.intakeAdviceSummary,
       intakeNoted: ctx.intakeNoted,
       items: ctx.inspectItems,
       inspectNoted: ctx.inspectNoted,
       newPhotoSlots: (ctx.inspectPhotoUrls || []).map((_, i) => i + 1),
     })}`,
-    'Return JSON only: {"items":[{"id":"","body":"","title":"","canApplyToEmptyAdvice":true}],"gaps":[{"kind":"missing_item|unclear_photo|follow_up","title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
+    'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"text|split|photo","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
 }
 
@@ -766,7 +867,7 @@ async function runJob(albumId, kind) {
       kind === 'work'
         ? (ctx.workPhotoSlots || []).map((row) => row.url)
         : kind === 'inspect'
-          ? [].concat(ctx.intakePhotoUrls || [], ctx.inspectPhotoUrls || [])
+          ? ctx.inspectPhotoUrls || []
           : ctx.deliveryPhotoUrls || []
     const raw = await runLlm(
       kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
@@ -776,7 +877,7 @@ async function runJob(albumId, kind) {
     const parsed = kind === 'work'
       ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
       : kind === 'inspect'
-        ? parseInspectionAdvice(raw, ctx.inspectItems)
+        ? parseInspectionAdvice(raw, ctx.inspectItems, urls)
         : parseDeliveryAdvice(raw)
     const ok = adviceHasContent(parsed, kind)
     const archiveCopy = kind === 'delivery' ? parsed.archiveCopy : null
@@ -886,6 +987,10 @@ function sanitizeStepAdviceForView(advice, kind) {
     return {
       ...base,
       scope: text(advice.scope),
+      faultAnalysis: text(advice.faultAnalysis),
+      inspectOrder: Array.isArray(advice.inspectOrder) ? advice.inspectOrder : [],
+      partHints: Array.isArray(advice.partHints) ? advice.partHints : [],
+      edits: Array.isArray(advice.edits) ? advice.edits : [],
       shop: Array.isArray(advice.shop) ? advice.shop : [],
       items: Array.isArray(advice.items) ? advice.items : [],
     }

@@ -1905,18 +1905,38 @@
           <block wx:elif="{{stageBoard.family === 'quote' && quoteAssist.hasContent}}">
             <template is="quoteMerchantBrief" data="{{brief: quoteAssist}}" />
           </block>
-          <view wx:elif="{{stageBoard.family === 'inspect' && inspectionAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
-            <view wx:for="{{inspectionAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
-              <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
-              <text
-                wx:if="{{item.canApply}}"
-                class="merchant-flow-page__advice-apply"
-                data-id="{{item.id}}"
-                catchtap="onApplyOwnerExplain"
-              >应用</text>
-              <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
+          <block wx:elif="{{stageBoard.family === 'inspect' && inspectionAdvice.hasContent}}">
+            <view wx:if="{{inspectionAdvice.hasFault}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">故障分析</text>
+              <text class="merchant-flow-page__advice-ask-body">{{inspectionAdvice.faultAnalysis}}</text>
             </view>
-          </view>
+            <view wx:if="{{inspectionAdvice.hasOrder}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">检测顺序</text>
+              <view wx:for="{{inspectionAdvice.inspectOrder}}" wx:key="*this" class="merchant-flow-page__advice-ask">
+                <text class="merchant-flow-page__advice-ask-body">{{index + 1}}. {{item}}</text>
+              </view>
+            </view>
+            <view wx:if="{{inspectionAdvice.hasParts}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">部件参考</text>
+              <view wx:for="{{inspectionAdvice.partHints}}" wx:key="id" class="merchant-flow-page__advice-ask">
+                <text class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+                <text class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+              </view>
+            </view>
+            <view wx:if="{{inspectionAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">本单修改</text>
+              <view wx:for="{{inspectionAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
+                <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
+                <text
+                  wx:if="{{item.canApply}}"
+                  class="merchant-flow-page__advice-apply"
+                  data-id="{{item.id}}"
+                  catchtap="onApplyOwnerExplain"
+                >应用</text>
+                <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
+              </view>
+            </view>
+          </block>
           <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || deliveryAdvice.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
           <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || deliveryAdvice.status === 'failed'}}" class="text-caption text-secondary">这次没出成，再点一次 AI</view>
           <view wx:else class="text-caption text-secondary">还没有可展示的意见</view>

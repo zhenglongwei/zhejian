@@ -86,38 +86,39 @@ test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
   assert.equal(got.items[1].display, '下摆臂胶套建议描述为：更换了开裂的下摆臂胶套。')
 })
 
-test('检测只保留模型按实质写出的意见，不套空栏话术', () => {
+test('检测四块意见：过滤留证套话，文案空栏可应用', () => {
   const got = parseInspectionAdvice(
     {
-      shop: [
-        { kind: 'miss', title: '球头', body: '异响要查球头间隙，举升后撬一下。' },
-        { kind: 'omit', title: '插头', body: '这项已经有了，不该再算漏。' },
-        { kind: 'wrong', title: '轮胎', body: '结果写了关注，发现却是空的。' },
-        { kind: 'extra', title: '随便', body: '丢掉。' },
+      faultAnalysis: '左侧有剐蹭，先查叶子板与车门。',
+      inspectOrder: ['先看左前叶子板', '再对右前门'],
+      partHints: [{ title: '左前叶子板', body: '看变形和漆面' }],
+      edits: [
+        { kind: 'text', findingId: 'b', partName: '轮胎', advice: '胎侧有细纹，可先观察', body: '补写轮胎细纹' },
+        { kind: 'photo', body: '车身四周都拍到了' },
+        { kind: 'photo', body: '建议补拍清晰特写' },
       ],
       items: [
-        { id: 'a', body: '接头已经老化。再拖可能接触不良，灯会闪。建议现在处理，不要再拖。' },
-        { id: 'b', body: '胎侧有细纹，可先观察，爆胎风险目前不高。' },
+        { id: 'a', body: '接头已经老化。再拖可能接触不良。' },
       ],
     },
     [
       { id: 'a', name: '插头', result: '需处理', note: '接头老化' },
-      { id: 'b', name: '轮胎', result: '需关注', note: '' },
-      { id: 'c', name: '雨刮', result: '状态良好', note: '刮得干净' },
+      { id: 'b', name: '', result: '', note: '' },
     ],
   )
-  assert.equal(got.scope, 'flat')
-  assert.equal(got.shop.length, 2)
-  assert.equal(got.shop[0].kind, 'miss')
-  assert.equal(got.shop[1].kind, 'wrong')
-  assert.equal(got.items.length, 2)
-  assert.equal(got.items[0].timing, '建议现在处理')
-  assert.match(got.items[0].body, /老化/)
-  assert.equal(got.items[0].hasReason, true)
-  assert.match(got.items[1].body, /细纹|观察/)
-  assert.equal(got.items[1].hasReason, false)
-  assert.equal(got.items[1].canApply, true)
-  assert.equal(got.items.some((row) => row.id === 'c'), false)
+  assert.equal(got.scope, 'inspect_v2')
+  assert.match(got.faultAnalysis, /剐蹭/)
+  assert.equal(got.inspectOrder.length, 2)
+  assert.equal(got.partHints.length, 1)
+  assert.equal(got.shop.length, 0)
+  assert.equal(got.items.length, 0)
+  const textEdit = got.edits.find((row) => row.kind === 'text' && row.findingId === 'b')
+  assert.ok(textEdit)
+  assert.equal(textEdit.canApply, true)
+  assert.equal(textEdit.partName, '轮胎')
+  assert.match(textEdit.advice, /细纹/)
+  assert.equal(got.edits.some((row) => /四周/.test(row.body || '')), false)
+  assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
 })
 
 test('交车分成维修、质保、用车', () => {
