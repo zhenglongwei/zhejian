@@ -917,6 +917,7 @@ function applyOrganizeGroups({
     const suggestedAdvice = stripFigureIndexTalk(group && group.advice)
     const fresh = []
     if (mode === 'inspection') {
+      // 检测：已挂在项上的图只可提醒/补空字段，禁止因多组建议静默拆成多项
       shots.forEach((img) => {
         const imgKey = mediaKey(img.url)
         if (!imgKey || used.has(imgKey)) return

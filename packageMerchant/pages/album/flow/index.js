@@ -76,7 +76,6 @@ const {
   pickOdometerSlot,
   isOdometerFinding,
   applyOrganizeGroups,
-  inspectionSuggestions,
   applyInspectionSuggestion,
   foldInspectionPendingDraft,
   applyIntakeOrganizeGroups,
@@ -994,9 +993,10 @@ Page({
           findingMode: true,
           findingKind: 'inspection',
           images,
+          // 检测只认草稿 findings；禁止按图 caption 静默摊成多项
           findings: mapFindingRows(images, draftFindings, {
             pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
-            strictFindings,
+            strictFindings: true,
           }),
           odometerUrl: '',
           odometerImageId: '',
@@ -1011,7 +1011,7 @@ Page({
       const mapped = mapFindingRows(images, draftFindings, {
         odometerUrl: photoDraft.odometerUrl,
         pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
-        strictFindings,
+        strictFindings: true,
       })
       const slot = pickOdometerSlot(photoDraft, mapped)
       const odoKey = mediaKey(slot.odometerUrl)
@@ -3493,6 +3493,10 @@ Page({
   },
 
   syncFindingsWithImages(prevFindings = [], images = [], findingKind = 'inspection') {
+    // 检测：一项多图；禁止按扁平面板图「一图一项」摊开（会静默拆项）
+    if (findingKind === 'inspection' || findingKind === 'intake_inspection') {
+      return (prevFindings || []).map((row, index) => normalizeFinding(row, index))
+    }
     const prevByKey = {}
     prevFindings.forEach((item) => {
       const key = item.imageId || item.id || item.url
@@ -3503,32 +3507,20 @@ Page({
       const id = typeof img === 'object' ? img.id || '' : ''
       const imgCaption = typeof img === 'object' ? img.caption || '' : ''
       const prev = prevByKey[id] || prevByKey[url] || {}
-      if (findingKind === 'work') {
-        const partName = String(prev.partName || '').trim()
-        let caption = String(prev.caption || '').trim()
-        if (!caption && imgCaption && imgCaption !== partName) caption = imgCaption
-        return normalizeFinding({
-          ...prev,
-          url,
-          imageId: id || prev.imageId || '',
-          partName,
-          caption,
-        })
-      }
+      const partName = String(prev.partName || '').trim()
+      let caption = String(prev.caption || '').trim()
+      if (!caption && imgCaption && imgCaption !== partName) caption = imgCaption
       return normalizeFinding({
         ...prev,
         url,
         imageId: id || prev.imageId || '',
-        caption: imgCaption,
-        partName: prev.partName || imgCaption || '',
+        partName,
+        caption,
       })
     })
     const pending = (prevFindings || []).filter((item) => {
-      if (findingKind === 'work') {
-        const row = normalizeWorkFinding(item)
-        return !row.images.length && (item.fromAi || row.partName)
-      }
-      return !item.url && (item.fromAi || item.pendingPhoto || item.aiSuggestionId)
+      const row = normalizeWorkFinding(item)
+      return !row.images.length && (item.fromAi || row.partName)
     })
     return next.concat(pending)
   },
@@ -4817,13 +4809,9 @@ Page({
         return
       }
       const groups = (res && res.groups) || []
-      if (options.suggestOnly) {
-        const suggested = inspectionSuggestions(findings, groups)
-        const sections = this.data.sections.map((row) => {
-          if (!row.findingMode) return row
-          return { ...row, findings: suggested }
-        })
-        this.setSectionsWithFindings(sections, {
+      // 检测：归组结果不得改 findings（连 aiApply 也不挂）；拆项只走意见「应用」
+      if (kind === 'inspection' || options.suggestOnly) {
+        this.setData({
           organizeResultHint: groups.length ? '' : '这次没看出来',
           adviceOpen: true,
         })
@@ -4837,7 +4825,7 @@ Page({
         })
         return
       }
-      const mode = kind === 'work' ? 'work' : 'inspection'
+      const mode = 'work'
       const applied = applyOrganizeGroups({
         pendingImages: pending,
         findings,
@@ -6168,20 +6156,33 @@ Page({
       const nextName = !curName ? partName : ''
       const nextAdvice = !curAdvice ? advice : ''
       const stillThere = Boolean(current)
+      const editId = String((row && row.id) || `edit_item_${findingId}`)
+      if (!this._appliedInspectEditIds) this._appliedInspectEditIds = new Set()
+      const markedApplied = this._appliedInspectEditIds.has(editId)
+      const splitChildrenPresent =
+        wantSplit &&
+        groups.length >= 2 &&
+        groups.every((g) => {
+          const name = String((g && g.partName) || '').trim()
+          if (!name) return false
+          return findings.some((f) => String((f && f.partName) || '').trim() === name)
+        })
       let canApply = false
       let applied = false
       if (wantSplit) {
-        canApply = stillThere
-        applied = !stillThere
+        // 原项还在 → 可应用；仅点过应用或列表已能对上拆后子项 → 已应用（findingId 对不上不得冒充已应用）
+        canApply = stillThere && !markedApplied
+        applied = markedApplied || (!stillThere && splitChildrenPresent)
       } else {
         canApply = Boolean(stillThere && (nextName || nextAdvice))
         applied = Boolean(
-          stillThere && (partName || advice) && !canApply && (!partName || curName) && (!advice || curAdvice),
+          markedApplied ||
+            (stillThere && (partName || advice) && !canApply && (!partName || curName) && (!advice || curAdvice)),
         )
       }
       if (!canApply && !applied && !wantSplit) return
       lines.push({
-        id: String((row && row.id) || `edit_item_${findingId}`),
+        id: editId,
         body,
         canApply,
         applied,
@@ -7791,7 +7792,7 @@ Page({
     }
   },
 
-  /** 本单修改应用：有 groups 则拆成多项并写入各组文案；否则只填该项空着的部位名/检查发现 */
+  /** 本单修改应用：有 groups 则拆成多项并写入各组文案；否则只填该项空着的部位名/检查发现。仅此处允许改检测项列表。 */
   applyInspectionItemEdit(line) {
     const findingId = String((line && line.findingId) || '')
     if (!findingId) return
@@ -7799,6 +7800,9 @@ Page({
     const wantSplit = groups.length >= 2
     const nextName = String((line && line.partName) || '').trim()
     const nextAdvice = String((line && line.advice) || '').trim()
+    const editId = String((line && line.id) || `edit_item_${findingId}`)
+    if (!this._appliedInspectEditIds) this._appliedInspectEditIds = new Set()
+    this._appliedInspectEditIds.add(editId)
     let expandKey = ''
     const sections = (this.data.sections || []).map((section, si) => {
       if (!section || !section.findingMode) return section
@@ -7868,6 +7872,7 @@ Page({
     const node =
       (this._flowNodes || []).find((row) => row && row.kind === 'inspection') || this.data.activeNode
     if (!node || !node.id || this.data.readOnly) return
+    if (force) this._appliedInspectEditIds = new Set()
     if (this.data.inspectionAdvice && this.data.inspectionAdvice.isWaiting) {
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
       return

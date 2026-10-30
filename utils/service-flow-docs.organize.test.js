@@ -466,3 +466,25 @@ test('inspection AI suggests a split and apply keeps each photo on its new item'
   assert.equal(applied[1].partName, '制动盘')
   assert.equal(applied[1].images.length, 1)
 })
+
+test('organize on an owned inspection pile never silently splits into multiple items', () => {
+  const { findings } = applyOrganizeGroups({
+    pendingImages: [a, b, c],
+    findings: [{
+      id: 'fid_pile',
+      partName: '',
+      result: '',
+      advice: '',
+      images: [a, b, c],
+    }],
+    groups: [
+      { partName: '车身漆面', advice: '有划痕', imageKeys: ['uploads/a.jpg'] },
+      { partName: '制动系统', advice: '盘面有沟', imageKeys: ['uploads/b.jpg'] },
+      { partName: '底盘悬挂', advice: '胶套老化', imageKeys: ['uploads/c.jpg'] },
+    ],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 1)
+  assert.equal(findings[0].id, 'fid_pile')
+  assert.equal(findings[0].images.length, 3)
+})
