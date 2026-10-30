@@ -886,10 +886,10 @@ function inspectionInstruction(ctx, options = {}) {
     '- Simplified Chinese only in natural-language values. No English words.',
     '- Do NOT invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好 in sentences.',
     '- photoSlots[].slot is the stable id of each photo; newPhotoSlots lists slots of images attached this turn. imageSlots / imageNotes.slot MUST use those slot numbers.',
-    '- First judge each attached photo by slot: what inspection topic it shows. Then classify into groups when topics clearly differ.',
-    '- edits: at most ONE kind=item row per findingId. If slots under that finding clearly show different topics (e.g. body paint vs chassis/brake), put groups[] in that SAME row — each with partName, advice, imageSlots; every slot of that finding in exactly one group. If same topic or you cannot tell them apart, do NOT invent a split: omit groups. Writing 1.2.3. only in faultAnalysis without groups does NOT count as a split.',
+    '- First judge each attached photo by slot: what inspection topic it shows. Then classify into groups.',
+    '- edits: at most ONE kind=item row per findingId. If slots under that finding show different topics (e.g. body paint vs brake vs chassis) — including when you already listed them as separate points in faultAnalysis — you MUST put groups[] in that SAME row: each with partName, advice, imageSlots; every slot of that finding in exactly one group. Listing 1.2.3. in faultAnalysis without groups is incomplete. Only when topics are the same or you truly cannot tell them apart may you omit groups.',
     '- faultAnalysis must cover every distinct topic in the photos and the complaint, not only the majority topic. Never claim a topic is missing if its photo slot is attached.',
-    '- imageNotes: one short observation per attached slot (reuse later). Never use imageNotes as a substitute for groups.',
+    '- imageNotes: one short observation per attached slot (reuse later). Never a substitute for groups.',
     '- kind=photo is reminder only (no apply). partHints are read-only.',
     `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
