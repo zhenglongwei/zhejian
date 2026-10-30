@@ -32,8 +32,41 @@ const {
   ensureReviewImagesMasked,
   parseRawReviewImages,
 } = require('./album-review-image.service')
+const { writeMaskedPairsIntoFlowNodes } = require('../utils/flow-photo-mask-writeback')
 
 const MASK_JOB_LIMIT = 1
+
+/** 打码成功后写回节点图对象（展示真源）；失败只记日志不挡主流程 */
+async function persistMaskedPairsToAlbumFlow(albumId, pairs = []) {
+  const id = String(albumId || '').trim()
+  const list = (Array.isArray(pairs) ? pairs : []).filter(
+    (p) => p && String(p.rawUrl || '').trim() && String(p.maskedUrl || '').trim(),
+  )
+  if (!id || !list.length) return { changed: false }
+  try {
+    const album = await prisma.album.findUnique({
+      where: { id },
+      select: { contentPackageJson: true },
+    })
+    if (!album) return { changed: false }
+    const pkg =
+      album.contentPackageJson && typeof album.contentPackageJson === 'object'
+        ? album.contentPackageJson
+        : {}
+    const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+    if (!flowNodes.length) return { changed: false }
+    const { nodes, changed } = writeMaskedPairsIntoFlowNodes(flowNodes, list)
+    if (!changed) return { changed: false }
+    await prisma.album.update({
+      where: { id },
+      data: { contentPackageJson: { ...pkg, flowNodes: nodes } },
+    })
+    return { changed: true }
+  } catch (e) {
+    console.warn('[desensitize] writeback maskedUrl to flow failed', e && e.message)
+    return { changed: false, error: e }
+  }
+}
 
 async function mapLimit(list, limit, mapper) {
   const items = Array.isArray(list) ? list : []
@@ -822,6 +855,13 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     data: { fingerprint },
   })
 
+  await persistMaskedPairsToAlbumFlow(
+    albumId,
+    assetInputs
+      .filter((row) => row && row.rawUrl && row.maskedUrl)
+      .map((row) => ({ rawUrl: row.rawUrl, maskedUrl: row.maskedUrl })),
+  )
+
   notifyPreMaskReadyForGeoLlm(albumId, preMaskStatus)
   notifyPreMaskLifecycle(albumId, preMaskStatus)
 
@@ -1051,10 +1091,12 @@ async function runAutoMask(taskId, options = {}) {
         where: { taskId },
         include: { assets: true },
       })
+      const writebackPairs = []
       for (const asset of refreshed.assets || []) {
         const bare = stripUrlQuery(asset.rawUrl || '')
         const maskedUrl = asset.maskedUrl || asset.preMaskedUrl || ''
         if (!bare || !maskedUrl) continue
+        writebackPairs.push({ rawUrl: asset.rawUrl, maskedUrl })
         const siblings = await prisma.desensitizeAsset.findMany({
           where: { task: { bizId: albumId } },
           select: { taskId: true, assetId: true, rawUrl: true },
@@ -1076,6 +1118,7 @@ async function runAutoMask(taskId, options = {}) {
             ),
         )
       }
+      await persistMaskedPairsToAlbumFlow(albumId, writebackPairs)
     }
   } catch (e) {
     console.warn('[desensitize] sync auto-mask siblings failed', e && e.message)
@@ -1135,6 +1178,11 @@ async function retryAsset(taskId, assetId, options = {}) {
       riskLevel: masked.riskLevel || (maskedUrl ? 'low' : ''),
     },
   })
+  if (maskedUrl) {
+    await persistMaskedPairsToAlbumFlow(asset.task.bizId, [
+      { rawUrl: asset.rawUrl, maskedUrl },
+    ])
+  }
   await refreshPreMaskStatusForTask(taskId)
   return getTaskById(taskId, options)
 }
@@ -1211,7 +1259,7 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
       previewed: false,
     },
   })
-  // 同步到同相册其它脱敏任务（含 pre_mask），便于托管通读预览立刻看到新图
+  // 同步到同相册其它脱敏任务（含 pre_mask），并写回节点图对象
   try {
     const albumId = String(task.bizId || '').trim()
     const bare = stripUrlQuery(asset.rawUrl || '')
@@ -1236,6 +1284,9 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
             }),
           ),
       )
+      await persistMaskedPairsToAlbumFlow(albumId, [
+        { rawUrl: asset.rawUrl, maskedUrl: result.maskedUrl },
+      ])
     }
   } catch (e) {
     console.warn('[desensitize] sync manual mask siblings failed', e && e.message)
@@ -1743,6 +1794,15 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
 
   // 仅当 flow 齐套且行上都有成功产物时才早退；否则重建/补齐资产后由 auto-mask 落痕
   if (sameVersion && !options.force && !missingFlow.length && !incompleteAssets.length) {
+    await persistMaskedPairsToAlbumFlow(
+      albumId,
+      (existing.assets || [])
+        .filter((row) => row && row.rawUrl && (row.maskedUrl || row.preMaskedUrl))
+        .map((row) => ({
+          rawUrl: row.rawUrl,
+          maskedUrl: row.maskedUrl || row.preMaskedUrl,
+        })),
+    )
     const task = await getTaskById(taskId)
     return {
       albumId,
@@ -1786,6 +1846,13 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
       },
     },
   })
+
+  await persistMaskedPairsToAlbumFlow(
+    albumId,
+    assetInputs
+      .filter((row) => row && row.rawUrl && row.maskedUrl)
+      .map((row) => ({ rawUrl: row.rawUrl, maskedUrl: row.maskedUrl })),
+  )
 
   const task = await getTaskById(taskId)
   return {

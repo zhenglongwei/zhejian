@@ -158,6 +158,53 @@ test('maskLookup 产物 URL 非标准脱敏路径时仍写入映射', () => {
   assert.equal(done.photos[0].url, oddMasked)
 })
 
+test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW, caption: '交车' }],
+          },
+        },
+      },
+    ],
+    contentNodes: [{ images: [{ url: RAW }] }],
+    maskLookup: { byRawUrl: new Map([[RAW, MASK]]) },
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.equal(done.photos[0].url, MASK)
+})
+
+test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW, maskedUrl: MASK, caption: '交车' }],
+          },
+        },
+      },
+    ],
+    contentNodes: [],
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.equal(done.photos[0].url, MASK)
+})
+
 test('buildPublicServiceFlow 无流转则空章节', () => {
   assert.deepEqual(buildPublicServiceFlow({}).chapters, [])
 })
