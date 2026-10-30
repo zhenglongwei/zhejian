@@ -357,18 +357,6 @@ function namedRows(findings) {
     .filter((row) => row.name || row.note || row.result || row.photos > 0)
 }
 
-/** 从观察摘要推断短部位名（模型漏写 partName 时兜底） */
-function inferInspectPartName(note) {
-  const s = text(note)
-  if (!s) return ''
-  if (/刹|制动|刹车盘|碟/.test(s)) return '制动系统'
-  if (/漆|钣|划|擦|蹭|叶子|翼子|车门|裙边|露铁|打磨/.test(s)) return '车身漆面'
-  if (/排气|消声/.test(s)) return '排气系统'
-  if (/底盘|悬挂|摆臂|胶套|减震|副车架/.test(s)) return '底盘悬挂'
-  if (/轮胎|胎纹|胎侧/.test(s)) return '轮胎'
-  return zhOnly(s, 8)
-}
-
 /** 接车留证套话：检测意见里一律丢掉 */
 function isIntakeCoverageEcho(value) {
   const s = text(value)
@@ -550,102 +538,16 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
     })
   })
 
-  // 模型只写了故障分析、漏写 groups 时：用 imageNotes.partName（或从 note 推断）按槽位兜底拆分
-  const noteRows = (Array.isArray(parsed.imageNotes) ? parsed.imageNotes : []).map((row) => ({
-    slot: Number(row && row.slot),
-    partName: zhOnly(row && row.partName, 16) || inferInspectPartName(row && row.note),
-    note: zhOnly(row && row.note, 120),
-  }))
-  const splitFilled = ensureInspectSplitEdits(edits, items, slots.length ? slots : null, noteRows, slotUrl)
-
   return {
     scope: 'inspect_v2',
     faultAnalysis,
     inspectOrder,
     partHints,
-    edits: splitFilled.concat(photos).slice(0, 12),
+    edits: edits.concat(photos).slice(0, 12),
     shop: [],
     items: [],
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
-}
-
-/**
- * 同一检测项多图、模型未出 groups 时，按每图部位名聚合成可应用的拆分条。
- * photoSlots 优先；无则仅靠 noteRows + slotUrl 回退。
- */
-function ensureInspectSplitEdits(edits, items, photoSlots, noteRows, slotUrl) {
-  const list = Array.isArray(edits) ? edits.slice() : []
-  const notes = Array.isArray(noteRows) ? noteRows : []
-  const noteBySlot = new Map(notes.filter((row) => row.slot >= 1).map((row) => [row.slot, row]))
-  const slots = Array.isArray(photoSlots) && photoSlots.length
-    ? photoSlots
-    : notes
-      .filter((row) => row.slot >= 1)
-      .map((row) => ({
-        slot: row.slot,
-        url: typeof slotUrl === 'function' ? slotUrl(row.slot) : '',
-        findingId: text((Array.isArray(items) && items[0] && items[0].id) || ''),
-      }))
-  const byFinding = new Map()
-  slots.forEach((row) => {
-    const findingId = text(row && row.findingId)
-    if (!findingId) return
-    const bucket = byFinding.get(findingId) || []
-    bucket.push(row)
-    byFinding.set(findingId, bucket)
-  })
-  // 无 photoSlots 时：若只有一个检测项且多槽，整包归到该项
-  if (!byFinding.size && Array.isArray(items) && items.length === 1 && notes.length >= 2) {
-    const findingId = text(items[0].id)
-    if (findingId) {
-      byFinding.set(
-        findingId,
-        notes.map((row) => ({
-          slot: row.slot,
-          url: typeof slotUrl === 'function' ? slotUrl(row.slot) : '',
-          findingId,
-        })),
-      )
-    }
-  }
-  byFinding.forEach((findingSlots, findingId) => {
-    if (findingSlots.length < 2) return
-    const existing = list.find(
-      (row) => row && row.kind === 'item' && text(row.findingId) === findingId && Array.isArray(row.groups) && row.groups.length >= 2,
-    )
-    if (existing) return
-    const buckets = new Map()
-    findingSlots.forEach((slotRow) => {
-      const note = noteBySlot.get(Number(slotRow.slot)) || {}
-      const partName = text(note.partName) || inferInspectPartName(note.note) || ''
-      const advice = text(note.note)
-      const url = text(slotRow.url) || (typeof slotUrl === 'function' ? slotUrl(slotRow.slot) : '')
-      if (!partName || !url) return
-      const prev = buckets.get(partName) || { partName, advice: '', result: '', images: [] }
-      if (advice && !prev.advice) prev.advice = advice
-      if (!prev.images.some((img) => text(img.url) === url)) prev.images.push({ url })
-      buckets.set(partName, prev)
-    })
-    const groups = [...buckets.values()].filter((g) => g.partName && g.images.length)
-    if (groups.length < 2) return
-    const names = groups.map((g) => g.partName)
-    const body = `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`
-    const idx = list.findIndex((row) => row && row.kind === 'item' && text(row.findingId) === findingId)
-    const next = {
-      id: `edit_item_${findingId}`,
-      kind: 'item',
-      findingId,
-      partName: '',
-      advice: '',
-      body,
-      groups,
-      canApply: true,
-    }
-    if (idx >= 0) list[idx] = { ...list[idx], ...next, body: text(list[idx].body) || body }
-    else list.push(next)
-  })
-  return list
 }
 
 function mediaBare(url) {
@@ -984,9 +886,10 @@ function inspectionInstruction(ctx, options = {}) {
     '- Simplified Chinese only in natural-language values. No English words.',
     '- Do NOT invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好 in sentences.',
     '- photoSlots[].slot is the stable id of each photo; newPhotoSlots lists slots of images attached this turn. imageSlots / imageNotes.slot MUST use those slot numbers.',
-    '- edits: at most ONE kind=item row per findingId. If that finding mixes several topics (e.g. body scratch vs chassis/brake), you MUST split in the SAME row: groups[] each with partName, advice, imageSlots covering every slot of that finding. Writing 1.2.3. only in faultAnalysis without groups does NOT count as a split. If one topic only, set partName/advice and omit groups.',
+    '- First judge each attached photo by slot: what inspection topic it shows. Then classify into groups when topics clearly differ.',
+    '- edits: at most ONE kind=item row per findingId. If slots under that finding clearly show different topics (e.g. body paint vs chassis/brake), put groups[] in that SAME row — each with partName, advice, imageSlots; every slot of that finding in exactly one group. If same topic or you cannot tell them apart, do NOT invent a split: omit groups. Writing 1.2.3. only in faultAnalysis without groups does NOT count as a split.',
     '- faultAnalysis must cover every distinct topic in the photos and the complaint, not only the majority topic. Never claim a topic is missing if its photo slot is attached.',
-    '- imageNotes: one row per attached slot with partName (short site) + note. Different partName on same findingId ⇒ groups required.',
+    '- imageNotes: one short observation per attached slot (reuse later). Never use imageNotes as a substitute for groups.',
     '- kind=photo is reminder only (no apply). partHints are read-only.',
     `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
@@ -1000,7 +903,7 @@ function inspectionInstruction(ctx, options = {}) {
         ? visionSlots
         : visionUrls.map((_, i) => i + 1),
     })}`,
-    'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"item","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]},{"kind":"photo","findingId":"","body":""}],"imageNotes":[{"slot":1,"partName":"","note":""}]}',
+    'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"item","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]},{"kind":"photo","findingId":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
 }
 

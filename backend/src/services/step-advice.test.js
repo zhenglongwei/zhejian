@@ -135,15 +135,12 @@ test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
   assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
 })
 
-test('模型只写故障分析漏 groups 时，用 imageNotes.partName 兜底拆分', () => {
+test('模型未给 groups 时不根据 imageNotes 拼拆分条', () => {
   const got = parseInspectionAdvice(
     {
       faultAnalysis: '1.车身漆损 2.刹车盘磨损 3.底盘锈蚀',
       inspectOrder: ['先看漆面', '再测刹车盘'],
-      partHints: [
-        { title: '车身修复提示', body: '除锈补漆' },
-        { title: '制动系统提示', body: '测厚度' },
-      ],
+      partHints: [{ title: '车身修复提示', body: '除锈补漆' }],
       edits: [],
       imageNotes: [
         { slot: 1, partName: '车身漆面', note: '侧围打磨露铁有锈' },
@@ -159,12 +156,10 @@ test('模型只写故障分析漏 groups 时，用 imageNotes.partName 兜底拆
       { slot: 3, url: 'https://cdn/c.jpg', findingId: 'pile' },
     ],
   )
-  const split = got.edits.find((row) => row.findingId === 'pile' && row.kind === 'item')
-  assert.ok(split)
-  assert.equal(split.groups.length, 3)
-  assert.equal(split.groups[0].partName, '车身漆面')
-  assert.equal(split.groups[0].images[0].url, 'https://cdn/a.jpg')
-  assert.match(split.body, /拆成/)
+  assert.equal(
+    got.edits.some((row) => row.kind === 'item' && Array.isArray(row.groups) && row.groups.length >= 2),
+    false,
+  )
 })
 
 test('检测拆分按 photoSlots 槽位解析，不跟本次附图下标错位', () => {
