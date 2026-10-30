@@ -447,31 +447,6 @@ function migrateFlowPackage(pkg = {}, albumNodes = []) {
   return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: fresh }
 }
 
-/** 工单里登记了金额的条目：有登记就要求它与报价合计相等，没登记则不校验 */
-function collectWorkSheetDeclaredAmounts(nodes = []) {
-  const out = []
-  ;(nodes || [])
-    .filter((n) => n.kind === 'work')
-    .forEach((n) => {
-      const sealed =
-        n.document &&
-        n.document.payload &&
-        Array.isArray(n.document.payload.workItems) &&
-        n.document.payload.workItems.length
-          ? n.document.payload.workItems
-          : null
-      const findings =
-        sealed ||
-        (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) ||
-        []
-      findings.forEach((row) => {
-        const amount = parseAmount(row && row.amount)
-        if (amount != null) out.push(amount)
-      })
-    })
-  return out
-}
-
 /** 已确认报价（含增项方案）的金额合计 */
 function collectConfirmedQuoteTotal(nodes = []) {
   return (nodes || [])
@@ -485,6 +460,36 @@ function collectConfirmedQuoteTotal(nodes = []) {
       if (!Array.isArray(lines)) return sum
       return sum + lines.reduce((s, line) => s + (Number(line && line.amount) || 0), 0)
     }, 0)
+}
+
+/** 交车报告行金额：按报价行挂上，不用工单存量 amount */
+function attachQuoteAmountsToWorkItems(workItems = [], nodes = []) {
+  const byId = new Map()
+  const byName = new Map()
+  ;(nodes || []).forEach((n) => {
+    if (n.kind !== 'quote_confirm' && n.kind !== 'addon_quote_confirm') return
+    if (String((n.document && n.document.status) || '') !== 'confirmed') return
+    const lines = (n.document && n.document.payload && n.document.payload.lines) || []
+    ;(Array.isArray(lines) ? lines : []).forEach((line) => {
+      const id = String((line && line.id) || '').trim()
+      const name = String((line && line.name) || '').trim()
+      const amount = parseAmount(line && line.amount)
+      if (amount == null) return
+      if (id && !byId.has(id)) byId.set(id, amount)
+      if (name && !byName.has(name)) byName.set(name, amount)
+    })
+  })
+  return (workItems || []).map((item) => {
+    const id = String((item && item.quoteLineId) || '').trim()
+    const name = String((item && item.name) || '').trim()
+    let fromQuote = null
+    if (id && byId.has(id)) fromQuote = byId.get(id)
+    else if (name && byName.has(name)) fromQuote = byName.get(name)
+    return {
+      ...item,
+      amount: fromQuote == null ? 0 : fromQuote,
+    }
+  })
 }
 
 /** 完工报告的施工项：取自工单（work 节点）如实登记的施工记录，不再由报价派生 */
@@ -508,7 +513,7 @@ function collectAllWorkOrderItems(nodes = []) {
               brand: (row && row.brand) || '',
               material: (row && row.material) || '',
               qty: (row && row.qty) || '',
-              amount: row && row.amount,
+              quoteLineId: (row && row.quoteLineId) || '',
               images: (row && row.images) || [],
               url: row && row.url,
             }),
@@ -521,7 +526,7 @@ function collectAllWorkOrderItems(nodes = []) {
     })
 }
 
-/** 工单条目 → 完工报告/工单定稿施工项。金额留空则记 0；图跟项一起写入报告属性。 */
+/** 工单条目 → 完工报告施工项。金额不由工单带；交车时再按报价挂上。 */
 function mapWorkFindingToReportItem(row = {}) {
   const name = String(row.partName || '').trim()
   const note = String(row.caption || '').trim()
@@ -529,7 +534,6 @@ function mapWorkFindingToReportItem(row = {}) {
   const brand = String(row.brand || '').trim()
   const qty = String(row.qty || '').trim()
   if (!name && !note && !material) return null
-  const amount = parseAmount(row.amount)
   const images = []
   const seen = new Set()
   const pushImg = (raw) => {
@@ -551,7 +555,8 @@ function mapWorkFindingToReportItem(row = {}) {
     qty,
     note,
     images,
-    amount: amount == null ? 0 : amount,
+    quoteLineId: String(row.quoteLineId || '').trim(),
+    amount: 0,
   }
 }
 
@@ -1409,19 +1414,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       const inspectionReport = list.find((n) => n.kind === 'inspection_report')
       const delivery = nodes.find((n) => n.id === 'stage_6')
       if (repairIdx >= 0) {
-        // 金额口径：工单登记了金额就必须与已确认报价合计一致，否则先走增项报价
-        const declaredAmounts = collectWorkSheetDeclaredAmounts(list)
+        // 金额只认已确认报价（含补充报价）；施工不填金额，交车不再对账拦截
         const quoteTotal = collectConfirmedQuoteTotal(list)
-        if (declaredAmounts.length) {
-          const sheetTotal = declaredAmounts.reduce((s, v) => s + v, 0)
-          if (Math.abs(sheetTotal - quoteTotal) > 0.01) {
-            const err = new Error(
-              '工单金额与报价合计不一致，请先补一张增项报价并经车主确认',
-            )
-            err.status = 400
-            throw err
-          }
-        }
         // 交车图只认本步草稿勾选/外观；禁止再从 stage_6 散图另拷一份
         void delivery
         const draft = buildRepairReportPayload({
@@ -1431,10 +1425,9 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
               inspectionReport.document.payload &&
               inspectionReport.document.payload.chiefComplaint) ||
             '',
-          workItems: collectAllWorkOrderItems(list),
+          workItems: attachQuoteAmountsToWorkItems(collectAllWorkOrderItems(list), list),
           deliveryImages: [],
           photoDraft: incomingDraft,
-          // 工单没登记金额就回落报价合计；登记了则两者必然相等（上面已校验）
           totalAmount: quoteTotal,
           confirmCopy: REPAIR_CONFIRM_COPY,
         })

@@ -906,11 +906,124 @@
   gap: var(--space-xs);
 }
 
+.merchant-flow-page__key-fill {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__key-fill-rail {
+  width: 6rpx;
+  align-self: stretch;
+  min-height: 80rpx;
+  border-radius: 3rpx;
+  background-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.merchant-flow-page__key-fill-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-flow-page__key-fill-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__key-fill-label-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__label--key {
+  margin-top: 0;
+}
+
+.merchant-flow-page__key-fill-req {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-danger);
+}
+
+.merchant-flow-page__textarea--key {
+  width: 100%;
+  height: auto;
+  min-height: 144rpx;
+  max-height: 360rpx;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  box-sizing: border-box;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
 .merchant-flow-page__owner-faq {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   margin-bottom: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__owner-faq-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__owner-faq-q {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.merchant-flow-page__owner-faq-remove {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  padding: var(--space-xs) 0;
+}
+
+.merchant-flow-page__key-fill-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80rpx;
+  border: 2rpx dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__key-fill-add-text {
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
 }
 
 .merchant-flow-page__advice-shot {

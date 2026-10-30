@@ -250,7 +250,7 @@
       </block>
     </view>
     <view wx:if="{{doc.ownerFaqs && doc.ownerFaqs.length}}" class="service-doc-sheet__block">
-      <text class="service-doc-sheet__section">车主关心的问题</text>
+      <text class="service-doc-sheet__section">您可能关心的问题</text>
       <view wx:for="{{doc.ownerFaqs}}" wx:for-item="faq" wx:key="id" class="service-doc-sheet__faq">
         <text class="service-doc-sheet__faq-q">{{faq.question}}</text>
         <text wx:if="{{faq.answer}}" class="service-doc-sheet__note">{{faq.answer}}</text>
