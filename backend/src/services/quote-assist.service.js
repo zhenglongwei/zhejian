@@ -7,7 +7,11 @@ const { prisma } = require('../lib/prisma')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 const { resolveShared } = require('../utils/resolve-shared')
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
-const { parseQuoteAssistPayload, sanitizeQuoteAssistForView } = require('../utils/quote-assist')
+const {
+  parseQuoteAssistPayload,
+  sanitizeQuoteAssistForView,
+  lineHasMarketBand,
+} = require('../utils/quote-assist')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 
 const { normalizeQuoteLine, buildQuoteDraft } = resolveShared('utils/service-flow-docs.js')
@@ -95,14 +99,18 @@ async function runGenerateLlm(facts, category) {
     'Goal: necessity of lines, missing critical lines, price reasonableness, and which workmanship photos the shop should take later. Content over form. Never claim "no issues" only because the table has rows.',
     'The CURRENT quote table in facts is ground truth when present. Do NOT discuss items that are not on the table as billable facts.',
     'You MUST review every filled amount for being absurdly high or low for that service in a normal China independent shop; call out outliers in priceIssues.',
-    'Do NOT change amounts. Do NOT turn common industry talk into billable lines.',
-    'For suggestedLines (when drafting): name + work note; leave amounts empty. Use oem/brand/economy as wide reference bands, not live market prices.',
+    'Do NOT change deal amounts on the quote table. Do NOT turn common industry talk into billable lines.',
+    'For suggestedLines: set kind to parts or labor for EVERY row.',
+    '- kind=parts (replace parts OR consume materials: filters, oil, paint, bushings, pads, batteries, etc.): fill oem / brand / economy as wide Chinese ranges (e.g. "约800-1500"). Leave dealer/indie empty.',
+    '- kind=labor (pure ops: teardown/inspect, diagnosis, labor-hour, alignment, cleaning — no part brand): fill dealer (4S shop) and indie (independent garage) as two wide ranges. Leave oem/brand/economy empty.',
+    '- Mixed replace+labor → kind=parts (brand bands already cover typical labor spread).',
+    'Leave the shop deal amount empty. Reference bands required unless accident-car estimate — then leave all band fields empty and only mention in objections.',
     'Omissions stay in omissions — never as chargeable lines. Closed packages must keep the package main line. Open jobs: only visible actionable items and teardown; do not invent hidden parts.',
     'Skip 状态良好 / 仅记录 / routine inspection-only rows as charge lines.',
     MECHANIC_VOICE_RULES,
     `Category constraint: ${JSON.stringify(facts.constraint)}`,
     `Job facts JSON: ${JSON.stringify(facts.body)}`,
-    'Return JSON only (Chinese strings): {"suggestedLines":[{"name","note","oem","brand","economy"}],"priceIssues":[{"lineName","body"}],"omissions":[{"title","body","suggestAdd":true}],"necessity":[{"lineName","body"}],"photoPlan":[{"title","body"}],"objections":[{"ask","heard","ours","say"}]}',
+    'Return JSON only (Chinese strings): {"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie"}],"priceIssues":[{"lineName","body"}],"omissions":[{"title","body","suggestAdd":true}],"necessity":[{"lineName","body"}],"photoPlan":[{"title","body"}],"objections":[{"ask","heard","ours","say"}]}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -129,6 +137,9 @@ async function runGenerateLlm(facts, category) {
       })
       const parsed = parseQuoteAssistPayload(result && result.text, { category })
       if (!parsed.suggestedLines.length) continue
+      // 有建议行但全无参考区间时换下一家，避免「市场参考价」空壳
+      const hasBand = parsed.suggestedLines.some((row) => lineHasMarketBand(row))
+      if (!hasBand) continue
       return { parsed, engineId: engine.id }
     } catch (_) {
       /* 换下一家 */
@@ -265,6 +276,9 @@ async function runQuoteAssistJob(albumId, merchantId) {
             fingerprint,
             generateEngine: engineId,
             issues: [],
+            priceIssues: parsed.priceIssues || [],
+            necessity: parsed.necessity || [],
+            photoPlan: parsed.photoPlan || [],
             omissions: parsed.omissions,
             objections: parsed.objections,
             suggestedLines: parsed.suggestedLines,

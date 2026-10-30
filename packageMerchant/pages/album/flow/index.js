@@ -5637,9 +5637,12 @@ Page({
       priceBands: suggestedLines.map((row, lineIndex) => ({
         lineIndex,
         name: row && row.name,
+        kind: (row && row.kind) || 'parts',
         oem: row && row.oem,
         brand: row && row.brand,
         economy: row && row.economy,
+        dealer: row && row.dealer,
+        indie: row && row.indie,
         note: '',
       })),
     })
@@ -6041,19 +6044,36 @@ Page({
       .map((row) => this.decorateObjection(row))
       .filter((row) => row.hasAsk || row.hasHeard || row.hasOurs || row.hasSay)
     const priceBands = (Array.isArray(brief.priceBands) ? brief.priceBands : [])
-      .filter((row) => row && (row.name || row.oem || row.brand || row.economy))
       .map((row) => {
-        const bandChips = [
-          row.oem ? { key: 'oem', k: '原厂', v: row.oem } : null,
-          row.brand ? { key: 'brand', k: '品牌', v: row.brand } : null,
-          row.economy ? { key: 'eco', k: '经济件', v: row.economy } : null,
-        ].filter(Boolean)
+        const kind = String((row && row.kind) || 'parts')
+        const bandChips =
+          kind === 'labor'
+            ? [
+                row && row.dealer
+                  ? { key: 'dealer', k: '4S店', v: String(row.dealer).trim() }
+                  : null,
+                row && row.indie
+                  ? { key: 'indie', k: '修理厂', v: String(row.indie).trim() }
+                  : null,
+              ].filter((chip) => chip && chip.v)
+            : [
+                row && row.oem ? { key: 'oem', k: '原厂', v: String(row.oem).trim() } : null,
+                row && row.brand ? { key: 'brand', k: '品牌', v: String(row.brand).trim() } : null,
+                row && row.economy
+                  ? { key: 'eco', k: '经济件', v: String(row.economy).trim() }
+                  : null,
+              ].filter((chip) => chip && chip.v)
         return {
           ...row,
+          kind,
+          name: String((row && row.name) || '').trim(),
+          note: String((row && row.note) || '').trim(),
           bandChips,
           hasChips: bandChips.length > 0,
         }
       })
+      // 没有区间就不占「市场参考价」空壳行
+      .filter((row) => row.hasChips)
     return {
       kicker: 'AI意见',
       issues,

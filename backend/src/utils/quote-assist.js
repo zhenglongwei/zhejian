@@ -24,6 +24,26 @@ function parseTitleBodyList(raw, max = 8) {
   return out.slice(0, max)
 }
 
+/** 换件/用料 vs 纯工时：模型 kind 优先，否则按行名粗分 */
+function inferQuoteLineKind(name, note, kindRaw) {
+  const kind = text(kindRaw).toLowerCase()
+  if (kind === 'parts' || kind === 'part' || kind === 'material') return 'parts'
+  if (kind === 'labor' || kind === 'ops' || kind === 'work') return 'labor'
+  const blob = `${name}${note}`
+  const laborHit = /拆检|检查费|诊断|工时|定位|四轮定位|动平衡|清洗|清洁|排气|编程|匹配|保养复位/.test(blob)
+  const partsHit = /更换|换装|机油|机滤|空滤|汽滤|空调滤|滤芯|电瓶|刹车片|刹车盘|轮胎|油漆|喷漆|补漆|配件|总成|胶套|球头|支臂/.test(
+    blob,
+  )
+  if (laborHit && !partsHit) return 'labor'
+  return 'parts'
+}
+
+function lineHasMarketBand(row) {
+  if (!row) return false
+  if (row.kind === 'labor') return Boolean(text(row.dealer || row.indie))
+  return Boolean(text(row.oem || row.brand || row.economy))
+}
+
 function parseSuggestedLines(raw) {
   const list = Array.isArray(raw) ? raw : []
   const lines = []
@@ -31,12 +51,36 @@ function parseSuggestedLines(raw) {
     if (!row || typeof row !== 'object') return
     const name = text(row.name || row.title)
     if (!name) return
+    const note = text(row.note)
+    const kind = inferQuoteLineKind(name, note, row.kind || row.lineKind || row.type)
+    const oem = text(row.oem)
+    const brand = text(row.brand)
+    const economy = text(row.economy)
+    const dealer = text(row.dealer || row.fours || row.shop4s || row.dealerBand)
+    const indie = text(row.indie || row.garage || row.repairShop || row.indieBand)
+    if (kind === 'labor') {
+      lines.push({
+        name,
+        note,
+        kind: 'labor',
+        oem: '',
+        brand: '',
+        economy: '',
+        dealer,
+        indie,
+        sortOrder: index,
+      })
+      return
+    }
     lines.push({
       name,
-      note: text(row.note),
-      oem: text(row.oem),
-      brand: text(row.brand),
-      economy: text(row.economy),
+      note,
+      kind: 'parts',
+      oem,
+      brand,
+      economy,
+      dealer: '',
+      indie: '',
       sortOrder: index,
     })
   })
@@ -88,7 +132,7 @@ function parseQuoteAssistPayload(raw) {
 function quoteAssistHasContent(assist) {
   if (!assist || typeof assist !== 'object') return false
   const lines = Array.isArray(assist.suggestedLines) ? assist.suggestedLines : []
-  const hasBand = lines.some((row) => text(row && (row.oem || row.brand || row.economy)))
+  const hasBand = lines.some((row) => lineHasMarketBand(row))
   return Boolean(
     (lines && lines.length) ||
       (assist.omissions && assist.omissions.length) ||
@@ -104,9 +148,10 @@ function sanitizeQuoteAssistForView(assist) {
   if (!assist || typeof assist !== 'object') return null
   const status = text(assist.status)
   if (!status) return null
+  const suggestedLines = parseSuggestedLines(assist.suggestedLines)
   return {
     status,
-    suggestedLines: Array.isArray(assist.suggestedLines) ? assist.suggestedLines : [],
+    suggestedLines,
     omissions: Array.isArray(assist.omissions) ? assist.omissions : [],
     objections: Array.isArray(assist.objections) ? assist.objections : [],
     priceIssues: Array.isArray(assist.priceIssues) ? assist.priceIssues : [],
@@ -119,6 +164,8 @@ function sanitizeQuoteAssistForView(assist) {
 }
 
 module.exports = {
+  inferQuoteLineKind,
+  lineHasMarketBand,
   parseSuggestedLines,
   parseOwnerAsks,
   parseQuoteAssistPayload,

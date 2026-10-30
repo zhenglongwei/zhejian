@@ -357,23 +357,33 @@ function parseMerchantBrief(raw, ctx = {}) {
   const empty = { issues: [], omissions: [], objections: [], priceBands: [] }
   if (!brief) return empty
   const accident = text(ctx.rubric && ctx.rubric.category) === 'accident'
+  const { inferQuoteLineKind, lineHasMarketBand } = require('./quote-assist')
   const bands = []
   if (!accident && Array.isArray(brief.priceBands)) {
     brief.priceBands.slice(0, 8).forEach((row, index) => {
       if (!row || typeof row !== 'object') return
       const name = text(row.name)
-      const oem = text(row.oem)
-      const brand = text(row.brand)
-      const economy = text(row.economy)
-      if (!name && !oem && !brand && !economy) return
-      bands.push({
+      const note = text(row.note).slice(0, 80)
+      const kind = inferQuoteLineKind(name, note, row.kind || row.lineKind || row.type)
+      const oem = kind === 'parts' ? text(row.oem) : ''
+      const brand = kind === 'parts' ? text(row.brand) : ''
+      const economy = kind === 'parts' ? text(row.economy) : ''
+      const dealer = kind === 'labor' ? text(row.dealer || row.fours || row.shop4s) : ''
+      const indie = kind === 'labor' ? text(row.indie || row.garage || row.repairShop) : ''
+      const band = {
         lineIndex: Number.isFinite(Number(row.lineIndex)) ? Number(row.lineIndex) : index,
         name,
+        kind,
         oem,
         brand,
         economy,
-        note: text(row.note).slice(0, 80),
-      })
+        dealer,
+        indie,
+        note,
+      }
+      if (!name && !lineHasMarketBand(band)) return
+      if (!lineHasMarketBand(band)) return
+      bands.push(band)
     })
   }
   return {
