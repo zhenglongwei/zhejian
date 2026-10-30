@@ -438,6 +438,39 @@ function resolveInspectSlotNumber(slot) {
   return 0
 }
 
+/**
+ * 模型已在 imageNotes 写出不同 partName（检测项目名，不一定是部位）时，程序只做结构化编 groups。
+ * 同名槽合并；名称必须来自模型，禁止用故障分析/检测顺序猜名。
+ */
+function buildGroupsFromNamedImageNotes(imageNotes, findingSlots, slotUrl) {
+  const slots = Array.isArray(findingSlots) ? findingSlots : []
+  if (slots.length < 2) return []
+  const slotSet = new Set(slots.map((row) => Number(row && row.slot)).filter((n) => n >= 1))
+  const byName = new Map()
+  ;(Array.isArray(imageNotes) ? imageNotes : []).forEach((row) => {
+    const slot = Number(row && row.slot) || 0
+    if (!slotSet.has(slot)) return
+    const partName = zhOnly(row && row.partName, 16)
+    if (!partName) return
+    const url =
+      (typeof slotUrl === 'function' ? text(slotUrl(slot)) : '') ||
+      text((slots.find((s) => Number(s && s.slot) === slot) || {}).url)
+    if (!url) return
+    const advice = zhOnly(row && row.note, 120)
+    if (!byName.has(partName)) {
+      byName.set(partName, { partName, advice: '', result: '', images: [] })
+    }
+    const group = byName.get(partName)
+    if (advice && !group.advice) group.advice = advice
+    const bare = mediaBare(url)
+    if (!group.images.some((img) => mediaBare(img.url) === bare)) {
+      group.images.push({ url })
+    }
+  })
+  const groups = [...byName.values()].filter((g) => g.partName && g.images.length)
+  return groups.length >= 2 ? groups : []
+}
+
 /** 恰好一个多图项时，把模型写错的 findingId 重挂到该项；多个多图项则不猜 */
 function soleMultiPhotoFindingId(items, photoSlots) {
   const ids = new Set()
@@ -600,6 +633,35 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
     }
   })
 
+  const imageNotes = normalizeImageNotesInput(parsed.imageNotes)
+  // 空壳 groups：用模型已写的 imageNotes.partName 结构化（名称认模型）
+  const findingIdsForHydrate = new Set()
+  slots.forEach((row) => {
+    const id = text(row && row.findingId)
+    if (id) findingIdsForHydrate.add(id)
+  })
+  byItemId.forEach((_, id) => findingIdsForHydrate.add(id))
+  findingIdsForHydrate.forEach((findingId) => {
+    const findingSlots = slots.filter((row) => text(row && row.findingId) === findingId)
+    if (findingSlots.length < 2) return
+    const prev = byFinding.get(findingId) || {
+      findingId,
+      partName: '',
+      advice: '',
+      body: '',
+      groups: [],
+    }
+    if (Array.isArray(prev.groups) && prev.groups.length >= 2) return
+    const hydrated = buildGroupsFromNamedImageNotes(imageNotes, findingSlots, slotUrl)
+    if (hydrated.length < 2) return
+    prev.groups = hydrated
+    if (!prev.body) {
+      const names = hydrated.map((g) => g.partName).filter(Boolean)
+      prev.body = `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`
+    }
+    byFinding.set(findingId, prev)
+  })
+
   const edits = []
   byFinding.forEach((row) => {
     if (edits.length >= 10) return
@@ -636,7 +698,7 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
     edits: edits.concat(photos).slice(0, 12),
     shop: [],
     items: [],
-    imageNotes: normalizeImageNotesInput(parsed.imageNotes),
+    imageNotes,
   }
 }
 
@@ -1082,7 +1144,7 @@ function requiredInspectSplitHints(ctx) {
     .map((id) => {
       const slots = slotsForFinding(ctx, id).map((row) => Number(row.slot))
       if (slots.length < 2) return ''
-      return `- findingId "${id}" owns slots [${slots.join(', ')}]: if those slots show DIFFERENT topics, you MUST emit one edits[] row with findingId="${id}" and groups[] so each listed slot appears in exactly one group.`
+      return `- findingId "${id}" owns slots [${slots.join(', ')}]: if those slots belong to DIFFERENT shop inspection lines (检测项目), you MUST emit one edits[] row with findingId="${id}" and groups[] so each listed slot appears in exactly one group; partName = real inspection line name, not necessarily a body-part label.`
     })
     .filter(Boolean)
 }
@@ -1096,7 +1158,7 @@ function inspectionInstruction(ctx, options = {}) {
   const s2 = exampleSlots[1] || 2
   const s3 = exampleSlots[2] || 3
   const exampleLead = multiIds[0]
-    ? `Example when finding "${exampleId}" has different topics across its slots:`
+    ? `Example when finding "${exampleId}" has different inspection lines across its slots:`
     : 'Example (replace FINDING_ID with the exact photoSlots[].findingId of the multi-photo item):'
   const required = requiredInspectSplitHints(ctx)
   return [
@@ -1105,28 +1167,30 @@ function inspectionInstruction(ctx, options = {}) {
     '',
     'CRITICAL — photo split (groups) is the only way the clerk can split a mixed photo pile. Prose is not enough.',
     '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots).',
-    '2) Decide which inspection topic each slot shows (body paint, brake disc, chassis, etc.).',
-    '3) If one findingId owns 2+ slots with DIFFERENT topics, emit exactly ONE edits[] row for that findingId with groups[]:',
-    '   - one group per topic; EVERY group MUST have non-empty partName, advice, imageSlots (numeric slot ids only)',
+    '2) Decide which shop inspection LINE each slot belongs to (what the shop would write as a 检测项目 on the job sheet).',
+    '3) Naming rule: groups[].partName and imageNotes[].partName are real-shop inspection line names, NOT required to be anatomic body-part labels only.',
+    '   Prefer names like「前制动盘磨损评估」「左后门下沿钣喷」; avoid bare「车门」「刹车」unless that is how the shop names the line.',
+    '4) If one findingId owns 2+ slots with DIFFERENT inspection lines, emit exactly ONE edits[] row for that findingId with groups[]:',
+    '   - one group per inspection line; EVERY group MUST have non-empty partName, advice, imageSlots (numeric slot ids only)',
     '   - every slot of that findingId must appear in exactly one group; do not leave a slot out',
-    '4) If faultAnalysis lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding.',
-    '5) Omit groups ONLY when all slots of that finding share one topic, or you truly cannot tell topics apart.',
-    '6) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent "pile".',
-    '7) FORBIDDEN: groups:[{},{}] or any group missing partName or imageSlots. Empty shells are INVALID.',
-    '8) faultAnalysis: prefer one string with newlines (1. …\\n2. …), not a JSON array of strings.',
-    '9) imageNotes: array of {slot, partName, note} — not a map keyed by slot string.',
+    '5) If faultAnalysis lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding.',
+    '6) Omit groups ONLY when all slots of that finding share one inspection line, or you truly cannot tell them apart.',
+    '7) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent "pile".',
+    '8) FORBIDDEN: groups:[{},{}] or any group missing partName or imageSlots. Empty shells are INVALID.',
+    '9) faultAnalysis: prefer one string with newlines (1. …\\n2. …), not a JSON array of strings.',
+    '10) imageNotes: array of {slot, partName, note} — partName follows the same inspection-line naming rule; not a map keyed by slot string.',
     '',
     ...(required.length
       ? ['REQUIRED split checks for this request:', ...required, '']
       : []),
     exampleLead,
-    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"漆面剥落需钣喷","imageSlots":[${s1}]},{"partName":"制动系统","advice":"盘面磨损需测厚","imageSlots":[${s2}]},{"partName":"底盘悬挂","advice":"锈斑需进一步检查","imageSlots":[${s3}]}]}]}`,
+    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成左后门下沿钣喷、前制动盘磨损评估、底盘锈蚀检查","groups":[{"partName":"左后门下沿钣喷","advice":"漆面剥落需钣喷","imageSlots":[${s1}]},{"partName":"前制动盘磨损评估","advice":"盘面磨损需测厚","imageSlots":[${s2}]},{"partName":"底盘锈蚀检查","advice":"锈斑需进一步检查","imageSlots":[${s3}]}]}]}`,
     '',
     'Other rules:',
     '- Intake is context only — never restate intake coverage.',
     '- Natural-language JSON string values: Simplified Chinese only (no English words inside those strings).',
     '- Do not invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好.',
-    '- Cover every distinct topic visible in photos + complaint in faultAnalysis.',
+    '- Cover every distinct inspection line visible in photos + complaint in faultAnalysis.',
     '- imageNotes: one short observation per attached slot; never a substitute for groups.',
     '- kind=photo edits are reminders only (no apply). partHints are read-only.',
     `Context JSON: ${JSON.stringify(payload)}`,
@@ -1238,7 +1302,7 @@ function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
               slotPlan[0].slotHints.find((row) => Number(row.slot) === slot)) ||
             null
           return {
-            partName: text(hint && hint.partNameHint) || (index === 0 ? '车身漆面' : '制动系统'),
+            partName: text(hint && hint.partNameHint) || (index === 0 ? '左后门下沿钣喷' : '前制动盘磨损评估'),
             advice: text(hint && hint.note) || (index === 0 ? '漆面损伤需钣喷' : '盘面磨损需测厚'),
             imageSlots: [slot],
           }
@@ -1246,16 +1310,17 @@ function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
       },
     ],
   }
-  // 同主题槽位应合并：示例里若有第 3 槽，提示模型可并入相近主题
+  // 同一检测项目的槽位应合并：示例里若有第 3 槽，提示模型可并入相近检测项目
   if (exampleSlots.length >= 3 && filledExample.edits[0].groups.length >= 2) {
     filledExample.edits[0].groups[1].imageSlots = exampleSlots.slice(1)
   }
   return [
-    'Your previous JSON distinguished multiple inspection topics but groups were EMPTY or incomplete.',
+    'Your previous JSON distinguished multiple inspection lines but groups were EMPTY or incomplete.',
     'FORBIDDEN (never return this): "groups":[{},{}]  — empty objects are INVALID.',
     'Each group MUST include non-empty partName, advice, and imageSlots (numbers from missingSplitPlan).',
+    'partName = real-shop 检测项目 name (inspection line), NOT required to be an anatomic body-part label only.',
     'Use missingSplitPlan[].slotHints (from your own previous imageNotes) as material to FILL groups.',
-    'Merge slots that show the SAME topic into ONE group; different topics → different groups.',
+    'Merge slots that belong to the SAME inspection line into ONE group; different lines → different groups.',
     'Keep faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
     'For EACH entry in missingSplitPlan, emit exactly ONE kind=item edit with findingId copied exactly.',
     'Natural-language string values: Simplified Chinese only.',

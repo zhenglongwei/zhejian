@@ -222,7 +222,7 @@ test('补跑结果把 groups 合并进原意见', () => {
   assert.match(got.edits[0].body, /拆成/)
 })
 
-test('模型未给 groups 时不根据 imageNotes 拼拆分条', () => {
+test('模型已写 imageNotes.partName 时程序结构化成 groups', () => {
   const got = parseInspectionAdvice(
     {
       faultAnalysis: '1.车身漆损 2.刹车盘磨损 3.底盘锈蚀',
@@ -241,6 +241,70 @@ test('模型未给 groups 时不根据 imageNotes 拼拆分条', () => {
       { slot: 1, url: 'https://cdn/a.jpg', findingId: 'pile' },
       { slot: 2, url: 'https://cdn/b.jpg', findingId: 'pile' },
       { slot: 3, url: 'https://cdn/c.jpg', findingId: 'pile' },
+    ],
+  )
+  const edit = got.edits.find((row) => row.kind === 'item' && row.findingId === 'pile')
+  assert.ok(edit)
+  assert.equal(edit.groups.length, 3)
+  assert.equal(edit.groups[0].partName, '车身漆面')
+  assert.equal(edit.canApply, true)
+})
+
+test('空壳 groups + 图注已命名 → 同名槽合并成可应用拆分', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.漆面剥落。2.制动盘磨损。',
+      inspectOrder: ['车身漆面修复', '制动系统检测'],
+      partHints: [],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'fid_new_1',
+          body: '槽位1为车身，槽位2和3为制动',
+          groups: [{}, {}],
+        },
+      ],
+      imageNotes: [
+        { slot: 1, partName: '车门下沿', note: '漆面剥落' },
+        { slot: 2, partName: '制动盘', note: '盘面磨损' },
+        { slot: 3, partName: '制动盘', note: '同槽位2视角' },
+      ],
+    },
+    [{ id: 'fid_new_1', name: '车门下沿', note: '', photos: 3 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg', 'https://cdn/c.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_new_1' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_new_1' },
+      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'fid_new_1' },
+    ],
+  )
+  const edit = got.edits.find((row) => row.kind === 'item' && row.findingId === 'fid_new_1')
+  assert.ok(edit)
+  assert.equal(edit.groups.length, 2)
+  assert.equal(edit.groups[0].partName, '车门下沿')
+  assert.equal(edit.groups[0].images.length, 1)
+  assert.equal(edit.groups[1].partName, '制动盘')
+  assert.equal(edit.groups[1].images.length, 2)
+  assert.equal(edit.canApply, true)
+})
+
+test('图注无 partName 时不根据故障分析猜名', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.车身漆损 2.刹车盘磨损',
+      inspectOrder: ['先看漆面', '再测刹车盘'],
+      partHints: [],
+      edits: [{ kind: 'item', findingId: 'fid_a', body: '建议拆开', groups: [{}, {}] }],
+      imageNotes: [
+        { slot: 1, note: '侧围有锈' },
+        { slot: 2, note: '刹车盘有沟槽' },
+      ],
+    },
+    [{ id: 'fid_a', name: '', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_a' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_a' },
     ],
   )
   assert.equal(
