@@ -1,0 +1,82 @@
+<view class="host-archive-preview" wx:if="{{chapters.length}}">
+  <view
+    wx:for="{{chapters}}"
+    wx:for-item="ch"
+    wx:key="id"
+    class="host-archive-preview__step {{index === chapters.length - 1 ? 'is-last' : ''}}"
+  >
+    <view class="host-archive-preview__dot" />
+    <view class="host-archive-preview__body">
+      <text class="host-archive-preview__title">{{ch.title}}</text>
+
+      <block wx:if="{{ch.chiefComplaint}}">
+        <text class="host-archive-preview__k">进店主诉</text>
+        <text class="host-archive-preview__p">{{ch.chiefComplaint}}</text>
+      </block>
+
+      <block wx:if="{{ch.findings.length}}">
+        <text class="host-archive-preview__k">本次检测</text>
+        <view
+          wx:for="{{ch.findings}}"
+          wx:for-item="f"
+          wx:for-index="fi"
+          wx:key="fi"
+          class="host-archive-preview__finding"
+        >
+          <image
+            wx:if="{{f.url}}"
+            class="host-archive-preview__finding-img image-placeholder"
+            src="{{f.url}}"
+            mode="aspectFill"
+            data-url="{{f.url}}"
+            bindtap="onImageTap"
+          />
+          <view wx:else class="host-archive-preview__finding-img is-empty" />
+          <view class="host-archive-preview__finding-text">
+            <text class="host-archive-preview__item-name">{{f.partName}}</text>
+            <text wx:if="{{f.advice}}" class="host-archive-preview__note">{{f.advice}}</text>
+          </view>
+        </view>
+      </block>
+
+      <view wx:if="{{ch.items.length}}" class="host-archive-preview__items">
+        <view wx:for="{{ch.items}}" wx:for-item="row" wx:for-index="ri" wx:key="ri" class="host-archive-preview__item">
+          <text class="host-archive-preview__item-name">{{row.name}}</text>
+          <text wx:if="{{row.brand}}" class="host-archive-preview__note">{{row.brand}}</text>
+          <text wx:if="{{row.note}}" class="host-archive-preview__note">{{row.note}}</text>
+          <image
+            wx:if="{{row.evidenceUrl}}"
+            class="host-archive-preview__thumb image-placeholder"
+            src="{{row.evidenceUrl}}"
+            mode="aspectFill"
+            data-url="{{row.evidenceUrl}}"
+            bindtap="onImageTap"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{ch.photos.length}}" class="host-archive-preview__photos">
+        <view
+          wx:for="{{ch.photos}}"
+          wx:for-item="photo"
+          wx:key="url"
+          class="host-archive-preview__photo-wrap"
+        >
+          <image
+            class="host-archive-preview__photo image-placeholder"
+            src="{{photo.url || photo}}"
+            mode="aspectFill"
+            data-url="{{photo.url || photo}}"
+            bindtap="onImageTap"
+          />
+          <text wx:if="{{photo.caption}}" class="host-archive-preview__caption">{{photo.caption}}</text>
+        </view>
+      </view>
+
+      <text
+        wx:if="{{ch.warrantyPeriod || ch.warrantyNotes}}"
+        class="host-archive-preview__note"
+      >质保：{{ch.warrantyPeriod}}{{ch.warrantyPeriod && ch.warrantyNotes ? ' · ' : ''}}{{ch.warrantyNotes}}</text>
+    </view>
+  </view>
+</view>

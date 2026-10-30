@@ -50,7 +50,7 @@ function looksMaskedUrl(url) {
   )
 }
 
-function collectMaskImagesFromDocs(docs) {
+function collectMaskImagesFromChapters(chapters) {
   const rows = []
   const seen = new Set()
   const push = (raw) => {
@@ -61,25 +61,78 @@ function collectMaskImagesFromDocs(docs) {
     seen.add(key)
     rows.push({ url, masked: looksMaskedUrl(url) })
   }
-  ;(Array.isArray(docs) ? docs : []).forEach((doc) => {
-    if (!doc || doc.locked) return
-    ;(Array.isArray(doc.photos) ? doc.photos : []).forEach(push)
-    ;(Array.isArray(doc.findings) ? doc.findings : []).forEach((row) => {
-      push(row)
-      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
-    })
-    ;(Array.isArray(doc.lines) ? doc.lines : []).forEach((row) => {
+  ;(Array.isArray(chapters) ? chapters : []).forEach((ch) => {
+    if (!ch) return
+    ;(Array.isArray(ch.findings) ? ch.findings : []).forEach((row) => push(row))
+    ;(Array.isArray(ch.photos) ? ch.photos : []).forEach(push)
+    ;(Array.isArray(ch.items) ? ch.items : []).forEach((row) => {
       if (!row) return
       push(row.evidenceUrl)
-      ;(Array.isArray(row.evidenceUrls) ? row.evidenceUrls : []).forEach(push)
+      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
     })
-    ;(Array.isArray(doc.items) ? doc.items : []).forEach((row) => {
-      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
-    })
-    ;(Array.isArray(doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach(push)
-    ;(Array.isArray(doc.discoveryImages) ? doc.discoveryImages : []).forEach(push)
   })
   return rows.sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+}
+
+function normalizeArchiveChapters(chapters) {
+  return (Array.isArray(chapters) ? chapters : []).map((ch, index) => ({
+    id: String((ch && ch.id) || `ch_${index}`),
+    kind: String((ch && ch.kind) || ''),
+    title: String((ch && ch.title) || ''),
+    chiefComplaint: String((ch && ch.chiefComplaint) || ''),
+    findings: Array.isArray(ch && ch.findings) ? ch.findings : [],
+    items: Array.isArray(ch && ch.items) ? ch.items : [],
+    photos: Array.isArray(ch && ch.photos) ? ch.photos : [],
+    warrantyPeriod: String((ch && ch.warrantyPeriod) || ''),
+    warrantyNotes: String((ch && ch.warrantyNotes) || ''),
+  }))
+}
+
+function patchArchiveChapterImageUrls(chapters, fromUrl, toUrl) {
+  const nextUrl = withCacheBust(toUrl, Date.now())
+  const match = (u) =>
+    urlsLikelyMatch(u, fromUrl) || urlsLikelyMatch(stripUrlQuery(u), stripUrlQuery(fromUrl))
+  return (chapters || []).map((ch) => {
+    if (!ch) return ch
+    let changed = false
+    const findings = Array.isArray(ch.findings)
+      ? ch.findings.map((row) => {
+          if (!row || !match(row.url)) return row
+          changed = true
+          return { ...row, url: nextUrl }
+        })
+      : ch.findings
+    const mapPhoto = (photo) => {
+      if (typeof photo === 'string') {
+        if (!match(photo)) return photo
+        changed = true
+        return nextUrl
+      }
+      if (!photo || !match(photo.url)) return photo
+      changed = true
+      return { ...photo, url: nextUrl }
+    }
+    const photos = Array.isArray(ch.photos) ? ch.photos.map(mapPhoto) : ch.photos
+    const items = Array.isArray(ch.items)
+      ? ch.items.map((row) => {
+          if (!row) return row
+          let next = row
+          if (match(row.evidenceUrl)) {
+            changed = true
+            next = { ...next, evidenceUrl: nextUrl }
+          }
+          if (Array.isArray(row.images)) {
+            const images = row.images.map(mapPhoto)
+            if (images.some((item, index) => item !== row.images[index])) {
+              changed = true
+              next = { ...next, images }
+            }
+          }
+          return next
+        })
+      : ch.items
+    return changed ? { ...ch, findings, photos, items } : ch
+  })
 }
 
 /** 店页说明：空分区提示（商家口吻，不写实现叙事） */
@@ -215,54 +268,6 @@ function buildMaskStatusCopy(maskImages = [], options = {}) {
   }
 }
 
-function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
-  const nextUrl = withCacheBust(toUrl, Date.now())
-  const match = (u) => urlsLikelyMatch(u, fromUrl) || urlsLikelyMatch(stripUrlQuery(u), stripUrlQuery(fromUrl))
-  return (docs || []).map((doc) => {
-    if (!doc || doc.locked) return doc
-    let changed = false
-    const findings = Array.isArray(doc.findings)
-      ? doc.findings.map((row) => {
-          if (!row || !match(row.url)) return row
-          changed = true
-          return { ...row, url: nextUrl }
-        })
-      : doc.findings
-    const lines = Array.isArray(doc.lines)
-      ? doc.lines.map((row) => {
-          if (!row || !match(row.evidenceUrl)) return row
-          changed = true
-          return { ...row, evidenceUrl: nextUrl }
-        })
-      : doc.lines
-    const mapPhoto = (photo) => {
-      if (typeof photo === 'string') {
-        if (!match(photo)) return photo
-        changed = true
-        return nextUrl
-      }
-      if (!photo || !match(photo.url)) return photo
-      changed = true
-      return { ...photo, url: nextUrl }
-    }
-    const deliveryPhotos = Array.isArray(doc.deliveryPhotos)
-      ? doc.deliveryPhotos.map(mapPhoto)
-      : doc.deliveryPhotos
-    const photos = Array.isArray(doc.photos) ? doc.photos.map(mapPhoto) : doc.photos
-    const mapRowImages = (row) => {
-      if (!row || !Array.isArray(row.images)) return row
-      const images = row.images.map(mapPhoto)
-      if (images.some((item, index) => item !== row.images[index])) {
-        changed = true
-        return { ...row, images }
-      }
-      return row
-    }
-    const items = Array.isArray(doc.items) ? doc.items.map(mapRowImages) : doc.items
-    return changed ? { ...doc, findings, lines, deliveryPhotos, photos, items } : doc
-  })
-}
-
 Page({
   data: {
     albumId: '',
@@ -280,6 +285,7 @@ Page({
     privacyBlocks: [],
     qualitySuggestions: [],
     reviewDocs: [],
+    archiveChapters: [],
     maskImages: [],
     unmaskedCount: 0,
     maskStatusTitle: '',
@@ -441,47 +447,26 @@ Page({
       const face = await fetchHostPublicFace(this.albumId)
       const stamp = Date.now()
       const bust = (u) => (u ? withCacheBust(u, stamp) : u)
-      const reviewDocs = (Array.isArray(face.reviewDocs) ? face.reviewDocs : []).map((doc) => {
-        if (!doc || doc.locked) return doc
-        return {
-          ...doc,
-          findings: Array.isArray(doc.findings)
-            ? doc.findings.map((row) => (row && row.url ? { ...row, url: bust(row.url) } : row))
-            : doc.findings,
-          lines: Array.isArray(doc.lines)
-            ? doc.lines.map((row) =>
-                row && row.evidenceUrl ? { ...row, evidenceUrl: bust(row.evidenceUrl) } : row,
-              )
-            : doc.lines,
-          deliveryPhotos: Array.isArray(doc.deliveryPhotos)
-            ? doc.deliveryPhotos.map((photo) => {
-                if (typeof photo === 'string') return bust(photo)
-                if (photo && photo.url) return { ...photo, url: bust(photo.url) }
-                return photo
-              })
-            : doc.deliveryPhotos,
-          photos: Array.isArray(doc.photos)
-            ? doc.photos.map((photo) => {
-                if (typeof photo === 'string') return bust(photo)
-                if (photo && photo.url) return { ...photo, url: bust(photo.url) }
-                return photo
-              })
-            : doc.photos,
-          items: Array.isArray(doc.items)
-            ? doc.items.map((row) => {
-                if (!row || !Array.isArray(row.images)) return row
-                return {
-                  ...row,
-                  images: row.images.map((photo) => {
-                    if (typeof photo === 'string') return bust(photo)
-                    if (photo && photo.url) return { ...photo, url: bust(photo.url) }
-                    return photo
-                  }),
-                }
-              })
-            : doc.items,
-        }
-      })
+      const flowChapters = normalizeArchiveChapters(
+        (face.serviceFlow && face.serviceFlow.chapters) || [],
+      ).map((ch) => ({
+        ...ch,
+        findings: (ch.findings || []).map((row) =>
+          row && row.url ? { ...row, url: bust(row.url) } : row,
+        ),
+        photos: (ch.photos || []).map((photo) => {
+          if (typeof photo === 'string') return { url: bust(photo), caption: '' }
+          if (photo && photo.url) return { ...photo, url: bust(photo.url) }
+          return photo
+        }),
+        items: (ch.items || []).map((row) => {
+          if (!row) return row
+          return {
+            ...row,
+            evidenceUrl: row.evidenceUrl ? bust(row.evidenceUrl) : '',
+          }
+        }),
+      }))
       let maskImages = (Array.isArray(face.maskImages) ? face.maskImages : [])
         .map((row) => ({
           url: bust(row && row.url),
@@ -489,7 +474,7 @@ Page({
         }))
         .filter((row) => row.url)
       if (!maskImages.length) {
-        maskImages = collectMaskImagesFromDocs(reviewDocs).map((row) => ({
+        maskImages = collectMaskImagesFromChapters(flowChapters).map((row) => ({
           url: bust(row.url),
           masked: Boolean(row.masked),
         }))
@@ -502,7 +487,8 @@ Page({
         privacyTouched: this.data.privacyTouched,
       })
       this.setData({
-        reviewDocs,
+        archiveChapters: flowChapters,
+        reviewDocs: Array.isArray(face.reviewDocs) ? face.reviewDocs : [],
         maskImages,
         unmaskedCount: maskCopy.unmaskedCount,
         maskStatusTitle: maskCopy.maskStatusTitle,
@@ -672,13 +658,17 @@ Page({
       const asset = ((task && task.rawAssets) || []).find((row) => row.id === edit.assetId)
       const maskedUrl = (asset && (asset.maskedUrl || asset.preMaskedUrl)) || ''
       if (!maskedUrl) return
-      let reviewDocs = patchReviewDocImageUrls(this.data.reviewDocs, edit.sourceUrl, maskedUrl)
-      reviewDocs = patchReviewDocImageUrls(
-        reviewDocs,
+      let archiveChapters = patchArchiveChapterImageUrls(
+        this.data.archiveChapters,
+        edit.sourceUrl,
+        maskedUrl,
+      )
+      archiveChapters = patchArchiveChapterImageUrls(
+        archiveChapters,
         (asset && asset.url) || edit.sourceUrl,
         maskedUrl,
       )
-      this.setData({ reviewDocs })
+      this.setData({ archiveChapters })
       this._maskEdit = null
       await this.loadPublicFace({ silent: true })
     } catch (_) {
@@ -715,14 +705,22 @@ Page({
       const assets = (task && task.rawAssets) || []
       const maskedAssets = assets.filter((row) => row && String(row.maskedUrl || '').trim())
       const privacyTouched = maskedAssets.length > 0
-      let reviewDocs = this.data.reviewDocs || []
+      let archiveChapters = this.data.archiveChapters || []
       maskedAssets.forEach((row) => {
-        reviewDocs = patchReviewDocImageUrls(reviewDocs, row.url, row.maskedUrl)
+        archiveChapters = patchArchiveChapterImageUrls(
+          archiveChapters,
+          row.url,
+          row.maskedUrl,
+        )
         if (row.preMaskedUrl) {
-          reviewDocs = patchReviewDocImageUrls(reviewDocs, row.preMaskedUrl, row.maskedUrl)
+          archiveChapters = patchArchiveChapterImageUrls(
+            archiveChapters,
+            row.preMaskedUrl,
+            row.maskedUrl,
+          )
         }
       })
-      this.setData({ reviewDocs, privacyTouched, maskAutoRunning: false })
+      this.setData({ archiveChapters, privacyTouched, maskAutoRunning: false })
       await this.loadPublicFace({ silent: true })
       const copy = buildMaskStatusCopy(this.data.maskImages, { privacyTouched })
       this.setData({

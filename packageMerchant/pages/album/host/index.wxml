@@ -81,9 +81,9 @@
         <text class="text-body merchant-host-page__label">将公开的档案预览</text>
         <text class="text-caption text-secondary merchant-host-page__hint">版式接近店页档案；点图可手工补打码。</text>
 
-        <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__archive">
-          <album-service-flow
-            docs="{{reviewDocs}}"
+        <view wx:if="{{archiveChapters.length}}" class="merchant-host-page__archive">
+          <host-archive-preview
+            chapters="{{archiveChapters}}"
             imageTapMode="edit"
             bind:imageedit="onReviewImageEdit"
           />

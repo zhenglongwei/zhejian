@@ -653,9 +653,37 @@ function collectReviewMaskImages(docs) {
     })
     ;(Array.isArray(doc.items) ? doc.items : []).forEach((row) => {
       ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+      if (row) push(row.evidenceUrl)
     })
     ;(Array.isArray(doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach(push)
     ;(Array.isArray(doc.discoveryImages) ? doc.discoveryImages : []).forEach(push)
+  })
+  return rows.slice().sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+}
+
+/** 从公开档案章节收集待打码图（托管核对） */
+function collectMaskImagesFromChapters(chapters) {
+  const { isDesensitizedMediaUrl } = require('../lib/media-url')
+  const { stripUrlQuery } = require('../lib/media-signed-url')
+  const rows = []
+  const seen = new Set()
+  const push = (raw) => {
+    const url = String(typeof raw === 'object' && raw ? raw.url || raw.src || '' : raw || '').trim()
+    if (!url) return
+    const key = stripUrlQuery(url)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    rows.push({ url, masked: isDesensitizedMediaUrl(url) })
+  }
+  ;(Array.isArray(chapters) ? chapters : []).forEach((ch) => {
+    if (!ch) return
+    ;(Array.isArray(ch.findings) ? ch.findings : []).forEach((row) => push(row))
+    ;(Array.isArray(ch.photos) ? ch.photos : []).forEach(push)
+    ;(Array.isArray(ch.items) ? ch.items : []).forEach((row) => {
+      if (!row) return
+      push(row.evidenceUrl)
+      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
+    })
   })
   return rows.slice().sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
 }
@@ -672,6 +700,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
   const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
   const { buildHostContentReviewDocs } = require('./service-flow.service')
+  const { buildPublicServiceFlow } = require('../utils/public-service-flow')
 
   const album = await loadAlbum(albumId)
   if (!album) {
@@ -710,8 +739,24 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   }
 
   const albumNodes = mapNodesForView(album)
+  // 质量检查仍用单据链；界面预览改为公开档案章节
   const reviewDocs = buildHostContentReviewDocs(album, albumNodes, { resolveImageUrl })
-  const maskImages = collectReviewMaskImages(reviewDocs)
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const serviceFlow = buildPublicServiceFlow({
+    flowNodes: Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [],
+    album,
+    contentNodes: view.nodes || [],
+    maskLookup: lookup,
+    allowPrivateFallback: true,
+  })
+  const maskImages = (() => {
+    const fromChapters = collectMaskImagesFromChapters(serviceFlow.chapters)
+    if (fromChapters.length) return fromChapters
+    return collectReviewMaskImages(reviewDocs)
+  })()
 
   const texts = []
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
@@ -748,6 +793,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     hosted: prev.hosted,
     publicPublishStage: prev.publicPublishStage,
     privacyPassed: Boolean(prev.privacyAuditPassedAt),
+    serviceFlow,
     reviewDocs,
     maskImages,
     unmaskedCount: maskImages.filter((row) => !row.masked).length,

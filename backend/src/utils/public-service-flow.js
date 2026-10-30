@@ -29,7 +29,11 @@ function publicizeUrl(url, lookup) {
   if (lookup.has(key)) return lookup.get(key)
   const stripped = urlKey(key.split('?')[0])
   if (stripped && lookup.has(stripped)) return lookup.get(stripped)
-  return resolvePublicCaseMediaUrl(key) || resolveStoreProcessedPublicUrl(key) || ''
+  const pub = resolvePublicCaseMediaUrl(key) || resolveStoreProcessedPublicUrl(key) || ''
+  if (pub) return pub
+  // 托管核对：尚未公开的原图也要能预览/点图打码
+  if (lookup && lookup._allowPrivateFallback) return key
+  return ''
 }
 
 function rememberUrl(lookup, from, to) {
@@ -269,6 +273,7 @@ function buildPublicServiceFlow(input = {}) {
   const flowNodes = sortFlowNodes(input.flowNodes || [])
   if (!flowNodes.length) return { chapters: [] }
   const lookup = buildPublicUrlLookup(input)
+  if (input.allowPrivateFallback) lookup._allowPrivateFallback = true
   const chapters = []
   flowNodes.forEach((node) => {
     if (!node) return
