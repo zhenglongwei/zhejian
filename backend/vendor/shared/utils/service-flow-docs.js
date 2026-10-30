@@ -1210,7 +1210,7 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
     gaps.push('质保期限请写清时长或里程，勿填「以门店公示为准」')
   }
   if (!String(payload.deliveryExteriorUrl || '').trim()) {
-    gaps.push('请指定整车外观（从施工图选择或补拍）')
+    gaps.push('请上传交车照（至少 1 张整车外观）')
   }
   return gaps
 }

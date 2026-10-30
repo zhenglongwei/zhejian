@@ -721,128 +721,42 @@
               >
                 <view class="merchant-flow-page__delivery-step">
                   <view class="merchant-flow-page__delivery-head">
-                    <text class="merchant-flow-page__delivery-index">1</text>
-                    <text class="text-body merchant-flow-page__delivery-title">全车照片</text>
-                    <text class="text-caption merchant-flow-page__delivery-flag">必选</text>
+                    <text class="text-body merchant-flow-page__delivery-title">交车照</text>
+                    <text class="text-caption merchant-flow-page__delivery-flag">至少 1 张</text>
                   </view>
-
-                  <view
-                    wx:if="{{deliveryExteriorUrl && deliveryPickMode !== 'exterior'}}"
-                    class="merchant-flow-page__exterior-well"
-                  >
-                    <image
-                      class="merchant-flow-page__exterior-well-img image-placeholder"
-                      src="{{deliveryExteriorUrl}}"
-                      mode="aspectFill"
-                      bindtap="onPreviewExterior"
-                    />
-                    <view wx:if="{{!readOnly}}" class="merchant-flow-page__exterior-well-bar">
-                      <text
-                        class="text-caption merchant-flow-page__exterior-well-action"
-                        catchtap="onCaptureExterior"
-                      >补拍</text>
-                      <text
-                        wx:if="{{workImagePool.length}}"
-                        class="text-caption merchant-flow-page__exterior-well-action"
-                        catchtap="onStartPickExterior"
-                      >从施工图选</text>
-                      <text
-                        class="text-caption merchant-flow-page__exterior-well-action merchant-flow-page__exterior-well-action--mute"
-                        catchtap="onClearExterior"
-                      >清除</text>
-                    </view>
-                  </view>
-
-                  <view
-                    wx:elif="{{!deliveryExteriorUrl && deliveryPickMode !== 'exterior' && !readOnly}}"
-                    class="merchant-flow-page__exterior-empty"
-                  >
-                    <text class="merchant-flow-page__exterior-empty-plus">+</text>
-                    <text class="text-body merchant-flow-page__exterior-empty-title">全车照片</text>
-                    <text class="text-caption text-secondary">拍车身全貌，不要拍码</text>
-                    <view class="merchant-flow-page__exterior-empty-actions">
-                      <view
-                        class="merchant-flow-page__exterior-cta"
-                        bindtap="onCaptureExterior"
-                      >补拍</view>
-                      <view
-                        wx:if="{{workImagePool.length}}"
-                        class="merchant-flow-page__exterior-cta merchant-flow-page__exterior-cta--ghost"
-                        bindtap="onStartPickExterior"
-                      >从施工图选</view>
-                    </view>
-                  </view>
-
-                  <view
-                    wx:if="{{deliveryPickMode === 'exterior'}}"
-                    class="merchant-flow-page__delivery-pick"
-                  >
-                    <view class="merchant-flow-page__delivery-pick-head">
-                      <text class="text-body">点一张作全车</text>
-                      <text
-                        class="text-caption merchant-flow-page__link"
-                        bindtap="onCancelPickExterior"
-                      >取消</text>
-                    </view>
-                    <view class="merchant-flow-page__delivery-pool">
-                      <view
-                        wx:for="{{workImagePool}}"
-                        wx:for-item="pool"
-                        wx:key="url"
-                        class="merchant-flow-page__delivery-pool-item {{pool.url === deliveryExteriorUrl ? 'is-current' : ''}}"
-                        data-url="{{pool.url}}"
-                        bindtap="onToggleDeliveryWorkImage"
-                      >
-                        <image
-                          class="merchant-flow-page__delivery-pool-img image-placeholder"
-                          src="{{pool.url}}"
-                          mode="aspectFill"
-                        />
-                        <text
-                          wx:if="{{pool.url === deliveryExteriorUrl}}"
-                          class="merchant-flow-page__delivery-pool-check"
-                        >当前</text>
-                      </view>
-                    </view>
-                  </view>
-                </view>
-
-                <view
-                  wx:if="{{deliveryExteriorUrl && deliveryPickMode !== 'exterior'}}"
-                  class="merchant-flow-page__delivery-step"
-                >
-                  <view class="merchant-flow-page__delivery-head">
-                    <text class="merchant-flow-page__delivery-index">2</text>
-                    <text class="text-body merchant-flow-page__delivery-title">其他交车图</text>
-                    <text class="text-caption merchant-flow-page__delivery-flag merchant-flow-page__delivery-flag--optional">选填</text>
-                  </view>
-                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">点选过程图，或补拍</text>
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">拍修好后的整车外观（车头或车尾，能看清车身）。修好的部位可再加几张。旧件特写不用传。</text>
                   <view class="merchant-flow-page__delivery-pool">
-                    <block wx:for="{{workImagePool}}" wx:for-item="pool" wx:key="url">
-                      <view
-                        wx:if="{{!pool.isExterior}}"
-                        class="merchant-flow-page__delivery-pool-item {{pool.selected ? 'is-selected' : ''}}"
-                        data-url="{{pool.url}}"
-                        bindtap="onToggleDeliveryWorkImage"
-                      >
-                        <image
-                          class="merchant-flow-page__delivery-pool-img image-placeholder"
-                          src="{{pool.url}}"
-                          mode="aspectFill"
-                        />
-                        <text
-                          wx:if="{{pool.selected}}"
-                          class="merchant-flow-page__delivery-pool-check"
-                        >已选</text>
-                      </view>
-                    </block>
+                    <view
+                      wx:for="{{deliveryPhotos}}"
+                      wx:for-item="shot"
+                      wx:key="url"
+                      class="merchant-flow-page__delivery-pool-item {{shot.isExterior ? 'is-current' : ''}}"
+                    >
+                      <image
+                        class="merchant-flow-page__delivery-pool-img image-placeholder"
+                        src="{{shot.url}}"
+                        mode="aspectFill"
+                        data-url="{{shot.url}}"
+                        bindtap="onPreviewDeliveryPhoto"
+                      />
+                      <text
+                        wx:if="{{shot.isExterior}}"
+                        class="merchant-flow-page__delivery-pool-check"
+                      >外观</text>
+                      <text
+                        wx:if="{{!readOnly}}"
+                        class="merchant-flow-page__delivery-pool-remove"
+                        data-url="{{shot.url}}"
+                        catchtap="onRemoveDeliveryPhoto"
+                      >删除</text>
+                    </view>
                     <view
                       wx:if="{{!readOnly}}"
                       class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
-                      bindtap="onCaptureDeliveryExtra"
+                      bindtap="onUploadDeliveryPhotos"
                     >
                       <text class="merchant-flow-page__delivery-add-plus">+</text>
-                      <text class="text-caption merchant-flow-page__delivery-add-label">补拍</text>
+                      <text class="text-caption merchant-flow-page__delivery-add-label">上传交车图</text>
                     </view>
                   </view>
                 </view>

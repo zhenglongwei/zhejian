@@ -1380,6 +1380,7 @@
 
 .merchant-flow-page__delivery-hint {
   display: block;
+  margin-bottom: var(--space-sm);
 }
 
 .merchant-flow-page__exterior-well {
@@ -1539,7 +1540,7 @@
 
 .merchant-flow-page__delivery-pool-check {
   position: absolute;
-  right: 8rpx;
+  left: 8rpx;
   bottom: 8rpx;
   padding: 0 var(--space-xs);
   line-height: 36rpx;
@@ -1547,6 +1548,19 @@
   background-color: var(--color-primary);
   color: var(--color-text-inverse);
   font-size: var(--font-caption);
+}
+
+.merchant-flow-page__delivery-pool-remove {
+  position: absolute;
+  right: 8rpx;
+  top: 8rpx;
+  padding: 0 var(--space-xs);
+  line-height: 36rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-text-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-caption);
+  opacity: 0.88;
 }
 
 .merchant-flow-page__field {

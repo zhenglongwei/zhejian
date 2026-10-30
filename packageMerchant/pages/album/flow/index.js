@@ -418,8 +418,8 @@ const STAGE_LABELS = {
     findingKind: 'work',
   },
   stage_6: {
-    title: '交车证据',
-    tips: '整车外观必选；拍车身',
+    title: '交车照',
+    tips: '拍修好后的整车外观；部位图可选',
     captionPlaceholder: '',
     findingMode: false,
     findingKind: '',
@@ -564,6 +564,7 @@ Page({
     hosted: false,
     hostVisibility: 'private',
     workImagePool: [],
+    deliveryPhotos: [],
     deliveryExtraCount: 0,
     deliveryExteriorUrl: '',
     deliveryPickMode: '',
@@ -1445,6 +1446,7 @@ Page({
     }
     if (kind === 'delivery_photos') {
       const exterior = String(this.data.deliveryExteriorUrl || '').trim()
+      const photos = this.data.deliveryPhotos || this.data.workImagePool || []
       return {
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
@@ -1452,8 +1454,8 @@ Page({
         finishedAt: String(this.data.finishedAt || '').trim(),
         confirmCopy: REPAIR_CONFIRM_COPY,
         deliveryExteriorUrl: exterior,
-        selectedDeliveryUrls: (this.data.workImagePool || [])
-          .filter((row) => row && row.selected && row.url && row.url !== exterior)
+        selectedDeliveryUrls: photos
+          .filter((row) => row && row.url && row.url !== exterior)
           .map((row) => row.url),
       }
     }
@@ -1563,6 +1565,7 @@ Page({
       this._quoteDraftHint = ''
       let expandedFindingKey = ''
       let workImagePool = []
+      let deliveryPhotos = []
       let deliveryExteriorUrl = ''
       let deliveryPickMode = ''
       let deliveryExtraCount = 0
@@ -1642,10 +1645,11 @@ Page({
               typeof first === 'string' ? first : first && first.url ? first.url : ''
             if (fallbackUrl) deliveryExteriorUrl = String(fallbackUrl).trim()
           }
-          const packed = this.hydrateDeliveryPool(album, flowNodes, photoDraft, deliveryExteriorUrl)
+          const packed = this.hydrateDeliveryGallery(album, photoDraft, deliveryExteriorUrl)
           workImagePool = packed.workImagePool
+          deliveryPhotos = packed.deliveryPhotos
           deliveryExtraCount = packed.deliveryExtraCount
-          // 兼容旧草稿：仅有 selectedDeliveryUrls 无外观时，不自动猜外观
+          deliveryExteriorUrl = packed.deliveryExteriorUrl || deliveryExteriorUrl
         }
         const keepKey = this.data.expandedFindingKey
         const parts = String(keepKey || '').split(':')
@@ -2059,6 +2063,7 @@ Page({
         hosted: Boolean((album.hostMeta && album.hostMeta.hosted) || false),
         hostVisibility: (album.hostMeta && album.hostMeta.visibility) || 'private',
         workImagePool,
+        deliveryPhotos,
         deliveryExtraCount,
         deliveryExteriorUrl,
         deliveryPickMode,
@@ -2820,8 +2825,8 @@ Page({
     })
     const onDelivery = Boolean(this.data.isDeliveryPhotoStep)
     const liveExterior = String(this.data.deliveryExteriorUrl || '').trim()
-    const liveExtras = (this.data.workImagePool || [])
-      .filter((row) => row && row.selected && row.url && row.url !== liveExterior)
+    const liveExtras = (this.data.deliveryPhotos || this.data.workImagePool || [])
+      .filter((row) => row && row.url && row.url !== liveExterior)
       .map((row) => row.url)
     const useLive = onDelivery && (liveExterior || liveExtras.length)
     const exterior = useLive
@@ -3824,186 +3829,117 @@ Page({
     this.scheduleParkDetachedPhotos()
   },
 
-  packDeliveryPool(pool = [], exteriorUrl = '') {
-    const exterior = String(exteriorUrl || '').trim()
-    const workImagePool = (pool || []).map((row) => ({
+  packDeliveryGallery(photos = [], exteriorUrl = '') {
+    let exterior = String(exteriorUrl || '').trim()
+    const list = []
+    const seen = {}
+    ;(photos || []).forEach((row) => {
+      const url = String((row && row.url) || '').trim()
+      const key = mediaKey(url)
+      if (!url || !key || seen[key]) return
+      seen[key] = true
+      list.push({
+        url,
+        partName: String((row && row.partName) || '').trim(),
+        selected: true,
+        captured: true,
+      })
+    })
+    if (!exterior && list.length) exterior = list[0].url
+    const deliveryPhotos = list.map((row) => ({
       ...row,
       isExterior: row.url === exterior,
     }))
     return {
-      workImagePool,
-      deliveryExtraCount: workImagePool.filter((row) => row.url && row.url !== exterior).length,
+      deliveryPhotos,
+      // 兼容旧路径仍读 workImagePool
+      workImagePool: deliveryPhotos,
+      deliveryExteriorUrl: exterior,
+      deliveryExtraCount: deliveryPhotos.filter((row) => row.url && row.url !== exterior).length,
+      deliveryPickMode: '',
     }
   },
 
-  collectWorkUrlSet(album = {}, flowNodes = []) {
-    const set = {}
-    this.collectAllWorkImages(album, flowNodes).forEach((row) => {
-      const key = mediaKey(row && row.url)
-      if (key) set[key] = true
-    })
-    return set
-  },
-
-  hydrateDeliveryPool(album = {}, flowNodes = [], photoDraft = {}, exteriorUrl = '') {
-    const exterior = String(exteriorUrl || '').trim()
-    const selectedSet = {}
-    const exteriorKey = mediaKey(exterior)
-    ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => {
-      const key = mediaKey(url)
-      if (key && key !== exteriorKey) selectedSet[key] = true
-    })
-    const pool = this.collectAllWorkImages(album, flowNodes).map((row) => ({
-      ...row,
-      selected: Boolean(selectedSet[mediaKey(row.url)]),
-    }))
+  hydrateDeliveryGallery(album = {}, photoDraft = {}, exteriorUrl = '') {
+    let exterior = String(exteriorUrl || '').trim()
+    const photos = []
     const seen = {}
-    pool.forEach((row) => {
-      const key = mediaKey(row && row.url)
-      if (key) seen[key] = true
-    })
-    const pushCaptured = (url, caption = '') => {
+    const push = (url, partName = '') => {
       const u = String(url || '').trim()
       const key = mediaKey(u)
-      if (!u || !key || key === exteriorKey || seen[key]) return
+      if (!u || !key || seen[key]) return
       seen[key] = true
-      pool.push({
-        url: u,
-        partName: String(caption || '').trim(),
-        selected: true,
-        captured: true,
-      })
+      photos.push({ url: u, partName: String(partName || '').trim() })
     }
-    ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => pushCaptured(url))
+    if (exterior) push(exterior, '整车外观')
+    ;(Array.isArray(photoDraft.selectedDeliveryUrls) ? photoDraft.selectedDeliveryUrls : []).forEach(
+      (url) => push(url),
+    )
     const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
     ;((stage6 && stage6.images) || []).forEach((img) => {
       const url = typeof img === 'string' ? img : img && img.url
       const caption = typeof img === 'object' ? img.caption || '' : ''
-      pushCaptured(url, caption)
+      push(url, caption)
     })
-    return this.packDeliveryPool(pool, exterior)
+    return this.packDeliveryGallery(photos, exterior)
   },
 
-  appendDeliveryExtra(url, caption = '') {
-    const extra = String(url || '').trim()
-    const exterior = String(this.data.deliveryExteriorUrl || '').trim()
-    const pool = (this.data.workImagePool || []).slice()
-    if (!extra) return this.packDeliveryPool(pool, exterior)
-    const sameShot = (row) =>
-      row && (row.url === extra || (mediaKey(row.url) && mediaKey(row.url) === mediaKey(extra)))
-    const exists = pool.find(sameShot)
-    if (exists) {
-      return this.packDeliveryPool(
-        pool.map((row) =>
-          sameShot(row) ? { ...row, selected: mediaKey(extra) !== mediaKey(exterior) } : row,
-        ),
-        exterior,
-      )
-    }
-    pool.push({
-      url: extra,
-      partName: String(caption || '').trim(),
-      selected: extra !== exterior,
-      captured: true,
-    })
-    return this.packDeliveryPool(pool, exterior)
-  },
-
-  onToggleDeliveryWorkImage(e) {
-    if (this.data.readOnly) return
-    const url = String(e.currentTarget.dataset.url || '')
-    if (!url) return
-    if (this.data.deliveryPickMode === 'exterior') {
-      const mapped = (this.data.workImagePool || []).map((row) => ({
-        ...row,
-        selected: row.url === url ? false : row.selected,
-      }))
-      const packed = this.packDeliveryPool(mapped, url)
-      const sections = (this.data.sections || []).map((section) =>
-        section.stageId === 'stage_6' ? { ...section, images: [] } : section,
-      )
-      this.setData({
-        ...packed,
-        deliveryExteriorUrl: url,
-        deliveryPickMode: '',
-        sections,
-        autoSaveLabel: '保存中…',
+  applyDeliveryGallery(photos, exteriorUrl) {
+    const packed = this.packDeliveryGallery(photos, exteriorUrl)
+    const exterior = packed.deliveryExteriorUrl
+    const sections = (this.data.sections || []).map((section) => {
+      if (section.stageId !== 'stage_6') return section
+      const images = []
+      if (exterior) images.push({ url: exterior, caption: '整车外观' })
+      ;(packed.deliveryPhotos || []).forEach((row) => {
+        if (!row || !row.url || row.url === exterior) return
+        images.push({ url: row.url, caption: row.partName || '交车图' })
       })
-      this.scheduleAutoSavePhotos()
-      return
-    }
-    if (url === this.data.deliveryExteriorUrl) {
-      wx.showToast({ title: '已用作全车照片', icon: 'none' })
-      return
-    }
-    const workImagePool = (this.data.workImagePool || []).map((row) =>
-      row.url === url ? { ...row, selected: !row.selected } : row,
-    )
-    this.setData({ workImagePool, autoSaveLabel: '保存中…' })
-    this.scheduleAutoSaveDraftOnly()
-  },
-
-  onStartPickExterior() {
-    if (this.data.readOnly) return
-    if (!(this.data.workImagePool || []).length) {
-      wx.showToast({ title: '暂无施工图，请补拍', icon: 'none' })
-      return
-    }
-    this.setData({ deliveryPickMode: 'exterior' })
-  },
-
-  onClearExterior() {
-    if (this.data.readOnly) return
-    const packed = this.packDeliveryPool(this.data.workImagePool || [], '')
-    const sections = (this.data.sections || []).map((section) =>
-      section.stageId === 'stage_6' ? { ...section, images: [] } : section,
-    )
+      return { ...section, images }
+    })
     this.setData({
       ...packed,
-      deliveryExteriorUrl: '',
-      deliveryPickMode: '',
       sections,
       autoSaveLabel: '保存中…',
     })
     this.scheduleAutoSavePhotos()
   },
 
-  onCaptureExterior() {
+  onUploadDeliveryPhotos() {
     if (this.data.readOnly) return
+    const current = (this.data.deliveryPhotos || []).slice()
+    const remain = Math.max(1, 9 - current.length)
     pickLocalImages({
-      count: 1,
+      count: remain,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
-        const file = (res.tempFiles && res.tempFiles[0]) || null
-        if (!file) return
+        const files = res.tempFiles || []
+        if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploaded = await uploadImage(file.tempFilePath)
-          const url = uploaded && (uploaded.url || uploaded)
-          if (!url) throw new Error('上传失败')
-          const packed = this.packDeliveryPool(
-            (this.data.workImagePool || []).map((row) => ({
-              ...row,
-              selected: row.url === url ? false : row.selected,
-            })),
-            url,
-          )
-          const sections = (this.data.sections || []).map((section) => {
-            if (section.stageId !== 'stage_6') return section
-            return {
-              ...section,
-              images: [{ url, caption: '全车照片' }],
+          const uploadedList = await this.uploadPickedFiles(files)
+          if (!uploadedList.length) throw new Error('上传失败')
+          let exterior = String(this.data.deliveryExteriorUrl || '').trim()
+          const photos = current.slice()
+          const seen = {}
+          photos.forEach((row) => {
+            const key = mediaKey(row && row.url)
+            if (key) seen[key] = true
+          })
+          uploadedList.forEach((row) => {
+            const url = String((row && row.url) || '').trim()
+            const key = mediaKey(url)
+            if (!url || !key || seen[key]) return
+            seen[key] = true
+            if (!exterior) {
+              exterior = url
+              photos.unshift({ url, partName: '整车外观' })
+            } else {
+              photos.push({ url, partName: '交车图' })
             }
           })
-          this.setData({
-            ...packed,
-            deliveryExteriorUrl: url,
-            deliveryPickMode: '',
-            sections,
-            autoSaveLabel: '保存中…',
-          })
-          this.scheduleAutoSavePhotos()
+          this.applyDeliveryGallery(photos, exterior)
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -4013,60 +3949,56 @@ Page({
     })
   },
 
-  onCancelPickExterior() {
-    this.setData({ deliveryPickMode: '' })
+  onRemoveDeliveryPhoto(e) {
+    if (this.data.readOnly) return
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    if (!url) return
+    const exterior = String(this.data.deliveryExteriorUrl || '').trim()
+    const photos = (this.data.deliveryPhotos || []).filter(
+      (row) => row && row.url && mediaKey(row.url) !== mediaKey(url),
+    )
+    const nextExterior =
+      mediaKey(url) === mediaKey(exterior)
+        ? String((photos[0] && photos[0].url) || '').trim()
+        : exterior
+    this.applyDeliveryGallery(photos, nextExterior)
+  },
+
+  onPreviewDeliveryPhoto(e) {
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    const urls = (this.data.deliveryPhotos || []).map((row) => row && row.url).filter(Boolean)
+    if (!urls.length) return
+    wx.previewImage({ current: url || urls[0], urls })
+  },
+
+  // AI 建议补图：仍走本机上传
+  onCaptureDeliveryExtra() {
+    this.onUploadDeliveryPhotos()
+  },
+
+  captureDeliveryExtraPhoto() {
+    this.onUploadDeliveryPhotos()
+  },
+
+  onCaptureExterior() {
+    this.onUploadDeliveryPhotos()
+  },
+
+  onClearExterior() {
+    if (this.data.readOnly) return
+    this.applyDeliveryGallery([], '')
   },
 
   onPreviewExterior() {
     const url = String(this.data.deliveryExteriorUrl || '').trim()
     if (!url) return
-    wx.previewImage({ current: url, urls: [url] })
+    this.onPreviewDeliveryPhoto({ currentTarget: { dataset: { url } } })
   },
 
-  onCaptureDeliveryExtra() {
-    this.captureDeliveryExtraPhoto()
-  },
-
-  captureDeliveryExtraPhoto(appliedId = '') {
-    if (this.data.readOnly) return
-    const suggestion = ((this.data.aiReview && this.data.aiReview.suggestions) || []).find(
-      (row) => row && row.id === appliedId,
-    )
-    const caption = String((suggestion && (suggestion.part || suggestion.title || suggestion.targetLabel)) || '')
-      .replace(/^(补拍|补充)/, '')
-      .trim()
-    pickLocalImages({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['album', 'camera'],
-      success: async (res) => {
-        const file = (res.tempFiles && res.tempFiles[0]) || null
-        if (!file) return
-        try {
-          wx.showLoading({ title: '上传中' })
-          const uploaded = await uploadImage(file.tempFilePath)
-          const url = uploaded && (uploaded.url || uploaded)
-          if (!url) throw new Error('上传失败')
-          const packed = this.appendDeliveryExtra(url, caption)
-          const patch = {
-            ...packed,
-            autoSaveLabel: '保存中…',
-          }
-          if (appliedId) {
-            patch.aiReview = this.markAiSuggestionApplied(appliedId) || this.data.aiReview
-            patch.orphanPhotoHints = (this.data.orphanPhotoHints || []).map((hint) =>
-              hint && hint.id === appliedId ? { ...hint, applied: true } : hint,
-            )
-          }
-          this.setData(patch)
-          this.scheduleAutoSavePhotos()
-        } catch (err) {
-          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
-        } finally {
-          wx.hideLoading()
-        }
-      },
-    })
+  onToggleDeliveryWorkImage() {},
+  onStartPickExterior() {},
+  onCancelPickExterior() {
+    this.setData({ deliveryPickMode: '' })
   },
 
   async uploadPickedFiles(files) {
@@ -5575,9 +5507,8 @@ Page({
           : findingImgs
         sectionMap[section.stageId] = this.appendPendingToImages(withOdo)
       } else if (section.stageId === 'stage_6' && this.data.isDeliveryPhotoStep) {
-        // 施工图只记引用；补拍的全车/其他交车图才写入 stage_6
+        // 交车照本机上传，全部写入 stage_6
         const exterior = String(this.data.deliveryExteriorUrl || '').trim()
-        const workUrlSet = this.collectWorkUrlSet(album, this._flowNodes || [])
         const images = []
         const pushImg = (url, caption) => {
           const u = String(url || '').trim()
@@ -5585,14 +5516,9 @@ Page({
           if (!u || !key || images.some((row) => mediaKey(row.url) === key)) return
           images.push({ url: u, caption: String(caption || '').trim() })
         }
-        const isWorkRef = (url) => {
-          const key = mediaKey(url)
-          return Boolean(key && workUrlSet[key])
-        }
-        if (exterior && !isWorkRef(exterior)) pushImg(exterior, '整车外观')
-        ;(this.data.workImagePool || []).forEach((row) => {
-          if (!row || !row.selected || row.url === exterior) return
-          if (isWorkRef(row.url)) return
+        if (exterior) pushImg(exterior, '整车外观')
+        ;(this.data.deliveryPhotos || this.data.workImagePool || []).forEach((row) => {
+          if (!row || !row.url || row.url === exterior) return
           pushImg(row.url, row.partName || '交车图')
         })
         sectionMap[section.stageId] = images
