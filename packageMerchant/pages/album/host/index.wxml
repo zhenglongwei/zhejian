@@ -70,14 +70,14 @@
       <view class="merchant-host-page__section">
         <view
           wx:if="{{showMaskBanner}}"
-          class="merchant-host-page__mask-status {{unmaskedCount || maskAutoFailed ? 'is-warn' : 'is-ok'}}"
+          class="merchant-host-page__mask-status is-ok"
         >
           <text class="text-body">{{maskStatusTitle}}</text>
           <text class="text-caption merchant-host-page__mask-hint">{{maskStatusHint}}</text>
         </view>
 
         <text class="text-body merchant-host-page__label">将公开的档案预览</text>
-        <text class="text-caption text-secondary merchant-host-page__hint">版式接近店页；需补打码时点图。</text>
+        <text class="text-caption text-secondary merchant-host-page__hint">版式接近店页；点图可改码，公开前将确认图文隐私责任。</text>
 
         <view wx:if="{{archiveChapters.length}}" class="merchant-host-page__archive">
           <host-archive-preview

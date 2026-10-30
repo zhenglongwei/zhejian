@@ -61,8 +61,56 @@ async function loadHostedPublicMaskLookup(albumId) {
   }
 }
 
+/** 按原图/打码图 URL 索引任务行，供托管页判 call_failed / ok_no_privacy 等 */
+async function loadHostMaskOutcomeIndex(albumId) {
+  const { buildPreMaskTaskId, rawUrlLookupKeys } = require('./desensitize.constants')
+  const index = new Map()
+  const put = (url, row) => {
+    rawUrlLookupKeys(url).forEach((key) => {
+      if (key) index.set(key, row)
+    })
+    const masked = String((row && (row.maskedUrl || row.preMaskedUrl)) || '').trim()
+    if (masked) {
+      rawUrlLookupKeys(masked).forEach((key) => {
+        if (key) index.set(key, row)
+      })
+    }
+  }
+  const taskIds = [buildHostMaskTaskId(albumId), buildPreMaskTaskId(albumId)]
+  for (const taskId of taskIds) {
+    try {
+      const task = await prisma.desensitizeTask.findUnique({
+        where: { taskId },
+        include: { assets: true },
+      })
+      ;(task && task.assets ? task.assets : []).forEach((asset) => {
+        put(asset.rawUrl, {
+          status: asset.status,
+          riskTags: asset.riskTags || [],
+          maskedUrl: asset.maskedUrl || '',
+          preMaskedUrl: asset.preMaskedUrl || '',
+        })
+      })
+    } catch (_) {
+      /* optional */
+    }
+  }
+  return index
+}
+
+function lookupHostMaskOutcomeRow(index, url) {
+  if (!index || !url) return null
+  const { rawUrlLookupKeys } = require('./desensitize.constants')
+  for (const key of rawUrlLookupKeys(url)) {
+    if (index.has(key)) return index.get(key)
+  }
+  return null
+}
+
 module.exports = {
   putMaskPair,
   mergeMaskAssets,
   loadHostedPublicMaskLookup,
+  loadHostMaskOutcomeIndex,
+  lookupHostMaskOutcomeRow,
 }

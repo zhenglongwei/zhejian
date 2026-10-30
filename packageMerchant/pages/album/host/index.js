@@ -39,15 +39,30 @@ function withCacheBust(url, token) {
   return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`
 }
 
-function looksMaskedUrl(url) {
-  const value = String(url || '').trim()
-  if (!value) return false
-  return (
-    value.includes('/files/uploads/desensitized/') ||
-    value.includes('/media/files/uploads/desensitized/') ||
-    value.includes('/media/uploads/desensitized/') ||
-    value.includes('mock://desensitized/')
-  )
+/** 后端状态树：仅 call_failed / ok_detect_mask_failed 需手工；未检出不算失败 */
+function normalizeMaskImageRow(row) {
+  const url = String((row && row.url) || '').trim()
+  if (!url) return null
+  const outcome = String((row && row.outcome) || '').trim()
+  const needsManual =
+    row && typeof row.needsManual === 'boolean'
+      ? Boolean(row.needsManual)
+      : outcome === 'call_failed' || outcome === 'ok_detect_mask_failed'
+  const pending =
+    row && typeof row.pending === 'boolean'
+      ? Boolean(row.pending)
+      : outcome === 'pending' || (!outcome && !needsManual && row.masked !== true)
+  const publishSafe =
+    row && typeof row.masked === 'boolean'
+      ? Boolean(row.masked)
+      : outcome === 'ok_no_privacy' || outcome === 'ok_masked'
+  return {
+    url,
+    outcome: outcome || (needsManual ? 'call_failed' : pending ? 'pending' : 'ok_no_privacy'),
+    needsManual,
+    pending,
+    masked: publishSafe,
+  }
 }
 
 function collectMaskImagesFromChapters(chapters) {
@@ -59,7 +74,14 @@ function collectMaskImagesFromChapters(chapters) {
     const key = stripUrlQuery(url)
     if (!key || seen.has(key)) return
     seen.add(key)
-    rows.push({ url, masked: looksMaskedUrl(url) })
+    // 无后端 outcome 时只能标 pending，禁止把「非脱敏目录 URL」当需补打
+    rows.push({
+      url,
+      outcome: 'pending',
+      needsManual: false,
+      pending: true,
+      masked: false,
+    })
   }
   ;(Array.isArray(chapters) ? chapters : []).forEach((ch) => {
     if (!ch) return
@@ -71,7 +93,7 @@ function collectMaskImagesFromChapters(chapters) {
       ;(Array.isArray(row.images) ? row.images : []).forEach(push)
     })
   })
-  return rows.sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+  return rows
 }
 
 function normalizeArchiveChapters(chapters) {
@@ -231,45 +253,28 @@ function decorateGeoCopyState(base, summary, faq) {
   return { qualitySuggestions, summaryHint, faqHint }
 }
 
-const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v1'
+const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v2'
+/** 公开前统一协议：不因自动打码成败换文案 */
 const HOST_PRIVACY_AGREEMENT_BODY =
-  '即将上店页的内容已由本店核对。公开图文的隐私合规责任由本店承担；平台提供打码工具，不担保零残留，不代本店担责。同意后将直接公开。'
+  '请确认店页图片与文字已做好隐私处理（如车牌、人脸、手机号、车架号等）。公开内容的合规责任由本店承担；平台工具仅供辅助，不担保零残留，不代本店担责。同意后将直接公开。'
 
-/** 仅自动中 / 失败 / 仍有未打码时出条；成功不常挂隐私唠叨 */
+/** 页上仅在自动处理进行中出轻提示；成败不另挂隐私唠叨（提醒归协议） */
 function buildMaskStatusCopy(maskImages = [], options = {}) {
   const list = Array.isArray(maskImages) ? maskImages : []
-  const unmaskedCount = list.filter((row) => !row.masked).length
-  const autoRunning = Boolean(options.autoRunning)
-  const maskAutoFailed = Boolean(options.maskAutoFailed)
-  if (autoRunning) {
+  const needsManualCount = list.filter((row) => row.needsManual).length
+  if (options.autoRunning) {
     return {
-      unmaskedCount,
+      needsManualCount,
+      unmaskedCount: needsManualCount,
       showMaskBanner: true,
       maskAutoFailed: false,
       maskStatusTitle: '正在处理图片…',
-      maskStatusHint: '未打码的会自动处理；已打过的不重打。',
-    }
-  }
-  if (maskAutoFailed && unmaskedCount > 0) {
-    return {
-      unmaskedCount,
-      showMaskBanner: true,
-      maskAutoFailed: true,
-      maskStatusTitle: '自动处理未完成',
-      maskStatusHint: `${options.failHint || '打码服务暂不可用'}。请点图手工补打后再公开。`,
-    }
-  }
-  if (unmaskedCount > 0) {
-    return {
-      unmaskedCount,
-      showMaskBanner: true,
-      maskAutoFailed: false,
-      maskStatusTitle: `还有 ${unmaskedCount} 张需补打码`,
-      maskStatusHint: '未打码原图不上店页。请点图手工补打。',
+      maskStatusHint: '可稍后在预览里点图微调。',
     }
   }
   return {
-    unmaskedCount: 0,
+    needsManualCount,
+    unmaskedCount: needsManualCount,
     showMaskBanner: false,
     maskAutoFailed: false,
     maskStatusTitle: '',
@@ -297,6 +302,8 @@ Page({
     archiveChapters: [],
     maskImages: [],
     unmaskedCount: 0,
+    needsManualCount: 0,
+    pendingMaskCount: 0,
     showMaskBanner: false,
     maskStatusTitle: '',
     maskStatusHint: '',
@@ -457,29 +464,33 @@ Page({
         }),
       }))
       let maskImages = (Array.isArray(face.maskImages) ? face.maskImages : [])
-        .map((row) => ({
-          url: bust(row && row.url),
-          masked: Boolean(row && row.masked),
-        }))
-        .filter((row) => row.url)
+        .map((row) =>
+          normalizeMaskImageRow({
+            ...row,
+            url: bust(row && row.url),
+          }),
+        )
+        .filter(Boolean)
       if (!maskImages.length) {
-        maskImages = collectMaskImagesFromChapters(flowChapters).map((row) => ({
-          url: bust(row.url),
-          masked: Boolean(row.masked),
-        }))
+        maskImages = collectMaskImagesFromChapters(flowChapters)
+          .map((row) => normalizeMaskImageRow({ ...row, url: bust(row.url) }))
+          .filter(Boolean)
       }
       maskImages = maskImages
         .slice()
-        .sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+        .sort((a, b) => Number(Boolean(b.needsManual)) - Number(Boolean(a.needsManual)))
       const maskCopy = buildMaskStatusCopy(maskImages, {
         autoRunning: this.data.maskAutoRunning,
-        maskAutoFailed: this.data.maskAutoFailed && maskImages.some((row) => !row.masked),
+        maskAutoFailed:
+          this.data.maskAutoFailed && maskImages.some((row) => row.needsManual || row.pending),
       })
       this.setData({
         archiveChapters: flowChapters,
         reviewDocs: Array.isArray(face.reviewDocs) ? face.reviewDocs : [],
         maskImages,
-        unmaskedCount: maskCopy.unmaskedCount,
+        unmaskedCount: maskCopy.needsManualCount,
+        needsManualCount: maskCopy.needsManualCount,
+        pendingMaskCount: maskImages.filter((row) => row.pending).length,
         showMaskBanner: maskCopy.showMaskBanner,
         maskAutoFailed: maskCopy.maskAutoFailed,
         maskStatusTitle: maskCopy.maskStatusTitle,
@@ -571,6 +582,8 @@ Page({
         reviewDocs: [],
         maskImages: [],
         unmaskedCount: 0,
+        needsManualCount: 0,
+        pendingMaskCount: 0,
         showMaskBanner: false,
         maskAutoFailed: false,
         previewTexts: [],
@@ -678,11 +691,15 @@ Page({
    */
   async ensureAutoMaskOnReview() {
     if (this._autoMaskTried || this.data.maskAutoRunning) return
-    const pending = (this.data.maskImages || []).filter((row) => !row.masked)
+    // 只跑尚未终态成功的图；已 ok_no_privacy / ok_masked 不重打
+    const pending = (this.data.maskImages || []).filter(
+      (row) => row.pending || row.needsManual,
+    )
     if (!pending.length) {
       const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
-        unmaskedCount: copy.unmaskedCount,
+        unmaskedCount: copy.needsManualCount,
+        needsManualCount: copy.needsManualCount,
         showMaskBanner: copy.showMaskBanner,
         maskAutoFailed: false,
         maskStatusTitle: copy.maskStatusTitle,
@@ -700,16 +717,23 @@ Page({
       const taskId = await this.ensureMaskTask()
       const task = await runAutoMask(taskId)
       const assets = (task && task.rawAssets) || []
-      const maskedAssets = assets.filter((row) => row && String(row.maskedUrl || '').trim())
-      const privacyTouched = maskedAssets.length > 0
+      const privacyTouched = assets.some(
+        (row) =>
+          row &&
+          String(row.maskedUrl || '').trim() &&
+          Array.isArray(row.riskTags) &&
+          row.riskTags.length > 0,
+      )
       let archiveChapters = this.data.archiveChapters || []
-      maskedAssets.forEach((row) => {
+      assets.forEach((row) => {
+        const maskedUrl = row && String(row.maskedUrl || row.preMaskedUrl || '').trim()
+        if (!maskedUrl) return
         archiveChapters = patchArchiveChapterImageUrls(
           archiveChapters,
-          row.url,
-          row.maskedUrl,
+          row.url || row.rawUrl,
+          maskedUrl,
         )
-        if (row.preMaskedUrl) {
+        if (row.preMaskedUrl && row.maskedUrl) {
           archiveChapters = patchArchiveChapterImageUrls(
             archiveChapters,
             row.preMaskedUrl,
@@ -721,24 +745,24 @@ Page({
       await this.loadPublicFace({ silent: true })
       const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
-        unmaskedCount: copy.unmaskedCount,
+        unmaskedCount: copy.needsManualCount,
+        needsManualCount: copy.needsManualCount,
         showMaskBanner: copy.showMaskBanner,
         maskAutoFailed: false,
         maskStatusTitle: copy.maskStatusTitle,
         maskStatusHint: copy.maskStatusHint,
       })
-    } catch (e) {
-      const copy = buildMaskStatusCopy(this.data.maskImages, {
-        maskAutoFailed: true,
-        failHint: (e && e.message) || '打码服务暂不可用',
-      })
+    } catch (_) {
+      // 成败不另挂条；公开前统一走协议提醒。点图仍可手工改码。
+      const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
         maskAutoRunning: false,
-        unmaskedCount: copy.unmaskedCount,
-        showMaskBanner: copy.showMaskBanner,
-        maskAutoFailed: copy.maskAutoFailed,
-        maskStatusTitle: copy.maskStatusTitle,
-        maskStatusHint: copy.maskStatusHint,
+        unmaskedCount: copy.needsManualCount,
+        needsManualCount: copy.needsManualCount,
+        showMaskBanner: false,
+        maskAutoFailed: false,
+        maskStatusTitle: '',
+        maskStatusHint: '',
       })
     }
   },
@@ -773,18 +797,15 @@ Page({
 
   async onContinuePublish() {
     if (this.data.working || this.data.maskAutoRunning) return
-    if (Number(this.data.unmaskedCount) > 0) {
-      wx.showToast({ title: '请先补打未处理的图', icon: 'none' })
-      return
-    }
     const summary = String(this.data.geoSummary || '').trim()
     if (!summary) {
       wx.showToast({ title: '请填写店页摘要', icon: 'none' })
       return
     }
+    // 统一协议提醒图文脱敏；不因自动打码成败分支
     const agreed = await new Promise((resolve) => {
       wx.showModal({
-        title: '隐私责任说明',
+        title: '公开前确认',
         content: HOST_PRIVACY_AGREEMENT_BODY,
         confirmText: '同意并公开',
         cancelText: '再看看',

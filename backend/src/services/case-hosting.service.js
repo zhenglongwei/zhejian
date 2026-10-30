@@ -630,8 +630,36 @@ async function cancelPublicHostIntent(albumId, { storeId, merchantId } = {}) {
   return { albumId, ...meta, message: '已改回仅私密托管', nextStep: 'done' }
 }
 
-function collectReviewMaskImages(docs) {
+function annotateMaskImageRow(url, outcomeIndex) {
   const { isDesensitizedMediaUrl } = require('../lib/media-url')
+  const { classifyHostMaskOutcome, HOST_MASK_OUTCOME } = require('../utils/host-mask-outcome')
+  const {
+    lookupHostMaskOutcomeRow,
+  } = require('./hosted-public-mask.service')
+  const hit = lookupHostMaskOutcomeRow(outcomeIndex, url)
+  let classified
+  if (hit) {
+    classified = classifyHostMaskOutcome(hit)
+  } else if (isDesensitizedMediaUrl(url)) {
+    // 已是脱敏产物但任务索引未命中：视为识别成功可公开，勿当成需补打
+    classified = classifyHostMaskOutcome({
+      maskedUrl: url,
+      riskTags: [],
+    })
+  } else {
+    classified = classifyHostMaskOutcome({})
+  }
+  return {
+    url,
+    outcome: classified.outcome,
+    needsManual: classified.needsManual,
+    // 兼容旧字段：publishSafe 才算「处理完」；勿再用「是否脱敏目录 URL」
+    masked: classified.publishSafe,
+    pending: classified.outcome === HOST_MASK_OUTCOME.PENDING,
+  }
+}
+
+function collectReviewMaskImages(docs, outcomeIndex) {
   const { stripUrlQuery } = require('../lib/media-signed-url')
   const rows = []
   const seen = new Set()
@@ -641,7 +669,7 @@ function collectReviewMaskImages(docs) {
     const key = stripUrlQuery(url)
     if (!key || seen.has(key)) return
     seen.add(key)
-    rows.push({ url, masked: isDesensitizedMediaUrl(url) })
+    rows.push(annotateMaskImageRow(url, outcomeIndex))
   }
   ;(Array.isArray(docs) ? docs : []).forEach((doc) => {
     if (!doc || doc.locked) return
@@ -662,12 +690,13 @@ function collectReviewMaskImages(docs) {
     ;(Array.isArray(doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach(push)
     ;(Array.isArray(doc.discoveryImages) ? doc.discoveryImages : []).forEach(push)
   })
-  return rows.slice().sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+  return rows
+    .slice()
+    .sort((a, b) => Number(Boolean(b.needsManual)) - Number(Boolean(a.needsManual)))
 }
 
-/** 从公开档案章节收集待打码图（托管核对） */
-function collectMaskImagesFromChapters(chapters) {
-  const { isDesensitizedMediaUrl } = require('../lib/media-url')
+/** 从公开档案章节收集图，并按状态树标注是否需手工 */
+function collectMaskImagesFromChapters(chapters, outcomeIndex) {
   const { stripUrlQuery } = require('../lib/media-signed-url')
   const rows = []
   const seen = new Set()
@@ -677,7 +706,7 @@ function collectMaskImagesFromChapters(chapters) {
     const key = stripUrlQuery(url)
     if (!key || seen.has(key)) return
     seen.add(key)
-    rows.push({ url, masked: isDesensitizedMediaUrl(url) })
+    rows.push(annotateMaskImageRow(url, outcomeIndex))
   }
   ;(Array.isArray(chapters) ? chapters : []).forEach((ch) => {
     if (!ch) return
@@ -689,7 +718,9 @@ function collectMaskImagesFromChapters(chapters) {
       ;(Array.isArray(row.images) ? row.images : []).forEach(push)
     })
   })
-  return rows.slice().sort((a, b) => Number(Boolean(a.masked)) - Number(Boolean(b.masked)))
+  return rows
+    .slice()
+    .sort((a, b) => Number(Boolean(b.needsManual)) - Number(Boolean(a.needsManual)))
 }
 
 /** 将公开的图文预览（供核对页展示；脱敏图优先） */
@@ -723,9 +754,14 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   }))
 
   let lookup = { byRawUrl: new Map(), byNodeIdx: new Map(), ready: false }
+  let outcomeIndex = new Map()
   try {
-    const { loadHostedPublicMaskLookup } = require('./hosted-public-mask.service')
+    const {
+      loadHostedPublicMaskLookup,
+      loadHostMaskOutcomeIndex,
+    } = require('./hosted-public-mask.service')
     lookup = await loadHostedPublicMaskLookup(albumId)
+    outcomeIndex = await loadHostMaskOutcomeIndex(albumId)
   } catch (_) {
     /* 无预脱敏也可预览原图（门店自认） */
   }
@@ -757,10 +793,12 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     allowPrivateFallback: true,
   })
   const maskImages = (() => {
-    const fromChapters = collectMaskImagesFromChapters(serviceFlow.chapters)
+    const fromChapters = collectMaskImagesFromChapters(serviceFlow.chapters, outcomeIndex)
     if (fromChapters.length) return fromChapters
-    return collectReviewMaskImages(reviewDocs)
+    return collectReviewMaskImages(reviewDocs, outcomeIndex)
   })()
+  const needsManualCount = maskImages.filter((row) => row.needsManual).length
+  const pendingMaskCount = maskImages.filter((row) => row.pending).length
 
   const texts = []
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
@@ -781,13 +819,16 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
       const raw = String(img.url || img.rawUrl || '').trim()
       if (!raw) return
       const display = resolveImageUrl(raw) || raw
+      const annotated = annotateMaskImageRow(display, outcomeIndex)
       images.push({
         nodeId: node.id,
         nodeTitle: node.title || '',
         idx,
         url: display,
         caption: String(img.caption || ''),
-        masked: display !== raw,
+        masked: annotated.masked,
+        outcome: annotated.outcome,
+        needsManual: annotated.needsManual,
       })
     })
   })
@@ -800,7 +841,11 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     serviceFlow,
     reviewDocs,
     maskImages,
-    unmaskedCount: maskImages.filter((row) => !row.masked).length,
+    /** 仅 call_failed / ok_detect_mask_failed；未检出隐私不算 */
+    needsManualCount,
+    pendingMaskCount,
+    /** @deprecated 兼容旧前端：等同 needsManualCount */
+    unmaskedCount: needsManualCount,
     texts,
     images: images.slice(0, 48),
     imageCount: images.length,
@@ -845,7 +890,7 @@ async function ensureHostDesensitizeTask(albumId, { storeId, merchantId, force =
   }
 }
 
-const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v1'
+const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v2'
 
 /** 确认店页文案并公开（须隐私已过 + 门店同意隐私责任协议） */
 async function confirmHostedPublicPublish(
