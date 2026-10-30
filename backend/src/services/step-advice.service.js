@@ -848,22 +848,85 @@ async function patchNode(albumId, kind, mutator) {
   return nodes[index]
 }
 
-async function runLlm(instruction, urls, label) {
+function buildSlotByUrl(photoSlots) {
+  const map = new Map()
+  ;(Array.isArray(photoSlots) ? photoSlots : []).forEach((row) => {
+    const key = mediaBare(row && row.url)
+    if (!key) return
+    map.set(key, {
+      slot: Number(row && row.slot) || 0,
+      findingId: text(row && row.findingId),
+      url: text(row && row.url),
+    })
+  })
+  return map
+}
+
+function writeInspectAdviceDebug(albumId, payload) {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const dir = path.join(__dirname, '../../data/inspect-advice-debug')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, `${String(albumId || 'unknown')}-last.json`)
+    fs.writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), ...payload }, null, 2), 'utf8')
+  } catch (_) {
+    /* 调试落盘失败不影响主流程 */
+  }
+}
+
+/**
+ * 脱敏后 URL 与草稿原图不同；必须按「原图 → 脱敏图」成对保留，才能用原图查 photoSlots.slot。
+ */
+async function prepareMaskedAttachments(urls, slotByUrl) {
+  const { resolveDesensitizedUrlForAsset } = require('./media.service')
+  const attached = []
+  const seen = new Set()
+  for (const raw of Array.isArray(urls) ? urls : []) {
+    const originalUrl = String(raw || '').trim()
+    if (!originalUrl || seen.has(originalUrl)) continue
+    seen.add(originalUrl)
+    try {
+      const masked = await resolveDesensitizedUrlForAsset(originalUrl, { force: false })
+      const safeUrl = masked && masked.ok ? String(masked.maskedUrl || '').trim() : ''
+      if (!safeUrl) continue
+      const meta = slotByUrl ? slotByUrl.get(mediaBare(originalUrl)) : null
+      attached.push({
+        originalUrl,
+        safeUrl,
+        slot: meta && meta.slot ? Number(meta.slot) : 0,
+        findingId: meta ? text(meta.findingId) : '',
+      })
+    } catch (_) {
+      /* 这张不送 */
+    }
+  }
+  return attached
+}
+
+async function runLlm(instruction, urls, label, options = {}) {
   const engines = resolveConfiguredNodeAiReviewEngines()
   if (!engines.length) return null
-  const { maskUrlsForModel } = require('./media.service')
-  const safeUrls = await maskUrlsForModel(urls)
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const tag = label || 'Photo'
-  const content = safeUrls.length
+  const slotByUrl = options.slotByUrl instanceof Map ? options.slotByUrl : null
+  const attached = await prepareMaskedAttachments(urls, slotByUrl)
+  const content = attached.length
     ? [{ type: 'text', text: instruction }].concat(
-        safeUrls.map((url, index) => [
-          { type: 'text', text: `${tag} slot ${index + 1}` },
-          { type: 'image_url', image_url: { url } },
-        ]).flat(),
+        attached.map((row, index) => {
+          // 必须标真实 photoSlots.slot，禁止用附图数组下标冒充槽位号
+          const caption = row.slot
+            ? `${tag} photoSlots.slot=${row.slot} findingId=${row.findingId || ''}`
+            : `${tag} image ${index + 1}`
+          return [
+            { type: 'text', text: caption },
+            { type: 'image_url', image_url: { url: row.safeUrl } },
+          ]
+        }).flat(),
       )
     : instruction
+  let textOut = null
   for (const engine of engines) {
     try {
       const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
@@ -884,12 +947,27 @@ async function runLlm(instruction, urls, label) {
         enableThinking: engine.vendor === 'dashscope' ? false : undefined,
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 45000),
       })
-      return result && result.text
+      textOut = result && result.text
+      if (textOut) break
     } catch (_) {
       /* 换下一家 */
     }
   }
-  return null
+  if (typeof options.onResult === 'function') {
+    options.onResult({
+      label: tag,
+      requestedUrlCount: (Array.isArray(urls) ? urls : []).length,
+      safeUrlCount: attached.length,
+      // 覆盖校验用原图 key，与 photoSlots.url 对齐
+      attachedSlots: attached.map((row) => ({
+        slot: row.slot,
+        findingId: row.findingId,
+        url: row.originalUrl,
+      })),
+      text: textOut,
+    })
+  }
+  return textOut
 }
 
 function workInstruction(ctx) {
@@ -1033,7 +1111,7 @@ function multiPhotoFindingIds(ctx) {
   return [...counts.entries()].filter(([, n]) => n >= 2).map(([id]) => id)
 }
 
-function inspectionHasSplitForFinding(parsed, findingId, ctx) {
+function inspectionHasSplitForFinding(parsed, findingId, ctx, attachedUrlKeys) {
   const id = text(findingId)
   const edit = (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).find(
     (row) =>
@@ -1048,7 +1126,11 @@ function inspectionHasSplitForFinding(parsed, findingId, ctx) {
     return false
   }
   const slots = slotsForFinding(ctx, id)
-  if (slots.length < 2) return true
+  const required =
+    attachedUrlKeys && attachedUrlKeys.size
+      ? slots.filter((row) => attachedUrlKeys.has(mediaBare(row.url)))
+      : slots
+  if (required.length < 2) return true
   const covered = new Set()
   groups.forEach((g) => {
     ;(Array.isArray(g.images) ? g.images : []).forEach((img) => {
@@ -1056,14 +1138,16 @@ function inspectionHasSplitForFinding(parsed, findingId, ctx) {
       if (key) covered.add(key)
     })
   })
-  return slots.every((row) => covered.has(mediaBare(row.url)))
+  return required.every((row) => covered.has(mediaBare(row.url)))
 }
 
 /** 已能分主题（分点分析或部件参考≥2）但多图项仍无合格 groups → 需要英文补跑 */
-function needsInspectGroupsRepair(parsed, ctx) {
+function needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys) {
   const multi = multiPhotoFindingIds(ctx)
   if (!multi.length) return false
-  const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id, ctx))
+  // 实际送出附图不足 2 张时，无法要求模型按槽拆分
+  if (attachedUrlKeys && attachedUrlKeys.size && attachedUrlKeys.size < 2) return false
+  const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id, ctx, attachedUrlKeys))
   if (!missing) return false
   const hints = Array.isArray(parsed && parsed.partHints) ? parsed.partHints.length : 0
   return faultAnalysisLooksMultiTopic(parsed && parsed.faultAnalysis) || hints >= 2
@@ -1071,8 +1155,9 @@ function needsInspectGroupsRepair(parsed, ctx) {
 
 function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
   const payload = inspectionContextPayload(ctx, options)
+  const attachedUrlKeys = options.attachedUrlKeys || null
   const missingIds = multiPhotoFindingIds(ctx).filter(
-    (id) => !inspectionHasSplitForFinding(previousParsed, id, ctx),
+    (id) => !inspectionHasSplitForFinding(previousParsed, id, ctx, attachedUrlKeys),
   )
   const slotPlan = missingIds.map((id) => ({
     findingId: id,
@@ -1228,6 +1313,19 @@ async function runJob(albumId, kind, options = {}) {
         : kind === 'inspect'
           ? (reVisionInspect ? inspectAll : inspectFresh)
           : ctx.deliveryPhotoUrls || []
+    const slotByUrl =
+      kind === 'inspect'
+        ? buildSlotByUrl(ctx.inspectPhotoSlots)
+        : kind === 'work'
+          ? buildSlotByUrl(ctx.workPhotoSlots)
+          : null
+    const llmTraces = []
+    const llmOpts = {
+      slotByUrl,
+      onResult: (info) => {
+        llmTraces.push(info)
+      },
+    }
     const inspectOpts = { force: reVisionInspect, visionUrls: urls }
     let raw = await runLlm(
       kind === 'work'
@@ -1237,26 +1335,40 @@ async function runJob(albumId, kind, options = {}) {
           : deliveryInstruction(ctx),
       urls,
       kind === 'work' ? 'Work' : kind === 'inspect' ? 'Inspect' : 'Delivery',
+      llmOpts,
     )
     let parsed = kind === 'work'
       ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         : parseDeliveryAdvice(raw)
+    const attachedUrlKeys = new Set()
+    llmTraces.forEach((trace) => {
+      ;(Array.isArray(trace && trace.attachedSlots) ? trace.attachedSlots : []).forEach((row) => {
+        const key = mediaBare(row && row.url)
+        if (key) attachedUrlKeys.add(key)
+      })
+    })
     // 检测：分析已分主题却漏合格 groups → 带着图英文补跑（最多两次）；仍缺则不算出成
     if (kind === 'inspect') {
-      for (let attempt = 0; attempt < 2 && needsInspectGroupsRepair(parsed, ctx); attempt += 1) {
+      const repairOpts = { ...inspectOpts, attachedUrlKeys }
+      for (
+        let attempt = 0;
+        attempt < 2 && needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys);
+        attempt += 1
+      ) {
         const repairRaw = await runLlm(
-          inspectionGroupsRepairInstruction(ctx, parsed, inspectOpts),
+          inspectionGroupsRepairInstruction(ctx, parsed, repairOpts),
           urls,
           attempt === 0 ? 'InspectGroups' : 'InspectGroupsRetry',
+          llmOpts,
         )
         if (!repairRaw) break
         const repaired = parseInspectionAdvice(repairRaw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         parsed = mergeInspectAdvicePreferringGroups(parsed, repaired)
       }
     }
-    const groupsGap = kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx)
+    const groupsGap = kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys)
     const ok = adviceHasContent(parsed, kind) && !groupsGap
     // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
     const advicePayload =
@@ -1266,6 +1378,26 @@ async function runJob(albumId, kind, options = {}) {
             return rest
           })()
         : parsed
+    if (kind === 'inspect') {
+      writeInspectAdviceDebug(albumId, {
+        groupsGap,
+        ok,
+        multiPhotoFindingIds: multiPhotoFindingIds(ctx),
+        photoSlots: ctx.inspectPhotoSlots,
+        urlsRequested: urls,
+        attachedUrlKeys: [...attachedUrlKeys],
+        traces: llmTraces.map((trace) => ({
+          label: trace.label,
+          requestedUrlCount: trace.requestedUrlCount,
+          safeUrlCount: trace.safeUrlCount,
+          attachedSlots: trace.attachedSlots,
+          raw: String(trace.text || '').slice(0, 12000),
+        })),
+        finalEdits: Array.isArray(parsed && parsed.edits) ? parsed.edits : [],
+        faultAnalysis: text(parsed && parsed.faultAnalysis).slice(0, 500),
+        inspectOrder: Array.isArray(parsed && parsed.inspectOrder) ? parsed.inspectOrder : [],
+      })
+    }
     await patchNode(albumId, nodeKind, (item) => {
       let next = {
         ...item,

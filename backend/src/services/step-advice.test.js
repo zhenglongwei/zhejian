@@ -391,6 +391,37 @@ test('多图分主题但 groups 未盖全槽位时仍需补跑', () => {
   assert.equal(needsInspectGroupsRepair(complete, ctx), false)
 })
 
+test('覆盖校验只要求实际送出的槽位', () => {
+  const ctx = {
+    inspectItems: [{ id: 'fid_pile', name: '', note: '', photos: 3 }],
+    inspectPhotoSlots: [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_pile' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_pile' },
+      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'fid_pile' },
+    ],
+  }
+  const partial = {
+    faultAnalysis: '1.漆面剥落。2.刹车盘磨损。',
+    partHints: [],
+    edits: [
+      {
+        kind: 'item',
+        findingId: 'fid_pile',
+        body: '拆开',
+        groups: [
+          { partName: '车身', advice: 'a', images: [{ url: 'https://cdn/a.jpg' }] },
+          { partName: '制动', advice: 'b', images: [{ url: 'https://cdn/b.jpg' }] },
+        ],
+      },
+    ],
+  }
+  assert.equal(needsInspectGroupsRepair(partial, ctx), true)
+  const attached = new Set(['https://cdn/a.jpg', 'https://cdn/b.jpg'])
+  assert.equal(needsInspectGroupsRepair(partial, ctx, attached), false)
+  const onlyOne = new Set(['https://cdn/a.jpg'])
+  assert.equal(needsInspectGroupsRepair(partial, ctx, onlyOne), false)
+})
+
 test('两个多图项时错误 findingId 不误挂', () => {
   const got = parseInspectionAdvice(
     {

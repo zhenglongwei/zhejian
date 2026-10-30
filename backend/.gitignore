@@ -1,4 +1,5 @@
 data/media/
+data/inspect-advice-debug/
 data/album-coach-overrides.json
 
 # 浏览器巡检产物：profile 里是登录 cookie，artifacts 是留证截图，都不进版本库
