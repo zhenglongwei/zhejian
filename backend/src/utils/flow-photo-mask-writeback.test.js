@@ -68,3 +68,20 @@ test('未命中原图不改动', () => {
   const r = applyMaskedToSlot({ url: 'https://other/a.jpg' }, new Set([RAW]), MASK)
   assert.equal(r.changed, false)
 })
+
+test('写回不得把 selectedDeliveryUrls 字符串升成对象', () => {
+  const { writeMaskedUrlIntoFlowNodes } = require('./flow-photo-mask-writeback')
+  const { nodes, changed } = writeMaskedUrlIntoFlowNodes(
+    [
+      {
+        kind: 'delivery_photos',
+        photoDraft: { selectedDeliveryUrls: [RAW], deliveryExteriorUrl: RAW },
+      },
+    ],
+    RAW,
+    MASK,
+  )
+  assert.equal(changed, true)
+  assert.deepEqual(nodes[0].photoDraft.selectedDeliveryUrls, [RAW])
+  assert.equal(nodes[0].photoDraft.deliveryExteriorMaskedUrl, MASK)
+})

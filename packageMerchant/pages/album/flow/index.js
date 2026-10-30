@@ -3954,7 +3954,15 @@ Page({
     }
     if (exterior) push(exterior, '整车外观')
     ;(Array.isArray(photoDraft.selectedDeliveryUrls) ? photoDraft.selectedDeliveryUrls : []).forEach(
-      (url) => push(url),
+      (row) => {
+        const url =
+          typeof row === 'string'
+            ? row
+            : row && typeof row === 'object'
+              ? row.url || row.rawUrl || ''
+              : ''
+        push(url)
+      },
     )
     const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
     ;((stage6 && stage6.images) || []).forEach((img) => {

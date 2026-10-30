@@ -182,6 +182,44 @@ test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
   assert.equal(done.photos[0].url, MASK)
 })
 
+test('工单图与交车图不同原图时互不串码', () => {
+  const WORK_RAW = 'https://cdn.example.com/files/uploads/2026/08/work_only.jpg'
+  const WORK_MASK = 'https://cdn.example.com/files/uploads/desensitized/work_only.jpg'
+  const DEL_RAW = 'https://cdn.example.com/files/uploads/2026/08/delivery_only.jpg'
+  const DEL_MASK = 'https://cdn.example.com/files/uploads/desensitized/delivery_only.jpg'
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'e',
+        kind: 'work',
+        sortOrder: 3,
+        photoDraft: {
+          findings: [{ partName: '阀体', images: [{ url: WORK_RAW, maskedUrl: WORK_MASK }] }],
+        },
+      },
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: DEL_RAW, maskedUrl: DEL_MASK, caption: '交车' }],
+          },
+        },
+      },
+    ],
+    contentNodes: [],
+    allowPrivateFallback: true,
+  })
+  const work = flow.chapters.find((c) => c.kind === 'work')
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.equal(work.photos[0].url, WORK_MASK)
+  assert.equal(done.photos[0].url, DEL_MASK)
+  assert.notEqual(work.photos[0].url, done.photos[0].url)
+})
+
 test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => {
   const flow = buildPublicServiceFlow({
     flowNodes: [

@@ -26,7 +26,16 @@ function urlsLikelyMatch(a, b) {
   const y = stripUrlQuery(b)
   if (!x || !y) return false
   if (x === y) return true
-  return x.endsWith(y) || y.endsWith(x)
+  // 只允许「整段路径互为后缀」（域名/CDN 前缀不同），禁止文件名 endsWith 误伤 foo_bar.jpg vs bar.jpg
+  const slash = (s) => {
+    const i = s.lastIndexOf('/')
+    return i >= 0 ? s.slice(i) : `/${s}`
+  }
+  const sx = slash(x)
+  const sy = slash(y)
+  if (sx.length < 8 || sy.length < 8) return false
+  if (sx !== sy) return false
+  return x.endsWith(sy) || y.endsWith(sx)
 }
 
 function withCacheBust(url, token) {

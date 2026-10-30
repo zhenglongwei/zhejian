@@ -103,9 +103,8 @@ function patchPayloadOrDraft(bag, rawKeys, maskedUrl) {
     }
   }
 
-  ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages', 'selectedDeliveryUrls'].forEach(
-    patchArr,
-  )
+  // 只改「图对象」槽位；selectedDeliveryUrls 是字符串引用列表，禁止升成对象（否则规范化会变成 [object Object] 串图）
+  ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach(patchArr)
 
   if (text(next.deliveryExteriorUrl) && urlsMatch(next.deliveryExteriorUrl, rawKeys)) {
     // 草稿单字段：升到并列 masked，避免丢原址

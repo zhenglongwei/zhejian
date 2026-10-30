@@ -190,21 +190,29 @@ function collectWorkPhotos(node, lookup) {
   const draft = (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
   const findings = Array.isArray(draft.findings) ? draft.findings : []
   const photos = []
-  const seen = new Set()
+  const seenRaw = new Set()
   findings.forEach((raw) => {
     const item = raw && typeof raw === 'object' ? raw : {}
     const slots = []
-    if (Array.isArray(item.images)) {
+    if (Array.isArray(item.images) && item.images.length) {
       item.images.forEach((img) => slots.push(img))
+    } else if (item.url) {
+      // 仅存量一图一项；禁止因顶层 maskedUrl 把整项（可能串了别的码）再推一次
+      slots.push(item)
     }
-    if (item.url || item.maskedUrl) slots.push(item)
     const caption = [text(item.partName), text(item.caption || item.note || item.advice)]
       .filter(Boolean)
       .join(' · ')
     slots.forEach((slot) => {
+      const rawSrc =
+        typeof slot === 'string' ? slot : slot && (slot.url || slot.src || slot.rawUrl)
+      const rawKey = urlKey(rawSrc)
+      // 按原图身份去重，避免不同原图被映射成同一打码 URL 时工单只剩交车那一张
+      if (rawKey && seenRaw.has(rawKey)) return
       const pub = resolvePhotoDisplayUrl(slot, lookup)
-      if (!pub || seen.has(pub)) return
-      seen.add(pub)
+      if (!pub) return
+      if (rawKey) seenRaw.add(rawKey)
+      else if (photos.some((p) => p.url === pub)) return
       photos.push({ url: pub, caption })
     })
   })
@@ -256,11 +264,15 @@ function collectWorkSheetPublicItems(node) {
 function collectDeliveryPhotos(payload, lookup) {
   const list = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
   const photos = []
-  const seen = new Set()
+  const seenRaw = new Set()
   list.forEach((item) => {
+    const rawSrc = typeof item === 'string' ? item : item && (item.url || item.src || item.rawUrl)
+    const rawKey = urlKey(rawSrc)
+    if (rawKey && seenRaw.has(rawKey)) return
     const pub = resolvePhotoDisplayUrl(item, lookup)
-    if (!pub || seen.has(pub)) return
-    seen.add(pub)
+    if (!pub) return
+    if (rawKey) seenRaw.add(rawKey)
+    else if (photos.some((p) => p.url === pub)) return
     const caption = text(typeof item === 'object' && item ? item.caption || item.note : '')
     photos.push({ url: pub, caption })
   })

@@ -284,11 +284,18 @@ function capImages(list = [], max = 0) {
 function normalizeWorkImage(raw = {}) {
   const url = String(typeof raw === 'string' ? raw : (raw && raw.url) || '').trim()
   if (!url) return null
+  const maskedUrl = String(
+    (typeof raw === 'object' && raw && (raw.maskedUrl || raw.preMaskedUrl)) || '',
+  ).trim()
+  const imageId = String(
+    (typeof raw === 'object' && raw && (raw.imageId || raw.id)) || '',
+  ).trim()
+  if (!maskedUrl) return { url, imageId }
   return {
     url,
-    imageId: String(
-      (typeof raw === 'object' && raw && (raw.imageId || raw.id)) || '',
-    ).trim(),
+    imageId,
+    maskedUrl,
+    preMaskedUrl: String((raw && raw.preMaskedUrl) || maskedUrl).trim() || maskedUrl,
   }
 }
 
@@ -1634,7 +1641,15 @@ function normalizePhotoDraft(raw = {}) {
     warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
     selectedDeliveryUrls: Array.isArray(raw.selectedDeliveryUrls)
-      ? raw.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
+      ? raw.selectedDeliveryUrls
+          .map((url) => {
+            // 兼容误写成 { url, maskedUrl } 的写回；禁止 String(object)→[object Object]
+            if (url && typeof url === 'object') {
+              return String(url.url || url.rawUrl || url.src || '').trim()
+            }
+            return String(url || '').trim()
+          })
+          .filter(Boolean)
       : [],
     deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
     repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
