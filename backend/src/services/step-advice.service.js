@@ -375,6 +375,42 @@ function zhOnly(value, max = 120) {
     .slice(0, max)
 }
 
+/** 槽位号：认数字或「图N」 */
+function resolveInspectSlotNumber(slot) {
+  if (typeof slot === 'number' && Number.isInteger(slot) && slot >= 1) return slot
+  const raw = String(slot == null ? '' : slot).trim()
+  const named = raw.match(/^图\s*(\d+)$/i)
+  if (named) {
+    const n = Number(named[1])
+    if (Number.isInteger(n) && n >= 1) return n
+  }
+  if (/^\d{1,2}$/.test(raw)) {
+    const n = Number(raw)
+    if (Number.isInteger(n) && n >= 1) return n
+  }
+  return 0
+}
+
+/** 恰好一个多图项时，把模型写错的 findingId 重挂到该项；多个多图项则不猜 */
+function soleMultiPhotoFindingId(items, photoSlots) {
+  const ids = new Set()
+  ;(Array.isArray(items) ? items : []).forEach((row) => {
+    const id = text(row && row.id)
+    if (id && Number(row && row.photos) >= 2) ids.add(id)
+  })
+  const slotCounts = new Map()
+  ;(Array.isArray(photoSlots) ? photoSlots : []).forEach((row) => {
+    const id = text(row && row.findingId)
+    if (!id) return
+    slotCounts.set(id, (slotCounts.get(id) || 0) + 1)
+  })
+  slotCounts.forEach((n, id) => {
+    if (n >= 2) ids.add(id)
+  })
+  const list = [...ids]
+  return list.length === 1 ? list[0] : ''
+}
+
 function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
   const parsed = parseReviewModelJson(raw) || {}
   const byItemId = new Map(
@@ -382,9 +418,17 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
   )
   const urls = Array.isArray(photoUrls) ? photoUrls : []
   const slots = Array.isArray(photoSlots) ? photoSlots : []
+  const soleMultiId = soleMultiPhotoFindingId(items, photoSlots)
+  const resolveFindingId = (rawId) => {
+    const findingId = text(rawId)
+    if (!findingId) return ''
+    if (byItemId.has(findingId)) return findingId
+    if (soleMultiId) return soleMultiId
+    return ''
+  }
   const slotUrl = (slot) => {
-    const n = Number(slot)
-    if (!Number.isInteger(n) || n < 1) return ''
+    const n = resolveInspectSlotNumber(slot)
+    if (!n) return ''
     const hit = slots.find((row) => Number(row && row.slot) === n)
     if (hit && hit.url) return text(hit.url)
     if (n <= urls.length) return text(urls[n - 1])
@@ -432,8 +476,8 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
   const byFinding = new Map()
   const photos = []
   const mergeItem = (row) => {
-    const findingId = text(row && (row.findingId || row.id))
-    if (!findingId || !byItemId.has(findingId)) return
+    const findingId = resolveFindingId(row && (row.findingId || row.id))
+    if (!findingId) return
     const body = zhOnly(row && row.body, 120)
     const partName = zhOnly(row && (row.partName || row.title), 16)
     const advice = zhOnly(row && row.advice, 120)
@@ -464,7 +508,7 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
       photos.push({
         id: `edit_photo_${photos.length}`,
         kind: 'photo',
-        findingId: text(row.findingId || row.id),
+        findingId: resolveFindingId(row.findingId || row.id),
         body,
         canApply: false,
       })
@@ -474,7 +518,7 @@ function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
     if (kind === 'item' || kind === 'text' || kind === 'split' || !kind) mergeItem(row)
   })
   ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
-    const findingId = text(row && row.id)
+    const findingId = resolveFindingId(row && row.id)
     const body = zhOnly(row && row.body, 120)
     if (!findingId || !body || isIntakeCoverageEcho(body) || byFinding.has(findingId)) return
     mergeItem({
@@ -893,6 +937,11 @@ function inspectionContextPayload(ctx, options = {}) {
 
 function inspectionInstruction(ctx, options = {}) {
   const payload = inspectionContextPayload(ctx, options)
+  const multiIds = multiPhotoFindingIds(ctx)
+  const exampleId = multiIds[0] || 'FINDING_ID'
+  const exampleLead = multiIds[0]
+    ? `Example when finding "${exampleId}" has slot1=paint, slot2=brake, slot3=chassis:`
+    : 'Example (replace FINDING_ID with the exact photoSlots[].findingId of the multi-photo item):'
   return [
     'You assist a Chinese auto-shop clerk on the inspection step.',
     'Output: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
@@ -905,9 +954,11 @@ function inspectionInstruction(ctx, options = {}) {
     '   - every slot of that findingId must appear in exactly one group',
     '4) If faultAnalysis already lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding. Prose alone is NOT enough — the clerk applies groups, not faultAnalysis.',
     '5) Omit groups ONLY when all slots share one topic, or you truly cannot tell topics apart.',
+    '6) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent placeholders like "pile".',
+    '7) imageSlots must be numeric slot ids from photoSlots (e.g. 1, 2, 3), not captions.',
     '',
-    'Example when finding "pile" has slot1=paint, slot2=brake, slot3=chassis:',
-    '{"edits":[{"kind":"item","findingId":"pile","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"…","imageSlots":[1]},{"partName":"制动系统","advice":"…","imageSlots":[2]},{"partName":"底盘悬挂","advice":"…","imageSlots":[3]}]}]}',
+    exampleLead,
+    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"…","imageSlots":[1]},{"partName":"制动系统","advice":"…","imageSlots":[2]},{"partName":"底盘悬挂","advice":"…","imageSlots":[3]}]}]}`,
     '',
     'Other rules:',
     '- Intake is context only — never restate intake coverage.',
@@ -968,6 +1019,8 @@ function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
     'You previously returned inspection JSON but omitted edits[].groups even though topics were already distinguished.',
     'Fix that now. Keep the same faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
     'For each findingId listed in missingFindingIds that has 2+ photo slots with different topics, add ONE kind=item edit with groups[] (partName, advice, imageSlots). Every slot of that finding must appear in exactly one group.',
+    'Copy findingId exactly from missingFindingIds / photoSlots[].findingId. Do not invent placeholders like "pile".',
+    'imageSlots must be numeric slot ids from photoSlots (e.g. 1, 2, 3).',
     'Natural-language string values: Simplified Chinese only.',
     'Do not invent damage. Do not use imageNotes as a substitute for groups.',
     `missingFindingIds: ${JSON.stringify(missingIds)}`,

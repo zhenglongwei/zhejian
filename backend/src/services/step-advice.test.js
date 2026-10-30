@@ -268,6 +268,107 @@ test('检测拆分按 photoSlots 槽位解析，不跟本次附图下标错位',
   assert.equal(split.groups[1].images[0].url, 'https://cdn/chassis-a.jpg')
 })
 
+test('唯一多图项时，错误 findingId 重挂到真实 id', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.车身漆面剥落。2.制动盘有沟。',
+      inspectOrder: ['先看漆面', '再测制动'],
+      partHints: [],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'pile',
+          body: '拆成车身漆面与制动系统',
+          groups: [
+            { partName: '车身漆面', advice: '漆面剥落', imageSlots: [1] },
+            { partName: '制动系统', advice: '盘面有沟', imageSlots: [2] },
+          ],
+        },
+      ],
+    },
+    [{ id: 'fid_real', name: '', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_real' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_real' },
+    ],
+  )
+  const split = got.edits.find((row) => row.kind === 'item' && row.findingId === 'fid_real')
+  assert.ok(split)
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].partName, '车身漆面')
+  assert.equal(got.edits.some((row) => row.findingId === 'pile'), false)
+})
+
+test('imageSlots 写成图N 也能解析出 groups', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.漆面 2.制动',
+      inspectOrder: [],
+      partHints: [],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'fid_mix',
+          body: '拆开',
+          groups: [
+            { partName: '车身漆面', advice: '擦伤', imageSlots: ['图1'] },
+            { partName: '制动系统', advice: '磨损', imageSlots: ['图 2'] },
+          ],
+        },
+      ],
+    },
+    [{ id: 'fid_mix', name: '', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_mix' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_mix' },
+    ],
+  )
+  const split = got.edits.find((row) => row.findingId === 'fid_mix')
+  assert.ok(split)
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].images[0].url, 'https://cdn/a.jpg')
+  assert.equal(split.groups[1].images[0].url, 'https://cdn/b.jpg')
+})
+
+test('两个多图项时错误 findingId 不误挂', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.漆面 2.制动 3.底盘',
+      inspectOrder: [],
+      partHints: [],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'pile',
+          body: '拆开',
+          groups: [
+            { partName: '车身漆面', advice: '擦伤', imageSlots: [1] },
+            { partName: '制动系统', advice: '磨损', imageSlots: [2] },
+          ],
+        },
+      ],
+    },
+    [
+      { id: 'fid_a', name: '', note: '', photos: 2 },
+      { id: 'fid_b', name: '', note: '', photos: 2 },
+    ],
+    ['https://cdn/a1.jpg', 'https://cdn/a2.jpg', 'https://cdn/b1.jpg', 'https://cdn/b2.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a1.jpg', findingId: 'fid_a' },
+      { slot: 2, url: 'https://cdn/a2.jpg', findingId: 'fid_a' },
+      { slot: 3, url: 'https://cdn/b1.jpg', findingId: 'fid_b' },
+      { slot: 4, url: 'https://cdn/b2.jpg', findingId: 'fid_b' },
+    ],
+  )
+  assert.equal(
+    got.edits.some((row) => row.kind === 'item' && Array.isArray(row.groups) && row.groups.length >= 2),
+    false,
+  )
+  assert.equal(got.edits.some((row) => row.findingId === 'pile'), false)
+})
+
 test('交车出简述与车主关心的问题', () => {
   const got = parseDeliveryAdvice({
     repairBrief: '更换下摆臂胶套，并做了机油机滤保养。',
