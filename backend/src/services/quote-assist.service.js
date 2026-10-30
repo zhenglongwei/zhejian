@@ -48,7 +48,7 @@ function buildAssistFingerprint(album) {
     .createHash('sha1')
     .update(
       JSON.stringify({
-        v: 'prior',
+        v: 'quote-assist-v2',
         c: text(intakeDraft.chiefComplaint || payload.chiefComplaint),
         intake: text((intake && intake.intakeAdvice && intake.intakeAdvice.updatedAt) || ''),
         p: intakePhotos.map((img) => text(img && (img.url || img))),
@@ -58,9 +58,11 @@ function buildAssistFingerprint(album) {
           a: text(row && row.advice),
         })),
         q: lines.map((row) => ({
+          id: text(row && row.id),
           n: text(row && row.name),
           a: text(row && row.amount),
           note: text(row && row.note),
+          brand: text(row && row.brand),
         })),
       }),
     )

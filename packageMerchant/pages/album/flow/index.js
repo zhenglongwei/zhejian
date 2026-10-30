@@ -7246,8 +7246,8 @@ Page({
       return
     }
     if (kind === 'inspection_report' || kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
-      const assist = this.data.quoteAssist
-      if ((assist && assist.hasContent) || (assist && assist.isWaiting)) return
+      // 改过报价行也要能重跑；内容没变时服务端按指纹复用上次结果
+      if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
       this.onStartQuoteAiCheck()
       return
     }
