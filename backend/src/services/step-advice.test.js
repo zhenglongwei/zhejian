@@ -166,6 +166,21 @@ test('多图项已有分点分析但无 groups 时需要补跑', () => {
     edits: [],
   }
   assert.equal(needsInspectGroupsRepair(parsed, ctx), true)
+  const partialGroups = {
+    ...parsed,
+    edits: [
+      {
+        kind: 'item',
+        findingId: 'pile',
+        body: '拆开',
+        groups: [
+          { partName: '车身', advice: 'a', images: [{ url: 'https://a/1.jpg' }] },
+          { partName: '制动', advice: 'b', images: [{ url: 'https://a/2.jpg' }] },
+        ],
+      },
+    ],
+  }
+  assert.equal(needsInspectGroupsRepair(partialGroups, ctx), true)
   const withGroups = {
     ...parsed,
     edits: [
@@ -176,6 +191,7 @@ test('多图项已有分点分析但无 groups 时需要补跑', () => {
         groups: [
           { partName: '车身', advice: 'a', images: [{ url: 'https://a/1.jpg' }] },
           { partName: '制动', advice: 'b', images: [{ url: 'https://a/2.jpg' }] },
+          { partName: '底盘', advice: 'c', images: [{ url: 'https://a/3.jpg' }] },
         ],
       },
     ],
@@ -330,6 +346,49 @@ test('imageSlots 写成图N 也能解析出 groups', () => {
   assert.equal(split.groups.length, 2)
   assert.equal(split.groups[0].images[0].url, 'https://cdn/a.jpg')
   assert.equal(split.groups[1].images[0].url, 'https://cdn/b.jpg')
+})
+
+test('多图分主题但 groups 未盖全槽位时仍需补跑', () => {
+  const ctx = {
+    inspectItems: [{ id: 'fid_pile', name: '', note: '', photos: 3 }],
+    inspectPhotoSlots: [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_pile' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_pile' },
+      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'fid_pile' },
+    ],
+  }
+  const partial = {
+    faultAnalysis: '1.漆面剥落。2.刹车盘磨损。3.底盘锈斑。',
+    partHints: [],
+    edits: [
+      {
+        kind: 'item',
+        findingId: 'fid_pile',
+        body: '拆开',
+        groups: [
+          { partName: '车身', advice: 'a', images: [{ url: 'https://cdn/a.jpg' }] },
+          { partName: '制动', advice: 'b', images: [{ url: 'https://cdn/b.jpg' }] },
+        ],
+      },
+    ],
+  }
+  assert.equal(needsInspectGroupsRepair(partial, ctx), true)
+  const complete = {
+    ...partial,
+    edits: [
+      {
+        kind: 'item',
+        findingId: 'fid_pile',
+        body: '拆开',
+        groups: [
+          { partName: '车身', advice: 'a', images: [{ url: 'https://cdn/a.jpg' }] },
+          { partName: '制动', advice: 'b', images: [{ url: 'https://cdn/b.jpg' }] },
+          { partName: '底盘', advice: 'c', images: [{ url: 'https://cdn/c.jpg' }] },
+        ],
+      },
+    ],
+  }
+  assert.equal(needsInspectGroupsRepair(complete, ctx), false)
 })
 
 test('两个多图项时错误 findingId 不误挂', () => {

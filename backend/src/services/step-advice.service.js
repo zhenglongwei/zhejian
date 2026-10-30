@@ -635,12 +635,21 @@ function splitNewAndNotedUrls(urls = [], notesMap = {}) {
   return { fresh, noted }
 }
 
+/** 检测图：绝对地址或本机 /uploads 相对路径（送模前再解析打码地址） */
+function isInspectMediaUrl(url) {
+  const u = text(url)
+  if (!u) return false
+  if (/^https?:\/\//i.test(u)) return true
+  if (u.startsWith('/') || /\/uploads\//i.test(u)) return true
+  return false
+}
+
 function inspectPhotoUrls(inspection) {
   const draft = (inspection && inspection.photoDraft) || {}
   const urls = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
-    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 8) return
+    if (!isInspectMediaUrl(url) || urls.includes(url) || urls.length >= 8) return
     urls.push(url)
   }
   ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
@@ -652,6 +661,7 @@ function inspectPhotoUrls(inspection) {
 }
 
 /** 检测图槽位：与送模附图顺序一致，并挂上所属检测项 id（供拆分 groups.imageSlots） */
+
 function inspectPhotoSlots(inspection) {
   const draft = (inspection && inspection.photoDraft) || {}
   const slots = []
@@ -659,7 +669,7 @@ function inspectPhotoSlots(inspection) {
   const push = (findingId, partName, raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
     const key = mediaBare(url)
-    if (!/^https?:\/\//.test(url) || !key || used.has(key) || slots.length >= 8) return
+    if (!isInspectMediaUrl(url) || !key || used.has(key) || slots.length >= 8) return
     used.add(key)
     slots.push({
       slot: slots.length + 1,
@@ -935,30 +945,55 @@ function inspectionContextPayload(ctx, options = {}) {
   }
 }
 
+function slotsForFinding(ctx, findingId) {
+  const id = text(findingId)
+  return (Array.isArray(ctx && ctx.inspectPhotoSlots) ? ctx.inspectPhotoSlots : []).filter(
+    (row) => text(row && row.findingId) === id && text(row && row.url),
+  )
+}
+
+/** 提示词里钉死：多图项必须按真实 findingId + 槽位出 groups */
+function requiredInspectSplitHints(ctx) {
+  return multiPhotoFindingIds(ctx)
+    .map((id) => {
+      const slots = slotsForFinding(ctx, id).map((row) => Number(row.slot))
+      if (slots.length < 2) return ''
+      return `- findingId "${id}" owns slots [${slots.join(', ')}]: if those slots show DIFFERENT topics, you MUST emit one edits[] row with findingId="${id}" and groups[] so each listed slot appears in exactly one group.`
+    })
+    .filter(Boolean)
+}
+
 function inspectionInstruction(ctx, options = {}) {
   const payload = inspectionContextPayload(ctx, options)
   const multiIds = multiPhotoFindingIds(ctx)
   const exampleId = multiIds[0] || 'FINDING_ID'
+  const exampleSlots = slotsForFinding(ctx, exampleId).map((row) => Number(row.slot))
+  const s1 = exampleSlots[0] || 1
+  const s2 = exampleSlots[1] || 2
+  const s3 = exampleSlots[2] || 3
   const exampleLead = multiIds[0]
-    ? `Example when finding "${exampleId}" has slot1=paint, slot2=brake, slot3=chassis:`
+    ? `Example when finding "${exampleId}" has different topics across its slots:`
     : 'Example (replace FINDING_ID with the exact photoSlots[].findingId of the multi-photo item):'
+  const required = requiredInspectSplitHints(ctx)
   return [
     'You assist a Chinese auto-shop clerk on the inspection step.',
     'Output: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
     '',
-    'CRITICAL — photo split (groups):',
+    'CRITICAL — photo split (groups) is the only way the clerk can split a mixed photo pile. Prose is not enough.',
     '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots).',
     '2) Decide which inspection topic each slot shows (body paint, brake disc, chassis, etc.).',
     '3) If one findingId owns 2+ slots with DIFFERENT topics, emit exactly ONE edits[] row for that findingId with groups[]:',
-    '   - one group per topic; fields: partName, advice, imageSlots',
-    '   - every slot of that findingId must appear in exactly one group',
-    '4) If faultAnalysis already lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding. Prose alone is NOT enough — the clerk applies groups, not faultAnalysis.',
-    '5) Omit groups ONLY when all slots share one topic, or you truly cannot tell topics apart.',
-    '6) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent placeholders like "pile".',
-    '7) imageSlots must be numeric slot ids from photoSlots (e.g. 1, 2, 3), not captions.',
+    '   - one group per topic; fields: partName, advice, imageSlots (numeric slot ids only)',
+    '   - every slot of that findingId must appear in exactly one group; do not leave a slot out',
+    '4) If faultAnalysis lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding.',
+    '5) Omit groups ONLY when all slots of that finding share one topic, or you truly cannot tell topics apart.',
+    '6) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent "pile".',
     '',
+    ...(required.length
+      ? ['REQUIRED split checks for this request:', ...required, '']
+      : []),
     exampleLead,
-    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"…","imageSlots":[1]},{"partName":"制动系统","advice":"…","imageSlots":[2]},{"partName":"底盘悬挂","advice":"…","imageSlots":[3]}]}]}`,
+    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成车身漆面、制动系统、底盘悬挂","groups":[{"partName":"车身漆面","advice":"…","imageSlots":[${s1}]},{"partName":"制动系统","advice":"…","imageSlots":[${s2}]},{"partName":"底盘悬挂","advice":"…","imageSlots":[${s3}]}]}]}`,
     '',
     'Other rules:',
     '- Intake is context only — never restate intake coverage.',
@@ -988,25 +1023,47 @@ function multiPhotoFindingIds(ctx) {
     if (!id) return
     counts.set(id, (counts.get(id) || 0) + 1)
   })
+  // 槽位未齐时仍认草稿项上的张数，避免漏触发补跑
+  ;(Array.isArray(ctx.inspectItems) ? ctx.inspectItems : []).forEach((row) => {
+    const id = text(row && row.id)
+    const photos = Number(row && row.photos) || 0
+    if (!id || photos < 2) return
+    counts.set(id, Math.max(counts.get(id) || 0, photos))
+  })
   return [...counts.entries()].filter(([, n]) => n >= 2).map(([id]) => id)
 }
 
-function inspectionHasSplitForFinding(parsed, findingId) {
+function inspectionHasSplitForFinding(parsed, findingId, ctx) {
   const id = text(findingId)
-  return (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).some(
+  const edit = (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).find(
     (row) =>
       text(row && row.kind) !== 'photo' &&
       text(row && row.findingId) === id &&
       Array.isArray(row.groups) &&
       row.groups.length >= 2,
   )
+  if (!edit) return false
+  const groups = edit.groups
+  if (!groups.every((g) => text(g && g.partName) && Array.isArray(g.images) && g.images.length)) {
+    return false
+  }
+  const slots = slotsForFinding(ctx, id)
+  if (slots.length < 2) return true
+  const covered = new Set()
+  groups.forEach((g) => {
+    ;(Array.isArray(g.images) ? g.images : []).forEach((img) => {
+      const key = mediaBare(img && img.url)
+      if (key) covered.add(key)
+    })
+  })
+  return slots.every((row) => covered.has(mediaBare(row.url)))
 }
 
-/** 已能分主题（分点分析或部件参考≥2）但多图项仍无 groups → 需要英文补跑 */
+/** 已能分主题（分点分析或部件参考≥2）但多图项仍无合格 groups → 需要英文补跑 */
 function needsInspectGroupsRepair(parsed, ctx) {
   const multi = multiPhotoFindingIds(ctx)
   if (!multi.length) return false
-  const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id))
+  const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id, ctx))
   if (!missing) return false
   const hints = Array.isArray(parsed && parsed.partHints) ? parsed.partHints.length : 0
   return faultAnalysisLooksMultiTopic(parsed && parsed.faultAnalysis) || hints >= 2
@@ -1014,16 +1071,25 @@ function needsInspectGroupsRepair(parsed, ctx) {
 
 function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
   const payload = inspectionContextPayload(ctx, options)
-  const missingIds = multiPhotoFindingIds(ctx).filter((id) => !inspectionHasSplitForFinding(previousParsed, id))
+  const missingIds = multiPhotoFindingIds(ctx).filter(
+    (id) => !inspectionHasSplitForFinding(previousParsed, id, ctx),
+  )
+  const slotPlan = missingIds.map((id) => ({
+    findingId: id,
+    slots: slotsForFinding(ctx, id).map((row) => Number(row.slot)),
+  }))
   return [
-    'You previously returned inspection JSON but omitted edits[].groups even though topics were already distinguished.',
-    'Fix that now. Keep the same faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
-    'For each findingId listed in missingFindingIds that has 2+ photo slots with different topics, add ONE kind=item edit with groups[] (partName, advice, imageSlots). Every slot of that finding must appear in exactly one group.',
-    'Copy findingId exactly from missingFindingIds / photoSlots[].findingId. Do not invent placeholders like "pile".',
-    'imageSlots must be numeric slot ids from photoSlots (e.g. 1, 2, 3).',
+    'Your previous JSON distinguished multiple inspection topics but did NOT return valid edits[].groups for photo split.',
+    'This response is INVALID without groups. Fix it now by looking at the attached photos again.',
+    'Keep faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
+    'For EACH entry in missingSplitPlan, emit exactly ONE kind=item edit:',
+    '- findingId must equal missingSplitPlan[].findingId exactly (never invent "pile")',
+    '- groups[]: one group per distinct topic visible in that finding\'s slots',
+    '- each group: partName, advice, imageSlots (numeric ids from missingSplitPlan[].slots)',
+    '- every slot listed for that findingId must appear in exactly one group',
     'Natural-language string values: Simplified Chinese only.',
-    'Do not invent damage. Do not use imageNotes as a substitute for groups.',
-    `missingFindingIds: ${JSON.stringify(missingIds)}`,
+    'Do not invent damage. Do not use imageNotes or inspectOrder as a substitute for looking at photos.',
+    `missingSplitPlan: ${JSON.stringify(slotPlan)}`,
     `photoSlots: ${JSON.stringify(payload.photoSlots)}`,
     `Previous JSON: ${JSON.stringify({
       faultAnalysis: previousParsed && previousParsed.faultAnalysis,
@@ -1177,19 +1243,21 @@ async function runJob(albumId, kind, options = {}) {
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         : parseDeliveryAdvice(raw)
-    // 检测：分析已分主题却漏 groups → 英文补跑一次，仍由模型按图填 groups
-    if (kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx)) {
-      const repairRaw = await runLlm(
-        inspectionGroupsRepairInstruction(ctx, parsed, inspectOpts),
-        urls,
-        'InspectGroups',
-      )
-      if (repairRaw) {
+    // 检测：分析已分主题却漏合格 groups → 带着图英文补跑（最多两次）；仍缺则不算出成
+    if (kind === 'inspect') {
+      for (let attempt = 0; attempt < 2 && needsInspectGroupsRepair(parsed, ctx); attempt += 1) {
+        const repairRaw = await runLlm(
+          inspectionGroupsRepairInstruction(ctx, parsed, inspectOpts),
+          urls,
+          attempt === 0 ? 'InspectGroups' : 'InspectGroupsRetry',
+        )
+        if (!repairRaw) break
         const repaired = parseInspectionAdvice(repairRaw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         parsed = mergeInspectAdvicePreferringGroups(parsed, repaired)
       }
     }
-    const ok = adviceHasContent(parsed, kind)
+    const groupsGap = kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx)
+    const ok = adviceHasContent(parsed, kind) && !groupsGap
     // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
     const advicePayload =
       kind === 'delivery'
@@ -1203,7 +1271,14 @@ async function runJob(albumId, kind, options = {}) {
         ...item,
         [field]: ok
           ? { status: 'ready', fingerprint, ...advicePayload, errorMessage: '', updatedAt: new Date().toISOString() }
-          : { ...(item[field] || {}), status: 'failed', fingerprint, errorMessage: '未能出意见', updatedAt: new Date().toISOString() },
+          : {
+              ...(item[field] || {}),
+              ...advicePayload,
+              status: 'failed',
+              fingerprint,
+              errorMessage: groupsGap ? '拆分建议未出成，请刷新再试' : '未能出意见',
+              updatedAt: new Date().toISOString(),
+            },
       }
       const notes = Array.isArray(parsed.imageNotes) ? parsed.imageNotes : []
       if (kind === 'work') {

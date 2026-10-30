@@ -1941,6 +1941,10 @@
                 <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
               </view>
             </view>
+            <text
+              wx:elif="{{inspectionAdvice.status === 'failed' && !inspectionAdvice.hasLines}}"
+              class="text-caption text-secondary"
+            >拆分建议未出成，点刷新再试</text>
           </block>
           <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || deliveryAdvice.isWaiting || quoteAssist.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
           <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || deliveryAdvice.status === 'failed' || quoteAssist.status === 'failed'}}" class="text-caption text-secondary">这次没出成，点刷新再试</view>
