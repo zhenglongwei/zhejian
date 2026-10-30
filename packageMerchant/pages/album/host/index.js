@@ -262,10 +262,11 @@ function decorateGeoCopyState(base, summary, faq) {
   return { qualitySuggestions, summaryHint, faqHint }
 }
 
-const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v2'
-/** 公开前统一协议：不因自动打码成败换文案 */
-const HOST_PRIVACY_AGREEMENT_BODY =
-  '请确认店页图片与文字已做好隐私处理（如车牌、人脸、手机号、车架号等）。公开内容的合规责任由本店承担；平台工具仅供辅助，不担保零残留，不代本店担责。同意后将直接公开。'
+const {
+  HOST_PRIVACY_AGREEMENT_VERSION,
+  HOST_PRIVACY_AGREEMENT_TITLE,
+  HOST_PRIVACY_AGREEMENT_SECTIONS,
+} = require('../../../../constants/host-privacy-agreement')
 
 /** 页上仅在自动处理进行中出轻提示；成败不另挂隐私唠叨（提醒归协议） */
 function buildMaskStatusCopy(maskImages = [], options = {}) {
@@ -317,6 +318,11 @@ Page({
     maskStatusTitle: '',
     maskStatusHint: '',
     maskAutoRunning: false,
+    preparingPublicPreview: false,
+    showPrivacyAgreement: false,
+    privacyAgreementTitle: HOST_PRIVACY_AGREEMENT_TITLE,
+    privacyAgreementVersion: HOST_PRIVACY_AGREEMENT_VERSION,
+    privacyAgreementSections: HOST_PRIVACY_AGREEMENT_SECTIONS,
     maskAutoFailed: false,
     privacyTouched: false,
     previewTexts: [],
@@ -434,13 +440,15 @@ Page({
     const step = Number(e.currentTarget.dataset.step)
     if (!canVisitWizardStep(step, this.data.wizardMaxStep)) return
     if (step === this.data.wizardStep) return
-    this.setData({ wizardStep: step })
     if (step === 2) {
+      // 打码完成前不切预览步
       this._autoMaskTried = false
       Promise.resolve()
         .then(() => this.enterPublicPreview())
         .catch(() => {})
+      return
     }
+    this.setData({ wizardStep: step })
   },
 
   async loadPublicFace(options = {}) {
@@ -755,7 +763,6 @@ Page({
 
       const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
-        maskAutoRunning: false,
         unmaskedCount: copy.needsManualCount,
         needsManualCount: copy.needsManualCount,
         pendingMaskCount: (this.data.maskImages || []).filter((row) => row.pending).length,
@@ -766,33 +773,49 @@ Page({
       })
     } catch (_) {
       // 成败不另挂条；公开前统一走协议提醒。点图仍可手工改码。
-      const copy = buildMaskStatusCopy(this.data.maskImages, {})
       this.setData({
-        maskAutoRunning: false,
-        unmaskedCount: copy.needsManualCount,
-        needsManualCount: copy.needsManualCount,
+        unmaskedCount: this.data.needsManualCount,
         showMaskBanner: false,
         maskAutoFailed: false,
         maskStatusHint: '',
         maskStatusTitle: '',
       })
+    } finally {
+      // 必须清掉，否则「继续公开」会被静默拦住
+      this.setData({ maskAutoRunning: false })
     }
   },
 
-  /** 进公开预览：先切到预览步并露处理中，再拉面 → 打码 → 店页草稿 */
+  /**
+   * 进公开预览：先打码（仍停在存档步），完成后再进入预览步。
+   * 口径：15_ §6 — 打码未完成不得展示预览页。
+   */
   async enterPublicPreview() {
+    if (this.data.maskAutoRunning || this.data.preparingPublicPreview) return
     this.setData({
-      wizardStep: 2,
-      wizardMaxStep: Math.max(2, Number(this.data.wizardMaxStep) || 1),
       hostMode: 'public',
-      showMaskBanner: true,
-      maskStatusTitle: '正在处理图片…',
-      maskStatusHint: '公开前自动核对隐私；已处理过的不重打。',
+      // 打码完成前绝不停在预览步（含从历史状态恢复到 step 2 的情况）
+      wizardStep: 1,
+      wizardMaxStep: Math.max(2, Number(this.data.wizardMaxStep) || 1),
+      preparingPublicPreview: true,
+      showMaskBanner: false,
+      maskStatusTitle: '',
+      maskStatusHint: '',
     })
-    await this.loadPublicFace({ silent: true })
-    // 由 ensureAutoMaskOnReview 置 maskAutoRunning，避免此处先置 true 被当成「已在跑」而跳过
-    await this.ensureAutoMaskOnReview()
-    await this.ensureGeoDraftForPreview()
+    try {
+      this._autoMaskTried = false
+      await this.ensureAutoMaskOnReview()
+      await this.ensureGeoDraftForPreview()
+      await this.loadPublicFace({ silent: true })
+      this.setData({
+        wizardStep: 2,
+        preparingPublicPreview: false,
+        showMaskBanner: false,
+      })
+    } catch (_) {
+      this.setData({ preparingPublicPreview: false, maskAutoRunning: false })
+      wx.showToast({ title: '图片处理未完成，请重试', icon: 'none' })
+    }
   },
 
   async ensureGeoDraftForPreview() {
@@ -823,25 +846,30 @@ Page({
     }
   },
 
-  async onContinuePublish() {
-    if (this.data.working || this.data.maskAutoRunning) return
+  onContinuePublish() {
+    if (this.data.working) return
     const summary = String(this.data.geoSummary || '').trim()
     if (!summary) {
       wx.showToast({ title: '请填写店页摘要', icon: 'none' })
       return
     }
-    // 统一协议提醒图文脱敏；不因自动打码成败分支
-    const agreed = await new Promise((resolve) => {
-      wx.showModal({
-        title: '公开前确认',
-        content: HOST_PRIVACY_AGREEMENT_BODY,
-        confirmText: '同意并公开',
-        cancelText: '再看看',
-        success: (res) => resolve(Boolean(res.confirm)),
-      })
-    })
-    if (!agreed) return
+    this.setData({ showPrivacyAgreement: true })
+  },
 
+  onDismissPrivacyAgreement() {
+    if (this.data.working) return
+    this.setData({ showPrivacyAgreement: false })
+  },
+
+  /** 同意协议后执行公开校验与上线 */
+  async onAcceptPrivacyAgreement() {
+    if (this.data.working) return
+    const summary = String(this.data.geoSummary || '').trim()
+    if (!summary) {
+      this.setData({ showPrivacyAgreement: false })
+      wx.showToast({ title: '请填写店页摘要', icon: 'none' })
+      return
+    }
     this.setData({ working: true })
     try {
       const audit = await auditHostedPublicPrivacy(this.albumId)
@@ -854,6 +882,7 @@ Page({
           : this.data.qualitySuggestions,
       })
       if (!audit.passed) {
+        this.setData({ showPrivacyAgreement: false })
         wx.showToast({
           title: (blocks[0] && blocks[0].message) || '还有需改的文案',
           icon: 'none',
@@ -871,6 +900,7 @@ Page({
         privacyAgreementAccepted: true,
         privacyAgreementVersion: HOST_PRIVACY_AGREEMENT_VERSION,
       })
+      this.setData({ showPrivacyAgreement: false })
       wx.showToast({ title: '已上店页', icon: 'success' })
       const album = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(album)

@@ -35,6 +35,10 @@
         <text class="text-body">已在店页公开</text>
         <text class="text-caption text-secondary">可取消公开，档案仍保留。</text>
       </view>
+      <view wx:elif="{{preparingPublicPreview || maskAutoRunning}}" class="merchant-host-page__status">
+        <text class="text-body">正在处理图片…</text>
+        <text class="text-caption text-secondary">打码完成后再进入预览。</text>
+      </view>
       <view wx:elif="{{hosted && wizardMaxStep >= 2}}" class="merchant-host-page__status">
         <text class="text-body">正在准备公开</text>
         <text class="text-caption text-secondary">点上方「预览公开」继续。</text>
@@ -164,13 +168,46 @@
     </block>
   </block>
 
-  <ui-fixed-bottom-bar wx:if="{{status === 'ready'}}" safeArea="{{true}}">
+  <!-- 公开隐私责任协议（完整可滚动；正文可整段替换） -->
+  <view wx:if="{{showPrivacyAgreement}}" class="merchant-host-page__agreement">
+    <view class="merchant-host-page__agreement-panel">
+      <view class="merchant-host-page__agreement-head">
+        <text class="text-body merchant-host-page__agreement-title">{{privacyAgreementTitle}}</text>
+        <text class="text-caption text-secondary">版本 {{privacyAgreementVersion}}</text>
+      </view>
+      <scroll-view scroll-y class="merchant-host-page__agreement-body" enhanced="{{true}}" show-scrollbar="{{true}}">
+        <view
+          wx:for="{{privacyAgreementSections}}"
+          wx:key="heading"
+          class="merchant-host-page__agreement-section"
+        >
+          <text class="text-body merchant-host-page__agreement-heading">{{item.heading}}</text>
+          <text
+            wx:for="{{item.paragraphs}}"
+            wx:for-item="para"
+            wx:key="*this"
+            class="text-caption merchant-host-page__agreement-para"
+          >{{para}}</text>
+        </view>
+      </scroll-view>
+      <view class="merchant-host-page__agreement-foot safe-bottom">
+        <view class="merchant-host-page__agreement-btn">
+          <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onDismissPrivacyAgreement">再看看</ui-button>
+        </view>
+        <view class="merchant-host-page__agreement-btn">
+          <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onAcceptPrivacyAgreement">同意公开</ui-button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <ui-fixed-bottom-bar wx:if="{{status === 'ready' && !showPrivacyAgreement}}" safeArea="{{true}}">
     <block wx:if="{{wizardStep === 1}}">
       <ui-button
         wx:if="{{!hosted}}"
         type="primary"
         block="{{true}}"
-        loading="{{working}}"
+        loading="{{working || preparingPublicPreview || maskAutoRunning}}"
         bind:btntap="onSubmitHost"
       >确认存档</ui-button>
       <ui-button
@@ -184,14 +221,14 @@
         wx:elif="{{wizardMaxStep >= 2}}"
         type="ghost"
         block="{{true}}"
-        loading="{{working}}"
+        loading="{{working || preparingPublicPreview || maskAutoRunning}}"
         bind:btntap="onCancelPublicIntent"
       >改回仅私密</ui-button>
       <ui-button
         wx:else
         type="primary"
         block="{{true}}"
-        loading="{{working}}"
+        loading="{{working || preparingPublicPreview || maskAutoRunning}}"
         bind:btntap="onSwitchToPublic"
       >公开托管</ui-button>
     </block>

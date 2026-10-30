@@ -112,6 +112,10 @@ test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
       { id: 'b', name: '', note: '', photos: 1 },
     ],
     ['https://a/1.jpg', 'https://a/2.jpg'],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+    ],
   )
   assert.equal(got.scope, 'inspect_v2')
   assert.match(got.faultAnalysis, /剐蹭/)
@@ -129,6 +133,41 @@ test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
   assert.equal(got.edits.filter((row) => row.kind === 'item' && row.findingId === 'b').length, 1)
   assert.equal(got.edits.some((row) => /四周/.test(row.body || '')), false)
   assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
+})
+
+test('检测拆分按 photoSlots 槽位解析，不跟本次附图下标错位', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '一处划痕，两处底盘锈蚀。',
+      inspectOrder: ['先看漆面划痕', '再查底盘锈蚀'],
+      partHints: [],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'mixed',
+          body: '拆成划痕与底盘',
+          groups: [
+            { partName: '车身划痕', advice: '漆面擦伤', imageSlots: [1] },
+            { partName: '底盘锈蚀', advice: '排气管与悬挂有锈', imageSlots: [2, 3] },
+          ],
+        },
+      ],
+    },
+    [{ id: 'mixed', name: '', note: '', photos: 3 }],
+    // 若只送了槽位 2、3（已识过槽位 1），下标与槽位号不一致
+    ['https://cdn/chassis-a.jpg', 'https://cdn/chassis-b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/scratch.jpg', findingId: 'mixed' },
+      { slot: 2, url: 'https://cdn/chassis-a.jpg', findingId: 'mixed' },
+      { slot: 3, url: 'https://cdn/chassis-b.jpg', findingId: 'mixed' },
+    ],
+  )
+  const split = got.edits.find((row) => row.findingId === 'mixed')
+  assert.ok(split)
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].images[0].url, 'https://cdn/scratch.jpg')
+  assert.equal(split.groups[1].images.length, 2)
+  assert.equal(split.groups[1].images[0].url, 'https://cdn/chassis-a.jpg')
 })
 
 test('交车出简述与车主关心的问题', () => {

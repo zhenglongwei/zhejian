@@ -374,16 +374,20 @@ function zhOnly(value, max = 120) {
     .slice(0, max)
 }
 
-function parseInspectionAdvice(raw, items, photoUrls) {
+function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
   const parsed = parseReviewModelJson(raw) || {}
   const byItemId = new Map(
     (Array.isArray(items) ? items : []).map((row) => [text(row && row.id), row]).filter((pair) => pair[0]),
   )
   const urls = Array.isArray(photoUrls) ? photoUrls : []
+  const slots = Array.isArray(photoSlots) ? photoSlots : []
   const slotUrl = (slot) => {
     const n = Number(slot)
-    if (!Number.isInteger(n) || n < 1 || n > urls.length) return ''
-    return text(urls[n - 1])
+    if (!Number.isInteger(n) || n < 1) return ''
+    const hit = slots.find((row) => Number(row && row.slot) === n)
+    if (hit && hit.url) return text(hit.url)
+    if (n <= urls.length) return text(urls[n - 1])
+    return ''
   }
   const parseGroups = (list) =>
     (Array.isArray(list) ? list : [])
@@ -602,6 +606,38 @@ function inspectPhotoUrls(inspection) {
   return urls
 }
 
+/** 检测图槽位：与送模附图顺序一致，并挂上所属检测项 id（供拆分 groups.imageSlots） */
+function inspectPhotoSlots(inspection) {
+  const draft = (inspection && inspection.photoDraft) || {}
+  const slots = []
+  const used = new Set()
+  const push = (findingId, partName, raw) => {
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    const key = mediaBare(url)
+    if (!/^https?:\/\//.test(url) || !key || used.has(key) || slots.length >= 8) return
+    used.add(key)
+    slots.push({
+      slot: slots.length + 1,
+      url,
+      findingId: text(findingId),
+      partName: text(partName),
+    })
+  }
+  ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row, index) => {
+    if (!row) return
+    const findingId = text(row.id) || `f${index}`
+    const partName = text(row.partName)
+    const shots = []
+    if (Array.isArray(row.images) && row.images.length) {
+      row.images.forEach((img) => shots.push(img))
+    } else if (row.url) {
+      shots.push(row)
+    }
+    shots.forEach((img) => push(findingId, partName, img))
+  })
+  return slots
+}
+
 function deliveryPhotoUrls(delivery) {
   const draft = (delivery && delivery.photoDraft) || {}
   const urls = []
@@ -635,7 +671,8 @@ function contextOf(album) {
   const workAdvice = (works.find((item) => item.workAdvice) || {}).workAdvice || {}
   const imageNotesMap = collectImageNotesMap(nodes)
   const intakeUrls = intakePhotoUrls(intake)
-  const inspectUrls = inspectPhotoUrls(inspection)
+  const inspectSlots = inspectPhotoSlots(inspection)
+  const inspectUrls = inspectSlots.map((row) => row.url)
   const workSlots = workPhotoSlots(works)
   const deliveryUrls = deliveryPhotoUrls(delivery)
   const intakeSplit = splitNewAndNotedUrls(intakeUrls, imageNotesMap)
@@ -677,6 +714,8 @@ function contextOf(album) {
         }
       : null,
     inspectPhotoUrls: inspectSplit.fresh,
+    inspectPhotoUrlsAll: inspectUrls,
+    inspectPhotoSlots: inspectSlots,
     inspectNoted: inspectSplit.noted,
     quoteLines: quotes.reduce((all, node) => all.concat(linesOf(node)), []),
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
@@ -716,11 +755,15 @@ function fingerprintFor(kind, ctx) {
       }
     : kind === 'inspect'
       ? {
-          v5: 'inspect_v2',
+          // v6：指纹用「全部检测图」去参后的路径，避免观察摘要落库后 fresh 变空被误标 stale
+          v6: 'inspect_v3',
           complaint: ctx.complaint,
           inspectItems: ctx.inspectItems,
           intakeBrief: ctx.intakeBrief,
-          inspectPhotos: ctx.inspectPhotoUrls,
+          inspectPhotos: (ctx.inspectPhotoUrlsAll || ctx.inspectPhotoUrls || [])
+            .map((url) => mediaBare(url))
+            .filter(Boolean)
+            .sort(),
         }
       : {
         complaint: ctx.complaint,
@@ -820,7 +863,20 @@ function workInstruction(ctx) {
   ].join('\n')
 }
 
-function inspectionInstruction(ctx) {
+function inspectionInstruction(ctx, options = {}) {
+  const force = Boolean(options && options.force)
+  const visionUrls = Array.isArray(options && options.visionUrls)
+    ? options.visionUrls
+    : (ctx.inspectPhotoUrls || [])
+  const photoSlots = (Array.isArray(ctx.inspectPhotoSlots) ? ctx.inspectPhotoSlots : []).map((row) => ({
+    slot: row.slot,
+    findingId: row.findingId,
+    partName: row.partName || '',
+  }))
+  const visionSlots = visionUrls.map((url) => {
+    const hit = (ctx.inspectPhotoSlots || []).find((row) => mediaBare(row.url) === mediaBare(url))
+    return hit ? hit.slot : null
+  }).filter(Boolean)
   return [
     'You assist a Chinese auto shop clerk during vehicle inspection.',
     'Goal: faultAnalysis, inspectOrder, partHints, and ONE actionable edit per inspection finding (photos + text in the same edit).',
@@ -828,15 +884,21 @@ function inspectionInstruction(ctx) {
     '- Intake coverage is CONTEXT ONLY — never restate it in any output field.',
     '- Simplified Chinese only in natural-language values. No English words.',
     '- Do NOT invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好 in sentences.',
-    '- edits: at most ONE kind=item row per findingId. If that finding mixes several topics, put split+text together: groups[] each with partName, advice, imageSlots. If one topic only, set partName/advice and omit groups (or leave groups empty).',
+    '- photoSlots[].slot is the stable id of each photo; newPhotoSlots lists slots of images attached this turn. imageSlots / imageNotes.slot MUST use those slot numbers.',
+    '- edits: at most ONE kind=item row per findingId. If that finding mixes several topics (e.g. body scratch vs chassis), you MUST split in the SAME row: groups[] each with partName, advice, imageSlots covering every slot of that finding. If one topic only, set partName/advice and omit groups.',
+    '- faultAnalysis must cover every distinct topic in the photos and the complaint, not only the majority topic. Never claim a topic is missing if its photo slot is attached.',
     '- kind=photo is reminder only (no apply). partHints are read-only.',
     `Context JSON: ${JSON.stringify({
       complaint: ctx.complaint,
       intakeContext: ctx.intakeAdviceSummary,
       intakeNoted: ctx.intakeNoted,
       items: ctx.inspectItems,
-      inspectNoted: ctx.inspectNoted,
-      newPhotoSlots: (ctx.inspectPhotoUrls || []).map((_, i) => i + 1),
+      // 强制刷新时以本次附图为准，旧观察摘要不参与，避免「只认底盘」之类偏见
+      inspectNoted: force ? [] : ctx.inspectNoted,
+      photoSlots,
+      newPhotoSlots: visionSlots.length
+        ? visionSlots
+        : visionUrls.map((_, i) => i + 1),
     })}`,
     'Return JSON only: {"faultAnalysis":"","inspectOrder":[""],"partHints":[{"title":"","body":""}],"edits":[{"kind":"item","findingId":"","partName":"","advice":"","body":"","groups":[{"partName":"","advice":"","imageSlots":[1]}]},{"kind":"photo","findingId":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
@@ -907,7 +969,8 @@ function mergeImageNotesFromUrlList(node, urls, imageNotes) {
   }
 }
 
-async function runJob(albumId, kind) {
+async function runJob(albumId, kind, options = {}) {
+  const force = Boolean(options && options.force)
   const key = `${kind}-advice:${albumId}`
   if (jobsInFlight.has(key)) return
   jobsInFlight.add(key)
@@ -918,21 +981,29 @@ async function runJob(albumId, kind) {
     const ctx = contextOf(album)
     const fingerprint = fingerprintFor(kind, ctx)
     const { field, nodeKind } = nodeField(kind)
+    // 检测：默认只送未识图；点刷新或本步已无新图可送时，附上全部检测图，便于按图拆项
+    const inspectFresh = ctx.inspectPhotoUrls || []
+    const inspectAll = ctx.inspectPhotoUrlsAll || inspectFresh
+    const reVisionInspect = kind === 'inspect' && (force || !inspectFresh.length)
     const urls =
       kind === 'work'
         ? (ctx.workPhotoSlots || []).map((row) => row.url)
         : kind === 'inspect'
-          ? ctx.inspectPhotoUrls || []
+          ? (reVisionInspect ? inspectAll : inspectFresh)
           : ctx.deliveryPhotoUrls || []
     const raw = await runLlm(
-      kind === 'work' ? workInstruction(ctx) : kind === 'inspect' ? inspectionInstruction(ctx) : deliveryInstruction(ctx),
+      kind === 'work'
+        ? workInstruction(ctx)
+        : kind === 'inspect'
+          ? inspectionInstruction(ctx, { force: reVisionInspect, visionUrls: urls })
+          : deliveryInstruction(ctx),
       urls,
       kind === 'work' ? 'Work' : kind === 'inspect' ? 'Inspect' : 'Delivery',
     )
     const parsed = kind === 'work'
       ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
       : kind === 'inspect'
-        ? parseInspectionAdvice(raw, ctx.inspectItems, urls)
+        ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         : parseDeliveryAdvice(raw)
     const ok = adviceHasContent(parsed, kind)
     // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
@@ -954,7 +1025,8 @@ async function runJob(albumId, kind) {
       if (kind === 'work') {
         next = mergeImageNotesFromSlots(next, ctx.workPhotoSlots, notes)
       } else if (kind === 'inspect') {
-        next = mergeImageNotesFromUrlList(next, urls, notes)
+        // 槽位号跟 photoSlots 对齐，不能按「本次附图下标」写回
+        next = mergeImageNotesFromSlots(next, ctx.inspectPhotoSlots, notes)
       } else {
         next = mergeImageNotesFromUrlList(next, urls, notes)
       }
@@ -1007,7 +1079,7 @@ async function queueIfNeeded(album, kind, options = {}) {
     }
   })
   setImmediate(() => {
-    runJob(album.id, kind).catch(() => {})
+    runJob(album.id, kind, { force }).catch(() => {})
   })
   return { queued: true, stale: false }
 }

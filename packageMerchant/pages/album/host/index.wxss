@@ -306,3 +306,74 @@
   width: 100%;
 }
 
+.merchant-host-page__agreement {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background-color: var(--color-mask);
+}
+
+.merchant-host-page__agreement-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: var(--shadow-popup);
+  overflow: hidden;
+}
+
+.merchant-host-page__agreement-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md) var(--space-md);
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-host-page__agreement-title {
+  font-weight: 600;
+}
+
+.merchant-host-page__agreement-body {
+  flex: 1;
+  height: 50vh;
+  padding: var(--space-md);
+  box-sizing: border-box;
+}
+
+.merchant-host-page__agreement-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.merchant-host-page__agreement-heading {
+  font-weight: 600;
+}
+
+.merchant-host-page__agreement-para {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.merchant-host-page__agreement-foot {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-top: 1rpx solid var(--color-border);
+  background-color: var(--color-bg-card);
+}
+
+.merchant-host-page__agreement-btn {
+  flex: 1;
+  min-width: 0;
+}
+
