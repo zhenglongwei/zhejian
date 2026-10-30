@@ -382,11 +382,20 @@ function mapCompletedStepPreview(step, node, album = {}) {
         storeName,
         metaLine,
         styleVariant: 'document',
+        repairBrief: String(payload.repairBrief || '').trim(),
         workItems: mapped,
         totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
         deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
         warrantyPeriod: String(payload.warrantyPeriod || ''),
         warrantyNotes: resolveWarrantyNotes(payload),
+        ownerFaqs: (Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [])
+          .map((row, index) => ({
+            id: String((row && row.id) || `faq_${index + 1}`),
+            question: String((row && (row.question || row.q)) || '').trim(),
+            answer: String((row && (row.answer || row.a)) || '').trim(),
+          }))
+          .filter((row) => row.question)
+          .slice(0, 5),
         confirmCopy: REPAIR_CONFIRM_COPY,
       },
     }
@@ -557,6 +566,8 @@ Page({
     vehicleLine: '',
     warrantyPeriod: '',
     warrantyNotes: '',
+    repairBrief: '',
+    ownerFaqs: [],
     allDone: false,
     needManualComplete: false,
     albumCompleted: false,
@@ -1457,6 +1468,15 @@ Page({
         selectedDeliveryUrls: photos
           .filter((row) => row && row.url && row.url !== exterior)
           .map((row) => row.url),
+        repairBrief: String(this.data.repairBrief || '').trim(),
+        ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
+          .map((row, index) => ({
+            id: String((row && row.id) || `faq_${index + 1}`),
+            question: String((row && row.question) || '').trim(),
+            answer: String((row && row.answer) || '').trim(),
+          }))
+          .filter((row) => row.question)
+          .slice(0, 5),
       }
     }
     return {}
@@ -1559,6 +1579,8 @@ Page({
       let confirmCopy = ''
       let warrantyPeriod = ''
       let warrantyNotes = ''
+      let repairBrief = ''
+      let ownerFaqs = []
       let sections = []
       let walkaround = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
@@ -1637,6 +1659,45 @@ Page({
           confirmCopy =
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
           deliveryExteriorUrl = String(photoDraft.deliveryExteriorUrl || '').trim()
+          repairBrief = String(photoDraft.repairBrief || '').trim()
+          ownerFaqs = (Array.isArray(photoDraft.ownerFaqs) ? photoDraft.ownerFaqs : [])
+            .map((row, index) => ({
+              id: String((row && row.id) || `faq_${index + 1}`),
+              question: String((row && (row.question || row.q)) || '').trim(),
+              answer: String((row && (row.answer || row.a)) || '').trim(),
+            }))
+            .filter((row) => row.question)
+            .slice(0, 5)
+          // 旧 archiveCopy 迁一次并落库
+          let migratedArchiveCopy = false
+          if (!repairBrief || !ownerFaqs.length) {
+            const pkgCopy =
+              (album &&
+                album.contentPackageJson &&
+                album.contentPackageJson.archiveCopy) ||
+              null
+            if (pkgCopy) {
+              if (!repairBrief && String(pkgCopy.summary || '').trim()) {
+                repairBrief = String(pkgCopy.summary || '').trim()
+                migratedArchiveCopy = true
+              }
+              if (!ownerFaqs.length && Array.isArray(pkgCopy.faq)) {
+                const migratedFaqs = pkgCopy.faq
+                  .map((row, index) => ({
+                    id: `faq_${index + 1}`,
+                    question: String((row && (row.q || row.question)) || '').trim(),
+                    answer: String((row && (row.a || row.answer)) || '').trim(),
+                  }))
+                  .filter((row) => row.question)
+                  .slice(0, 5)
+                if (migratedFaqs.length) {
+                  ownerFaqs = migratedFaqs
+                  migratedArchiveCopy = true
+                }
+              }
+            }
+          }
+          this._migratedArchiveCopy = migratedArchiveCopy
           // 兼容：旧数据仅写在 stage_6、未记引用字段
           if (!deliveryExteriorUrl) {
             const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
@@ -2041,6 +2102,8 @@ Page({
         confirmCopy,
         warrantyPeriod,
         warrantyNotes,
+        repairBrief,
+        ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
         ),
@@ -2090,6 +2153,10 @@ Page({
       this.resumeAiReviewFromNode(active)
       this.resumeQuoteAssistPoll()
       if (isWorkPhotoStep && !this.data.readOnly && !options.silent) {
+        this.scheduleAutoSavePhotos()
+      }
+      if (this._migratedArchiveCopy && isDeliveryPhotoStep && !this.data.readOnly) {
+        this._migratedArchiveCopy = false
         this.scheduleAutoSavePhotos()
       }
 
@@ -2854,6 +2921,20 @@ Page({
       workItems,
       totalAmount: quoteTotal,
       deliveryPhotos,
+      repairBrief:
+        deliveryDraft.repairBrief ||
+        repairPayload.repairBrief ||
+        this.data.repairBrief ||
+        '',
+      ownerFaqs:
+        (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
+          ? deliveryDraft.ownerFaqs
+          : null) ||
+        (Array.isArray(repairPayload.ownerFaqs) && repairPayload.ownerFaqs.length
+          ? repairPayload.ownerFaqs
+          : null) ||
+        this.data.ownerFaqs ||
+        [],
       warrantyPeriod: deliveryDraft.warrantyPeriod || repairPayload.warrantyPeriod || this.data.warrantyPeriod,
       warrantyNotes: deliveryDraft.warrantyNotes || repairPayload.warrantyNotes || this.data.warrantyNotes,
       signName: deliveryDraft.delivererName || repairPayload.delivererName,
@@ -5317,6 +5398,9 @@ Page({
     if (!field) return
     if (this.data.isDeliveryPhotoStep) {
       this.setData({ [field]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+        if (field === 'repairBrief') {
+          this.setData({ deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) })
+        }
         this.scheduleAutoSavePhotos()
       })
       return
@@ -5324,6 +5408,91 @@ Page({
     this.setData({ [field]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDoc()
     })
+  },
+
+  onOwnerFaqInput(e) {
+    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
+    const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const field = String((e.currentTarget.dataset && e.currentTarget.dataset.field) || '')
+    if (!id || (field !== 'question' && field !== 'answer')) return
+    const ownerFaqs = (this.data.ownerFaqs || []).map((row) =>
+      row && row.id === id ? { ...row, [field]: e.detail.value } : row,
+    )
+    this.setData({ ownerFaqs, autoSaveLabel: '保存中…' }, () => {
+      this.setData({ deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) })
+      this.scheduleAutoSavePhotos()
+    })
+  },
+
+  onAddOwnerFaq() {
+    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
+    const list = Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs.slice() : []
+    if (list.length >= 5) {
+      wx.showToast({ title: '最多 5 条', icon: 'none' })
+      return
+    }
+    list.push({
+      id: `faq_${Date.now()}_${list.length + 1}`,
+      question: '',
+      answer: '',
+    })
+    this.setData({ ownerFaqs: list, autoSaveLabel: '保存中…' }, () => this.scheduleAutoSavePhotos())
+  },
+
+  onRemoveOwnerFaq(e) {
+    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
+    const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    if (!id) return
+    const ownerFaqs = (this.data.ownerFaqs || []).filter((row) => row && row.id !== id)
+    this.setData({ ownerFaqs, autoSaveLabel: '保存中…' }, () => {
+      this.setData({ deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) })
+      this.scheduleAutoSavePhotos()
+    })
+  },
+
+  onApplyDeliveryAdvice(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const kind = String((e.currentTarget.dataset && e.currentTarget.dataset.kind) || '')
+    const advice = this.data.deliveryAdvice
+    if (!advice) return
+    if (kind === 'brief') {
+      if (!advice.canApplyBrief || !advice.repairBrief) return
+      this.setData(
+        {
+          repairBrief: advice.repairBrief,
+          deliveryAdvice: {
+            ...advice,
+            canApplyBrief: false,
+            briefApplied: true,
+          },
+          autoSaveLabel: '保存中…',
+        },
+        () => this.scheduleAutoSavePhotos(),
+      )
+      wx.showToast({ title: '已写入简述', icon: 'none' })
+      return
+    }
+    if (kind === 'faqs') {
+      if (!advice.canApplyFaqs || !(advice.ownerFaqs || []).length) return
+      const ownerFaqs = (advice.ownerFaqs || []).map((row, index) => ({
+        id: String((row && row.id) || `faq_${index + 1}`),
+        question: String((row && row.question) || '').trim(),
+        answer: String((row && row.answer) || '').trim(),
+      }))
+      this.setData(
+        {
+          ownerFaqs,
+          deliveryAdvice: {
+            ...advice,
+            canApplyFaqs: false,
+            faqsApplied: true,
+          },
+          autoSaveLabel: '保存中…',
+        },
+        () => this.scheduleAutoSavePhotos(),
+      )
+      wx.showToast({ title: '已写入问答', icon: 'none' })
+    }
   },
 
   onQuoteLineInput(e) {
@@ -6049,23 +6218,61 @@ Page({
 
   decorateDeliveryAdvice(raw) {
     if (!raw || typeof raw !== 'object') {
-      return { status: '', isWaiting: false, hasContent: false }
+      return {
+        status: '',
+        isWaiting: false,
+        hasContent: false,
+        repairBrief: '',
+        ownerFaqs: [],
+        tips: [],
+        canApplyBrief: false,
+        canApplyFaqs: false,
+        briefApplied: false,
+        faqsApplied: false,
+      }
     }
     const status = String(raw.status || '')
-    const block = (item, fallback) => {
-      const title = String((item && item.title) || fallback).trim()
-      const body = String((item && item.body) || '').trim()
-      return { title, body, hasBody: Boolean(body) }
-    }
-    const repair = block(raw.repair, '这次维修')
-    const warranty = block(raw.warranty, '质保')
-    const care = block(raw.care, '用车')
-    const hasContent = Boolean(repair.hasBody || warranty.hasBody || care.hasBody)
+    const repairBrief = String(raw.repairBrief || (raw.repair && raw.repair.body) || '').trim()
+    const ownerFaqs = (Array.isArray(raw.ownerFaqs) ? raw.ownerFaqs : [])
+      .map((row, index) => {
+        const question = String((row && (row.question || row.q)) || '').trim()
+        const answer = String((row && (row.answer || row.a)) || '').trim()
+        if (!question) return null
+        return {
+          id: String((row && row.id) || `suggest_${index + 1}`),
+          question,
+          answer,
+        }
+      })
+      .filter(Boolean)
+      .slice(0, 5)
+    const tips = (Array.isArray(raw.tips) ? raw.tips : [])
+      .map((row, index) => {
+        const title = String((row && row.title) || '').trim()
+        const body = String((row && row.body) || '').trim()
+        if (!title && !body) return null
+        return { id: String((row && row.id) || `tip_${index + 1}`), title, body, hasTitle: Boolean(title), hasBody: Boolean(body) }
+      })
+      .filter(Boolean)
+    const liveBrief = String(this.data.repairBrief || '').trim()
+    const liveFaqs = (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : []).filter(
+      (row) => row && String(row.question || '').trim(),
+    )
+    const canApplyBrief = Boolean(repairBrief) && !liveBrief
+    const canApplyFaqs = ownerFaqs.length > 0 && !liveFaqs.length
+    const briefApplied = Boolean(repairBrief) && Boolean(liveBrief)
+    const faqsApplied = ownerFaqs.length > 0 && liveFaqs.length > 0
+    const hasContent = Boolean(repairBrief || ownerFaqs.length || tips.length)
     return {
       status,
-      repair,
-      warranty,
-      care,
+      repairBrief,
+      ownerFaqs,
+      tips,
+      hasTips: tips.length > 0,
+      canApplyBrief,
+      canApplyFaqs,
+      briefApplied,
+      faqsApplied,
       hasContent,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',

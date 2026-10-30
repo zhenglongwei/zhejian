@@ -349,6 +349,21 @@
   color: var(--color-text-secondary);
 }
 
+.service-doc-sheet__faq {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.service-doc-sheet__faq-q {
+  display: block;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
 .service-doc-sheet__total {
   align-items: center;
   margin-top: var(--space-sm);

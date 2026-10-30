@@ -72,17 +72,43 @@
   </view>
 </template>
 <template name="deliveryAdvicePanel">
-  <view wx:if="{{advice.repair.hasBody}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">{{advice.repair.title}}</text>
-    <text class="merchant-flow-page__advice-ask-body">{{advice.repair.body}}</text>
+  <view wx:if="{{advice.repairBrief}}" class="merchant-flow-page__advice-sec">
+    <view class="merchant-flow-page__advice-row">
+      <view class="merchant-flow-page__advice-row-main">
+        <text class="merchant-flow-page__advice-sec-title">本次维修简述</text>
+        <text class="merchant-flow-page__advice-ask-body">{{advice.repairBrief}}</text>
+      </view>
+      <text
+        wx:if="{{advice.canApplyBrief}}"
+        class="merchant-flow-page__advice-apply"
+        data-kind="brief"
+        catchtap="onApplyDeliveryAdvice"
+      >应用</text>
+      <text wx:elif="{{advice.briefApplied}}" class="merchant-flow-page__advice-state">已应用</text>
+    </view>
   </view>
-  <view wx:if="{{advice.warranty.hasBody}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">{{advice.warranty.title}}</text>
-    <text class="merchant-flow-page__advice-ask-body">{{advice.warranty.body}}</text>
+  <view wx:if="{{advice.ownerFaqs.length}}" class="merchant-flow-page__advice-sec">
+    <view class="merchant-flow-page__advice-row">
+      <text class="merchant-flow-page__advice-sec-title">车主关心的问题</text>
+      <text
+        wx:if="{{advice.canApplyFaqs}}"
+        class="merchant-flow-page__advice-apply"
+        data-kind="faqs"
+        catchtap="onApplyDeliveryAdvice"
+      >应用</text>
+      <text wx:elif="{{advice.faqsApplied}}" class="merchant-flow-page__advice-state">已应用</text>
+    </view>
+    <view wx:for="{{advice.ownerFaqs}}" wx:key="id" class="merchant-flow-page__advice-ask">
+      <text class="merchant-flow-page__advice-ask-title">{{item.question}}</text>
+      <text wx:if="{{item.answer}}" class="merchant-flow-page__advice-ask-body">{{item.answer}}</text>
+    </view>
   </view>
-  <view wx:if="{{advice.care.hasBody}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">{{advice.care.title}}</text>
-    <text class="merchant-flow-page__advice-ask-body">{{advice.care.body}}</text>
+  <view wx:if="{{advice.hasTips}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-sec-title">本步提醒</text>
+    <view wx:for="{{advice.tips}}" wx:key="id" class="merchant-flow-page__advice-ask">
+      <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+      <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+    </view>
   </view>
 </template>
 <template name="aiFieldHint"></template>
@@ -1146,6 +1172,51 @@
               </view>
 
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
+                <text class="text-body merchant-flow-page__label">本次维修简述</text>
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
+                  placeholder="例：更换下摆臂胶套，并完成机油机滤保养"
+                  value="{{repairBrief}}"
+                  maxlength="500"
+                  auto-height="{{true}}"
+                  data-field="repairBrief"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
+                <text class="text-body merchant-flow-page__label">车主关心的问题</text>
+                <view wx:for="{{ownerFaqs}}" wx:key="id" class="merchant-flow-page__owner-faq">
+                  <input
+                    class="st-field"
+                    placeholder="问题"
+                    value="{{item.question}}"
+                    data-id="{{item.id}}"
+                    data-field="question"
+                    disabled="{{readOnly}}"
+                    bindinput="onOwnerFaqInput"
+                  />
+                  <textarea
+                    class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
+                    placeholder="回答"
+                    value="{{item.answer}}"
+                    maxlength="280"
+                    auto-height="{{true}}"
+                    data-id="{{item.id}}"
+                    data-field="answer"
+                    disabled="{{readOnly}}"
+                    bindinput="onOwnerFaqInput"
+                  />
+                  <text
+                    wx:if="{{!readOnly}}"
+                    class="text-caption merchant-flow-page__link"
+                    data-id="{{item.id}}"
+                    bindtap="onRemoveOwnerFaq"
+                  >删除</text>
+                </view>
+                <text
+                  wx:if="{{!readOnly && ownerFaqs.length < 5}}"
+                  class="text-caption merchant-flow-page__link"
+                  bindtap="onAddOwnerFaq"
+                >加一条</text>
                 <text class="text-body merchant-flow-page__label">交付人</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">完工时间</text>

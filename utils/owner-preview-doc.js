@@ -212,6 +212,15 @@ function buildOwnerPreviewDoc(input = {}) {
     const deliveryPhotos = photoRows(input.deliveryPhotos)
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
+    const repairBrief = String(input.repairBrief || '').trim()
+    const ownerFaqs = (Array.isArray(input.ownerFaqs) ? input.ownerFaqs : [])
+      .map((row, index) => ({
+        id: String((row && row.id) || `faq_${index + 1}`),
+        question: String((row && (row.question || row.q)) || '').trim(),
+        answer: String((row && (row.answer || row.a)) || '').trim(),
+      }))
+      .filter((row) => row.question)
+      .slice(0, 5)
     const lineTotal = moneySum(workItems)
     const quoted = Number(input.totalAmount)
     const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
@@ -221,21 +230,30 @@ function buildOwnerPreviewDoc(input = {}) {
         title: '交车报告',
         styleVariant: 'document',
         storeName,
+        repairBrief,
         workItems,
         deliveryPhotos,
         warrantyPeriod,
         warrantyNotes,
+        ownerFaqs,
         totalAmountLabel: workItems.length ? `合计 ¥${total.toFixed(2)}` : '',
         confirmCopy: REPAIR_CONFIRM_COPY,
         needsConfirm: false,
         metaLine,
         signLabel: signLabel || '交付人',
         signName,
-        signAtLabel: signAtLabel || '完工时间',
         signAt,
+        signAtLabel: signAtLabel || '完工时间',
       },
       quoteLines: [],
-      hasBody: Boolean(workItems.length || deliveryPhotos.length || warrantyPeriod || warrantyNotes),
+      hasBody: Boolean(
+        repairBrief ||
+          workItems.length ||
+          deliveryPhotos.length ||
+          warrantyPeriod ||
+          warrantyNotes ||
+          ownerFaqs.length,
+      ),
     }
   }
   return { doc: null, quoteLines: [], hasBody: false }

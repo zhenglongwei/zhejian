@@ -668,27 +668,59 @@ function normalizeMerchantCaseDraft(raw) {
   }
 }
 
+function readRepairReportPublicCopy(albumView = {}) {
+  if (albumView && albumView.archiveCopy && albumView.archiveCopy.summary) {
+    return albumView.archiveCopy
+  }
+  try {
+    const { readPublicCopyFromAlbum, normalizeArchiveCopy } = require('../utils/album-archive-copy')
+    if (Array.isArray(albumView.flowNodes)) {
+      const fromFlow = readPublicCopyFromAlbum({
+        contentPackageJson: {
+          flowNodes: albumView.flowNodes,
+          archiveCopy: albumView.archiveCopy || null,
+        },
+      })
+      if (fromFlow) return fromFlow
+    }
+    return normalizeArchiveCopy(albumView.archiveCopy || null)
+  } catch (_) {
+    return null
+  }
+}
+
 function buildRuleMerchantCaseDraft(albumView = {}, preMaskTask = null, options = {}) {
   const sections = buildRuleSections(albumView)
   const title = buildTitle(albumView)
   const hints = buildChecklistCaseHints(albumView)
+  const publicCopy = readRepairReportPublicCopy(albumView)
+  const fromReportSummary = publicCopy && publicCopy.summary
+    ? stripAmountText(publicCopy.summary).slice(0, 250)
+    : ''
+  const fromReportFaq =
+    publicCopy && Array.isArray(publicCopy.faq) && publicCopy.faq.length
+      ? normalizeFaqItems(publicCopy.faq)
+      : []
   const draft = {
     version: 1,
     title,
     sections,
-    caseSummary: buildRuleCaseSummary({ title, sections }, albumView),
-    faq: extractJobFaqs({
-      sections,
-      serviceName: albumView.serviceName,
-      templateId: albumView.templateId,
-      inspectLine: hints.inspectLine,
-      inspectCount: hints.inspectCount,
-      doneLine: hints.doneLine,
-      followUpSummary: hints.followUpSummary,
-      differenceLine: hints.differenceLine,
-    }),
+    caseSummary:
+      fromReportSummary || buildRuleCaseSummary({ title, sections }, albumView),
+    faq: fromReportFaq.length
+      ? fromReportFaq
+      : extractJobFaqs({
+          sections,
+          serviceName: albumView.serviceName,
+          templateId: albumView.templateId,
+          inspectLine: hints.inspectLine,
+          inspectCount: hints.inspectCount,
+          doneLine: hints.doneLine,
+          followUpSummary: hints.followUpSummary,
+          differenceLine: hints.differenceLine,
+        }),
     media: pickDraftMedia(albumView, preMaskTask, options),
-    source: 'rule',
+    source: fromReportSummary || fromReportFaq.length ? 'repair_report' : 'rule',
     generatedAt: new Date().toISOString(),
     confirmedAt: '',
   }

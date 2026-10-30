@@ -1475,6 +1475,24 @@ function sumQuoteAmounts(lines = []) {
   }, 0)
 }
 
+function normalizeOwnerFaqs(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((row, index) => {
+      if (!row || typeof row !== 'object') return null
+      const question = String(row.question || row.q || '').trim()
+      const answer = String(row.answer || row.a || '').trim()
+      if (!question) return null
+      return {
+        id: String(row.id || `faq_${index + 1}`).trim() || `faq_${index + 1}`,
+        question: question.slice(0, 80),
+        answer: answer.slice(0, 280),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+}
+
 function buildRepairReportPayload({
   chiefComplaint = '',
   workItems = [],
@@ -1490,6 +1508,12 @@ function buildRepairReportPayload({
     warrantyScope: warranty.scope || photoDraft.warrantyScope,
     warrantyExclusions: warranty.exclusions || photoDraft.warrantyExclusions,
   })
+  const repairBrief = String(
+    photoDraft.repairBrief || photoDraft.summary || '',
+  ).trim().slice(0, 500)
+  const ownerFaqs = normalizeOwnerFaqs(
+    photoDraft.ownerFaqs || photoDraft.faq || [],
+  )
   const items = (workItems || []).map((item) => {
     const images = []
     const seen = {}
@@ -1541,6 +1565,8 @@ function buildRepairReportPayload({
     workItems: items,
     totalAmount: computedTotal == null ? 0 : computedTotal,
     deliveryPhotos,
+    repairBrief,
+    ownerFaqs,
     warrantyPeriod: period,
     warrantyNotes: notes,
     // 兼容旧读侧：不再写入空话默认；存量字段置空
@@ -1611,6 +1637,8 @@ function normalizePhotoDraft(raw = {}) {
       ? raw.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
       : [],
     deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
+    repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
+    ownerFaqs: normalizeOwnerFaqs(raw.ownerFaqs || raw.faq || []),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
     inspectionAiKey: String(raw.inspectionAiKey || '').trim(),
@@ -1681,6 +1709,18 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   }
   if (patch.deliveryExteriorUrl != null) {
     next.deliveryExteriorUrl = String(patch.deliveryExteriorUrl || '').trim()
+  }
+  if (patch.repairBrief != null || patch.summary != null) {
+    next.repairBrief = String(
+      patch.repairBrief != null ? patch.repairBrief : patch.summary || '',
+    )
+      .trim()
+      .slice(0, 500)
+  }
+  if (patch.ownerFaqs != null || patch.faq != null) {
+    next.ownerFaqs = normalizeOwnerFaqs(
+      patch.ownerFaqs != null ? patch.ownerFaqs : patch.faq,
+    )
   }
   if (patch.reportGeneratedAt != null) {
     next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()
@@ -1900,6 +1940,7 @@ module.exports = {
   resolveQuoteConfirmCopy,
   stableLineId,
   buildRepairReportPayload,
+  normalizeOwnerFaqs,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
   addonDraftStillBlank,

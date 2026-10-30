@@ -139,7 +139,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '完工照',
     legacyStageIds: ['stage_6'],
-    photoTips: '拍修好后的整车外观；部位图可选',
+    photoTips: '拍车身全貌作交车证据',
     captionPlaceholder: '本图说明（验收结论等，勿写金额）',
     description: '',
   },

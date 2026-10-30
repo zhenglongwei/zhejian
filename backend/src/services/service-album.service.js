@@ -705,8 +705,8 @@ function buildMerchantView(album) {
     })(),
     archiveCopy: (() => {
       try {
-        const { readArchiveCopyFromAlbum } = require('../utils/album-archive-copy')
-        return readArchiveCopyFromAlbum(album)
+        const { readPublicCopyFromAlbum } = require('../utils/album-archive-copy')
+        return readPublicCopyFromAlbum(album)
       } catch (_) {
         return null
       }

@@ -499,7 +499,7 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) 
  */
 async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen = false } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
-  const { readArchiveCopyFromAlbum, mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
+  const { readPublicCopyFromAlbum, mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -522,7 +522,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
 
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
-  const existingCopy = readArchiveCopyFromAlbum(album)
+  const existingCopy = readPublicCopyFromAlbum(album)
   let geoDraft = null
   let message = '店页说明已生成，请核对后公开'
 
@@ -537,9 +537,9 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
       repairPlan: '',
       resultConfirm: '',
       generatedAt: existingCopy.generatedAt || new Date().toISOString(),
-      source: existingCopy.source || 'delivery_ai',
+      source: existingCopy.source || 'repair_report',
     }
-    message = '已载入交车时生成的说明，请核对后公开'
+    message = '已载入交车报告中的说明，请核对后公开'
   } else {
     const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album)
     geoDraft = llmDraft || {

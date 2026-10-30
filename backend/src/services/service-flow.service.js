@@ -1447,6 +1447,17 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
             payload: draft,
           },
         }
+        // 公开说明镜像：用报告简述/问答同步 archiveCopy
+        try {
+          const { archiveCopyFromRepairPayload, mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
+          const copy = archiveCopyFromRepairPayload(draft, { source: 'repair_report' })
+          if (copy) {
+            const merged = mergeArchiveCopyIntoPackage(pkg, copy)
+            return { ...merged, flowVersion: FLOW_VERSION, flowNodes: list }
+          }
+        } catch (_) {
+          /* ignore */
+        }
       }
     }
 
@@ -2369,6 +2380,15 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     totalAmount,
     totalAmountLabel: intakeSheet ? '' : `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
     deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
+    repairBrief: String(payload.repairBrief || '').trim(),
+    ownerFaqs: (Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [])
+      .map((row, index) => ({
+        id: String((row && row.id) || `faq_${index + 1}`),
+        question: String((row && (row.question || row.q)) || '').trim(),
+        answer: String((row && (row.answer || row.a)) || '').trim(),
+      }))
+      .filter((row) => row.question)
+      .slice(0, 5),
     warrantyPeriod: String(payload.warrantyPeriod || ''),
     warrantyNotes: resolveWarrantyNotes(payload),
     warrantyScope: String(payload.warrantyScope || ''),

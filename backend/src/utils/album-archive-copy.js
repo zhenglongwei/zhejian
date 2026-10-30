@@ -19,7 +19,27 @@ function normalizeFaqList(list) {
       return { q, a }
     })
     .filter(Boolean)
-    .slice(0, 6)
+    .slice(0, 5)
+}
+
+/** 交车报告定稿 → 兼容旧读侧 archiveCopy */
+function archiveCopyFromRepairPayload(payload, options = {}) {
+  const brief = text(payload && (payload.repairBrief || payload.summary))
+  const faqs = Array.isArray(payload && payload.ownerFaqs)
+    ? payload.ownerFaqs
+    : Array.isArray(payload && payload.faq)
+      ? payload.faq
+      : []
+  return normalizeArchiveCopy(
+    {
+      summary: brief,
+      faq: faqs.map((row) => ({
+        q: row && (row.question || row.q),
+        a: row && (row.answer || row.a),
+      })),
+    },
+    { source: options.source || 'repair_report' },
+  )
 }
 
 function normalizeArchiveCopy(raw, options = {}) {
@@ -45,6 +65,26 @@ function readArchiveCopyFromAlbum(album) {
   })
 }
 
+/** 优先读已确认交车报告简述/问答；没有再落回 archiveCopy 镜像 */
+function readPublicCopyFromAlbum(album) {
+  const pkg =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const nodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const report = nodes.find((node) => node && node.kind === 'repair_report')
+  const status = String((report && report.document && report.document.status) || '')
+  const payload =
+    (report && report.document && report.document.payload && typeof report.document.payload === 'object'
+      ? report.document.payload
+      : null) || null
+  if (payload && (status === 'confirmed' || status === 'pending_confirm' || status === 'completed')) {
+    const fromReport = archiveCopyFromRepairPayload(payload, { source: 'repair_report' })
+    if (fromReport) return fromReport
+  }
+  return readArchiveCopyFromAlbum(album)
+}
+
 function mergeArchiveCopyIntoPackage(pkg, archiveCopy) {
   const base = pkg && typeof pkg === 'object' ? { ...pkg } : {}
   const next = normalizeArchiveCopy(archiveCopy, {
@@ -59,6 +99,8 @@ function mergeArchiveCopyIntoPackage(pkg, archiveCopy) {
 module.exports = {
   normalizeArchiveCopy,
   normalizeFaqList,
+  archiveCopyFromRepairPayload,
   readArchiveCopyFromAlbum,
+  readPublicCopyFromAlbum,
   mergeArchiveCopyIntoPackage,
 }

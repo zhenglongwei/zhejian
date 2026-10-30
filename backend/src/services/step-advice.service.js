@@ -8,6 +8,8 @@ const { prisma } = require('../lib/prisma')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
+const { resolveShared } = require('../utils/resolve-shared')
+const { normalizeOwnerFaqs } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -205,10 +207,25 @@ function parseArchiveCopyFromDelivery(parsed) {
   )
 }
 
+function parseOwnerFaqSuggestions(list) {
+  const raw = Array.isArray(list) ? list : []
+  return normalizeOwnerFaqs(
+    raw.map((row, index) => ({
+      id: text(row && row.id) || `suggest_${index + 1}`,
+      question: text(row && (row.question || row.q)),
+      answer: text(row && (row.answer || row.a)),
+    })),
+  ).slice(0, 5)
+}
+
 function parseDeliveryAdvice(raw) {
   const parsed = parseReviewModelJson(raw)
   if (!parsed) {
     return {
+      repairBrief: '',
+      ownerFaqs: [],
+      tips: [],
+      // 兼容旧字段
       repair: null,
       warranty: null,
       care: null,
@@ -217,40 +234,39 @@ function parseDeliveryAdvice(raw) {
       archiveCopy: null,
     }
   }
-  const talk = parsed.talk && typeof parsed.talk === 'object' ? parsed.talk : {}
-  const fill = parsed.fill && typeof parsed.fill === 'object' ? parsed.fill : {}
-  const repair =
-    clipItem(parsed.repair) ||
-    (text(talk.repair) ? { title: '这次维修', body: text(talk.repair).slice(0, 80) } : null)
-  const care =
-    clipItem(parsed.care) ||
-    (text(talk.care) ? { title: '用车', body: text(talk.care).slice(0, 80) } : null)
-  const warranty =
-    clipItem(parsed.warranty) ||
-    (text(fill.warrantyPeriod) || text(fill.warrantyNotes)
-      ? {
-          title: '质保',
-          body: [text(fill.warrantyPeriod), text(fill.warrantyNotes)].filter(Boolean).join('；').slice(0, 80),
-        }
-      : null)
-  const processIssues = (Array.isArray(parsed.processIssues) ? parsed.processIssues : [])
-    .map((row) => ({
-      step: text(row && row.step),
-      body: text(row && row.body).slice(0, 120),
-    }))
-    .filter((row) => row.body)
-    .slice(0, 6)
+  const legacyCopy = parseArchiveCopyFromDelivery(parsed)
+  const repairBrief = text(
+    parsed.repairBrief ||
+      (parsed.repair && parsed.repair.body) ||
+      (parsed.talk && parsed.talk.repair) ||
+      (legacyCopy && legacyCopy.summary),
+  ).slice(0, 500)
+  const ownerFaqs = parseOwnerFaqSuggestions(
+    parsed.ownerFaqs ||
+      parsed.faqs ||
+      (legacyCopy && legacyCopy.faq) ||
+      [],
+  )
+  const tips = (Array.isArray(parsed.tips) ? parsed.tips : [])
+    .map((row, index) => {
+      const title = text(row && row.title).slice(0, 40)
+      const body = text(row && row.body).slice(0, 120)
+      if (!title && !body) return null
+      return { id: `tip_${index + 1}`, title, body }
+    })
+    .filter(Boolean)
+    .slice(0, 4)
   return {
-    repair,
-    warranty,
-    care,
-    processIssues,
-    fill: {
-      warrantyPeriod: text(fill.warrantyPeriod).slice(0, 40),
-      warrantyNotes: text(fill.warrantyNotes).slice(0, 80),
-    },
+    repairBrief,
+    ownerFaqs,
+    tips,
+    repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 200) } : null,
+    warranty: null,
+    care: null,
+    processIssues: [],
+    fill: null,
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
-    archiveCopy: parseArchiveCopyFromDelivery(parsed),
+    archiveCopy: null,
   }
 }
 
@@ -276,10 +292,12 @@ function adviceHasContent(advice, kind) {
       (Array.isArray(advice.shop) && advice.shop.length > 0)
   }
   return Boolean(
-    filled(advice.repair) ||
+    text(advice.repairBrief) ||
+      (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0) ||
+      (Array.isArray(advice.tips) && advice.tips.length > 0) ||
+      filled(advice.repair) ||
       filled(advice.warranty) ||
-      filled(advice.care) ||
-      (Array.isArray(advice.processIssues) && advice.processIssues.length > 0),
+      filled(advice.care),
   )
 }
 
@@ -834,11 +852,6 @@ function deliveryInstruction(ctx) {
     workItems: ctx.workItems,
     workAdvice: ctx.workAdviceSummary,
     factPack: ctx.factPack || null,
-    priorImageNotes: []
-      .concat(ctx.intakeNoted || [])
-      .concat(ctx.inspectNoted || [])
-      .concat(ctx.workNoted || [])
-      .concat(ctx.deliveryNoted || []),
     warrantyPeriod: ctx.warrantyPeriod,
     warrantyNotes: ctx.warrantyNotes,
     hasExterior: ctx.hasExterior,
@@ -846,17 +859,16 @@ function deliveryInstruction(ctx) {
   })
   return [
     'You assist a Chinese auto shop clerk at vehicle delivery / handover.',
-    'Part A — shop review (merchant only, NEVER paste into public case pages):',
-    'Holistic review using prior-step analysis summaries and image notes, plus current delivery photos and warranty fields.',
-    'CRITICAL: owner-facing historical docs may only be flagged, not rewritten; weak work evidence → tell shop to go back to work step.',
-    'You MAY propose fills only for empty delivery-step fields (warranty period, care notes) and call out missing whole-car delivery photo.',
-    'Do not invent maintenance intervals. Do not change confirmed prices.',
-    'Part B — archiveCopy for owner + storefront (citable GEO wording):',
-    'From the SAME case facts, write summary (first sentence = vehicle + main issue; 80–180 Chinese chars of meaning) and 2–6 FAQ items consumers care about (budget without amounts, materials, pitfalls, process).',
-    'No prices, no PII, no marketing fluff, no empty filler like "含过程图片记录". If facts are thin, return fewer FAQ or empty faq[].',
+    'Goal: using whole-case facts, draft (1) repairBrief and (2) ownerFaqs for the delivery node. Clerk will apply; you only propose.',
+    'Do NOT rehash intake/inspect/quote/work "what to do next" advice. Do NOT say 系统内缺少 or invent unfinished paint/body work.',
+    'Hard rules:',
+    '- repairBrief: one short Chinese paragraph of what was done this visit (facts only). No prices, no PII. Suitable for owner report header.',
+    '- ownerFaqs: 1–5 items {question, answer}. MUST include ongoing care/precautions if any (break-in, seepage to watch, how warranty works). If none, add case-related general consumer questions. Max 5.',
+    '- tips: optional short reminders only for THIS step (missing delivery photo, empty warranty period).',
+    '- Simplified Chinese only in natural-language values.',
     'Context JSON (PII already stripped):',
     JSON.stringify(safeFacts),
-    'Return JSON only: {"processIssues":[{"step":"intake|inspect|quote|work|delivery","body":""}],"fill":{"warrantyPeriod":"","warrantyNotes":""},"talk":{"repair":"","care":""},"imageNotes":[{"slot":1,"note":""}],"archiveCopy":{"summary":"","faq":[{"q":"","a":""}]}}',
+    'Return JSON only: {"repairBrief":"","ownerFaqs":[{"question":"","answer":""}],"tips":[{"title":"","body":""}]}',
   ].join('\n')
 }
 
@@ -923,8 +935,7 @@ async function runJob(albumId, kind) {
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls)
         : parseDeliveryAdvice(raw)
     const ok = adviceHasContent(parsed, kind)
-    const archiveCopy = kind === 'delivery' ? parsed.archiveCopy : null
-    // 对账意见不把 archiveCopy 塞进 deliveryAdvice，避免和公开草稿混住
+    // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
     const advicePayload =
       kind === 'delivery'
         ? (() => {
@@ -949,27 +960,6 @@ async function runJob(albumId, kind) {
       }
       return next
     })
-    if (kind === 'delivery' && archiveCopy && archiveCopy.summary) {
-      try {
-        const { mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
-        const fresh = await loadAlbum(albumId)
-        const pkg =
-          fresh && fresh.contentPackageJson && typeof fresh.contentPackageJson === 'object'
-            ? fresh.contentPackageJson
-            : {}
-        const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
-          ...archiveCopy,
-          source: 'delivery_ai',
-          factFingerprint: fingerprint,
-        })
-        await prisma.album.update({
-          where: { id: albumId },
-          data: { contentPackageJson: nextPkg },
-        })
-      } catch (err) {
-        console.warn('[step-advice] save archiveCopy failed', albumId, err && err.message)
-      }
-    }
   } finally {
     jobsInFlight.delete(key)
   }
@@ -1068,6 +1058,9 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
   }
   return {
     ...base,
+    repairBrief: text(advice.repairBrief),
+    ownerFaqs: Array.isArray(advice.ownerFaqs) ? advice.ownerFaqs : [],
+    tips: Array.isArray(advice.tips) ? advice.tips : [],
     repair: advice.repair || null,
     warranty: advice.warranty || null,
     care: advice.care || null,

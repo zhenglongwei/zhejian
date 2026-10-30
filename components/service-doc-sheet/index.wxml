@@ -196,6 +196,10 @@
   </block>
 
   <block wx:elif="{{doc.kind === 'repair_report'}}">
+    <view wx:if="{{doc.repairBrief}}" class="service-doc-sheet__block">
+      <text class="service-doc-sheet__section">本次维修简述</text>
+      <text class="service-doc-sheet__note">{{doc.repairBrief}}</text>
+    </view>
     <view class="service-doc-sheet__block">
       <text class="service-doc-sheet__section">已施工</text>
       <view class="service-doc-sheet__table-head">
@@ -244,6 +248,13 @@
         <text wx:if="{{doc.warrantyScope}}" class="service-doc-sheet__note">范围：{{doc.warrantyScope}}</text>
         <text wx:if="{{doc.warrantyExclusions}}" class="service-doc-sheet__note">除外：{{doc.warrantyExclusions}}</text>
       </block>
+    </view>
+    <view wx:if="{{doc.ownerFaqs && doc.ownerFaqs.length}}" class="service-doc-sheet__block">
+      <text class="service-doc-sheet__section">车主关心的问题</text>
+      <view wx:for="{{doc.ownerFaqs}}" wx:for-item="faq" wx:key="id" class="service-doc-sheet__faq">
+        <text class="service-doc-sheet__faq-q">{{faq.question}}</text>
+        <text wx:if="{{faq.answer}}" class="service-doc-sheet__note">{{faq.answer}}</text>
+      </view>
     </view>
   </block>
 

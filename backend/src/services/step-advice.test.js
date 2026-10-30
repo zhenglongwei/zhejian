@@ -131,13 +131,25 @@ test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
   assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
 })
 
-test('交车分成维修、质保、用车', () => {
+test('交车出简述与车主关心的问题', () => {
+  const got = parseDeliveryAdvice({
+    repairBrief: '更换下摆臂胶套，并做了机油机滤保养。',
+    ownerFaqs: [
+      { question: '新胶套要注意什么？', answer: '近期少过剧烈颠簸，磨合几天。' },
+      { question: '质保怎么算？', answer: '按单上质保期限执行。' },
+    ],
+    tips: [{ title: '交车照', body: '还缺整车外观。' }],
+  })
+  assert.match(got.repairBrief, /下摆臂胶套/)
+  assert.equal(got.ownerFaqs.length, 2)
+  assert.match(got.ownerFaqs[0].question, /新胶套/)
+  assert.equal(got.tips.length, 1)
+})
+
+test('交车兼容旧 repair/care 字段', () => {
   const got = parseDeliveryAdvice({
     repair: { title: '这次维修', body: '换了下摆臂胶套。' },
-    warranty: { title: '质保', body: '已写 1 年。' },
     care: { title: '用车', body: '过坎时听一下还有没有响。' },
   })
-  assert.equal(got.repair.body, '换了下摆臂胶套。')
-  assert.equal(got.warranty.body, '已写 1 年。')
-  assert.match(got.care.body, /过坎/)
+  assert.match(got.repairBrief, /下摆臂胶套/)
 })
