@@ -1126,14 +1126,15 @@ Page({
 
   setQuoteLines(lines) {
     const quoteLines = this.decorateQuoteLines(lines, this.quoteEvidenceSource())
-    this.setData(
-      {
-        quoteLines,
-        ...this.quoteMoneyFields(quoteLines),
-        autoSaveLabel: '保存中…',
-      },
-      () => this.scheduleAutoSaveDoc(),
-    )
+    const patch = {
+      quoteLines,
+      ...this.quoteMoneyFields(quoteLines),
+      autoSaveLabel: '保存中…',
+    }
+    if (this.data.quoteAssist && this.data.quoteAssist.hasContent) {
+      patch.quoteAssist = this.decorateQuoteAssist(this.data.quoteAssist, quoteLines)
+    }
+    this.setData(patch, () => this.scheduleAutoSaveDoc())
   },
 
   syncQuoteEvidenceFromFindings() {
@@ -1932,7 +1933,7 @@ Page({
         photoConfirmDisabled: false,
         notifyOwnerLabel: '通知车主',
         notifyConfirmDisabled: false,
-        quoteAssist: this.decorateQuoteAssist(this._pendingQuoteAssist),
+        quoteAssist: this.decorateQuoteAssist(this._pendingQuoteAssist, quoteLines),
         intakeAdvice,
         workAdvice,
         deliveryAdvice,
@@ -5398,6 +5399,62 @@ Page({
     )
   },
 
+  /**
+   * 报价 AI「应用」：只写入项目名；品牌、金额、参考价档不进表。
+   */
+  onApplyQuoteAssistLine(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const source = String((e.currentTarget.dataset && e.currentTarget.dataset.source) || '')
+    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
+    const assist = this.data.quoteAssist
+    if (!assist) return
+    let row = null
+    if (source === 'ref') {
+      row = (assist.quoteRefs || []).find((item) => item && Number(item.lineIndex) === index)
+    } else if (source === 'omission') {
+      row = (assist.omissions || []).find((item) => item && Number(item.index) === index)
+    }
+    if (!row || !row.canApply) return
+    const name = String(row.applyName || row.name || row.title || '').trim()
+    if (!name) return
+    const onTable = this.quoteTableNameSet(this.data.quoteLines)
+    if (onTable[name]) {
+      this.setData({
+        quoteAssist: this.decorateQuoteAssist(assist, this.data.quoteLines),
+      })
+      return
+    }
+    const blank = {
+      name: '',
+      brand: '',
+      amount: '',
+      note: '',
+      evidenceUrl: '',
+      evidenceUrls: [],
+    }
+    // 只写项目名；不带品牌、金额、参考价、原因
+    const nextLine = { ...blank, name }
+    const prev = Array.isArray(this.data.quoteLines) ? this.data.quoteLines.slice() : []
+    const emptyIdx = prev.findIndex((line) => !String((line && line.name) || '').trim())
+    let quoteLines
+    if (emptyIdx >= 0) {
+      quoteLines = prev.map((line, i) =>
+        i === emptyIdx
+          ? {
+              ...line,
+              name,
+              brand: '',
+              amount: '',
+            }
+          : line,
+      )
+    } else {
+      quoteLines = prev.concat([nextLine])
+    }
+    this.setQuoteLines(quoteLines)
+    wx.showToast({ title: `已写入${name}`, icon: 'none' })
+  },
+
   onRemoveQuoteLine(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const index = Number(e.currentTarget.dataset.index)
@@ -5619,38 +5676,104 @@ Page({
     return missing
   },
 
-  decorateQuoteAssist(raw) {
+  quoteTableNameSet(lines) {
+    const set = {}
+    ;(lines || []).forEach((row) => {
+      const name = String((row && row.name) || '').trim()
+      if (name) set[name] = true
+    })
+    return set
+  },
+
+  decorateQuoteAssist(raw, quoteLines) {
     if (!raw || typeof raw !== 'object') {
-      return { status: '', isWaiting: false, hasContent: false, suggestedLines: [], summary: '' }
+      return {
+        status: '',
+        isWaiting: false,
+        hasContent: false,
+        suggestedLines: [],
+        quoteRefs: [],
+        hasQuoteRefs: false,
+        hasOmissions: false,
+        omissions: [],
+        summary: '',
+      }
     }
     const status = String(raw.status || '')
+    const lines = quoteLines || this.data.quoteLines || []
+    const onTable = this.quoteTableNameSet(lines)
+    const tableHadNames = Object.keys(onTable).length > 0
     const suggestedLines = Array.isArray(raw.suggestedLines) ? raw.suggestedLines : []
-    const brief = this.decorateMerchantBrief({
-      issues: (Array.isArray(raw.priceIssues) ? raw.priceIssues : []).map((row) => ({
-        title: (row && (row.lineName || row.title)) || '',
-        body: (row && row.body) || '',
-      })),
-      omissions: raw.omissions,
-      objections: raw.objections,
-      photoPlan: raw.photoPlan,
-      necessity: raw.necessity,
-      priceBands: suggestedLines.map((row, lineIndex) => ({
-        lineIndex,
-        name: row && row.name,
-        kind: (row && row.kind) || 'parts',
-        oem: row && row.oem,
-        brand: row && row.brand,
-        economy: row && row.economy,
-        dealer: row && row.dealer,
-        indie: row && row.indie,
-        note: '',
-      })),
-    })
+    const quoteRefs = suggestedLines
+      .map((row, lineIndex) => {
+        const name = String((row && row.name) || '').trim()
+        const reason = String((row && row.reason) || '').trim()
+        const kind = String((row && row.kind) || 'parts')
+        const optional = Boolean(row && row.optional)
+        const bandChips =
+          kind === 'labor'
+            ? [
+                row && row.dealer
+                  ? { key: 'dealer', k: '4S店', v: String(row.dealer).trim() }
+                  : null,
+                row && row.indie
+                  ? { key: 'indie', k: '修理厂', v: String(row.indie).trim() }
+                  : null,
+              ].filter((chip) => chip && chip.v)
+            : [
+                row && row.oem ? { key: 'oem', k: '原厂', v: String(row.oem).trim() } : null,
+                row && row.brand ? { key: 'brand', k: '品牌', v: String(row.brand).trim() } : null,
+                row && row.economy
+                  ? { key: 'eco', k: '经济件', v: String(row.economy).trim() }
+                  : null,
+              ].filter((chip) => chip && chip.v)
+        if (!name && !reason && !bandChips.length) return null
+        const displayName = name || '报价项'
+        const hit = Boolean(name && onTable[name])
+        // 空表建议 / 表上没有的行才可应用；已有同名行只出参考
+        const isProposal = !tableHadNames || !hit
+        return {
+          lineIndex,
+          source: 'ref',
+          name: displayName,
+          applyName: name,
+          kind,
+          reason,
+          optional,
+          bandChips,
+          hasChips: bandChips.length > 0,
+          canApply: Boolean(name) && isProposal && !hit,
+          applied: Boolean(name) && isProposal && hit,
+        }
+      })
+      .filter(Boolean)
+    const omissions = (Array.isArray(raw.omissions) ? raw.omissions : [])
+      .map((row, index) => {
+        const base = this.decorateBriefItem(row)
+        if (!base.hasTitle && !base.hasBody) return null
+        const applyName = String(base.title || '').trim()
+        const hit = Boolean(applyName && onTable[applyName])
+        return {
+          ...base,
+          index,
+          source: 'omission',
+          applyName,
+          canApply: Boolean(applyName) && !hit,
+          applied: Boolean(applyName) && hit,
+        }
+      })
+      .filter(Boolean)
+    const hasQuoteRefs = quoteRefs.length > 0
+    const hasOmissions = omissions.length > 0
     return {
       ...raw,
       status,
-      ...brief,
       suggestedLines,
+      quoteRefs,
+      hasQuoteRefs,
+      omissions,
+      hasOmissions,
+      hasContent: status === 'ready' && (hasQuoteRefs || hasOmissions),
       isWaiting: status === 'queued' || status === 'running',
       waitHint: raw.waitHint || (status === 'queued' || status === 'running' ? '正在出意见' : ''),
     }
@@ -5802,6 +5925,20 @@ Page({
         applied: row.applied,
       })
     })
+    const photoPlan = (Array.isArray(raw.photoPlan) ? raw.photoPlan : [])
+      .map((row, index) => {
+        const title = String((row && row.title) || '').trim()
+        const body = String((row && row.body) || '').trim()
+        if (!title && !body) return null
+        return {
+          id: `photo_${index}`,
+          title,
+          body,
+          hasTitle: Boolean(title),
+          hasBody: Boolean(body),
+        }
+      })
+      .filter(Boolean)
     if (!lines.length) {
       const note = String(raw.note || '').trim()
       if (note) lines.push({ id: 'note', body: note, canApply: false })
@@ -5813,8 +5950,10 @@ Page({
       gaps,
       items,
       groups,
-      hasLines: lines.length > 0,
-      hasContent: status === 'ready' && lines.length > 0,
+      photoPlan,
+      hasPhotoPlan: photoPlan.length > 0,
+      hasLines: lines.length > 0 || photoPlan.length > 0,
+      hasContent: status === 'ready' && (lines.length > 0 || photoPlan.length > 0),
       isWaiting: status === 'queued' || status === 'running',
     }
   },

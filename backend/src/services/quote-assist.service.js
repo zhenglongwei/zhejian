@@ -14,7 +14,7 @@ const {
 } = require('../utils/quote-assist')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 
-const { normalizeQuoteLine, buildQuoteDraft } = resolveShared('utils/service-flow-docs.js')
+const { buildQuoteDraft } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -97,22 +97,22 @@ async function runGenerateLlm(facts, category) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    'You assist a Chinese auto shop clerk reviewing a repair quote (or drafting suggested lines from inspection).',
-    'Goal: necessity of lines, missing critical lines, price reasonableness, and which workmanship photos the shop should take later. Content over form. Never claim "no issues" only because the table has rows.',
-    'The CURRENT quote table in facts is ground truth when present. Do NOT discuss items that are not on the table as billable facts.',
-    'You MUST review every filled amount for being absurdly high or low for that service in a normal China independent shop; call out outliers in priceIssues.',
-    'Do NOT change deal amounts on the quote table. Do NOT turn common industry talk into billable lines.',
-    'For suggestedLines: set kind to parts or labor for EVERY row.',
-    '- kind=parts (replace parts OR consume materials: filters, oil, paint, bushings, pads, batteries, etc.): fill oem / brand / economy as wide Chinese ranges (e.g. "约800-1500"). Leave dealer/indie empty.',
-    '- kind=labor (pure ops: teardown/inspect, diagnosis, labor-hour, alignment, cleaning — no part brand): fill dealer (4S shop) and indie (independent garage) as two wide ranges. Leave oem/brand/economy empty.',
-    '- Mixed replace+labor → kind=parts (brand bands already cover typical labor spread).',
-    'Leave the shop deal amount empty. Reference bands required unless accident-car estimate — then leave all band fields empty and only mention in objections.',
-    'Omissions stay in omissions — never as chargeable lines. Closed packages must keep the package main line. Open jobs: only visible actionable items and teardown; do not invent hidden parts.',
-    'Skip 状态良好 / 仅记录 / routine inspection-only rows as charge lines.',
+    'You assist a Chinese auto shop clerk on the quote step.',
+    'Goal: using inspectionAdvice + current quote lines, produce per-line quote reference (market bands + reason) and supplements. The reason field IS the necessity analysis (answers why the owner should do it). Do NOT output separate objections/FAQ/photoPlan blocks.',
+    'Hard rules:',
+    '- Use inspectionAdvice as context. Do not restate intake photo-coverage.',
+    '- If quote.lines is non-empty: one suggestedLines row per existing line (same name). If empty: propose lines from inspection findings (deal amount stays empty).',
+    '- Every suggestedLines row: name, short note, kind=parts|labor, reason (报价原因), optional boolean.',
+    '- kind=parts (parts OR materials: oil, paint, filters, bushings, etc.): oem/brand/economy ranges like "约800-1500"; leave dealer/indie empty.',
+    '- kind=labor (teardown, diagnosis, labor-hour, alignment — no part brand): dealer (4S) and indie (修理厂) ranges; leave oem/brand/economy empty.',
+    '- Mixed replace+labor → kind=parts. Watch/optional items: optional=true and reason must say 可由车主选择.',
+    '- omissions: inspection-backed items missing from the quote table; remind only, never auto-add as charged lines.',
+    '- Accident cars: leave all band fields empty. Skip 状态良好 / 仅记录 as charge lines. Closed packages keep the package main line.',
+    '- Simplified Chinese only in natural-language values. No colloquial section titles.',
     MECHANIC_VOICE_RULES,
     `Category constraint: ${JSON.stringify(facts.constraint)}`,
     `Job facts JSON: ${JSON.stringify(facts.body)}`,
-    'Return JSON only (Chinese strings): {"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie"}],"priceIssues":[{"lineName","body"}],"omissions":[{"title","body","suggestAdd":true}],"necessity":[{"lineName","body"}],"photoPlan":[{"title","body"}],"objections":[{"ask","heard","ours","say"}]}',
+    'Return JSON only: {"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}],"omissions":[{"title","body"}]}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -150,46 +150,6 @@ async function runGenerateLlm(facts, category) {
   return null
 }
 
-function applyAssistToNodes(nodes, parsed, album) {
-  const quoteIdx = nodes.findIndex((item) => item && item.kind === 'quote_confirm' && !item.insertedReason)
-  if (quoteIdx < 0) return nodes
-  const quote = nodes[quoteIdx]
-  const prevDoc = quote.document || {}
-  const prevPayload = prevDoc.payload || {}
-  const existing = Array.isArray(prevPayload.lines) ? prevPayload.lines : []
-  const hasNamed = existing.some((row) => text(row && row.name))
-  const suggestedLines = (parsed.suggestedLines || []).map((row, index) => {
-    const line = normalizeQuoteLine(
-      { name: row.name, note: row.note, amount: '', brand: '' },
-      index,
-    )
-    return {
-      id: line.id,
-      name: line.name,
-      note: line.note,
-    }
-  })
-  const nextLines = hasNamed
-    ? existing
-    : suggestedLines.length
-      ? suggestedLines.map((row, index) =>
-          normalizeQuoteLine({ name: row.name, note: row.note, amount: '', brand: '' }, index),
-        )
-      : existing
-
-  nodes[quoteIdx] = {
-    ...quote,
-    document: {
-      ...prevDoc,
-      payload: {
-        ...prevPayload,
-        lines: nextLines,
-      },
-    },
-  }
-  return nodes
-}
-
 async function runQuoteAssistJob(albumId, merchantId) {
   const key = `quote-assist:${albumId}`
   if (jobsInFlight.has(key)) return
@@ -218,6 +178,10 @@ async function runQuoteAssistJob(albumId, merchantId) {
     const intake = readFlowNodes(album).find(
       (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
     )
+    const inspection = readFlowNodes(album).find((item) => item && item.kind === 'inspection')
+    const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
+    const quotePayload = (quote && quote.document && quote.document.payload) || {}
+    const quoteLines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
     const draft = buildQuoteDraft({
       findings: payload.findings || [],
       templateId: album.templateId,
@@ -233,11 +197,37 @@ async function runQuoteAssistJob(albumId, merchantId) {
         chiefComplaint: text(
           (intake && intake.photoDraft && intake.photoDraft.chiefComplaint) || payload.chiefComplaint,
         ),
+        inspectionAdvice: {
+          faultAnalysis: text(inspectionAdvice.faultAnalysis),
+          inspectOrder: Array.isArray(inspectionAdvice.inspectOrder)
+            ? inspectionAdvice.inspectOrder.slice(0, 6)
+            : [],
+          partHints: Array.isArray(inspectionAdvice.partHints)
+            ? inspectionAdvice.partHints.slice(0, 6)
+            : [],
+          edits: Array.isArray(inspectionAdvice.edits)
+            ? inspectionAdvice.edits
+                .map((row) => ({
+                  kind: text(row && row.kind),
+                  body: text(row && row.body).slice(0, 80),
+                }))
+                .filter((row) => row.body)
+                .slice(0, 8)
+            : [],
+        },
         findings: (payload.findings || []).map((row, index) => ({
           index,
           partName: text(row && row.partName),
           result: text(row && row.result),
           advice: text(row && row.advice),
+        })),
+        quoteLines: quoteLines.map((row, index) => ({
+          index,
+          id: text(row && row.id),
+          name: text(row && row.name),
+          amount: text(row && row.amount),
+          note: text(row && row.note),
+          brand: text(row && row.brand),
         })),
       },
     }
@@ -268,7 +258,7 @@ async function runQuoteAssistJob(albumId, merchantId) {
           ? row.contentPackageJson
           : {}
       let nodes = sortFlowNodes(pkg.flowNodes)
-      if (status === 'ready') nodes = applyAssistToNodes(nodes, parsed, album)
+      // 意见只挂 quoteAssist，不改报价表；店员点「应用」才写入项目名
       const quoteIdx = nodes.findIndex((item) => item && item.kind === 'quote_confirm' && !item.insertedReason)
       if (quoteIdx >= 0) {
         nodes[quoteIdx] = {
@@ -278,11 +268,11 @@ async function runQuoteAssistJob(albumId, merchantId) {
             fingerprint,
             generateEngine: engineId,
             issues: [],
-            priceIssues: parsed.priceIssues || [],
-            necessity: parsed.necessity || [],
-            photoPlan: parsed.photoPlan || [],
-            omissions: parsed.omissions,
-            objections: parsed.objections,
+            priceIssues: [],
+            necessity: [],
+            photoPlan: [],
+            omissions: parsed.omissions || [],
+            objections: [],
             suggestedLines: parsed.suggestedLines,
             errorMessage: status === 'failed' ? '未能出方案' : '',
             updatedAt: new Date().toISOString(),

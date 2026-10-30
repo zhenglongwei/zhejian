@@ -58,6 +58,13 @@ function parseSuggestedLines(raw) {
     const economy = text(row.economy)
     const dealer = text(row.dealer || row.fours || row.shop4s || row.dealerBand)
     const indie = text(row.indie || row.garage || row.repairShop || row.indieBand)
+    const reason = text(row.reason || row.why || row.necessity || row.body).slice(0, 160)
+    const optional = Boolean(
+      row.optional === true ||
+        row.optional === 'true' ||
+        row.ownerChoice === true ||
+        /可做可不做|可由车主选择|建议观察|先观察/.test(`${reason}${note}`),
+    )
     if (kind === 'labor') {
       lines.push({
         name,
@@ -68,6 +75,8 @@ function parseSuggestedLines(raw) {
         economy: '',
         dealer,
         indie,
+        reason,
+        optional,
         sortOrder: index,
       })
       return
@@ -81,6 +90,8 @@ function parseSuggestedLines(raw) {
       economy,
       dealer: '',
       indie: '',
+      reason,
+      optional,
       sortOrder: index,
     })
   })
@@ -110,21 +121,33 @@ function parseOwnerAsks(raw, max = 6) {
 function parseQuoteAssistPayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
   const analysis = parsed.analysis && typeof parsed.analysis === 'object' ? parsed.analysis : parsed
-  const suggestedLines = parseSuggestedLines(
+  let suggestedLines = parseSuggestedLines(
     parsed.suggestedLines || parsed.lines || analysis.suggestedLines,
   )
+  // 兼容旧模型：把 necessity 并进同名行的报价原因
+  const necessity = parseTitleBodyList(parsed.necessity || analysis.necessity, 8)
+  if (necessity.length) {
+    suggestedLines = suggestedLines.map((row) => {
+      if (text(row.reason)) return row
+      const hit = necessity.find(
+        (item) => text(item.title) && (text(item.title) === row.name || row.name.indexOf(text(item.title)) >= 0),
+      )
+      if (!hit) return row
+      return { ...row, reason: text(hit.body).slice(0, 160) }
+    })
+  }
   return {
     summary: '',
     reportPrefill: '',
     issues: [],
-    priceIssues: parseTitleBodyList(parsed.priceIssues || analysis.priceIssues, 8).map((row) => ({
-      ...row,
-      lineName: text(row.title),
-    })),
-    necessity: parseTitleBodyList(parsed.necessity || analysis.necessity, 8),
-    photoPlan: parseTitleBodyList(parsed.photoPlan || analysis.photoPlan, 8),
-    omissions: parseTitleBodyList(parsed.omissions || analysis.omissions, 8),
-    objections: parseOwnerAsks(parsed.objections || analysis.objections, 6),
+    priceIssues: [],
+    necessity: [],
+    photoPlan: [],
+    omissions: parseTitleBodyList(
+      parsed.omissions || parsed.supplements || analysis.omissions || analysis.supplements,
+      8,
+    ),
+    objections: [],
     suggestedLines,
   }
 }
@@ -132,16 +155,10 @@ function parseQuoteAssistPayload(raw) {
 function quoteAssistHasContent(assist) {
   if (!assist || typeof assist !== 'object') return false
   const lines = Array.isArray(assist.suggestedLines) ? assist.suggestedLines : []
-  const hasBand = lines.some((row) => lineHasMarketBand(row))
-  return Boolean(
-    (lines && lines.length) ||
-      (assist.omissions && assist.omissions.length) ||
-      (assist.objections && assist.objections.length) ||
-      (assist.priceIssues && assist.priceIssues.length) ||
-      (assist.photoPlan && assist.photoPlan.length) ||
-      (assist.necessity && assist.necessity.length) ||
-      hasBand,
+  const hasLineAdvice = lines.some(
+    (row) => lineHasMarketBand(row) || text(row && row.reason) || text(row && row.name),
   )
+  return Boolean(hasLineAdvice || (assist.omissions && assist.omissions.length))
 }
 
 function sanitizeQuoteAssistForView(assist) {
@@ -153,10 +170,10 @@ function sanitizeQuoteAssistForView(assist) {
     status,
     suggestedLines,
     omissions: Array.isArray(assist.omissions) ? assist.omissions : [],
-    objections: Array.isArray(assist.objections) ? assist.objections : [],
-    priceIssues: Array.isArray(assist.priceIssues) ? assist.priceIssues : [],
-    necessity: Array.isArray(assist.necessity) ? assist.necessity : [],
-    photoPlan: Array.isArray(assist.photoPlan) ? assist.photoPlan : [],
+    objections: [],
+    priceIssues: [],
+    necessity: [],
+    photoPlan: [],
     waitHint: status === 'queued' || status === 'running' ? '正在出意见' : '',
     errorMessage: status === 'failed' ? text(assist.errorMessage) || '未能出意见' : '',
     updatedAt: text(assist.updatedAt),

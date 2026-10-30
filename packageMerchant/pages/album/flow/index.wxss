@@ -603,11 +603,26 @@
   background-color: var(--color-bg-muted);
 }
 
+.merchant-flow-page__quote-brief-item-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
 .merchant-flow-page__quote-brief-item-title {
+  flex: 1;
+  min-width: 0;
   font-size: var(--font-body-size);
   line-height: var(--font-body-lh);
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.merchant-flow-page__quote-optional {
+  flex: none;
+  color: var(--color-mch-advice);
 }
 
 .merchant-flow-page__quote-brief-item-body {

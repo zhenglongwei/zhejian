@@ -1,59 +1,44 @@
 <template name="quoteMerchantBrief">
   <view wx:if="{{brief.hasContent}}" class="merchant-flow-page__quote-brief">
-    <view wx:if="{{brief.hasObjections}}" class="merchant-flow-page__ask">
-      <text class="merchant-flow-page__ask-title">车主可能问</text>
-      <view wx:for="{{brief.objections}}" wx:key="index" class="merchant-flow-page__ask-card">
-        <text wx:if="{{item.hasAsk}}" class="merchant-flow-page__ask-q">{{item.ask}}</text>
-        <view wx:if="{{item.hasHeard}}" class="merchant-flow-page__ask-row">
-          <text class="merchant-flow-page__ask-k">常听到</text>
-          <text class="merchant-flow-page__ask-v">{{item.heard}}</text>
+    <view wx:if="{{brief.hasQuoteRefs}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">报价参考</text>
+      <view wx:for="{{brief.quoteRefs}}" wx:key="lineIndex" class="merchant-flow-page__quote-brief-card">
+        <view class="merchant-flow-page__quote-brief-item-title-row">
+          <text class="merchant-flow-page__quote-brief-item-title">{{item.name}}</text>
+          <text wx:if="{{item.optional}}" class="text-caption merchant-flow-page__quote-optional">可由车主选择</text>
+          <text
+            wx:if="{{item.canApply}}"
+            class="merchant-flow-page__advice-apply"
+            data-source="ref"
+            data-index="{{item.lineIndex}}"
+            catchtap="onApplyQuoteAssistLine"
+          >应用</text>
+          <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
         </view>
-        <view wx:if="{{item.hasOurs}}" class="merchant-flow-page__ask-row">
-          <text class="merchant-flow-page__ask-k">本单</text>
-          <text class="merchant-flow-page__ask-v">{{item.ours}}</text>
-        </view>
-        <text wx:if="{{item.hasSay}}" class="merchant-flow-page__ask-say">{{item.say}}</text>
-      </view>
-    </view>
-    <view wx:if="{{brief.hasIssues}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">价格留意</text>
-      <view wx:for="{{brief.issues}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
-      </view>
-    </view>
-    <view wx:if="{{brief.hasNecessity}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">项目必要吗</text>
-      <view wx:for="{{brief.necessity}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
-      </view>
-    </view>
-    <view wx:if="{{brief.hasOmissions}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">可能漏了</text>
-      <view wx:for="{{brief.omissions}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
-      </view>
-    </view>
-    <view wx:if="{{brief.hasPhotoPlan}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">施工建议拍</text>
-      <view wx:for="{{brief.photoPlan}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
-        <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
-      </view>
-    </view>
-    <view wx:if="{{brief.hasBands}}" class="merchant-flow-page__quote-brief-sec">
-      <text class="merchant-flow-page__quote-brief-sec-title">市场参考价</text>
-      <view wx:for="{{brief.priceBands}}" wx:key="lineIndex" class="merchant-flow-page__quote-brief-card">
-        <text class="merchant-flow-page__quote-brief-item-title">{{item.name}}</text>
         <view wx:if="{{item.hasChips}}" class="merchant-flow-page__plan-bands">
           <view wx:for="{{item.bandChips}}" wx:for-item="chip" wx:key="key" class="merchant-flow-page__plan-band">
             <text class="merchant-flow-page__plan-band-k">{{chip.k}}</text>
             <text class="merchant-flow-page__plan-band-v">{{chip.v}}</text>
           </view>
         </view>
-        <text wx:if="{{item.note}}" class="merchant-flow-page__quote-brief-item-body">{{item.note}}</text>
+        <text wx:if="{{item.reason}}" class="merchant-flow-page__quote-brief-item-body">{{item.reason}}</text>
+      </view>
+    </view>
+    <view wx:if="{{brief.hasOmissions}}" class="merchant-flow-page__quote-brief-sec">
+      <text class="merchant-flow-page__quote-brief-sec-title">建议补充</text>
+      <view wx:for="{{brief.omissions}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
+        <view class="merchant-flow-page__quote-brief-item-title-row">
+          <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+          <text
+            wx:if="{{item.canApply}}"
+            class="merchant-flow-page__advice-apply"
+            data-source="omission"
+            data-index="{{item.index}}"
+            catchtap="onApplyQuoteAssistLine"
+          >应用</text>
+          <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
+        </view>
+        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
       </view>
     </view>
   </view>
@@ -1878,24 +1863,33 @@
           <text class="merchant-flow-page__ai-status-text">正在出意见</text>
         </view>
         <block wx:else>
-          <view wx:if="{{stageBoard.family === 'work' && workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
-            <view wx:for="{{workAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
-              <image
-                wx:if="{{item.url}}"
-                class="merchant-flow-page__advice-shot"
-                src="{{item.url}}"
-                mode="aspectFill"
-              />
-              <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
-              <text
-                wx:if="{{item.canApply}}"
-                class="merchant-flow-page__advice-apply"
-                data-id="{{item.id}}"
-                catchtap="onApplyWorkExplain"
-              >应用</text>
-              <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
+          <block wx:if="{{stageBoard.family === 'work' && workAdvice.hasContent}}">
+            <view wx:if="{{workAdvice.hasPhotoPlan}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">施工留证建议</text>
+              <view wx:for="{{workAdvice.photoPlan}}" wx:key="id" class="merchant-flow-page__advice-ask">
+                <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
+                <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
+              </view>
             </view>
-          </view>
+            <view wx:if="{{workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
+              <view wx:for="{{workAdvice.lines}}" wx:key="id" class="merchant-flow-page__advice-row">
+                <image
+                  wx:if="{{item.url}}"
+                  class="merchant-flow-page__advice-shot"
+                  src="{{item.url}}"
+                  mode="aspectFill"
+                />
+                <text class="merchant-flow-page__advice-row-text">{{item.body}}</text>
+                <text
+                  wx:if="{{item.canApply}}"
+                  class="merchant-flow-page__advice-apply"
+                  data-id="{{item.id}}"
+                  catchtap="onApplyWorkExplain"
+                >应用</text>
+                <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
+              </view>
+            </view>
+          </block>
           <block wx:elif="{{stageBoard.family === 'finish' && deliveryAdvice.hasContent}}">
             <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
           </block>

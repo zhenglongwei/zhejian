@@ -170,11 +170,21 @@ function parseWorkAdvice(raw, items, slots) {
     })
     .filter(Boolean)
     .slice(0, 4)
+  const photoPlan = (Array.isArray(parsed.photoPlan) ? parsed.photoPlan : [])
+    .map((row) => {
+      const title = text(row && (row.title || row.partName)).slice(0, 20)
+      const body = text(row && row.body).slice(0, 120)
+      if (!title && !body) return null
+      return { title: title || '留证', body }
+    })
+    .filter(Boolean)
+    .slice(0, 6)
   return {
     scope: 'process',
     gaps,
     items: written,
     groups,
+    photoPlan,
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
 }
@@ -254,6 +264,7 @@ function adviceHasContent(advice, kind) {
     return (Array.isArray(advice.gaps) && advice.gaps.length > 0) ||
       (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.groups) && advice.groups.length > 0) ||
+      (Array.isArray(advice.photoPlan) && advice.photoPlan.length > 0) ||
       Boolean(text(advice.note))
   }
   if (kind === 'inspect') {
@@ -786,7 +797,8 @@ function workInstruction(ctx) {
       workItems: ctx.workItems,
       photos: slots.map((row) => ({ slot: row.slot, on: row.partName })),
     })}`,
-    'Return JSON only: {"gaps":[{"kind":"missing_quote_item|extra_work|missing_process_photo|missing_brand|missing_old_new","title":"","body":""}],"items":[{"id":"","body":"","canApply":true}],"groups":[{"slot":1,"partName":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
+    'Also list photoPlan: which workmanship photos this step should take (old/new parts, critical process) — shop reminder only.',
+    'Return JSON only: {"gaps":[{"kind":"missing_quote_item|extra_work|missing_process_photo|missing_brand|missing_old_new","title":"","body":""}],"items":[{"id":"","body":"","canApply":true}],"groups":[{"slot":1,"partName":"","body":""}],"photoPlan":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
   ].join('\n')
 }
 
@@ -1012,6 +1024,7 @@ function sanitizeStepAdviceForView(advice, kind) {
       gaps: Array.isArray(advice.gaps) ? advice.gaps : [],
       items: Array.isArray(advice.items) ? advice.items : [],
       groups: Array.isArray(advice.groups) ? advice.groups : [],
+      photoPlan: Array.isArray(advice.photoPlan) ? advice.photoPlan : [],
     }
   }
   if (kind === 'inspect') {
