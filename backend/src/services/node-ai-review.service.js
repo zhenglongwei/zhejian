@@ -27,6 +27,8 @@ const {
 const { isAckStale, canReuseReviewThisRound } = require('../utils/node-ai-review-ack')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
+const { resolveShared } = require('../utils/resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -80,7 +82,7 @@ function collectNodeImageEntries(node = {}) {
     const trimmed = text(url)
     if (trimmed) entries.push({ url: trimmed, label: text(label) })
   }
-  const draft = node.photoDraft || {}
+  const draft = contentOfFlowNode(node)
   push(draft.deliveryExteriorUrl, '全车外观')
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
     push(img, '留证')
@@ -119,11 +121,10 @@ function collectNodeImageUrls(node = {}) {
 function buildReviewFingerprint(node, extra = {}) {
   const payload = {
     urls: collectNodeImageUrls(node).map((url) => stripUrlQuery(url)).sort(),
-    complaint: text((node.photoDraft && node.photoDraft.chiefComplaint) || extra.chiefComplaint),
-    mileage: text(extra.mileageKm || (node.photoDraft && node.photoDraft.mileageKm)),
+    complaint: text(contentOfFlowNode(node).chiefComplaint || extra.chiefComplaint),
+    mileage: text(extra.mileageKm || contentOfFlowNode(node).mileageKm),
     findings: (
-      (node.photoDraft && node.photoDraft.findings) ||
-      (node.document && node.document.payload && node.document.payload.findings) ||
+      contentOfFlowNode(node).findings ||
       extra.findings ||
       []
     ).map((row) => ({
@@ -132,7 +133,7 @@ function buildReviewFingerprint(node, extra = {}) {
       a: text(row && row.advice),
       r: text(row && row.result),
     })),
-    warranty: text((node.photoDraft && node.photoDraft.warrantyPeriod) || extra.warrantyPeriod),
+    warranty: text(contentOfFlowNode(node).warrantyPeriod || extra.warrantyPeriod),
     lines: (extra.quoteLines || []).map((line) => ({
       n: text(line && line.name),
       t: text(line && line.note),
@@ -186,7 +187,7 @@ async function patchFlowNode(albumId, nodeId, mutator) {
 }
 
 function buildReviewContext(album, node, extra = {}) {
-  const draft = node.photoDraft || {}
+  const draft = contentOfFlowNode(node)
   const doc = (node.document && node.document.payload) || {}
   const reviewStep =
     extra.step || (node.aiReview && node.aiReview.reviewStep) || resolveReviewStep(node.kind)
@@ -239,8 +240,7 @@ function buildReviewContext(album, node, extra = {}) {
     fillConfirmedReference()
   } else if (reviewStep === 'addon_check') {
     const parent = readFlowNodes(album).find((item) => item && item.id === node.parentNodeId)
-    const workFindings =
-      (parent && parent.photoDraft && parent.photoDraft.findings) || []
+    const workFindings = contentOfFlowNode(parent).findings || []
     const discovery = doc.discovery && typeof doc.discovery === 'object' ? doc.discovery : {}
     const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
     findings = workFindings.concat([
@@ -264,12 +264,12 @@ function buildReviewContext(album, node, extra = {}) {
     findings = []
     readFlowNodes(album).forEach((item) => {
       if (!item || item.kind !== 'work') return
-      const rows = item.photoDraft && item.photoDraft.findings
+      const rows = contentOfFlowNode(item).findings
       if (Array.isArray(rows)) findings = findings.concat(rows)
     })
     readFlowNodes(album).forEach((item) => {
       if (!item || item.kind !== 'delivery_photos') return
-      const draftDelivery = item.photoDraft || {}
+      const draftDelivery = contentOfFlowNode(item)
       const urls = []
       const exterior = text(draftDelivery.deliveryExteriorUrl)
       if (exterior) urls.push(exterior)
@@ -294,7 +294,7 @@ function buildReviewContext(album, node, extra = {}) {
     // 工单＝如实记录的施工单据：完工时要拿它跟检测、报价核对
     readFlowNodes(album).forEach((item) => {
       if (!item || item.kind !== 'work') return
-      const rows = item.photoDraft && item.photoDraft.findings
+      const rows = contentOfFlowNode(item).findings
       if (!Array.isArray(rows)) return
       orderItems = orderItems.concat(
         rows.map((row) => ({
@@ -351,7 +351,7 @@ function buildReviewContext(album, node, extra = {}) {
           const intake = readFlowNodes(album).find(
             (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
           )
-          return intake && intake.photoDraft && intake.photoDraft.chiefComplaint
+          return contentOfFlowNode(intake).chiefComplaint
         })(),
     ),
     mileageKm: albumMileageKm(album) || text(extra.mileageKm) || text(draft.mileageKm),
@@ -556,8 +556,8 @@ async function analyzeNode(album, node, capability) {
   const ctx = buildReviewContext(album, node)
   const imageNode = {
     ...node,
-    photoDraft: {
-      ...(node.photoDraft || {}),
+    content: {
+      ...contentOfFlowNode(node),
       findings: ctx.findings || [],
     },
   }
@@ -722,7 +722,7 @@ async function flushQueuedNodeAiReviewsForAlbum(albumId) {
 async function startOrResumeReview({ album, node, merchantId, incomingDraft, extra = {} }) {
   const merged = {
     ...node,
-    photoDraft: incomingDraft || node.photoDraft || {},
+    content: incomingDraft || contentOfFlowNode(node),
   }
   const fingerprint = buildReviewFingerprint(merged, {
     ...extra,
@@ -749,7 +749,7 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
 
   await patchFlowNode(album.id, node.id, (item) => ({
     ...item,
-    photoDraft: incomingDraft || item.photoDraft || {},
+    content: incomingDraft || contentOfFlowNode(item),
     aiReview: {
       status: 'queued',
       reviewStep,
@@ -787,7 +787,7 @@ async function maybeHoldWorkSheetForReview({
     ? incomingDraft.findings
     : []
   if (!findings.length) return null
-  const mergedNode = { ...node, photoDraft: incomingDraft || node.photoDraft || {} }
+  const mergedNode = { ...node, content: incomingDraft || contentOfFlowNode(node) }
   // 本轮已出过工单检查结论，改字后确认不再重查
   if (wantsSkip(payload) && !isAckStale(mergedNode, {})) {
     await patchFlowNode(album.id, node.id, (item) => ({

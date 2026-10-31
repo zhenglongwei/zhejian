@@ -9,7 +9,7 @@ const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nod
 const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
-const { normalizeOwnerFaqs } = resolveShared('utils/service-flow-docs.js')
+const { normalizeOwnerFaqs, contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -46,7 +46,7 @@ function workImageList(row) {
 }
 
 function workRows(node) {
-  const findings = (node && node.photoDraft && node.photoDraft.findings) || []
+  const findings = contentOfFlowNode(node).findings || []
   return (Array.isArray(findings) ? findings : []).map((row, index) => ({
     id: text(row && row.id) || `w${index}`,
     name: text(row && row.partName),
@@ -58,7 +58,7 @@ function workRows(node) {
 function workPhotoSlots(nodes) {
   const buckets = []
   ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
-    const findings = (node && node.photoDraft && node.photoDraft.findings) || []
+    const findings = contentOfFlowNode(node).findings || []
     ;(Array.isArray(findings) ? findings : []).forEach((row) => {
       const partName = text(row && row.partName)
       const findingId = text(row && row.id)
@@ -315,7 +315,7 @@ const OWNER_TIMING = {
 }
 
 function intakePhotoUrls(intake) {
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = contentOfFlowNode(intake)
   const urls = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
@@ -713,7 +713,7 @@ function mediaBare(url) {
 function collectImageNotesMap(nodes = []) {
   const map = {}
   ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
-    const draft = (node && node.photoDraft) || {}
+    const draft = contentOfFlowNode(node)
     const notes = draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}
     Object.keys(notes).forEach((key) => {
       const note = text(notes[key])
@@ -753,7 +753,7 @@ function isInspectMediaUrl(url) {
 }
 
 function inspectPhotoUrls(inspection) {
-  const draft = (inspection && inspection.photoDraft) || {}
+  const draft = contentOfFlowNode(inspection)
   const urls = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
@@ -771,7 +771,7 @@ function inspectPhotoUrls(inspection) {
 /** 检测图槽位：与送模附图顺序一致，并挂上所属检测项 id（供拆分 groups.imageSlots） */
 
 function inspectPhotoSlots(inspection) {
-  const draft = (inspection && inspection.photoDraft) || {}
+  const draft = contentOfFlowNode(inspection)
   const slots = []
   const used = new Set()
   const push = (findingId, partName, raw) => {
@@ -802,7 +802,7 @@ function inspectPhotoSlots(inspection) {
 }
 
 function deliveryPhotoUrls(delivery) {
-  const draft = (delivery && delivery.photoDraft) || {}
+  const draft = contentOfFlowNode(delivery)
   const urls = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
@@ -827,7 +827,7 @@ function contextOf(album) {
   const works = nodes.filter((item) => item && item.kind === 'work')
   const delivery = nodes.find((item) => item && item.kind === 'delivery_photos')
   const repair = nodes.find((item) => item && item.kind === 'repair_report')
-  const draft = (delivery && delivery.photoDraft) || {}
+  const draft = contentOfFlowNode(delivery)
   const reportPayload = (repair && repair.document && repair.document.payload) || {}
   const intakeAdvice = (intake && intake.intakeAdvice) || {}
   const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
@@ -846,7 +846,7 @@ function contextOf(album) {
     .map((row) => ({ slot: row.slot, partName: row.partName, note: imageNotesMap[mediaBare(row.url)] }))
   const deliverySplit = splitNewAndNotedUrls(deliveryUrls, imageNotesMap)
   return {
-    complaint: text(intake && intake.photoDraft && intake.photoDraft.chiefComplaint),
+    complaint: text(contentOfFlowNode(intake).chiefComplaint),
     intakeBrief: intakeBrief(intake),
     intakeAdviceSummary: intakeBrief(intake),
     intakePhotoUrls: intakeSplit.fresh,
@@ -854,7 +854,7 @@ function contextOf(album) {
     intakeRisks: (Array.isArray(intakeAdvice.risks) ? intakeAdvice.risks : [])
       .map((row) => text(row && row.title))
       .filter(Boolean),
-    inspectItems: namedRows(inspection && inspection.photoDraft && inspection.photoDraft.findings),
+    inspectItems: namedRows(contentOfFlowNode(inspection).findings),
     inspectAdviceSummary: text(inspectionAdvice.updatedAt)
       ? {
           faultAnalysis: text(inspectionAdvice.faultAnalysis).slice(0, 120),
@@ -1410,7 +1410,7 @@ function deliveryInstruction(ctx) {
 
 function mergeImageNotesFromSlots(node, slots, imageNotes, albumId) {
   if (!node || !Array.isArray(imageNotes) || !imageNotes.length) return node
-  const draft = (node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}) || {}
+  const draft = contentOfFlowNode(node)
   const map = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
   imageNotes.forEach((row) => {
     const slot = Number(row && row.slot)
@@ -1422,13 +1422,13 @@ function mergeImageNotesFromSlots(node, slots, imageNotes, albumId) {
   })
   return {
     ...node,
-    photoDraft: { ...draft, imageNotes: map },
+    content: { ...draft, imageNotes: map },
   }
 }
 
 function mergeImageNotesFromUrlList(node, urls, imageNotes) {
   if (!node || !Array.isArray(imageNotes) || !imageNotes.length) return node
-  const draft = (node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}) || {}
+  const draft = contentOfFlowNode(node)
   const map = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
   imageNotes.forEach((row) => {
     const slot = Number(row && row.slot)
@@ -1439,7 +1439,7 @@ function mergeImageNotesFromUrlList(node, urls, imageNotes) {
   })
   return {
     ...node,
-    photoDraft: { ...draft, imageNotes: map },
+    content: { ...draft, imageNotes: map },
   }
 }
 

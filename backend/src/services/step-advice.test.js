@@ -7,6 +7,7 @@ const {
   needsInspectGroupsRepair,
   mergeInspectAdvicePreferringGroups,
   faultAnalysisLooksMultiTopic,
+  contextOf,
 } = require('./step-advice.service')
 
 test('施工对不上时优先用模型写的实质意见', () => {
@@ -603,4 +604,37 @@ test('交车兼容旧 repair/care 字段', () => {
     care: { title: '用车', body: '过坎时听一下还有没有响。' },
   })
   assert.match(got.repairBrief, /下摆臂胶套/)
+})
+
+test('AI 上下文从节点 content 读主诉、检测项和图', () => {
+  const got = contextOf({
+    contentPackageJson: {
+      flowNodes: [
+        {
+          kind: 'intake',
+          sortOrder: 1,
+          content: { chiefComplaint: '过坎异响', pendingImages: [] },
+        },
+        {
+          kind: 'inspection',
+          sortOrder: 2,
+          content: {
+            findings: [
+              {
+                id: 'f1',
+                partName: '下摆臂',
+                advice: '胶套开裂',
+                images: [{ url: 'https://cdn.example/inspect.jpg' }],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  })
+  assert.equal(got.complaint, '过坎异响')
+  assert.equal(got.inspectItems.length, 1)
+  assert.equal(got.inspectItems[0].name, '下摆臂')
+  assert.equal(got.inspectPhotoSlots.length, 1)
+  assert.match(got.inspectPhotoSlots[0].url, /inspect\.jpg/)
 })

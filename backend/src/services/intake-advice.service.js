@@ -11,6 +11,8 @@ const {
   intakeAdviceHasContent,
 } = require('../utils/intake-advice')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
+const { resolveShared } = require('../utils/resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -39,7 +41,7 @@ function vehicleFacts(album, draft = {}) {
 }
 
 function intakeComplaintText(intake) {
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = contentOfFlowNode(intake)
   const payload = (intake && intake.document && intake.document.payload) || {}
   return text(draft.chiefComplaint || payload.chiefComplaint)
 }
@@ -50,7 +52,7 @@ function albumMileageKm(album) {
 }
 
 function intakePhotoUrls(intake, options = {}) {
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = contentOfFlowNode(intake)
   const limit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : 8
   const urls = []
   const push = (raw) => {
@@ -66,7 +68,7 @@ function intakePhotoUrls(intake, options = {}) {
 
 /** 指纹用全部图身份，不截断；避免第 7 张起改图仍复用旧结论 */
 function intakePhotoFingerprintKeys(intake) {
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = contentOfFlowNode(intake)
   const keys = []
   const push = (raw) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
@@ -84,7 +86,7 @@ function intakePhotoFingerprintKeys(intake) {
 function buildFingerprint(album) {
   const nodes = readFlowNodes(album)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = contentOfFlowNode(intake)
   const vehicle = vehicleFacts(album, draft)
   return crypto
     .createHash('sha1')
@@ -203,7 +205,7 @@ async function runIntakeAdviceJob(albumId) {
     const maskedUrls = urls.length ? await maskUrlsForModel(urls, { albumId }) : []
     const parsed = maskedUrls.length ? await runGenerateLlm(maskedUrls) : null
     await patchIntakeNode(albumId, (item) => {
-      const draft = (item.photoDraft && typeof item.photoDraft === 'object' ? item.photoDraft : {}) || {}
+      const draft = contentOfFlowNode(item)
       const imageNotes = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
       const noteRows = Array.isArray(parsed && parsed.imageNotes) ? parsed.imageNotes : []
       noteRows.forEach((row) => {
@@ -218,7 +220,7 @@ async function runIntakeAdviceJob(albumId) {
       })
       const next = {
         ...item,
-        photoDraft: { ...draft, imageNotes },
+        content: { ...draft, imageNotes },
         intakeAdvice: !urls.length || parsed
           ? {
               status: 'ready',

@@ -15,7 +15,7 @@ const {
 } = require('../utils/quote-assist')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 
-const { buildQuoteDraft } = resolveShared('utils/service-flow-docs.js')
+const { buildQuoteDraft, contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -43,7 +43,7 @@ function buildAssistFingerprint(album) {
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   const quotePayload = (quote && quote.document && quote.document.payload) || {}
   const lines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
-  const intakeDraft = (intake && intake.photoDraft) || {}
+  const intakeDraft = contentOfFlowNode(intake)
   const intakePhotos = Array.isArray(intakeDraft.pendingImages) ? intakeDraft.pendingImages : []
   return crypto
     .createHash('sha1')
@@ -196,7 +196,7 @@ async function runQuoteAssistJob(albumId, merchantId) {
       },
       body: {
         chiefComplaint: text(
-          (intake && intake.photoDraft && intake.photoDraft.chiefComplaint) || payload.chiefComplaint,
+          contentOfFlowNode(intake).chiefComplaint || payload.chiefComplaint,
         ),
         inspectionAdvice: {
           faultAnalysis: text(inspectionAdvice.faultAnalysis),
