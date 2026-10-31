@@ -2119,16 +2119,7 @@ function albumHasOwner(album) {
   )
 }
 
-function assertAlbumHasOwnerPhone(album, payload = {}) {
-  if (albumHasOwner(album)) return
-  if (String(payload.userPhone || '').trim()) return
-  const err = new Error('请先填写或请车主扫码关联手机号后再继续')
-  err.status = 409
-  err.code = 100009
-  throw err
-}
-
-/** 完工门禁：内容非空（图 / 节点说明 / 证据 / 清单留证即可） */
+/** 完工门禁：内容非空（图 / 节点说明 / 证据 / 清单留证即可）。不要求车主手机号。 */
 function albumHasNonEmptyContent(album) {
   if (!album) return false
   if ((album.imageCount || 0) > 0) return true
@@ -2431,7 +2422,6 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
     return view
   }
   assertAlbumContentEditable(existing)
-  assertAlbumHasOwnerPhone(existing)
   assertAlbumHasNonEmptyContent(existing)
   // 相册归相册：完工不再要求案例稿，也不送人审；打码可先跑，生成预览另等就绪
   const prevCaseStatus = String(existing.publicCaseStatus || '').trim()

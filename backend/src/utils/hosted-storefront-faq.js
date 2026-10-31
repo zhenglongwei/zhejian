@@ -5,8 +5,11 @@ const { getHostedStorefrontFaqBank } = require('../constants/hosted-storefront-f
 const { resolveCategoryIdFromAlbum } = require('../constants/service-checklist-catalog')
 
 const GENERIC_EMPTY_ANSWER = /以门店留档为准|以门店承诺为准|以门店为准/
-/** 公开答案最短长度（对齐 05_/07_：禁止「答：后门」）。缺项叮嘱可以短于该长度。 */
-const MIN_PUBLISH_ANSWER_LEN = 30
+/**
+ * 答句偏短时，商家确认公开只提醒，不拦截。
+ * 机器起草仍建议写到这个长度；没有信息的单词（如「后门」）另判，与字数无关。
+ */
+const SHORT_FAQ_REMIND_LEN = 30
 const OWNER_REMINDER_PATTERN = /要向商家|先问|问清|给你看|再决定/
 /** 亮点已覆盖预算 / 材料 / 避坑时，不再另补缺项叮嘱 */
 const HIGHLIGHT_THEME_PATTERN =
@@ -40,7 +43,7 @@ function isOwnerReminderAnswer(answer = '') {
     .trim()
     .replace(GENERIC_EMPTY_ANSWER, '')
     .trim()
-  if (t.length < 8 || t.length >= MIN_PUBLISH_ANSWER_LEN) return false
+  if (t.length < 8 || t.length >= SHORT_FAQ_REMIND_LEN) return false
   if (/一般来说|很多店|平时常见|专业|诚信/.test(t)) return false
   return OWNER_REMINDER_PATTERN.test(t)
 }
@@ -69,7 +72,6 @@ function isLowInfoFaqAnswer(answer = '') {
     .trim()
   if (!t) return true
   if (isOwnerReminderAnswer(t)) return false
-  if (t.length < MIN_PUBLISH_ANSWER_LEN) return true
   if (t.length <= 16 && !INFO_SIGNAL.test(t)) return true
   // 仅逗号分隔的部位名清单且过短
   if (t.length < 40 && /^[\u4e00-\u9fffA-Za-z0-9\s、,/]+$/.test(t) && !INFO_SIGNAL.test(t)) {
@@ -200,14 +202,21 @@ function collectHostedCaseFaq({ contentJson, hostMeta, enrichmentFaq, draftFaq }
   )
 }
 
+function isShortFaqAnswer(answer = '') {
+  const t = String(answer || '').trim()
+  return t.length > 0 && t.length < SHORT_FAQ_REMIND_LEN
+}
+
 module.exports = {
-  MIN_PUBLISH_ANSWER_LEN,
+  SHORT_FAQ_REMIND_LEN,
+  MIN_PUBLISH_ANSWER_LEN: SHORT_FAQ_REMIND_LEN,
   GAP_FAQ,
   caseHasAnswerMaterial,
   isOwnerReminderAnswer,
   coversHighlightTheme,
   appendGapReminder,
   isLowInfoFaqAnswer,
+  isShortFaqAnswer,
   normalizeFaqRow,
   filterPublishableFaq,
   pickFirstPublishableFaq,

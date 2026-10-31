@@ -1075,12 +1075,6 @@ async function mockCompleteMerchantServiceAlbum(albumId) {
     err.code = 409
     throw err
   }
-  const hasOwner = Boolean(String(raw.userPhone || '').trim())
-  if (!hasOwner) {
-    const err = new Error('请先填写或请车主扫码关联手机号后再继续')
-    err.code = 409
-    throw err
-  }
   const now = new Date().toISOString()
   const next = {
     ...raw,

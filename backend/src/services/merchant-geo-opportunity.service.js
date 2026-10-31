@@ -5,13 +5,12 @@ const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { buildIntentKey, median } = require('../utils/geo-citation-gap')
+const { cityLabelFromStore } = require('../utils/address-city')
 
 const PUBLIC_GEO_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
 function extractCityFromStore(store) {
-  if (store?.city) return String(store.city)
-  const m = String(store?.address || '').match(/([\u4e00-\u9fa5]{2,4}市)/)
-  return m ? m[1] : '杭州'
+  return cityLabelFromStore(store) || '杭州'
 }
 
 async function resolveMerchantStore(auth, storeId) {

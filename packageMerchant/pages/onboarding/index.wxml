@@ -115,15 +115,15 @@
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">负责人手机 *</text>
-      <input class="merchant-form__input" type="number" placeholder="审核与通知联系" value="{{form.phone}}" data-field="phone" bindinput="onInput" />
+      <input class="merchant-form__input" type="number" placeholder="11 位手机号" value="{{form.phone}}" data-field="phone" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">联系电话</text>
       <input class="merchant-form__input" type="number" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">门店地址 *</text>
-      <text class="text-caption merchant-onboard__optional-hint">须在地图上选点，不可手填；审核通过后可在工作台修改</text>
+      <text class="merchant-form__label">门店地址</text>
+      <text class="text-caption merchant-onboard__optional-hint">选填，在地图上选点</text>
       <view
         class="merchant-form__input merchant-onboard__address-picker {{form.address ? '' : 'merchant-onboard__address-picker--empty'}}"
         hover-class="merchant-onboard__address-picker--active"
@@ -138,7 +138,7 @@
     </view>
 
     <text class="merchant-onboard__section-title text-h3">门店照片</text>
-    <text class="text-caption merchant-onboard__optional-hint">以下照片可审核通过后在工作台完善</text>
+    <text class="text-caption merchant-onboard__optional-hint">选填，开通后仍可补</text>
     <view class="merchant-form__section">
       <text class="merchant-form__label">门头照片</text>
       <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
@@ -168,13 +168,13 @@
 
     <text class="merchant-onboard__section-title text-h3">维修资质</text>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">基础资质类型 *</text>
+      <text class="merchant-form__label">基础资质类型</text>
       <picker mode="selector" range="{{qualificationOptions}}" range-key="label" value="{{qualificationIndex}}" bindchange="onQualificationChange">
         <view class="merchant-form__picker">{{qualificationOptions[qualificationIndex].label}}</view>
       </picker>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">基础资质照片 *</text>
+      <text class="merchant-form__label">基础资质照片</text>
       <view class="merchant-onboard__photo-slot" bindtap="onPickQualification">
         <image wx:if="{{form.qualificationPhotoUrl}}" class="merchant-onboard__photo" src="{{form.qualificationPhotoUrl}}" mode="aspectFill" />
         <text wx:else class="text-caption">点击上传</text>

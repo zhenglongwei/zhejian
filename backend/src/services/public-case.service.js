@@ -30,6 +30,7 @@ const {
   pickPublicViewCover,
 } = require('./build-public-view.service')
 const { SPOT_CHECK_STATUS } = require('./gate-b-risk.service')
+const { hostPublicTitle } = require('../utils/host-public-title')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -459,9 +460,12 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     err.code = 'GEO_CONFIRM_REQUIRED'
     throw err
   }
+  const publicJobName = hostedGeoPublish
+    ? hostPublicTitle(album, hostMeta.geoLayer && hostMeta.geoLayer.summary)
+    : ''
   if (hostedGeoPublish && hostMeta.geoLayer) {
     merchantCaseDraft = {
-      title: pcRow?.title || album.serviceName || '维修案例',
+      title: publicJobName,
       caseSummary: hostMeta.geoLayer.summary || '',
       confirmedAt: hostMeta.geoLayer.confirmedAt,
       faq: hostMeta.geoLayer.faq || [],
@@ -514,12 +518,17 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     caseId,
     draft: {
       ...draft,
+      ...(publicJobName ? { serviceName: publicJobName } : {}),
       contentJson: {
         ...(draft.contentJson || {}),
         nodes: nodesWithMask,
       },
     },
-    albumView: { ...albumView, nodes: nodesWithMask },
+    albumView: {
+      ...albumView,
+      nodes: nodesWithMask,
+      ...(publicJobName ? { serviceName: publicJobName } : {}),
+    },
     coldStart: false,
     hasUserAuthorization: Boolean(options.hasUserAuthorization),
     serviceItemId: album.serviceItemId || '',

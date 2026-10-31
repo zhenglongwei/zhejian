@@ -1,5 +1,5 @@
 const { prisma } = require('../lib/prisma')
-const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { publicCaseH5Where } = require('../utils/public-case-visibility')
 const { computeTransparency } = require('./merchant-daily-stats.service')
 const { merchantHasPublicIndex } = require('./merchant-subscription.service')
 const { STORE_EXTRAS } = require('../constants/content-seed')
@@ -251,10 +251,10 @@ async function loadTransparency(store, merchantId, options = {}) {
   })
 
   const caseCount =
-    store.caseCount != null
-      ? store.caseCount
+    options.caseCount != null
+      ? Number(options.caseCount) || 0
       : await prisma.publicCase.count({
-          where: { storeId: store.id, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+          where: publicCaseH5Where({ storeId: store.id }),
         })
 
   const score = lastRow?.transparencyScore || extras.score || 0
@@ -393,7 +393,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
   }
 
   const casePreviewRows = await prisma.publicCase.findMany({
-    where: { storeId: storeRow.id, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    where: publicCaseH5Where({ storeId: storeRow.id }),
     orderBy: { publishedAt: 'desc' },
     take: 3,
     select: {
@@ -429,6 +429,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     casePreviews,
     capability,
     lastPublicCaseAt,
+    caseCount: mapped.caseCount,
   })
 
   const freshness = {

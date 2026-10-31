@@ -1073,7 +1073,7 @@ Page({
         findingKind: '',
       }
       const stage = (album.nodes || []).find((n) => n.id === stageId) || { images: [] }
-      const images = this.mapStageImages(stage)
+      let images = this.mapStageImages(stage)
       const findingMode = Boolean(meta.findingMode)
       const findingKind = meta.findingKind || (findingMode ? 'inspection' : '')
       let findings = []
@@ -1087,6 +1087,7 @@ Page({
           pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
           strictFindings,
         })
+        if (findingKind === 'work') images = this.flattenWorkSectionImages(findings)
       }
       return {
         stageId,
@@ -7388,6 +7389,15 @@ Page({
       const total =
         this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0) + piled
       if (total < 1) {
+        wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
+        return
+      }
+    } else if (kind === 'work') {
+      const shots = this.collectFindingsFromSections().reduce(
+        (n, row) => n + ((row && row.images && row.images.length) || 0),
+        0,
+      )
+      if (shots < 1) {
         wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
         return
       }

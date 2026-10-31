@@ -70,6 +70,14 @@ function testRejectThinAnswer() {
   assert.equal(filterPublishableFaq(pack.faq).length, 1, '丢掉极简答后仍可留一条叮嘱')
 }
 
+function testMerchantShortAnswerStaysPublic() {
+  const answer = '按 5000 公里或 1 年，以先到为准。'
+  assert.equal(isLowInfoFaqAnswer(answer), false)
+  const published = filterPublishableFaq([{ q: '机滤多久再换？', a: answer }])
+  assert.equal(published.length, 1)
+  assert.equal(published[0].a, answer)
+}
+
 function testScreenshotBodyShopAnswerIsPublishable() {
   const published = filterPublishableFaq([
     {
@@ -106,7 +114,7 @@ function testCollectHostedFaqPrefersStorefrontLayer() {
   assert.ok(picked[0].a.includes('钣金'))
 }
 
-/** 公开答案需 ≥30 字（MIN_PUBLISH_ANSWER_LEN），否则会被判为低质过滤掉 */
+/** 机器稿与人工稿都按生效稿覆盖，不因答句长短丢掉人工稿 */
 const MACHINE_FAQ = [
   {
     q: '机器生成的问法：这例做了什么？',
@@ -171,6 +179,7 @@ testMaintenanceBank()
 testChassisKeepsHighlightAndGap()
 testSkipGapWhenThemeCovered()
 testRejectThinAnswer()
+testMerchantShortAnswerStaysPublic()
 testScreenshotBodyShopAnswerIsPublishable()
 testMaterialGate()
 testCollectHostedFaqPrefersStorefrontLayer()

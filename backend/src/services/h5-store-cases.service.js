@@ -3,14 +3,12 @@ const {
   buildStoreCasesPagePath,
 } = require('../lib/h5-list-seo')
 const { getMerchantDetail, listCases } = require('./content.service')
+const { cityLabelFromStore } = require('../utils/address-city')
 
 const DEFAULT_PAGE_SIZE = 12
 
 function extractCityFromStore(store) {
-  if (store.city) return String(store.city)
-  const addr = store.address || ''
-  const m = String(addr).match(/([\u4e00-\u9fa5]{2,4}市)/)
-  return m ? m[1] : '杭州'
+  return cityLabelFromStore(store) || '杭州'
 }
 
 function mapCaseListItem(item) {

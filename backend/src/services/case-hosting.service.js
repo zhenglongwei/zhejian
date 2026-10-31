@@ -9,6 +9,7 @@ const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 const { publicCaseIdForAlbum } = require('../utils/public-case-id')
 const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
+const { hostPublicTitle } = require('../utils/host-public-title')
 
 function readHostMeta(album) {
   const pkg =
@@ -998,7 +999,7 @@ async function confirmHostedPublicPublish(
         storeName: album.storeName || '',
         serviceName: album.serviceName || '',
         city: album.city || '',
-        title: album.serviceName || '维修案例',
+        title: hostPublicTitle(album, overview),
         summary: overview,
         status: PUBLIC_CASE_STATUS.AUDIT_PASSED,
         contentJson: {
@@ -1012,7 +1013,7 @@ async function confirmHostedPublicPublish(
     await prisma.publicCase.update({
       where: { id: pc.id },
       data: {
-        title: album.serviceName || pc.title,
+        title: hostPublicTitle(album, overview),
         summary: overview,
         status: PUBLIC_CASE_STATUS.AUDIT_PASSED,
         contentJson: {
@@ -1028,7 +1029,7 @@ async function confirmHostedPublicPublish(
     await prisma.publicCase.update({
       where: { id: pc.id },
       data: {
-        title: album.serviceName || pc.title,
+        title: hostPublicTitle(album, overview),
         summary: overview,
         contentJson: {
           ...(pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}),

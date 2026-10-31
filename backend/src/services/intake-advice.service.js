@@ -239,7 +239,7 @@ async function runIntakeAdviceJob(albumId) {
       noteRows.forEach((row) => {
         const slot = Number(row && row.slot)
         const note = text(row && row.note)
-        const url = urls[slot - 1]
+        const url = maskedUrls[slot - 1]
         const key = String(url || '')
           .trim()
           .split('?')[0]
@@ -249,12 +249,12 @@ async function runIntakeAdviceJob(albumId) {
       const next = {
         ...item,
         content: { ...draft, imageNotes },
-        intakeAdvice: !urls.length || parsed
+        intakeAdvice: !maskedUrls.length || parsed
           ? {
               status: 'ready',
               scope: 'coverage',
               fingerprint,
-              noPhotos: !urls.length,
+              noPhotos: !maskedUrls.length,
               covered: parsed ? parsed.covered : false,
               diagnosis: '',
               photoTips: Array.isArray(parsed && parsed.tips) ? parsed.tips : [],
@@ -276,6 +276,17 @@ async function runIntakeAdviceJob(albumId) {
       }
       return next
     })
+  } catch (err) {
+    await patchIntakeNode(albumId, (item) => ({
+      ...item,
+      intakeAdvice: {
+        ...(item.intakeAdvice || {}),
+        status: 'failed',
+        errorMessage: '未能出意见',
+        updatedAt: new Date().toISOString(),
+      },
+    })).catch(() => {})
+    throw err
   } finally {
     jobsInFlight.delete(key)
   }

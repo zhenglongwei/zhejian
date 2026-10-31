@@ -1,4 +1,4 @@
-const { fetchMerchantProfile, fetchMerchantStores, MERCHANT_STATUS } = require('../../../../services/merchant')
+const { fetchMerchantProfile, fetchMerchantWorkbenchEntries, MERCHANT_STATUS } = require('../../../../services/merchant')
 const { fetchMerchantStats } = require('../../../../services/merchant-stats')
 const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
 const { isLoggedIn, isMerchantOwner } = require('../../../../utils/auth')
@@ -16,6 +16,7 @@ Page({
     capsulePad: 16,
     canManageStaff: false,
     canSwitchStore: false,
+    storeCount: 0,
     storeId: '',
     home: null,
   },
@@ -53,10 +54,12 @@ Page({
     }
     const canManageStaff = isMerchantOwner()
     let canSwitchStore = false
+    let storeCount = 0
     if (canManageStaff) {
       try {
-        const stores = await fetchMerchantStores()
-        canSwitchStore = (stores.list || []).length > 0
+        const entries = await fetchMerchantWorkbenchEntries()
+        storeCount = (entries.list || []).length
+        canSwitchStore = storeCount > 0
       } catch (e) {
         canSwitchStore = true
       }
@@ -73,16 +76,21 @@ Page({
       status: 'normal',
       canManageStaff,
       canSwitchStore,
+      storeCount,
       storeId: profile.storeId || '',
       home,
     })
   },
 
   onLogoMenu() {
+    const itemList =
+      this.data.storeCount > 1 ? ['切换门店', '切换为车主'] : ['切换为车主']
     wx.showActionSheet({
-      itemList: ['切换为车主'],
+      itemList,
       success: (res) => {
-        if (res.tapIndex === 0) this.onSwitchOwner()
+        const picked = itemList[res.tapIndex]
+        if (picked === '切换门店') this.onSwitchStore()
+        if (picked === '切换为车主') this.onSwitchOwner()
       },
       fail() {},
     })

@@ -207,21 +207,22 @@ function buildTransparencyDimensions(input = {}, options = {}) {
       const items = certifications.map((row) => ({
         name: row.label || '',
         text: row.text || '',
-        status: row.status || 'verified',
+        status: row.status || 'self_declared',
       }))
       const images = certWall
         .filter((row) => row.imageUrl)
         .map((row) => ({
           label: row.label || '',
           imageUrl: row.imageUrl,
-          status: row.status || 'verified',
+          status: row.status || 'self_declared',
         }))
-      const verified = items.length > 0 || images.length > 0
+      const present = items.length > 0 || images.length > 0
+      const platformVerified = [...items, ...images].some((row) => row.status === 'verified')
       return {
         id: def.id,
         label: def.label,
-        value: scorePart != null ? scorePart : verified ? def.maxScore : 0,
-        displayValue: verified ? '已核验' : '完善中',
+        value: scorePart != null ? scorePart : present ? def.maxScore : 0,
+        displayValue: !present ? '完善中' : platformVerified ? '已认证' : '已公示',
         unit: def.unit,
         scorePart: null,
         maxScore: def.maxScore,
@@ -232,7 +233,7 @@ function buildTransparencyDimensions(input = {}, options = {}) {
           anchor: '#store-trust',
           items,
           images,
-          available: verified,
+          available: present,
         },
       }
     }

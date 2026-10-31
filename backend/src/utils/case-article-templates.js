@@ -108,7 +108,7 @@ function buildAiSummary({
 }
 
 function defaultInspectResult() {
-  return '门店根据车辆实际情况进行了检查'
+  return '门店根据车辆实际情况进行了检查。'
 }
 
 function defaultRepairPlan(serviceName) {

@@ -160,14 +160,30 @@
     return false
   }
 
+  function normalizeCityLabel(city) {
+    var value = String(city || '').trim().replace(/\s+/g, '')
+    if (value.indexOf('省') === 0) return normalizeCityLabel(value.slice(1))
+    return value
+  }
+
+  function extractCityFromAddress(address) {
+    var raw = String(address || '').replace(/\s+/g, '')
+    if (!raw) return ''
+    if (raw.indexOf('省') === 0) return extractCityFromAddress(raw.slice(1))
+    var withProvince = raw.match(/([\u4e00-\u9fa5]{2,7})省([\u4e00-\u9fa5]{2,7}?)市/)
+    if (withProvince) return withProvince[2] + '市'
+    var withRegion = raw.match(/自治区([\u4e00-\u9fa5]{2,7}?)市/)
+    if (withRegion) return withRegion[1] + '市'
+    var head = raw.match(/^([\u4e00-\u9fa5]{2,7}?)市/)
+    if (head) return head[1] + '市'
+    return ''
+  }
+
   function extractCity(store) {
-    if (store.city) return String(store.city)
-    var addr = store.address || ''
-    var m = String(addr).match(/([\u4e00-\u9fa5]{2,4}市)/)
-    if (m) return m[1]
-    var intro = store.aiSummary || store.intro || ''
-    var m2 = String(intro).match(/([\u4e00-\u9fa5]{2,4}市)/)
-    return m2 ? m2[1] : ''
+    if (store.city) return normalizeCityLabel(store.city)
+    var fromAddress = extractCityFromAddress(store.address || '')
+    if (fromAddress) return fromAddress
+    return extractCityFromAddress(store.aiSummary || store.intro || '')
   }
 
   function buildStoreHeadTags(store) {
@@ -287,15 +303,19 @@
 
   function buildPageTitle(store) {
     var city = extractCity(store)
-    var specialty = (store.specialties && store.specialties[0]) || '汽车维修保养'
+    var specialty = (store.specialties && store.specialties[0]) || ''
     var cityPart = city ? city.replace(/市$/, '') : ''
-    return store.name + '_' + cityPart + specialty + '汽车维修保养门店 · 辙见'
+    var tail = '汽车维修保养门店'
+    if (specialty && specialty.indexOf('汽车维修保养') < 0) tail = specialty + tail
+    return store.name + '_' + cityPart + tail + ' · 辙见'
   }
 
   function buildPageDescription(store) {
     var city = extractCity(store)
     var region = store.address || ''
     var services = (store.specialties || []).slice(0, 4).join('、') || '汽车维修保养'
+    var serviceBit =
+      services.indexOf('汽车维修保养') >= 0 ? services : services + '等汽车维修保养'
     var caseHint =
       store.caseCount > 0 ? '可查看公开维修档案。' : '可查看门店资料。'
     return (
@@ -303,8 +323,8 @@
       '位于' +
       (city || region || '') +
       '，提供' +
-      services +
-      '等汽车维修保养服务，' +
+      serviceBit +
+      '服务，' +
       caseHint
     )
   }

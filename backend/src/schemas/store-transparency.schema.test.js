@@ -40,7 +40,16 @@ function run() {
   assert.strictEqual(cases.evidence.preview[0].title, '杭州保养案例')
 
   const qual = dimensions.find((item) => item.id === 'qualification')
-  assert.strictEqual(qual.displayValue, '已核验')
+  assert.strictEqual(qual.displayValue, '已认证')
+  const selfDeclared = buildTransparencyDimensions({
+    storeId: 'store_demo_1',
+    caseCount: 1,
+    certifications: [{ label: '二类机动车维修', text: '门店自行公示', status: 'self_declared' }],
+  })
+  assert.strictEqual(
+    selfDeclared.find((item) => item.id === 'qualification').displayValue,
+    '已公示'
+  )
   assert.strictEqual(qual.evidence.anchor, '#store-trust')
   assert.ok(qual.evidence.items.length > 0)
 

@@ -303,6 +303,9 @@ function validateBasicOnboardingPayload(payload) {
   }
 
   const photos = sanitizePhotoPayload(payload.photos)
+  // 新开通默认不上网站。旧店没存过开关的，仍由读侧按原展示处理。
+  photos.publishLicense = false
+  photos.publishQualification = false
 
   return {
     ...payload,

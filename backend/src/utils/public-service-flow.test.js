@@ -266,3 +266,70 @@ test('施工中新发现使用产品名', () => {
   assert.equal(flow.chapters[0].title, '施工中新发现')
   assert.equal(flow.chapters[0].items[0].amount, undefined)
 })
+
+test('公开页去掉未填占位，质保说明为「无」时不展示', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            workItems: [
+              {
+                name: '更换机油机滤',
+                note: '已更换全新[品牌]机油（规格：[粘度]）及原厂机滤',
+              },
+            ],
+            warrantyPeriod: '2年',
+            warrantyNotes: '无',
+          },
+        },
+      },
+    ],
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.equal(done.items[0].note, '已更换全新机油及原厂机滤')
+  assert.equal(done.warrantyPeriod, '2年')
+  assert.equal(done.warrantyNotes, '')
+})
+
+test('工单说明去掉方括号占位，检测建议不重复部位名', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'b',
+        kind: 'inspection_report',
+        sortOrder: 1,
+        document: {
+          status: 'delivered',
+          payload: {
+            findings: [{ partName: '滤芯', advice: '滤芯空气滤芯滤纸表面积尘较多' }],
+          },
+        },
+      },
+      {
+        id: 'e',
+        kind: 'work',
+        sortOrder: 3,
+        photoDraft: {
+          findings: [
+            {
+              partName: '更换机油机滤',
+              caption: '已更换全新[品牌]机油（规格：[粘度]）及原厂机滤',
+              images: [{ url: WORK }],
+            },
+          ],
+        },
+      },
+    ],
+    contentNodes: [{ images: [WORK] }],
+  })
+  const inspect = flow.chapters.find((c) => c.kind === 'inspection_report')
+  assert.equal(inspect.findings[0].advice, '空气滤芯滤纸表面积尘较多')
+  const work = flow.chapters.find((c) => c.kind === 'work')
+  assert.equal(work.items[0].note, '已更换全新机油及原厂机滤')
+  assert.equal(work.photos[0].caption, '更换机油机滤 · 已更换全新机油及原厂机滤')
+})

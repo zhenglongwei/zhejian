@@ -222,14 +222,30 @@
     }
   }
 
+  function normalizeCityLabel(city) {
+    var value = String(city || '').trim().replace(/\s+/g, '')
+    if (value.indexOf('省') === 0) return normalizeCityLabel(value.slice(1))
+    return value
+  }
+
+  function extractCityFromAddress(address) {
+    var raw = String(address || '').replace(/\s+/g, '')
+    if (!raw) return ''
+    if (raw.indexOf('省') === 0) return extractCityFromAddress(raw.slice(1))
+    var withProvince = raw.match(/([\u4e00-\u9fa5]{2,7})省([\u4e00-\u9fa5]{2,7}?)市/)
+    if (withProvince) return withProvince[2] + '市'
+    var withRegion = raw.match(/自治区([\u4e00-\u9fa5]{2,7}?)市/)
+    if (withRegion) return withRegion[1] + '市'
+    var head = raw.match(/^([\u4e00-\u9fa5]{2,7}?)市/)
+    if (head) return head[1] + '市'
+    return ''
+  }
+
   function extractCity(store, service) {
-    if (store && store.city) return String(store.city)
-    var addr = (store && store.address) || ''
-    var m = String(addr).match(/([\u4e00-\u9fa5]{2,4}市)/)
-    if (m) return m[1]
-    var intro = (store && (store.aiSummary || store.intro)) || service.summary || ''
-    var m2 = String(intro).match(/([\u4e00-\u9fa5]{2,4}市)/)
-    return m2 ? m2[1] : ''
+    if (store && store.city) return normalizeCityLabel(store.city)
+    var fromAddress = extractCityFromAddress((store && store.address) || '')
+    if (fromAddress) return fromAddress
+    return extractCityFromAddress((store && (store.aiSummary || store.intro)) || (service && service.summary) || '')
   }
 
   function buildHeadTags(service) {

@@ -51,8 +51,13 @@ function paramStoreId(params) {
   return String(params.storeId || params.store_id || '').trim()
 }
 
+function isNodeFinished(node) {
+  const status = String((node && node.status) || '')
+  return status === 'done' || status === 'completed'
+}
+
 function isAlbumCoreComplete(nodes) {
-  const done = (nodes || []).filter((n) => n.status === 'done').length
+  const done = (nodes || []).filter((n) => isNodeFinished(n)).length
   return done >= CORE_NODE_DONE_MIN
 }
 
@@ -165,16 +170,56 @@ async function snapshotAlbumCompleteRate(storeId, merchantId) {
   return complete / doneAlbums.length
 }
 
-async function computeTransparency(merchantId, storeId, statDate, albumCompleteRate) {
+async function snapshotAlbumCompleteRateForStores(merchantId, storeIds) {
+  if (!merchantId || !storeIds.length) return null
+  const albums = await prisma.album.findMany({
+    where: { merchantId, storeId: { in: storeIds } },
+    include: { nodes: true },
+  })
+  const doneAlbums = albums.filter((a) => isServiceAlbumRepairDone(a.status))
+  if (!doneAlbums.length) return null
+  const complete = doneAlbums.filter((a) => isAlbumCoreComplete(a.nodes)).length
+  return complete / doneAlbums.length
+}
+
+async function countAlbumPeriodMetrics(merchantId, storeIds, from, to) {
+  if (!merchantId || !storeIds.length || !from || !to) {
+    return { albumCreatedCount: 0, albumCompletedCount: 0 }
+  }
+  const { start } = shanghaiDayBounds(from)
+  const { end } = shanghaiDayBounds(to)
+  const base = { merchantId, storeId: { in: storeIds } }
+  const [albumCreatedCount, albumCompletedCount] = await Promise.all([
+    prisma.album.count({
+      where: { ...base, createdAt: { gte: start, lte: end } },
+    }),
+    prisma.album.count({
+      where: {
+        ...base,
+        completedAt: { gte: start, lte: end },
+        status: { in: ['completed', 'pending_authorization', 'pending_review', 'published'] },
+      },
+    }),
+  ])
+  return { albumCreatedCount, albumCompletedCount }
+}
+
+async function computeTransparency(merchantId, storeId, statDate, albumCompleteRate, storeIds) {
+  const ids = Array.isArray(storeIds) && storeIds.length ? storeIds : [storeId].filter(Boolean)
+  const storeWhere = ids.length === 1 ? ids[0] : { in: ids }
   const weekFrom = shanghaiDayBounds(addDays(statDate, -6)).start
   const { end } = shanghaiDayBounds(statDate)
 
   const [publicCaseCount, plans, merchant, weekSubmit, weekContacted] = await Promise.all([
     prisma.publicCase.count({
-      where: { storeId, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+      where: {
+        storeId: storeWhere,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        storefrontHidden: false,
+      },
     }),
     prisma.merchantServicePlan.findMany({
-      where: { merchantId, storeId },
+      where: { merchantId, storeId: storeWhere },
       select: {
         saleStatus: true,
         name: true,
@@ -194,13 +239,13 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
       },
     }),
     prisma.consultLead.count({
-      where: { storeId, createdAt: { gte: weekFrom, lte: end } },
+      where: { storeId: storeWhere, createdAt: { gte: weekFrom, lte: end } },
     }),
     prisma.leadStatusLog.count({
       where: {
         createdAt: { gte: weekFrom, lte: end },
         toStatus: LEAD_STATUS.CONTACTED,
-        lead: { storeId },
+        lead: { storeId: storeWhere },
       },
     }),
   ])
@@ -546,6 +591,9 @@ async function fetchMerchantStats(auth, query = {}) {
   })
 
   const summary = sumRows(rows)
+  const albumPeriod = await countAlbumPeriodMetrics(merchantId, storeIds, range.from, range.to)
+  summary.albumCreatedCount = albumPeriod.albumCreatedCount
+  summary.albumCompletedCount = albumPeriod.albumCompletedCount
   const dateKeys = listDateStrings(range.from, range.to)
   const byDate = Object.fromEntries(
     dateKeys.map((d) => [
@@ -594,19 +642,14 @@ async function fetchMerchantStats(auth, query = {}) {
   })
   const lastAggregatedDate = lastRow ? formatStatDate(lastRow) : ''
 
-  let transparency = { score: 0, asOfDate: '', breakdown: null }
-  if (lastRow) {
-    const { breakdown } = await computeTransparency(
-      merchantId,
-      storeIds.length === 1 ? storeIds[0] : storeIds[0],
-      formatStatDate(lastRow),
-      lastRow.albumCompleteRate
-    )
-    transparency = {
-      score: lastRow.transparencyScore,
-      asOfDate: formatStatDate(lastRow),
-      breakdown,
-    }
+  const liveRate = await snapshotAlbumCompleteRateForStores(merchantId, storeIds)
+  const live = storeIds.length
+    ? await computeTransparency(merchantId, storeIds[0], range.to, liveRate, storeIds)
+    : { transparencyScore: 0, breakdown: null }
+  const transparency = {
+    score: live.transparencyScore || 0,
+    asOfDate: range.to,
+    breakdown: live.breakdown || null,
   }
 
   const insights = await fetchStatsInsights(merchantId, storeIds, range, {
@@ -637,4 +680,5 @@ module.exports = {
   fetchMerchantStats,
   snapshotAlbumCompleteRate,
   computeTransparency,
+  isAlbumCoreComplete,
 }

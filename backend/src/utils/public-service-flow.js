@@ -20,6 +20,23 @@ function text(value) {
   return String(value || '').trim()
 }
 
+/** 公开页不展示未填的方括号占位，也不把「无」当成质保说明。 */
+function cleanPublicNote(value) {
+  let v = text(value)
+  if (!v) return ''
+  v = v.replace(/\[(?:品牌|粘度|规格|型号|配件|材料)\]/g, '')
+  v = v.replace(/[（(]\s*规格\s*[:：]\s*[）)]/g, '')
+  v = v.replace(/\s{2,}/g, ' ')
+  return v.trim()
+}
+
+function publicWarrantyNotes(payload) {
+  const raw = text(payload.warrantyNotes || payload.warrantyScope)
+  const bare = raw.replace(/[。．.]$/, '')
+  if (!bare || bare === '无' || bare === '暂无' || bare === '没有' || bare === '无备注') return ''
+  return raw
+}
+
 function urlKey(url) {
   return text(url).split('?')[0]
 }
@@ -164,7 +181,7 @@ function stripLine(row, lookup) {
   if (!row || typeof row !== 'object') return null
   const name = text(row.name || row.partName)
   const brand = text(row.brand)
-  const note = text(row.note || row.advice)
+  const note = cleanPublicNote(row.note || row.advice)
   let evidenceUrl = ''
   if (text(row.evidenceMaskedUrl)) {
     evidenceUrl =
@@ -181,7 +198,11 @@ function mapFinding(row, lookup) {
   if (!row || typeof row !== 'object') return null
   const url = resolvePhotoDisplayUrl(row, lookup)
   const partName = text(row.partName)
-  const advice = text(row.advice || row.caption)
+  let advice = cleanPublicNote(row.advice || row.caption)
+  if (partName && advice.startsWith(partName)) {
+    const rest = advice.slice(partName.length).replace(/^[：:·\s]+/, '')
+    if (rest) advice = rest
+  }
   if (!url && !partName && !advice) return null
   return { url, partName, advice }
 }
@@ -200,7 +221,7 @@ function collectWorkPhotos(node, lookup) {
       // 仅存量一图一项；禁止因顶层 maskedUrl 把整项（可能串了别的码）再推一次
       slots.push(item)
     }
-    const caption = [text(item.partName), text(item.caption || item.note || item.advice)]
+    const caption = [text(item.partName), cleanPublicNote(item.caption || item.note || item.advice)]
       .filter(Boolean)
       .join(' · ')
     slots.forEach((slot) => {
@@ -238,7 +259,7 @@ function photosFromPublicNodes(contentNodes, titleHints) {
       const pub = resolvePublicCaseMediaUrl(u) || resolveStoreProcessedPublicUrl(u) || ''
       if (!pub || seen.has(pub)) return
       seen.add(pub)
-      photos.push({ url: pub, caption: text(node.note) })
+      photos.push({ url: pub, caption: cleanPublicNote(node.note) })
     })
   })
   return photos
@@ -252,7 +273,7 @@ function collectWorkSheetPublicItems(node) {
   return rows
     .map((row) => {
       const name = text(row && row.partName)
-      const note = [text(row && row.material), text(row && row.brand), text(row && row.qty), text(row && row.caption)]
+      const note = [text(row && row.material), text(row && row.brand), text(row && row.qty), cleanPublicNote(row && row.caption)]
         .filter(Boolean)
         .join(' · ')
       if (!name && !note) return null
@@ -273,7 +294,7 @@ function collectDeliveryPhotos(payload, lookup) {
     if (!pub) return
     if (rawKey) seenRaw.add(rawKey)
     else if (photos.some((p) => p.url === pub)) return
-    const caption = text(typeof item === 'object' && item ? item.caption || item.note : '')
+    const caption = cleanPublicNote(typeof item === 'object' && item ? item.caption || item.note : '')
     photos.push({ url: pub, caption })
   })
   return photos
@@ -342,7 +363,7 @@ function mapDocumentChapter(node, lookup) {
       items: itemsSource.map((row) => stripLine(row, lookup)).filter(Boolean),
       photos: collectDeliveryPhotos(payload, lookup),
       warrantyPeriod: text(payload.warrantyPeriod),
-      warrantyNotes: text(payload.warrantyNotes || payload.warrantyScope),
+      warrantyNotes: publicWarrantyNotes(payload),
     }
   }
   return null

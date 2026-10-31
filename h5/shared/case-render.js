@@ -160,7 +160,7 @@
     }
     var city = data.city || ''
     var vehicle = vehicleLabel(data)
-    var service = data.serviceName || '维修服务'
+    var service = displayJobName(data)
     var store = shouldShowStorePublicly(data) ? data.storeName || '' : ''
     if (data.attribution && !data.attribution.showStoreAsAuthor && data.attribution.factHeadline) {
       return String(data.attribution.factHeadline) + ' · 辙见'
@@ -175,7 +175,7 @@
     var city = data.city || ''
     var store = shouldShowStorePublicly(data) ? data.storeName || '服务门店' : '服务门店'
     var vehicle = vehicleLabel(data) || '车辆'
-    var service = data.serviceName || '维修服务'
+    var service = displayJobName(data)
     return (
       '本案例展示' +
       city +
@@ -550,9 +550,17 @@
     )
   }
 
+  function displayJobName(data) {
+    var service = String((data && data.serviceName) || '').trim()
+    var title = String((data && data.title) || '').trim()
+    if (service && service !== '服务留档') return service
+    if (title && title !== '服务留档') return title
+    return service || title || '维修案例'
+  }
+
   function archiveFactTitle(data) {
     var vehicle = String((data && data.vehicleText) || '').trim()
-    var service = String((data && data.serviceName) || '').trim()
+    var service = displayJobName(data)
     if (vehicle && service) return vehicle + ' · ' + service
     if (data && data.attribution && data.attribution.factHeadline) {
       return String(data.attribution.factHeadline)
@@ -571,7 +579,8 @@
     var heading = owner ? owner + ' / ' + fact : fact
     var facts = []
     if (data.vehicleText) facts.push(String(data.vehicleText).trim())
-    if (data.serviceName) facts.push(String(data.serviceName).trim())
+    var jobName = displayJobName(data)
+    if (jobName && jobName !== '维修案例') facts.push(jobName)
     if (data.city) facts.push(data.city)
     if (owner) facts.push(owner)
     if (data.publishedAt) facts.push(String(data.publishedAt).slice(0, 10))
@@ -714,12 +723,14 @@
           }
           body += renderFlowItems(ch.items)
           body += renderFlowPhotos(ch.photos)
-          if (ch.warrantyPeriod || ch.warrantyNotes) {
+          var warrantyBits = [ch.warrantyPeriod, ch.warrantyNotes].filter(function (bit) {
+            var bare = String(bit || '').trim().replace(/[。．.]$/, '')
+            return bare && bare !== '无' && bare !== '暂无' && bare !== '没有' && bare !== '无备注'
+          })
+          if (warrantyBits.length) {
             body +=
               '<p class="h5-flow-item-note">质保：' +
-              escapeHtml(
-                [ch.warrantyPeriod, ch.warrantyNotes].filter(Boolean).join(' · ')
-              ) +
+              escapeHtml(warrantyBits.join(' · ')) +
               '</p>'
           }
           return (
@@ -2032,10 +2043,13 @@
 
     var breadcrumbItems = [{ label: '辙见', href: '/' }, { label: '公开案例', href: '/case/' }]
     if (safeData.internalLinks && safeData.internalLinks.service) {
-      breadcrumbItems.push({
-        label: safeData.internalLinks.service.name,
-        href: safeData.internalLinks.service.path,
-      })
+      var serviceCrumb = safeData.internalLinks.service.name || ''
+      if (serviceCrumb && serviceCrumb !== (safeData.title || '')) {
+        breadcrumbItems.push({
+          label: serviceCrumb,
+          href: safeData.internalLinks.service.path,
+        })
+      }
     }
     breadcrumbItems.push({ label: safeData.title || '公开案例' })
 

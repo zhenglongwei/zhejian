@@ -37,6 +37,7 @@ const {
   filterPublicEnvironmentImages,
   isPlaceholderStoreName,
 } = require('../utils/store-public-display')
+const { cityLabelFromStore } = require('../utils/address-city')
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const {
   resolvePublicCaseContentNodes,
@@ -314,7 +315,13 @@ function mapPublicCaseRow(row, album, options = {}) {
   layered.mileageKm = resolveCaseMileageKm(layered)
   layered.confirmedCaseDraft = buildConfirmedCaseDraftView(rawContent, row)
   if (layered.confirmedCaseDraft && layered.confirmedCaseDraft.title) {
-    layered.title = layered.confirmedCaseDraft.title
+    const draftTitle = String(layered.confirmedCaseDraft.title || '').trim()
+    const publishedTitle = String(layered.title || '').trim()
+    const draftIsPlaceholder = !draftTitle || draftTitle === '服务留档'
+    const publishedIsReal = publishedTitle && publishedTitle !== '服务留档'
+    if (!(draftIsPlaceholder && publishedIsReal)) {
+      layered.title = draftTitle
+    }
   }
   const hostMeta = readHostMeta(album) || readHostMeta(rawContent)
   layered.faq = collectHostedCaseFaq({
@@ -622,12 +629,6 @@ async function getCaseDetail(idOrSlug, opts = {}) {
   })
 }
 
-function extractCityFromAddress(address) {
-  const raw = String(address || '')
-  const withCity = raw.match(/([\u4e00-\u9fa5]{2,3}市)/)
-  if (withCity) return withCity[1]
-  return ''
-}
 
 function isDemoStoreRecord(store) {
   const id = String(store && store.id ? store.id : '')
@@ -705,7 +706,7 @@ function mapStoreRow(store, caseCount = 0) {
     status: businessStatus,
     businessStatus,
     auditStatus: extras.auditStatus || 'approved',
-    city: extras.city || extractCityFromAddress(store.address),
+    city: cityLabelFromStore({ city: extras.city, address: store.address }),
     isDemo: isDemoStoreRecord(store),
     address: store.address || '',
     latitude,

@@ -17,6 +17,19 @@ const {
   shouldKeepExistingGeoDraft,
 } = require('../../../../utils/host-wizard-step')
 
+/** 答句偏短只在确认公开时提醒，不拦截。与后台 SHORT_FAQ_REMIND_LEN 一致。 */
+const SHORT_FAQ_REMIND_LEN = 30
+
+function shortFaqLabels(faq) {
+  return (Array.isArray(faq) ? faq : [])
+    .map((row) => ({
+      q: String((row && row.q) || '').trim(),
+      a: String((row && row.a) || '').trim(),
+    }))
+    .filter((row) => row.a && row.a.length < SHORT_FAQ_REMIND_LEN)
+    .map((row) => row.q)
+}
+
 function stripUrlQuery(url) {
   return String(url || '').trim().split('?')[0].split('#')[0]
 }
@@ -853,7 +866,25 @@ Page({
       wx.showToast({ title: '请填写店页摘要', icon: 'none' })
       return
     }
-    this.setData({ showPrivacyAgreement: true })
+    const short = shortFaqLabels(this.data.geoFaq)
+    if (!short.length) {
+      this.setData({ showPrivacyAgreement: true })
+      return
+    }
+    const named = short.find(Boolean)
+    const content =
+      short.length === 1 && named
+        ? `「${named.slice(0, 18)}」的回答比较短。`
+        : '有回答比较短。'
+    wx.showModal({
+      title: '回答较短',
+      content,
+      confirmText: '仍要公开',
+      cancelText: '回去改',
+      success: (res) => {
+        if (res.confirm) this.setData({ showPrivacyAgreement: true })
+      },
+    })
   },
 
   onDismissPrivacyAgreement() {

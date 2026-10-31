@@ -62,7 +62,7 @@ function stripBoilerplateSummary(text) {
     .replace(/^.+?维修案例。/u, '')
     .replace(/车辆主要问题为用户反馈的相关问题。?/gu, '')
     .replace(/车辆主要问题为相关故障或养护需求。?/gu, '')
-    .replace(/门店根据车辆实际情况进行了检查，?/gu, '')
+    .replace(/门店根据车辆实际情况进行了检查[，。]?/gu, '')
     .replace(/门店根据检测结果，?/gu, '')
     .replace(/根据检测结果，门店完成了.+?的处理。?/gu, '')
     .replace(/图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。?/gu, '')
