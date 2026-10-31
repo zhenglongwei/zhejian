@@ -181,7 +181,7 @@ test('同一项目名的图收成一组，字面不同的名称不合并', () =>
   assert.deepEqual(names, ['划痕', '划痕检测'])
 })
 
-test('只有一组时不出拆分，诊断和顺序仍在', () => {
+test('只有一组时仍展示拆分建议，但不能应用', () => {
   const got = parseInspectionAdvice(
     {
       故障诊断: '三张都是左后门划痕。',
@@ -200,7 +200,35 @@ test('只有一组时不出拆分，诊断和顺序仍在', () => {
   )
   assert.match(got.faultAnalysis, /划痕/)
   assert.equal(got.inspectOrder.length, 1)
-  assert.equal(got.edits.length, 0)
+  assert.equal(got.edits.length, 1)
+  assert.equal(got.edits[0].canApply, false)
+  assert.equal(got.edits[0].groups.length, 1)
+  assert.equal(got.edits[0].groups[0].partName, '划痕检测')
+})
+
+test('故障分析键可读，检测顺序为空则不保留', () => {
+  const got = parseInspectionAdvice(
+    {
+      故障分析: '1. 漆面损伤。\n2. 底盘锈蚀。',
+      检测顺序: [],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1'], 描述: '漆面划痕。' },
+        { 检测项目: '底盘检测', 图片: ['图2'], 描述: '底盘锈迹。' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    [],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+    ],
+  )
+  assert.match(got.faultAnalysis, /漆面损伤/)
+  assert.match(got.faultAnalysis, /\n/)
+  assert.equal(got.inspectOrder.length, 0)
+  assert.equal(got.edits.length, 1)
+  assert.equal(got.edits[0].canApply, true)
+  assert.equal(got.edits[0].groups.length, 2)
 })
 
 test('图注和空壳不能变成拆分建议', () => {
@@ -395,10 +423,15 @@ test('跨条的图不并成一条拆分', () => {
     ],
   )
   const onA = got.edits.find((row) => row.findingId === 'fid_a')
+  const onB = got.edits.find((row) => row.findingId === 'fid_b')
   assert.ok(onA)
   assert.equal(onA.groups.length, 2)
   assert.equal(onA.groups[0].images.length, 1)
-  assert.equal(got.edits.some((row) => row.findingId === 'fid_b'), false)
+  assert.equal(onA.groups.some((g) => g.images.some((img) => String(img.url).includes('b1'))), false)
+  assert.ok(onB)
+  assert.equal(onB.canApply, false)
+  assert.equal(onB.groups.length, 1)
+  assert.equal(onB.groups[0].images[0].url, 'https://cdn/b1.jpg')
 })
 
 test('故障诊断按看见的问题分行，换行保留', () => {

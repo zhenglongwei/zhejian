@@ -6206,6 +6206,7 @@ Page({
       const current = byId.get(findingId)
       const groups = Array.isArray(row.groups) ? row.groups : []
       const wantSplit = groups.length >= 2
+      const showGroups = groups.length >= 1
       const partName = String((row && row.partName) || '').trim()
       const advice = String((row && row.advice) || '').trim()
       const curName = String((current && current.partName) || '').trim()
@@ -6230,6 +6231,10 @@ Page({
         // 原项还在 → 可应用；仅点过应用或列表已能对上拆后子项 → 已应用（findingId 对不上不得冒充已应用）
         canApply = stillThere && !markedApplied
         applied = markedApplied || (!stillThere && splitChildrenPresent)
+      } else if (showGroups) {
+        // 一组只展示检测项目和描述，不改检测项
+        canApply = false
+        applied = false
       } else {
         canApply = Boolean(stillThere && (nextName || nextAdvice))
         applied = Boolean(
@@ -6237,8 +6242,8 @@ Page({
             (stillThere && (partName || advice) && !canApply && (!partName || curName) && (!advice || curAdvice)),
         )
       }
-      if (!canApply && !applied && !wantSplit) return
-      const shownGroups = wantSplit
+      if (!canApply && !applied && !showGroups) return
+      const shownGroups = showGroups
         ? groups.map((g, gi) => {
             const partNameG = String((g && g.partName) || '').trim()
             const adviceG = String((g && (g.advice || g.note)) || '').trim()
@@ -6265,7 +6270,7 @@ Page({
         partName: nextName,
         advice: nextAdvice,
         groups: shownGroups,
-        hasGroups: shownGroups.length >= 2,
+        hasGroups: shownGroups.length >= 1,
       })
     })
 

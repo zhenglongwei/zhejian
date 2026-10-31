@@ -380,9 +380,9 @@ function normalizeInspectOrder(raw) {
   const push = (value) => {
     let s = ''
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      s = zhOnly(value.text || value.body || value.title || value.step || value.item || value.name, 80)
+      s = zhOnly(value.text || value.body || value.title || value.step || value.item || value.name, 160)
     } else {
-      s = zhOnly(value, 80)
+      s = zhOnly(value, 160)
     }
     s = s.replace(/^\d+[.、．)\]）]\s*/, '').trim()
     if (s && !isIntakeCoverageEcho(s) && !rows.includes(s)) rows.push(s)
@@ -396,7 +396,7 @@ function normalizeInspectOrder(raw) {
       .filter(Boolean)
       .forEach(push)
   }
-  return rows.slice(0, 6)
+  return rows.slice(0, 8)
 }
 
 function collectGroupSlotNumbers(g) {
@@ -475,7 +475,7 @@ function rawInspectSplitRows(parsed) {
 /**
  * 按模型写出的检测项目原样归到「这些图已经所在的那一条」。
  * 同一条里名称完全相同才收成一组；名称不同不猜成同一项。跨条的图不并进同一条。
- * 同一条里不足两组，不产出拆分建议。
+ * 一组也展示；同一条里至少两组才允许应用。
  */
 function organizeInspectSplits(rawGroups, photoSlots) {
   const slots = Array.isArray(photoSlots) ? photoSlots : []
@@ -530,7 +530,7 @@ function organizeInspectSplits(rawGroups, photoSlots) {
           imageLabel: imageSlots.map((n) => `图${n}`).join('、'),
         }
       })
-    if (groups.length < 2) return
+    if (!groups.length) return
     const names = groups.map((row) => row.partName).filter(Boolean)
     edits.push({
       id: `edit_item_${findingId}`,
@@ -538,9 +538,12 @@ function organizeInspectSplits(rawGroups, photoSlots) {
       findingId,
       partName: '',
       advice: '',
-      body: `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`,
+      body:
+        groups.length >= 2
+          ? `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`
+          : groups[0].advice || groups[0].partName,
       groups,
-      canApply: true,
+      canApply: groups.length >= 2,
     })
   })
   return edits
@@ -568,7 +571,7 @@ function parseInspectionAdvice(raw, _items, _photoUrls, photoSlots) {
       : parsed['故障分析'] != null
         ? parsed['故障分析']
         : parsed.faultAnalysis
-  const faultRaw = zhInspectProse(faultSource, 400)
+  const faultRaw = zhInspectProse(faultSource, 800)
   const faultAnalysis = isIntakeCoverageEcho(faultRaw) ? '' : faultRaw
   const orderSource = parsed['检测顺序'] != null ? parsed['检测顺序'] : parsed.inspectOrder
   const inspectOrder = normalizeInspectOrder(orderSource)
@@ -1036,39 +1039,42 @@ function inspectionInstruction(ctx, options = {}) {
     : '- 本次没有检测图'
   const material = {
     客户诉求: payload.complaint || '',
-    接车要点: payload.intakeContext || '',
-    已有检测项: (Array.isArray(payload.items) ? payload.items : []).map((row) => ({
-      条目: row && row.id,
-      名称: (row && row.name) || '',
-      已写说明: (row && row.note) || '',
-    })),
   }
   return [
-    '你是修理厂店员的助手，正在整理检测这一步的意见。',
-    '按下面的顺序思考，只返回一个 JSON。不要把思考过程、每张图的草稿写进返回。',
+    '你是修理厂的检测顾问，帮店员整理检测这一步的意见。',
+    '按下面五步思考，只返回一个 JSON。第2步到第4步不要单独交出来。',
     '',
-    '1. 根据接车时的客户诉求，先写故障诊断和检测顺序。',
-    '检测顺序只写先查什么、再查什么。部件上要注意的，写进这些句子里，不要再单开一块。',
-    '2. 再逐张看图。每张图紧前面标着「图1」「图2」。只根据这一张判断它拍了什么，不要用前面那张图的内容去写后面的图。图上没有的损伤不要编。',
-    '客户诉求和检测顺序只作背景。不要把检测顺序里的句子原样抄成检测项目名称。',
-    '3. 结合照片内容和真实汽修场景，判断每张图在做哪一项检测。名称用店里会开的检测项目，例如划痕检测、底盘检修、制动盘检查。',
-    '拍的是同一处、同一项的，用同一个名称。车门漆面、底盘、制动盘是不同的项目，不能写成同一项。',
-    '4. 只在下面列出的、同一条里的照片之间归并或拆开。语义上属于同一项的图收成一组，返回时这一项只留一个名称。',
-    '例如两张都是划痕，归到划痕检测；一张是底盘，单独成底盘检修；一张是制动盘，单独成制动盘检查。',
-    '已经分在不同条里的照片不要并到一起。这一条里的照片如果其实是同一个项目，拆分建议用空数组。',
-    '5. 每一组用一段描述写完：这组图上看见什么，建议接着核什么。图上能看出放着会怎样时再写，看不出来就不要编。',
-    '不要使用「需处理」「需关注」「状态良好」。',
+    '1. 故障分析只根据接车时的客户诉求，不要看这次上传的检测照片。',
+    '从专业汽修的角度，把这个症状所有可能的原因列出来，按可能性从高到低排。',
+    '每种可能占一段，用1、2、3、4分行。故障分析就写这份完整清单。',
+    '同时在心里留一份同样顺序的检查清单，留给第5步删减，先不要写进返回。',
     '',
-    '故障诊断按实际看见的不同问题分行，一行一个问题，不要合成一段只讲第一张图。',
+    '2. 再单独看照片。按图1、图2的顺序，每张图独立看，前面的图不影响后面的图。',
+    '只记录这张图里实际有的内容。图里没有的损伤不要编。这一步不要参考客户诉求。',
+    '',
+    '3. 只根据这一张图的内容，判断它对应哪个检测项目。',
+    '漆面和划痕归到划痕检测，底盘照片归到底盘检测，制动盘归到制动盘检查。',
+    '不要用客户诉求或第1步的句子给照片起名。',
+    '',
+    '4. 把同一条里、语义上属于同一检测项目的照片分成一组。',
+    '结合这一组全部照片，用一段话说清：说明了什么问题，要不要马上处理，不处理会怎样。',
+    '图里看不出后果就不要编。不要使用「需处理」「需关注」「状态良好」。',
+    '已经分在不同条里的照片不要并到一起。',
+    '',
+    '5. 用第4步得到的检测项目，对照第1步那份检查清单。',
+    '已经有照片覆盖的项目，从清单里去掉。剩下的才写入返回的检测顺序，仍然一段一项。',
+    '如果照片已经把第1步的可能都覆盖了，检测顺序用空数组。',
+    '',
     '不要复述接车时车身四周有没有拍全。',
+    '参考材料只给第1步用。给照片归类时不要用它。',
     '',
     '同一条里的照片：',
     pileText,
     '',
     `参考材料：${JSON.stringify(material)}`,
     '',
-    '只返回 JSON，不要其它文字。名称和分组必须按这次的照片来写，不要照抄下面示例里的项目：',
-    '{"故障诊断":"1. 左后门下沿漆面大面积剥落露底。\\n2. 底盘悬挂与排气管有锈迹。\\n3. 制动盘盘面有磨损。","检测顺序":["先查漆面是否露底","再查底盘与悬挂","再看制动盘"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"两张都是车门下沿漆面剥落，建议核对是否露底。"},{"检测项目":"底盘检修","图片":["图3"],"描述":"拍的是底盘和悬挂，不是漆面特写。"},{"检测项目":"制动盘检查","图片":["图4"],"描述":"拍的是制动盘盘面。"}]}',
+    '只返回 JSON，不要其它文字。示例只说明形状：图里是什么就归到什么项目，示例里有、这次图里没有的项目不要写上。',
+    '{"故障分析":"1. 漆面破损，可能已露底生锈。\\n2. 底盘或排气松动、锈蚀。\\n3. 制动盘磨损造成拖滞或异响。\\n4. 悬挂衬套老化。","检测顺序":["悬挂衬套这次没有对应照片，建议补查"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"两张都是车门下沿漆面剥落露底，建议尽快处理，放着容易锈穿。"},{"检测项目":"底盘检测","图片":["图3"],"描述":"拍的是底盘和悬挂，可见锈迹。"},{"检测项目":"制动盘检查","图片":["图4"],"描述":"拍的是制动盘盘面，可见磨损。"}]}',
   ].join('\n')
 }
 
