@@ -4,6 +4,7 @@ const {
   parseWorkAdvice,
   parseDeliveryAdvice,
   parseInspectionAdvice,
+  inspectStepsFromRaw,
   contextOf,
 } = require('./step-advice.service')
 
@@ -229,6 +230,43 @@ test('故障分析键可读，检测顺序为空则不保留', () => {
   assert.equal(got.edits.length, 1)
   assert.equal(got.edits[0].canApply, true)
   assert.equal(got.edits[0].groups.length, 2)
+})
+
+test('逐张看图和逐张归类只进步骤日志，不参与拆分', () => {
+  const raw = {
+    故障分析: '1. 漆面受损。',
+    逐张看图: [
+      { 图: '图1', 内容: '车门漆面。' },
+      { 图: '图2', 内容: '底盘。' },
+    ],
+    逐张归类: [
+      { 图: '图1', 检测项目: '划痕检测' },
+      { 图: '图2', 检测项目: '底盘检测' },
+    ],
+    拆分建议: [{ 检测项目: '划痕检测', 图片: ['图1'], 描述: '漆面划痕。' }],
+    检测顺序: ['底盘这次没有对应照片'],
+  }
+  const got = parseInspectionAdvice(
+    raw,
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    [],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+    ],
+  )
+  assert.equal(got.edits.length, 1)
+  assert.equal(got.edits[0].groups.length, 1)
+  assert.equal(got.edits[0].groups[0].partName, '划痕检测')
+  assert.equal(JSON.stringify(got).includes('逐张看图'), false)
+
+  const steps = inspectStepsFromRaw(raw)
+  assert.match(steps.步骤1_故障分析, /漆面受损/)
+  assert.equal(steps.步骤2_逐张看图.length, 2)
+  assert.equal(steps.步骤2_逐张看图[1].内容, '底盘。')
+  assert.equal(steps.步骤3_逐张归类[1].检测项目, '底盘检测')
+  assert.equal(steps.步骤4_拆分建议[0].检测项目, '划痕检测')
+  assert.deepEqual(steps.步骤5_检测顺序, ['底盘这次没有对应照片'])
 })
 
 test('图注和空壳不能变成拆分建议', () => {

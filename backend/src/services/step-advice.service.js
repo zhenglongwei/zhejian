@@ -563,6 +563,32 @@ function imageNotesFromInspectEdits(edits) {
   return notes
 }
 
+/** 调试日志用：五步原文。不上屏，也不写入检测项。 */
+function inspectStepsFromRaw(raw) {
+  const parsed = parseReviewModelJson(raw)
+  const empty = {
+    步骤1_故障分析: null,
+    步骤2_逐张看图: null,
+    步骤3_逐张归类: null,
+    步骤4_拆分建议: null,
+    步骤5_检测顺序: null,
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return empty
+  const pick = (...keys) => {
+    for (const key of keys) {
+      if (parsed[key] != null) return parsed[key]
+    }
+    return null
+  }
+  return {
+    步骤1_故障分析: pick('故障分析', '故障诊断'),
+    步骤2_逐张看图: pick('逐张看图'),
+    步骤3_逐张归类: pick('逐张归类'),
+    步骤4_拆分建议: pick('拆分建议'),
+    步骤5_检测顺序: pick('检测顺序'),
+  }
+}
+
 function parseInspectionAdvice(raw, _items, _photoUrls, photoSlots) {
   const parsed = parseReviewModelJson(raw) || {}
   const faultSource =
@@ -1042,27 +1068,28 @@ function inspectionInstruction(ctx, options = {}) {
   }
   return [
     '你是修理厂的检测顾问，帮店员整理检测这一步的意见。',
-    '按下面五步思考，只返回一个 JSON。第2步到第4步不要单独交出来。',
+    '按下面五步思考，五步的结果都写进这一个 JSON。',
     '',
     '1. 故障分析只根据接车时的客户诉求，不要看这次上传的检测照片。',
     '从专业汽修的角度，把这个症状所有可能的原因列出来，按可能性从高到低排。',
-    '每种可能占一段，用1、2、3、4分行。故障分析就写这份完整清单。',
-    '同时在心里留一份同样顺序的检查清单，留给第5步删减，先不要写进返回。',
+    '每种可能占一段，用1、2、3、4分行。写入「故障分析」。',
     '',
     '2. 再单独看照片。按图1、图2的顺序，每张图独立看，前面的图不影响后面的图。',
     '只记录这张图里实际有的内容。图里没有的损伤不要编。这一步不要参考客户诉求。',
+    '每张图写一条，写入「逐张看图」。',
     '',
     '3. 只根据这一张图的内容，判断它对应哪个检测项目。',
     '漆面和划痕归到划痕检测，底盘照片归到底盘检测，制动盘归到制动盘检查。',
     '不要用客户诉求或第1步的句子给照片起名。',
+    '每张图写一条，写入「逐张归类」。',
     '',
     '4. 把同一条里、语义上属于同一检测项目的照片分成一组。',
     '结合这一组全部照片，用一段话说清：说明了什么问题，要不要马上处理，不处理会怎样。',
     '图里看不出后果就不要编。不要使用「需处理」「需关注」「状态良好」。',
-    '已经分在不同条里的照片不要并到一起。',
+    '已经分在不同条里的照片不要并到一起。写入「拆分建议」。',
     '',
-    '5. 用第4步得到的检测项目，对照第1步那份检查清单。',
-    '已经有照片覆盖的项目，从清单里去掉。剩下的才写入返回的检测顺序，仍然一段一项。',
+    '5. 用第4步得到的检测项目，对照第1步那份清单。',
+    '已经有照片覆盖的项目，从清单里去掉。剩下的写入「检测顺序」，仍然一段一项。',
     '如果照片已经把第1步的可能都覆盖了，检测顺序用空数组。',
     '',
     '不要复述接车时车身四周有没有拍全。',
@@ -1073,8 +1100,8 @@ function inspectionInstruction(ctx, options = {}) {
     '',
     `参考材料：${JSON.stringify(material)}`,
     '',
-    '只返回 JSON，不要其它文字。示例只说明形状：图里是什么就归到什么项目，示例里有、这次图里没有的项目不要写上。',
-    '{"故障分析":"1. 漆面破损，可能已露底生锈。\\n2. 底盘或排气松动、锈蚀。\\n3. 制动盘磨损造成拖滞或异响。\\n4. 悬挂衬套老化。","检测顺序":["悬挂衬套这次没有对应照片，建议补查"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"两张都是车门下沿漆面剥落露底，建议尽快处理，放着容易锈穿。"},{"检测项目":"底盘检测","图片":["图3"],"描述":"拍的是底盘和悬挂，可见锈迹。"},{"检测项目":"制动盘检查","图片":["图4"],"描述":"拍的是制动盘盘面，可见磨损。"}]}',
+    '只返回 JSON，不要其它文字。示例只说明有哪几个键，句子按这次的诉求和照片写，不要照抄示例里的占位话：',
+    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样"}],"检测顺序":["第1步里还没有照片覆盖的那一项"]}',
   ].join('\n')
 }
 
@@ -1241,6 +1268,7 @@ async function runJob(albumId, kind, options = {}) {
           attachedSlots: trace.attachedSlots,
           raw: String(trace.text || '').slice(0, 12000),
         })),
+        steps: inspectStepsFromRaw((llmTraces.find((trace) => trace && trace.label === 'Inspect') || llmTraces[0] || {}).text),
         finalEdits: Array.isArray(parsed && parsed.edits) ? parsed.edits : [],
         faultAnalysis: text(parsed && parsed.faultAnalysis).slice(0, 500),
         inspectOrder: Array.isArray(parsed && parsed.inspectOrder) ? parsed.inspectOrder : [],
@@ -1391,4 +1419,5 @@ module.exports = {
   parseWorkAdvice,
   parseDeliveryAdvice,
   parseInspectionAdvice,
+  inspectStepsFromRaw,
 }
