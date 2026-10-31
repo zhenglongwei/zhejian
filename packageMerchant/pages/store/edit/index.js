@@ -15,6 +15,7 @@ const {
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
   MERCHANT_SERVICE_TAG_OPTIONS,
+  normalizeMerchantServiceTags,
   BRAND_AUTH_ITEM_MAX,
   RECEPTION_PHOTO_MAX,
   buildServiceTagViews,
@@ -50,6 +51,13 @@ function buildEquipmentTagViews(selected) {
 function brandNames(text) {
   return String(text || '')
     .split(/[,，、\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function draftBrandNames(text) {
+  return String(text || '')
+    .split(/[,，、]+/)
     .map((item) => item.trim())
     .filter(Boolean)
 }
@@ -238,7 +246,7 @@ Page({
     ;(form.receptionPhotoUrls || []).slice(0, 2).forEach((url) => push('reception', url))
     if (!(form.workshopPhotoUrls || []).some((url) => String(url || '').trim())) missing.push('workshop')
     if (!(form.receptionPhotoUrls || []).some((url) => String(url || '').trim())) missing.push('reception')
-    const slotName = { facade: '门头', workshop: '工位', reception: '接待区' }
+    const slotName = { facade: '门头', workshop: '工位、设备', reception: '接待区' }
     return {
       missing: missing.map((key) => slotName[key]).filter(Boolean),
       images: images.map((item) => ({ ...item, slot: slotName[item.slot] || item.slot })),
@@ -327,9 +335,10 @@ Page({
   },
 
   updateServices(services) {
+    const list = normalizeMerchantServiceTags(services)
     this.setData({
-      'form.services': services,
-      serviceTags: buildServiceTagViews(services),
+      'form.services': list,
+      serviceTags: buildServiceTagViews(list),
     })
   },
 
@@ -348,20 +357,23 @@ Page({
   },
 
   onAddBrand() {
-    const name = String(this.data.brandDraft || '').trim()
-    if (!name) return
+    const incoming = draftBrandNames(this.data.brandDraft)
+    if (!incoming.length) return
     const list = brandNames(this.data.form.specialtyBrandsText)
-    if (list.indexOf(name) >= 0) {
-      this.setData({ brandDraft: '' })
-      return
-    }
-    if (list.length >= 12) {
+    const leftover = []
+    incoming.forEach((name) => {
+      if (list.indexOf(name) >= 0) return
+      if (list.length >= 12) {
+        leftover.push(name)
+        return
+      }
+      list.push(name)
+    })
+    if (leftover.length) {
       wx.showToast({ title: '品牌最多 12 个', icon: 'none' })
-      return
     }
-    list.push(name)
     this.setData({
-      brandDraft: '',
+      brandDraft: leftover.join('，'),
       brandList: list,
       'form.specialtyBrandsText': list.join('、'),
     })
@@ -588,7 +600,7 @@ Page({
   },
 
   onCustomServiceCommit() {
-    const name = (this.data.customServiceInput || '').trim()
+    const name = normalizeMerchantServiceTags([(this.data.customServiceInput || '').trim()])[0] || ''
     if (!name) return
     if (name.length > MERCHANT_SERVICE_TAG_NAME_MAX) {
       wx.showToast({ title: `不超过 ${MERCHANT_SERVICE_TAG_NAME_MAX} 字`, icon: 'none' })

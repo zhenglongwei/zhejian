@@ -2,6 +2,7 @@ const {
   MERCHANT_SERVICE_TAG_OPTIONS,
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
+  normalizeMerchantServiceTags,
 } = require('../constants/merchant-service-tags')
 const { findQualificationLabel } = require('../constants/onboarding')
 const {
@@ -86,13 +87,14 @@ function formatTechnicianYears(value) {
 }
 
 function buildServiceTagViews(services, options = MERCHANT_SERVICE_TAG_OPTIONS) {
-  const selected = services || []
-  const presetTags = options.map((name) => ({
+  const selected = normalizeMerchantServiceTags(services)
+  const presetNames = normalizeMerchantServiceTags(options)
+  const presetTags = presetNames.map((name) => ({
     name,
     selected: selected.indexOf(name) >= 0,
   }))
   const customTags = selected
-    .filter((name) => options.indexOf(name) < 0)
+    .filter((name) => presetNames.indexOf(name) < 0)
     .map((name) => ({ name, selected: true }))
   return presetTags.concat(customTags)
 }
@@ -211,7 +213,7 @@ function profileToDisplayForm(profile) {
     storePhone: profile.storePhone || '',
     businessHours: profile.businessHours || '',
     intro: profile.intro || '',
-    services: profile.services || [],
+    services: normalizeMerchantServiceTags(profile.services),
     facadePhotoUrl: photos.facadeUrl || '',
     workshopPhotoUrls: normalizeWorkshopPhotoUrls(photos.workshopUrls),
     receptionPhotoUrls: normalizeReceptionPhotoUrls(photos),
@@ -321,7 +323,7 @@ function buildDisplayPayload(form, storeId) {
     storePhone: form.storePhone,
     businessHours: form.businessHours,
     intro: form.intro,
-    services: form.services || [],
+    services: normalizeMerchantServiceTags(form.services),
     specialtyBrands: splitTags(form.specialtyBrandsText),
     notAccepting: splitTags(form.notAcceptingText),
     technicians,
@@ -384,6 +386,7 @@ module.exports = {
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
   MERCHANT_SERVICE_TAG_OPTIONS,
+  normalizeMerchantServiceTags,
   buildServiceTagViews,
   profileToDisplayForm,
   profileToBasicReadonly,

@@ -15,27 +15,26 @@
 
 .merchant-store-edit__photo-strip {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-sm);
+  flex-direction: column;
+  gap: var(--space-lg);
   margin-top: var(--space-md);
 }
 
 .merchant-store-edit__photo-cell {
-  flex: 1;
   min-width: 0;
 }
 
 .merchant-store-edit__photo-cell .merchant-onboard__photo-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
 }
 
 .merchant-store-edit__photo-cell .merchant-onboard__photo-slot,
 .merchant-store-edit__photo-cell .merchant-onboard__photo-wrap {
-  width: 100%;
-  height: 168rpx;
+  width: 200rpx;
+  height: 200rpx;
   box-sizing: border-box;
 }
 

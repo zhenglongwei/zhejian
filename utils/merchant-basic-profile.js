@@ -50,7 +50,7 @@ function gapNote(item, slots) {
   if (item.key === 'intro' && slots.intro) return '门店介绍写短了'
   if (item.key === 'intro') return '还没写门店介绍'
   if (item.key === 'facade') return '还没拍门头'
-  if (item.key === 'workshop') return '还没拍工位'
+  if (item.key === 'workshop') return '还没拍工位、设备'
   if (item.key === 'reception') return '还没拍接待区'
   if (item.key === 'name') return '还没填门店名称'
   if (item.key === 'address') return '还没填地址'
@@ -164,7 +164,7 @@ function photoAdvice(input = {}, meta = {}) {
     const tip = sizeTip('门头', meta[slots.facade])
     if (tip) lines.push(tip)
   }
-  if (!slots.workshop.length) lines.push('补一张工位，拍到作业区')
+  if (!slots.workshop.length) lines.push('补一张工位或设备，拍到作业区')
   else {
     const tip = sizeTip('工位', meta[slots.workshop[0]])
     if (tip) lines.push(tip)

@@ -165,13 +165,15 @@
       <view class="merchant-store-edit__photo-cell">
         <text class="merchant-form__label">门头</text>
         <text wx:if="{{gapNote.facade}}" class="merchant-store-edit__gap">{{gapNote.facade}}</text>
-        <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
-          <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
-          <text wx:else class="text-caption">上传</text>
+        <view class="merchant-onboard__photo-grid">
+          <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
+            <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
+            <text wx:else class="text-caption">上传</text>
+          </view>
         </view>
       </view>
       <view class="merchant-store-edit__photo-cell">
-        <text class="merchant-form__label">工位</text>
+        <text class="merchant-form__label">工位、设备</text>
         <text wx:if="{{gapNote.workshop}}" class="merchant-store-edit__gap">{{gapNote.workshop}}</text>
         <view class="merchant-onboard__photo-grid">
           <view wx:for="{{form.workshopPhotoUrls}}" wx:key="index" class="merchant-onboard__photo-wrap">
@@ -227,7 +229,7 @@
         </view>
       </view>
       <view class="merchant-store-edit__add-line">
-        <input class="merchant-form__input" placeholder="品牌，如宝马" value="{{brandDraft}}" bindinput="onBrandDraft" confirm-type="done" bindconfirm="onAddBrand" />
+        <input class="merchant-form__input" placeholder="多个品牌用逗号分开，如宝马，奔驰" value="{{brandDraft}}" bindinput="onBrandDraft" confirm-type="done" bindconfirm="onAddBrand" />
         <view class="merchant-store-edit__polish" hover-class="merchant-store-edit__polish--on" catchtap="onAddBrand">添加</view>
       </view>
     </view>

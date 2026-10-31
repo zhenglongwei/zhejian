@@ -17,8 +17,32 @@ const MERCHANT_SERVICE_TAG_OPTIONS = [
 const MERCHANT_SERVICE_TAG_MAX = 10
 const MERCHANT_SERVICE_TAG_NAME_MAX = 16
 
+/** 门店「服务能力」展示名。旧预设读出来按新名显示和保存。 */
+const MERCHANT_SERVICE_TAG_DISPLAY = {
+  小保养: '保养',
+}
+
+function displayMerchantServiceTag(name) {
+  const text = String(name || '').trim()
+  return MERCHANT_SERVICE_TAG_DISPLAY[text] || text
+}
+
+function normalizeMerchantServiceTags(list) {
+  const seen = Object.create(null)
+  const out = []
+  ;(list || []).forEach((item) => {
+    const name = displayMerchantServiceTag(item)
+    if (!name || seen[name]) return
+    seen[name] = true
+    out.push(name)
+  })
+  return out
+}
+
 module.exports = {
   MERCHANT_SERVICE_TAG_OPTIONS,
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
+  displayMerchantServiceTag,
+  normalizeMerchantServiceTags,
 }
