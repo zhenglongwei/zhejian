@@ -25,6 +25,9 @@ function mapFeaturedCase(item) {
       item.coverImageDesensitized || item.coverImage || ''
     ),
     title: item.title,
+    coverTitle: item.coverTitle || '',
+    chiefComplaint: item.chiefComplaint || '',
+    vehicleText: item.vehicleText || '',
     serviceName: item.serviceName,
     summary: item.summary,
     priceMode: item.priceMode || 'range',

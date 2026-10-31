@@ -68,31 +68,87 @@ function buildImageObjectSchemas(data, nodes, canonical) {
   return schemas
 }
 
+function visibleSummary(data) {
+  const hostCopy = data.hostPublicCopy || (data.contentJson && data.contentJson.hostPublicCopy)
+  const geo = data.hostGeoLayer || (data.contentJson && data.contentJson.hostGeoLayer)
+  return String(
+    (hostCopy && hostCopy.overview) ||
+      (geo && geo.summary) ||
+      data.displayAiSummary ||
+      data.aiSummary ||
+      data.summary ||
+      '',
+  ).trim()
+}
+
+function isBlankWarranty(value) {
+  const bare = String(value || '')
+    .trim()
+    .replace(/[。．.]$/, '')
+  return !bare || bare === '无' || bare === '暂无' || bare === '没有' || bare === '无备注'
+}
+
+function chapterLines(chapter) {
+  const lines = []
+  if (chapter.chiefComplaint) lines.push(`进店主诉：${chapter.chiefComplaint}`)
+  ;(chapter.findings || []).forEach((row) => {
+    const bits = [row && row.partName, row && row.advice].filter(Boolean)
+    if (bits.length) lines.push(bits.join('：'))
+  })
+  ;(chapter.items || []).forEach((item) => {
+    const extra = [item && item.brand, item && item.note].filter(Boolean).join('，')
+    const line = [item && item.name, extra].filter(Boolean).join('：')
+    if (line) lines.push(line)
+  })
+  ;(chapter.photos || []).forEach((photo) => {
+    if (photo && photo.caption) lines.push(photo.caption)
+  })
+  const warranty = [chapter.warrantyPeriod, chapter.warrantyNotes].filter((bit) => !isBlankWarranty(bit))
+  if (warranty.length) lines.push(`质保：${warranty.join(' · ')}`)
+  return lines
+}
+
+function renderFlowSection(data) {
+  const chapters = (data.serviceFlow && data.serviceFlow.chapters) || []
+  const blocks = chapters
+    .map((chapter) => {
+      const lines = chapterLines(chapter)
+      if (!lines.length) return ''
+      return `<article><h3>${escapeHtml(chapter.title || '')}</h3>${lines
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join('')}</article>`
+    })
+    .filter(Boolean)
+  if (!blocks.length) return ''
+  return `<section data-bot="process"><h2>维修过程</h2>${blocks.join('')}</section>`
+}
+
+/** 爬虫正文与人看到的页面一致：摘要、关键节点说明、问答。不含套话文章。 */
+function buildCrawlText(data) {
+  const parts = []
+  const summary = visibleSummary(data)
+  if (summary) parts.push(summary)
+  ;((data.serviceFlow && data.serviceFlow.chapters) || []).forEach((chapter) => {
+    const lines = chapterLines(chapter)
+    if (!lines.length) return
+    parts.push([chapter.title, ...lines].filter(Boolean).join('\n'))
+  })
+  ;(data.faq || []).forEach((row) => {
+    const q = row && (row.q || row.question)
+    const a = row && (row.a || row.answer)
+    if (q && a) parts.push(`${q}\n${a}`)
+  })
+  return parts.join('\n\n')
+}
+
 function buildBotBodyHtml(data) {
-  const summary = data.displayAiSummary || data.aiSummary || data.summary || ''
-  const nodes = data.displayNodes || data.nodes || []
-  const articleBody =
-    Number(data.snapshotVersion) >= 1
-      ? String(data.articleBody || data.article?.body || '').trim()
-      : String(data.article?.body || data.articleBody || '').trim()
+  const summary = visibleSummary(data)
   const sections = [
     `<h1>${escapeHtml(data.title || '维修案例')}</h1>`,
     summary
       ? `<section data-bot="ai-summary"><h2>案例摘要</h2><p>${escapeHtml(summary)}</p></section>`
       : '',
-    articleBody
-      ? `<section data-bot="article-body"><h2>案例正文</h2><p>${escapeHtml(articleBody).replace(/\n/g, '<br>')}</p></section>`
-      : '',
-    nodes.length
-      ? `<section data-bot="process"><h2>维修过程</h2>${nodes
-          .map(
-            (node) =>
-              `<article><h3>${escapeHtml(node.title || '')}</h3>${
-                node.note ? `<p>${escapeHtml(node.note)}</p>` : ''
-              }</article>`
-          )
-          .join('')}</section>`
-      : '',
+    renderFlowSection(data),
     renderFaqSection(data.faq || []),
     renderSiteBeianHtml(),
   ]
@@ -115,20 +171,29 @@ async function renderCaseBotHtml(caseIdOrSlug) {
   const description =
     data.displayAiSummary || data.aiSummary || data.summary || data.seo?.description || ''
 
+  const crawlText = buildCrawlText(data)
+  const crawlData = {
+    ...data,
+    faq: data.faq || [],
+    trustMeta: data.trustMeta || null,
+    articleBody: crawlText,
+    article: { ...(data.article || {}), body: crawlText },
+  }
   const jsonLdBlocks = []
   if (data.schemaGraph) {
-    jsonLdBlocks.push(data.schemaGraph)
+    const graph = data.schemaGraph
+    const nodes = Array.isArray(graph['@graph']) ? graph['@graph'] : []
+    nodes.forEach((node) => {
+      if (node && node['@type'] === 'Article') node.articleBody = crawlText
+    })
+    jsonLdBlocks.push(graph)
   } else {
     jsonLdBlocks.push(
       buildCasePageSchemaGraph({
         baseUrl: config.publicBaseUrl,
         showStorePublicly: Boolean(data.showStorePublicly && data.store && data.store.name),
         serviceSlug: '',
-        data: {
-          ...data,
-          faq: data.faq || [],
-          trustMeta: data.trustMeta || null,
-        },
+        data: crawlData,
         organizationSameAs: config.geo?.organizationSameAs || [],
       })
     )
@@ -154,5 +219,7 @@ async function renderCaseBotHtml(caseIdOrSlug) {
 module.exports = {
   isCrawlerUserAgent,
   isCrawlerRequest,
+  buildBotBodyHtml,
+  buildCrawlText,
   renderCaseBotHtml,
 }

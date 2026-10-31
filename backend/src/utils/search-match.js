@@ -65,6 +65,8 @@ function matchSearchMerchant(item, keyword) {
 
 function matchSearchCase(item, keyword) {
   return matchAnyField(keyword, [
+    item.coverTitle,
+    item.chiefComplaint,
     item.title,
     item.summary,
     item.serviceName,

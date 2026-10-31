@@ -11,6 +11,8 @@ function mapCaseItem(item) {
     id: item.id,
     slug: item.slug || (item.seo && item.seo.slug) || '',
     title: item.title,
+    coverTitle: item.coverTitle || '',
+    chiefComplaint: item.chiefComplaint || '',
     serviceName: item.serviceName,
     summary: item.summary,
     vehicleText: item.vehicleText || '',
@@ -136,7 +138,7 @@ async function getGeoTopicPagePayload(slugOrId) {
   const sourceCases = (aggregateCases || []).slice(0, 3).map((item) => ({
     id: item.id,
     slug: item.slug || '',
-    title: item.title || item.serviceName || '公开档案',
+    title: item.coverTitle || item.title || item.serviceName || '公开档案',
   }))
   const faq = effectiveCaseCount
     ? (aggregated.faq || []).slice(0, 5).map((row) => ({

@@ -252,6 +252,7 @@ function factPackHasEnoughFacts(pack) {
 
 module.exports = {
   FEEDABLE_RESULTS,
+  pickChiefComplaint,
   buildCaseFactPack,
   factPackHasEnoughFacts,
 }

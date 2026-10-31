@@ -305,12 +305,21 @@
   }
 
   function caseCardTitle(item) {
+    var cover = String((item && item.coverTitle) || '').trim()
+    if (cover) return cover
+    var shop = String((item && item.storeName) || '').trim()
     var vehicle = String((item && item.vehicleText) || '').trim()
+    var complaint = String((item && item.chiefComplaint) || '').trim()
     var service = String((item && item.serviceName) || '').trim()
-    if (vehicle && service) return vehicle + ' · ' + service
-    if (service) return service
-    if (vehicle) return vehicle
-    return String((item && item.title) || '公开案例')
+    if (service === '服务留档') service = ''
+    var job = complaint || service || String((item && item.title) || '').trim()
+    if (job === '服务留档') job = ''
+    var parts = []
+    if (shop) parts.push(shop)
+    if (vehicle && parts.indexOf(vehicle) < 0) parts.push(vehicle)
+    if (job && parts.indexOf(job) < 0) parts.push(job)
+    if (parts.length) return parts.join(' · ')
+    return '公开案例'
   }
 
   function renderCaseListItem(item, options) {

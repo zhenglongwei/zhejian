@@ -69,6 +69,7 @@ const {
   isStoreShowcaseCase,
   readHostMeta,
 } = require('../utils/archive-attribution')
+const { pickChiefComplaint } = require('../utils/case-geo-factpack')
 const { buildPublisherTrustBadge } = require('../utils/merchant-trust')
 
 async function loadPublisherTrustByStoreIds(storeIds = []) {
@@ -347,7 +348,27 @@ function mapPublicCaseRow(row, album, options = {}) {
     publicView,
     maskLookup: options.maskLookup || null,
   })
+  const chapterComplaint = (layered.serviceFlow.chapters || [])
+    .map((chapter) => (chapter && chapter.chiefComplaint) || '')
+    .find((value) => String(value || '').trim())
+  layered.chiefComplaint = String(options.chiefComplaint || chapterComplaint || '').trim()
   return attachArchiveAttribution(applyPublicDisplayRules(layered), { hostMeta })
+}
+
+async function loadAlbumChiefComplaints(albumIds) {
+  const ids = [...new Set((albumIds || []).filter(Boolean))]
+  const map = new Map()
+  if (!ids.length) return map
+  const albums = await prisma.album.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, contentPackageJson: true },
+  })
+  for (const album of albums) {
+    const pkg = album.contentPackageJson
+    const nodes = pkg && typeof pkg === 'object' ? pkg.flowNodes : []
+    map.set(album.id, pickChiefComplaint(nodes))
+  }
+  return map
 }
 
 function mapFallbackCase(item) {
@@ -422,8 +443,14 @@ async function fetchPublicCaseRows() {
   if (!visibleRows.length) return []
 
   const trustMap = await loadPublisherTrustByStoreIds(visibleRows.map((row) => row.storeId))
+  const complaintByAlbum = await loadAlbumChiefComplaints(visibleRows.map((row) => row.albumId))
   return visibleRows.map((row) =>
-    attachPublisherTrust(mapPublicCaseRow(row, null), trustMap.get(row.storeId))
+    attachPublisherTrust(
+      mapPublicCaseRow(row, null, {
+        chiefComplaint: complaintByAlbum.get(row.albumId) || '',
+      }),
+      trustMap.get(row.storeId)
+    )
   )
 }
 
@@ -1020,7 +1047,7 @@ function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
   })
   cases.slice(0, 2).forEach((item) => {
     items.push({
-      keyword: item.title,
+      keyword: item.coverTitle || item.title,
       type: 'case',
       typeLabel: typeLabels.case,
       targetId: item.id,

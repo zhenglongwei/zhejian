@@ -280,7 +280,7 @@ AI 读完不知道修了什么，无从引用。
 
 链路：`saveHostedPublicCopy` → `publicCase.summary`（`case-hosting.service.js:959`）
 → `getCaseDetail` 的 `summary: row.summary`（`content.service.js:283`）
-→ 预渲染 `buildBotBodyHtml` 读 `data.summary`（`h5-case-prerender.service.js:72`）。
+→ 预渲染 `buildBotBodyHtml` 读 `data.summary`，并带上关键节点说明和问答（`h5-case-prerender.service.js`）。不再把按空备注生成的套话文章放进爬虫正文。
 
 快照层 `applySnapshotLayerToPublicCase`（`case-public-layers.js:55`）**只覆盖 `title` 与价格字段，
 不覆盖 `summary`**——所以改了就生效。

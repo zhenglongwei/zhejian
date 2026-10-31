@@ -64,6 +64,8 @@ function testAttachOverridesSeoTitleWhenUnconfirmed() {
   assert.strictEqual(item.attribution.showStoreAsAuthor, false)
   assert.strictEqual(item.seoTitle, '朗逸刹车保养')
   assert.strictEqual(item.seo.title, '朗逸刹车保养')
+  assert.strictEqual(item.coverTitle, '朗逸 · 刹车保养')
+  assert.ok(!item.coverTitle.includes('城北汽修'))
 }
 
 function testFactHeadlineFallback() {

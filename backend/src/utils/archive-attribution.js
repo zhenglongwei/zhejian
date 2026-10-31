@@ -3,6 +3,8 @@
  * 未认领不得写成该店案例；门店身份 / 已认领才可作为作者。
  */
 
+const { composeCaseCoverTitle } = require('./case-cover-title')
+
 const ATTRIBUTION_STATUS = {
   STORE_PUBLISHED: 'store_published',
   STORE_CLAIMED: 'store_claimed',
@@ -101,6 +103,14 @@ function attachArchiveAttribution(item, extra = {}) {
       next.seo = { ...next.seo, title: attribution.factHeadline }
     }
   }
+  next.coverTitle = composeCaseCoverTitle({
+    storeName: next.storeName,
+    vehicleText: next.vehicleText,
+    chiefComplaint: next.chiefComplaint,
+    serviceName: next.serviceName,
+    fallbackTitle: next.title,
+    showStore: attribution.showStoreAsAuthor,
+  })
   return next
 }
 

@@ -85,7 +85,7 @@ async function renderHomeHtml() {
           data.featuredCases,
           (item) =>
             item.slug ? `/case/${item.slug}.html` : `/case/view.html?id=${item.id}`,
-          (item) => item.title || item.serviceName || '公开案例'
+          (item) => item.coverTitle || item.title || item.serviceName || '公开案例'
         )}</section>`
       : '',
     data.geoTopics && data.geoTopics.length
@@ -137,7 +137,7 @@ async function renderServiceHtml(slug, query = {}) {
       ? `<section><h2>相关案例</h2>${listLinks(
           data.featuredCases,
           (row) => (row.slug ? `/case/${row.slug}.html` : `/case/view.html?id=${row.id}`),
-          (row) => row.title || row.serviceName || '公开案例'
+          (row) => row.coverTitle || row.title || row.serviceName || '公开案例'
         )}</section>`
       : '',
     renderSiteBeianHtml(),
@@ -201,7 +201,7 @@ async function renderCityHtml(citySlug) {
           data.featuredCases,
           (item) =>
             item.slug ? `/case/${item.slug}.html` : `/case/view.html?id=${item.id}`,
-          (item) => item.title || item.serviceName || '公开案例'
+          (item) => item.coverTitle || item.title || item.serviceName || '公开案例'
         )}</section>`
       : '',
     renderSiteBeianHtml(),
@@ -253,7 +253,7 @@ async function renderTopicHtml(slug) {
           data.relatedCases,
           (item) =>
             item.slug ? `/case/${item.slug}.html` : `/case/view.html?id=${item.id}`,
-          (item) => item.title || item.serviceName || '公开案例'
+          (item) => item.coverTitle || item.title || item.serviceName || '公开案例'
         )}</section>`
       : '',
     renderSiteBeianHtml(),
@@ -312,7 +312,9 @@ async function renderCaseListHtml(query = {}) {
           const href = item.slug
             ? `/case/${item.slug}.html`
             : `/case/view.html?id=${item.id}`
-          const label = [item.vehicleText, item.serviceName].filter(Boolean).join(' · ') ||
+          const label =
+            item.coverTitle ||
+            [item.vehicleText, item.serviceName].filter(Boolean).join(' · ') ||
             item.title ||
             '公开案例'
           return `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`
