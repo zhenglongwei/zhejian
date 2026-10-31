@@ -153,7 +153,7 @@ test('故障分析分点写清时判定为多主题', () => {
   assert.equal(faultAnalysisLooksMultiTopic('底盘整体未见明显变形。'), false)
 })
 
-test('多图项已有分点分析但无 groups 时需要补跑', () => {
+test('故障分析分点但未按图拆项时不补跑拆分', () => {
   const ctx = {
     inspectPhotoSlots: [
       { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
@@ -163,10 +163,11 @@ test('多图项已有分点分析但无 groups 时需要补跑', () => {
   }
   const parsed = {
     faultAnalysis: '1.漆面剥落。2.刹车盘磨损。3.底盘锈斑。',
+    inspectOrder: ['先看底盘', '再看漆面'],
     partHints: [],
     edits: [],
   }
-  assert.equal(needsInspectGroupsRepair(parsed, ctx), true)
+  assert.equal(needsInspectGroupsRepair(parsed, ctx), false)
   const partialGroups = {
     ...parsed,
     edits: [
@@ -289,16 +290,16 @@ test('空壳 groups + 图注已命名 → 同名槽合并成可应用拆分', ()
   assert.equal(edit.canApply, true)
 })
 
-test('图注无 partName 时不根据故障分析猜名', () => {
+test('图注无 partName 时不把检测顺序或故障分析抄成拆分', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '1.车身漆损 2.刹车盘磨损',
-      inspectOrder: ['先看漆面', '再测刹车盘'],
+      faultAnalysis: '1.底盘及悬挂系统检查：图片显示锈蚀。\n2.车身外观检查：客户反馈有划痕。',
+      inspectOrder: ['底盘锈蚀与悬挂状态评估', '车身漆面划痕检测'],
       partHints: [],
       edits: [{ kind: 'item', findingId: 'fid_a', body: '建议拆开', groups: [{}, {}] }],
       imageNotes: [
         { slot: 1, note: '侧围有锈' },
-        { slot: 2, note: '刹车盘有沟槽' },
+        { slot: 2, note: '车身划痕' },
       ],
     },
     [{ id: 'fid_a', name: '', note: '', photos: 2 }],
@@ -312,6 +313,30 @@ test('图注无 partName 时不根据故障分析猜名', () => {
     got.edits.some((row) => row.kind === 'item' && Array.isArray(row.groups) && row.groups.length >= 2),
     false,
   )
+})
+
+test('图注只有项目名没有观察句时仍能结构化拆分', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.底盘 2.漆面',
+      inspectOrder: [],
+      edits: [],
+      imageNotes: [
+        { slot: 1, partName: '底盘锈蚀检查' },
+        { slot: 2, partName: '车身划痕评估' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [
+      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'pile' },
+    ],
+  )
+  const edit = got.edits.find((row) => row.findingId === 'pile')
+  assert.ok(edit)
+  assert.equal(edit.groups.length, 2)
+  assert.equal(edit.groups[0].partName, '底盘锈蚀检查')
 })
 
 test('检测拆分按 photoSlots 槽位解析，不跟本次附图下标错位', () => {

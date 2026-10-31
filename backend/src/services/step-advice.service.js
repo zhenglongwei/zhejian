@@ -395,7 +395,7 @@ function normalizeImageNotesInput(raw) {
         const slot = resolveInspectSlotNumber(row.slot)
         const note = zhOnly(row.note || row.body || row.text, 80)
         const partName = zhOnly(row.partName || row.title, 16)
-        if (!slot || !note) return null
+        if (!slot || (!note && !partName)) return null
         return { slot, partName, note }
       })
       .filter(Boolean)
@@ -413,7 +413,7 @@ function normalizeImageNotesInput(raw) {
           typeof val === 'object' && val
             ? zhOnly(val.partName || val.title, 16)
             : ''
-        if (!slot || !note) return null
+        if (!slot || (!note && !partName)) return null
         return { slot, partName, note }
       })
       .filter(Boolean)
@@ -1163,25 +1163,22 @@ function inspectionInstruction(ctx, options = {}) {
   const required = requiredInspectSplitHints(ctx)
   return [
     'You assist a Chinese auto-shop clerk on the inspection step.',
-    'Output: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
+    'Output THREE SEPARATE blocks. Do not mix them:',
+    'A) faultAnalysis = diagnosis (complaint + what the photos show). Text only. Read-only for the clerk.',
+    'B) inspectOrder = suggested check path FROM THE OWNER COMPLAINT (what to inspect next, in order). Text only. NOT a plan to split uploaded photos. Never copy these lines into groups[].partName.',
+    'C) photo split = edits[].groups, ONLY if uploaded photos on one findingId belong to DIFFERENT shop inspection lines.',
     '',
-    'CRITICAL — photo split (groups) is the only way the clerk can split a mixed photo pile. Prose is not enough.',
-    '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots).',
-    '2) Decide which shop inspection LINE each slot belongs to (what the shop would write as a 检测项目 on the job sheet).',
-    '3) Naming rule: groups[].partName and imageNotes[].partName are real-shop inspection line names, NOT required to be anatomic body-part labels only.',
-    '   Prefer names like「前制动盘磨损评估」「左后门下沿钣喷」; avoid bare「车门」「刹车」unless that is how the shop names the line.',
-    '4) If one findingId owns 2+ slots with DIFFERENT inspection lines, emit exactly ONE edits[] row for that findingId with groups[]:',
-    '   - one group per inspection line; EVERY group MUST have non-empty partName, advice, imageSlots (numeric slot ids only)',
-    '   - every slot of that findingId must appear in exactly one group; do not leave a slot out',
-    '5) If faultAnalysis lists multiple topics as 1. 2. 3., groups is REQUIRED for that multi-photo finding.',
-    '6) Omit groups ONLY when all slots of that finding share one inspection line, or you truly cannot tell them apart.',
-    '7) findingId in edits MUST be copied exactly from Context items[].id or photoSlots[].findingId. Never invent "pile".',
-    '8) FORBIDDEN: groups:[{},{}] or any group missing partName or imageSlots. Empty shells are INVALID.',
-    '9) faultAnalysis: prefer one string with newlines (1. …\\n2. …), not a JSON array of strings.',
-    '10) imageNotes: array of {slot, partName, note} — partName follows the same inspection-line naming rule; not a map keyed by slot string.',
+    'When C applies (mixed photos that a shop would record as different 检测项目):',
+    '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots). Name each line as a real-shop 检测项目 after looking at THAT photo (e.g.「前制动盘磨损评估」「左后门下沿钣喷」).',
+    '2) Forbidden names: bare body-part labels「车门」「刹车」, process words, or copying inspectOrder / faultAnalysis headings.',
+    '3) Emit exactly ONE edits[] row for that findingId with groups[]: each group needs partName, advice (why / what to watch), imageSlots (numeric 图N / slot ids). Every slot of that finding in exactly one group.',
+    '4) findingId MUST be copied from Context items[].id or photoSlots[].findingId. Never invent "pile".',
+    '5) FORBIDDEN: groups:[{},{}] or group missing partName/imageSlots.',
+    'When photos of that finding are the SAME inspection line: OMIT groups. Text-only A+B is a successful result.',
+    'Do NOT invent a split because faultAnalysis has 1. 2. 3. Diagnosis topics ≠ photo split.',
     '',
     ...(required.length
-      ? ['REQUIRED split checks for this request:', ...required, '']
+      ? ['If these findings actually mix different inspection lines in the photos, emit groups:', ...required, '']
       : []),
     exampleLead,
     `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成左后门下沿钣喷、前制动盘磨损评估、底盘锈蚀检查","groups":[{"partName":"左后门下沿钣喷","advice":"漆面剥落需钣喷","imageSlots":[${s1}]},{"partName":"前制动盘磨损评估","advice":"盘面磨损需测厚","imageSlots":[${s2}]},{"partName":"底盘锈蚀检查","advice":"锈斑需进一步检查","imageSlots":[${s3}]}]}]}`,
@@ -1190,8 +1187,8 @@ function inspectionInstruction(ctx, options = {}) {
     '- Intake is context only — never restate intake coverage.',
     '- Natural-language JSON string values: Simplified Chinese only (no English words inside those strings).',
     '- Do not invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好.',
-    '- Cover every distinct inspection line visible in photos + complaint in faultAnalysis.',
-    '- imageNotes: one short observation per attached slot; never a substitute for groups.',
+    '- faultAnalysis: prefer one string with newlines (1. …\\n2. …), not a JSON array.',
+    '- imageNotes: {slot, partName, note} per attached slot; partName only if that photo is its own inspection line; never a substitute for groups, never copied from inspectOrder.',
     '- kind=photo edits are reminders only (no apply). partHints are read-only.',
     `Context JSON: ${JSON.stringify(payload)}`,
     'Return JSON only with keys: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
@@ -1254,16 +1251,23 @@ function inspectionHasSplitForFinding(parsed, findingId, ctx, attachedUrlKeys) {
   return required.every((row) => covered.has(mediaBare(row.url)))
 }
 
-/** 已能分主题（分点分析或部件参考≥2）但多图项仍无合格 groups → 需要英文补跑 */
+/** 模型已按图写出不同检测项目名或空壳 groups，却还没有合格拆分 → 补跑。故障分析/检测顺序分点不算要拆图。 */
 function needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys) {
   const multi = multiPhotoFindingIds(ctx)
   if (!multi.length) return false
-  // 实际送出附图不足 2 张时，无法要求模型按槽拆分
   if (attachedUrlKeys && attachedUrlKeys.size && attachedUrlKeys.size < 2) return false
   const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id, ctx, attachedUrlKeys))
   if (!missing) return false
-  const hints = Array.isArray(parsed && parsed.partHints) ? parsed.partHints.length : 0
-  return faultAnalysisLooksMultiTopic(parsed && parsed.faultAnalysis) || hints >= 2
+  const namedNotes = new Set(
+    (Array.isArray(parsed && parsed.imageNotes) ? parsed.imageNotes : [])
+      .map((row) => text(row && row.partName))
+      .filter(Boolean),
+  )
+  const attemptedSplit = (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).some((row) => {
+    if (text(row && row.kind) === 'photo') return false
+    return Array.isArray(row && row.groups) && row.groups.length >= 2
+  })
+  return namedNotes.size >= 2 || attemptedSplit
 }
 
 function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
@@ -1315,10 +1319,11 @@ function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
     filledExample.edits[0].groups[1].imageSlots = exampleSlots.slice(1)
   }
   return [
-    'Your previous JSON distinguished multiple inspection lines but groups were EMPTY or incomplete.',
+    'Your previous JSON started a photo split (groups or named imageNotes) but groups were EMPTY or incomplete.',
+    'This repair is ONLY about splitting uploaded photos. Do NOT copy inspectOrder or faultAnalysis headings into partName.',
     'FORBIDDEN (never return this): "groups":[{},{}]  — empty objects are INVALID.',
     'Each group MUST include non-empty partName, advice, and imageSlots (numbers from missingSplitPlan).',
-    'partName = real-shop 检测项目 name (inspection line), NOT required to be an anatomic body-part label only.',
+    'partName = real-shop 检测项目 named from the photos, not a body-part or process label.',
     'Use missingSplitPlan[].slotHints (from your own previous imageNotes) as material to FILL groups.',
     'Merge slots that belong to the SAME inspection line into ONE group; different lines → different groups.',
     'Keep faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
@@ -1521,7 +1526,7 @@ async function runJob(albumId, kind, options = {}) {
       }
     }
     const groupsGap = kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys)
-    const ok = adviceHasContent(parsed, kind) && !groupsGap
+    const ok = adviceHasContent(parsed, kind)
     // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
     const advicePayload =
       kind === 'delivery'
