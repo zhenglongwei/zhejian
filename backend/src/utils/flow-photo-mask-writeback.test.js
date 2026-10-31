@@ -85,3 +85,16 @@ test('写回不得把 selectedDeliveryUrls 字符串升成对象', () => {
   assert.deepEqual(nodes[0].photoDraft.selectedDeliveryUrls, [RAW])
   assert.equal(nodes[0].photoDraft.deliveryExteriorMaskedUrl, MASK)
 })
+
+test('收集节点上的原图和打码图', () => {
+  const { collectFlowImageRefs } = require('./flow-photo-mask-writeback')
+  const refs = collectFlowImageRefs([
+    {
+      kind: 'inspection',
+      content: {
+        findings: [{ images: [{ url: RAW, maskedUrl: MASK }] }],
+      },
+    },
+  ])
+  assert.deepEqual(refs, [{ url: RAW, maskedUrl: MASK }])
+})

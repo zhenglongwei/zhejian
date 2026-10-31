@@ -22,7 +22,7 @@ const {
 } = require('./desensitize.constants')
 const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl, applyManualMaskToAsset } = require('./media.service')
 const { isStubCopyArtifact } = require('../lib/media-file-compare')
-const { parseObjectKeyFromPublicUrl, rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+const { parseObjectKeyFromPublicUrl, rewriteMediaUrlForCurrentBase, isCollapsedMaskKey } = require('../lib/media-storage')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
 const { ROLES } = require('../lib/jwt')
@@ -56,12 +56,17 @@ async function persistMaskedPairsToAlbumFlow(albumId, pairs = []) {
     const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
     if (!flowNodes.length) return { changed: false }
     const { nodes, changed } = writeMaskedPairsIntoFlowNodes(flowNodes, list)
-    if (!changed) return { changed: false }
-    await prisma.album.update({
-      where: { id },
-      data: { contentPackageJson: { ...pkg, flowNodes: nodes } },
-    })
-    return { changed: true }
+    if (changed) {
+      await prisma.album.update({
+        where: { id },
+        data: { contentPackageJson: { ...pkg, flowNodes: nodes } },
+      })
+    }
+    const { rememberMaskedOnMedia } = require('./media.service')
+    for (const pair of list) {
+      await rememberMaskedOnMedia(pair.rawUrl, pair.maskedUrl)
+    }
+    return { changed }
   } catch (e) {
     console.warn('[desensitize] writeback maskedUrl to flow failed', e && e.message)
     return { changed: false, error: e }
@@ -651,7 +656,12 @@ async function resolveMaskedOutcomeForRaw(rawUrl, lookup = { byRawUrl: new Map()
     ''
   if (hit) return { settled: true, masked: hit }
   const media = await ensureMediaRecordFromUrl(raw)
-  if (media && media.desensitizeStatus === 'success' && media.desensitizedUrl) {
+  if (
+    media &&
+    media.desensitizeStatus === 'success' &&
+    media.desensitizedUrl &&
+    !isCollapsedMaskKey(media.desensitizedKey)
+  ) {
     return { settled: true, masked: String(media.desensitizedUrl).trim() }
   }
   if (
@@ -1888,5 +1898,6 @@ module.exports = {
   confirmOrderAuthorizeTask,
   confirmReviewImagePreviewTask,
   createReviewImagePreviewTask,
+  persistMaskedPairsToAlbumFlow,
   createMerchantColdStartAuthorizeTaskFromPreMask,
 }

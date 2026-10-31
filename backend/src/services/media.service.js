@@ -5,7 +5,8 @@ const { newId } = require('../lib/ids')
 const {
   buildPublicMediaUrl,
   parseObjectKeyFromPublicUrl,
-  buildDesensitizedObjectKey,
+  desensitizedKeyForSource,
+  isCollapsedMaskKey,
   parseDesensitizedObjectKeyFromPublicUrl,
 } = require('../lib/media-storage')
 const { isStubCopyArtifact } = require('../lib/media-file-compare')
@@ -161,6 +162,7 @@ function shouldUseCachedDesensitize(media, context = {}) {
     return false
   }
   if (!media.desensitizedKey) return false
+  if (isCollapsedMaskKey(media.desensitizedKey)) return false
   if (isStubCopyArtifact(media.objectKey, media.desensitizedKey)) {
     console.info('[media] ignore cached desensitize: stub copy artifact', {
       objectKey: media.objectKey,
@@ -293,8 +295,15 @@ async function runMediaDesensitize(mediaId, context = {}) {
 
   const sourcePath = materialized.filePath
   const ext = path.extname(sourcePath).toLowerCase() || '.jpg'
-  const { albumId = 'album', nodeId = 'node', idx = 0, caseId = '' } = context
-  const desensitizedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
+  const { caseId = '' } = context
+  const desensitizedKey = desensitizedKeyForSource({
+    objectKey: media.objectKey,
+    id: media.id,
+    albumId: context.albumId,
+    nodeId: context.nodeId,
+    idx: context.idx,
+    ext,
+  })
   const destTmp = path.join(
     path.dirname(sourcePath),
     `zhejian-des-${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`,
@@ -548,7 +557,14 @@ async function applyManualMaskToAsset({
     }))
 
     const ext = path.extname(sourcePath).toLowerCase() || '.jpg'
-    const desensitizedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
+    const originalKey =
+      parseObjectKeyFromPublicUrl(rawUrl) ||
+      objectKeyFromPublicUrl(rawUrl) ||
+      baseKey
+    const desensitizedKey = desensitizedKeyForSource({
+      objectKey: originalKey,
+      ext,
+    })
     const destTmp = path.join(
       path.dirname(sourcePath),
       `zhejian-manual-${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`,
@@ -602,6 +618,96 @@ async function applyManualMaskToAsset({
   }
 }
 
+/** 把节点上的打码地址写进同一张原图的媒体行，文件名保持一致。 */
+async function rememberMaskedOnMedia(rawUrl, maskedUrl) {
+  const { usableMaskedProductUrl, parseDesensitizedObjectKeyFromPublicUrl } = require('../lib/media-storage')
+  const product = usableMaskedProductUrl(maskedUrl)
+  const maskedKey = product ? parseDesensitizedObjectKeyFromPublicUrl(product) : ''
+  if (!product || !maskedKey) return null
+  const media = await ensureMediaRecordFromUrl(rawUrl)
+  const repo = mediaAssetRepo()
+  if (!media || !repo) return null
+  if (media.desensitizedKey === maskedKey) return media
+  return repo.update({
+    where: { id: media.id },
+    data: {
+      desensitizedKey: maskedKey,
+      desensitizedUrl: product,
+      desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
+    },
+  })
+}
+
+/**
+ * 保存节点后：节点上还有的图，媒体行用同一原图名、同一打码名。
+ * 节点没写打码地址而媒体行有，则补回节点。
+ * 本单节点和相册图都不再引用的原图，删掉媒体行。
+ */
+async function syncMediaWithFlow(albumId, flowNodes, previousRefs = []) {
+  const { usableMaskedProductUrl, parseObjectKeyFromPublicUrl: parseKey, parseDesensitizedObjectKeyFromPublicUrl } = require('../lib/media-storage')
+  const { collectFlowImageRefs, writeMaskedUrlIntoFlowNodes } = require('../utils/flow-photo-mask-writeback')
+  const repo = mediaAssetRepo()
+  if (!repo) return { changedNodes: false }
+  const current = collectFlowImageRefs(flowNodes)
+  const currentKeys = new Set()
+  let nodes = flowNodes
+  let changedNodes = false
+  for (const ref of current) {
+    const objectKey = parseKey(ref.url)
+    if (!objectKey) continue
+    currentKeys.add(objectKey)
+    const media = await ensureMediaRecordFromUrl(ref.url)
+    if (!media) continue
+    const nodeMask = usableMaskedProductUrl(ref.maskedUrl)
+    const mediaMask = usableMaskedProductUrl(media.desensitizedUrl)
+    if (nodeMask) {
+      const nodeKey = parseDesensitizedObjectKeyFromPublicUrl(nodeMask)
+      if (nodeKey && media.desensitizedKey !== nodeKey) {
+        await repo.update({
+          where: { id: media.id },
+          data: {
+            desensitizedKey: nodeKey,
+            desensitizedUrl: nodeMask,
+            desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
+          },
+        })
+      }
+    } else if (mediaMask) {
+      const written = writeMaskedUrlIntoFlowNodes(nodes, ref.url, mediaMask)
+      nodes = written.nodes
+      if (written.changed) changedNodes = true
+    }
+  }
+  if (changedNodes && albumId) {
+    const album = await prisma.album.findUnique({
+      where: { id: albumId },
+      select: { contentPackageJson: true },
+    })
+    const pkg = album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+    await prisma.album.update({
+      where: { id: albumId },
+      data: { contentPackageJson: { ...pkg, flowNodes: nodes } },
+    })
+  }
+  const previousKeys = new Set(
+    (Array.isArray(previousRefs) ? previousRefs : [])
+      .map((ref) => parseKey(ref && ref.url))
+      .filter(Boolean),
+  )
+  for (const objectKey of previousKeys) {
+    if (currentKeys.has(objectKey)) continue
+    const stillUsed = await prisma.albumImage.findFirst({
+      where: { rawUrl: { contains: objectKey } },
+      select: { id: true },
+    })
+    if (stillUsed) continue
+    await repo.deleteMany({ where: { objectKey } })
+  }
+  return { changedNodes }
+}
+
 /** 交给模型的地址必须是打码图。打不成的这张不送原图。 */
 async function maskUrlsForModel(urls, context = {}) {
   const out = []
@@ -630,6 +736,8 @@ module.exports = {
   getMediaById,
   runMediaDesensitize,
   resolveDesensitizedUrlForAsset,
+  rememberMaskedOnMedia,
+  syncMediaWithFlow,
   maskUrlsForModel,
   applyManualMaskToAsset,
   normalizeManualRegions,

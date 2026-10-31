@@ -51,19 +51,26 @@ function albumMileageKm(album) {
   return text(vehicle.mileage != null && vehicle.mileage !== '' ? vehicle.mileage : vehicle.mileageKm)
 }
 
-function intakePhotoUrls(intake, options = {}) {
+function intakePhotoRefs(intake, options = {}) {
+  const { usableMaskedProductUrl } = require('../lib/media-storage')
   const draft = contentOfFlowNode(intake)
   const limit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : 8
-  const urls = []
+  const refs = []
   const push = (raw) => {
-    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
-    if (!/^https?:\/\//.test(url) || urls.includes(url)) return
-    if (limit > 0 && urls.length >= limit) return
-    urls.push(url)
+    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.src : raw)
+    if (!/^https?:\/\//.test(url) || refs.some((row) => row.url === url)) return
+    if (limit > 0 && refs.length >= limit) return
+    const maskedUrl =
+      raw && typeof raw === 'object' ? usableMaskedProductUrl(raw.maskedUrl || raw.preMaskedUrl) : ''
+    refs.push({ url, maskedUrl })
   }
   // 接车留证唯一真源：pendingImages
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
-  return urls
+  return refs
+}
+
+function intakePhotoUrls(intake, options = {}) {
+  return intakePhotoRefs(intake, options).map((row) => row.url)
 }
 
 /** 指纹用全部图身份，不截断；避免第 7 张起改图仍复用旧结论 */
@@ -200,9 +207,30 @@ async function runIntakeAdviceJob(albumId) {
         updatedAt: new Date().toISOString(),
       },
     }))
-    const urls = intakePhotoUrls(intake)
-    const { maskUrlsForModel } = require('./media.service')
-    const maskedUrls = urls.length ? await maskUrlsForModel(urls, { albumId }) : []
+    const refs = intakePhotoRefs(intake)
+    const { resolveDesensitizedUrlForAsset } = require('./media.service')
+    const { usableMaskedProductUrl } = require('../lib/media-storage')
+    const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
+    const maskedUrls = []
+    const writeback = []
+    for (let i = 0; i < refs.length; i += 1) {
+      const ref = refs[i]
+      if (ref.maskedUrl) {
+        maskedUrls.push(ref.maskedUrl)
+        continue
+      }
+      const masked = await resolveDesensitizedUrlForAsset(ref.url, {
+        force: false,
+        albumId,
+        nodeId: 'intake',
+        idx: i + 1,
+      })
+      const safeUrl = usableMaskedProductUrl(masked && masked.ok ? masked.maskedUrl : '')
+      if (!safeUrl) continue
+      writeback.push({ rawUrl: ref.url, maskedUrl: safeUrl })
+      maskedUrls.push(safeUrl)
+    }
+    if (writeback.length) await persistMaskedPairsToAlbumFlow(albumId, writeback)
     const parsed = maskedUrls.length ? await runGenerateLlm(maskedUrls) : null
     await patchIntakeNode(albumId, (item) => {
       const draft = contentOfFlowNode(item)

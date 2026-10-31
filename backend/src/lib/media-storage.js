@@ -130,6 +130,36 @@ function resolveObjectKeyFilePath(objectKey) {
   return normalized
 }
 
+/**
+ * 节点上已写回的打码地址。共用的默认文件不算这张图自己的产物。
+ * 解析不出打码路径时也不拿去送模，避免把原图或旁路地址当成打码图。
+ */
+function usableMaskedProductUrl(url) {
+  const value = String(url || '').trim()
+  if (!/^https?:\/\//.test(value)) return ''
+  const key = parseDesensitizedObjectKeyFromPublicUrl(value)
+  if (!key || isCollapsedMaskKey(key)) return ''
+  return value
+}
+
+/** 未带相册/节点/序号时曾一律写成 album/node_0，多张图互相覆盖 */
+function isCollapsedMaskKey(key) {
+  return /\/album\/node_0\.(jpe?g|png|webp)$/i.test(String(key || '').replace(/\\/g, '/'))
+}
+
+/**
+ * 打码文件名只由原图文件名决定。自动打码、手工打码、节点和媒体行都用这一个名字。
+ */
+function desensitizedKeyForSource({ objectKey = '', id = '', ext = '.jpg' } = {}) {
+  const crypto = require('crypto')
+  const hash = crypto
+    .createHash('sha256')
+    .update(String(objectKey || id || 'asset'))
+    .digest('hex')
+    .slice(0, 16)
+  return buildDesensitizedObjectKey('asset', hash, 0, ext)
+}
+
 function buildDesensitizedObjectKey(albumId, nodeId, idx, ext = '.jpg') {
   const safeAlbum = String(albumId || 'album').replace(/[^\w-]/g, '_')
   const safeNode = String(nodeId || 'node').replace(/[^\w-]/g, '_')
@@ -204,6 +234,9 @@ module.exports = {
   resolveObjectKeyFilePath,
   resolveMediaFilePathFromPublicUrl,
   buildDesensitizedObjectKey,
+  isCollapsedMaskKey,
+  usableMaskedProductUrl,
+  desensitizedKeyForSource,
   resolveDesensitizedFilePath,
   resolveDesensitizedUploadFilePath,
   isOriginalUploadObjectKey,

@@ -194,8 +194,54 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
   return { nodes, changed }
 }
 
+function pushImageRef(list, raw) {
+  if (typeof raw === 'string') {
+    const url = text(raw)
+    if (url) list.push({ url, maskedUrl: '' })
+    return
+  }
+  if (!raw || typeof raw !== 'object') return
+  const url = text(raw.url || raw.rawUrl || raw.src)
+  if (url) list.push({ url, maskedUrl: text(raw.maskedUrl || raw.preMaskedUrl) })
+  const evidenceUrl = text(raw.evidenceUrl)
+  if (evidenceUrl) list.push({ url: evidenceUrl, maskedUrl: text(raw.evidenceMaskedUrl) })
+}
+
+function collectBagImageRefs(bag, list) {
+  if (!bag || typeof bag !== 'object') return
+  ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages', 'images'].forEach((key) => {
+    ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((slot) => pushImageRef(list, slot))
+  })
+  if (text(bag.deliveryExteriorUrl)) {
+    list.push({
+      url: text(bag.deliveryExteriorUrl),
+      maskedUrl: text(bag.deliveryExteriorMaskedUrl),
+    })
+  }
+  ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
+    ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
+      pushImageRef(list, row)
+      collectBagImageRefs(row, list)
+    })
+  })
+}
+
+/** 流程节点上现有的原图 / 打码图地址 */
+function collectFlowImageRefs(flowNodes) {
+  const list = []
+  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
+    if (!node || typeof node !== 'object') return
+    collectBagImageRefs(node.photoDraft, list)
+    const payload = node.document && node.document.payload
+    collectBagImageRefs(payload, list)
+    collectBagImageRefs(node.content, list)
+  })
+  return list
+}
+
 module.exports = {
   applyMaskedToSlot,
   writeMaskedUrlIntoFlowNodes,
   writeMaskedPairsIntoFlowNodes,
+  collectFlowImageRefs,
 }

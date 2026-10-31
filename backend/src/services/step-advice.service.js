@@ -39,6 +39,17 @@ function linesOf(node) {
     .filter((row) => row.name)
 }
 
+function imageOriginalUrl(raw) {
+  if (typeof raw === 'string') return text(raw)
+  return text(raw && (raw.url || raw.rawUrl || raw.src))
+}
+
+function imageMaskedUrl(raw) {
+  if (!raw || typeof raw !== 'object') return ''
+  const { usableMaskedProductUrl } = require('../lib/media-storage')
+  return usableMaskedProductUrl(raw.maskedUrl || raw.preMaskedUrl)
+}
+
 function workImageList(row) {
   const images = Array.isArray(row && row.images) ? row.images : []
   if (images.length) return images
@@ -64,22 +75,29 @@ function workPhotoSlots(nodes) {
       const findingId = text(row && row.id)
       const urls = []
       workImageList(row).forEach((img) => {
-        const url = text(typeof img === 'object' && img ? img.url || img.rawUrl || img.maskedUrl : img)
-        if (!/^https?:\/\//.test(url) || urls.includes(url)) return
-        urls.push(url)
+        const url = imageOriginalUrl(img)
+        if (!/^https?:\/\//.test(url) || urls.some((row) => row.url === url)) return
+        urls.push({ url, maskedUrl: imageMaskedUrl(img) })
       })
       if (urls.length) buckets.push({ partName, findingId, urls })
     })
   })
   const slots = []
   const used = new Set()
-  const push = (bucket, url) => {
+  const push = (bucket, shot) => {
+    const url = shot && shot.url
     if (!url || used.has(url) || slots.length >= 8) return
     used.add(url)
-    slots.push({ slot: slots.length + 1, url, partName: bucket.partName, findingId: bucket.findingId })
+    slots.push({
+      slot: slots.length + 1,
+      url,
+      maskedUrl: shot.maskedUrl || '',
+      partName: bucket.partName,
+      findingId: bucket.findingId,
+    })
   }
   buckets.forEach((bucket) => push(bucket, bucket.urls[0]))
-  buckets.forEach((bucket) => bucket.urls.slice(1).forEach((url) => push(bucket, url)))
+  buckets.forEach((bucket) => bucket.urls.slice(1).forEach((shot) => push(bucket, shot)))
   return slots
 }
 
@@ -689,13 +707,14 @@ function inspectPhotoSlots(inspection) {
   const slots = []
   const used = new Set()
   const push = (findingId, partName, raw) => {
-    const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
+    const url = imageOriginalUrl(raw)
     const key = mediaBare(url)
     if (!isInspectMediaUrl(url) || !key || used.has(key) || slots.length >= 8) return
     used.add(key)
     slots.push({
       slot: slots.length + 1,
       url,
+      maskedUrl: imageMaskedUrl(raw),
       findingId: text(findingId),
       partName: text(partName),
     })
@@ -886,6 +905,7 @@ function buildSlotByUrl(photoSlots) {
       slot: Number(row && row.slot) || 0,
       findingId: text(row && row.findingId),
       url: text(row && row.url),
+      maskedUrl: imageMaskedUrl({ maskedUrl: row && row.maskedUrl }),
     })
   })
   return map
@@ -907,29 +927,60 @@ function writeInspectAdviceDebug(albumId, payload) {
 /**
  * 脱敏后 URL 与草稿原图不同；必须按「原图 → 脱敏图」成对保留，才能用原图查 photoSlots.slot。
  */
-async function prepareMaskedAttachments(urls, slotByUrl) {
+async function writeMasksOntoNodes(albumId, pairs) {
+  const id = text(albumId)
+  const list = (Array.isArray(pairs) ? pairs : []).filter((row) => row && text(row.rawUrl) && text(row.maskedUrl))
+  if (!id || !list.length) return
+  const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
+  await persistMaskedPairsToAlbumFlow(id, list)
+}
+
+async function prepareMaskedAttachments(urls, slotByUrl, maskContext = {}) {
   const { resolveDesensitizedUrlForAsset } = require('./media.service')
+  const { usableMaskedProductUrl } = require('../lib/media-storage')
   const attached = []
   const seen = new Set()
+  const writeback = []
   for (const raw of Array.isArray(urls) ? urls : []) {
     const originalUrl = String(raw || '').trim()
     if (!originalUrl || seen.has(originalUrl)) continue
     seen.add(originalUrl)
     try {
-      const masked = await resolveDesensitizedUrlForAsset(originalUrl, { force: false })
-      const safeUrl = masked && masked.ok ? String(masked.maskedUrl || '').trim() : ''
-      if (!safeUrl) continue
       const meta = slotByUrl ? slotByUrl.get(mediaBare(originalUrl)) : null
+      const slot = meta && meta.slot ? Number(meta.slot) : 0
+      const findingId = meta ? text(meta.findingId) : ''
+      const onNode = usableMaskedProductUrl(meta && meta.maskedUrl)
+      if (onNode) {
+        attached.push({
+          originalUrl,
+          safeUrl: onNode,
+          slot,
+          findingId,
+          fromNode: true,
+        })
+        continue
+      }
+      const masked = await resolveDesensitizedUrlForAsset(originalUrl, {
+        force: false,
+        albumId: maskContext.albumId || '',
+        nodeId: findingId,
+        idx: slot >= 1 ? slot : undefined,
+      })
+      const safeUrl = usableMaskedProductUrl(masked && masked.ok ? masked.maskedUrl : '')
+      if (!safeUrl) continue
+      writeback.push({ rawUrl: originalUrl, maskedUrl: safeUrl })
       attached.push({
         originalUrl,
         safeUrl,
-        slot: meta && meta.slot ? Number(meta.slot) : 0,
-        findingId: meta ? text(meta.findingId) : '',
+        slot,
+        findingId,
+        fromNode: false,
       })
     } catch (_) {
       /* 这张不送 */
     }
   }
+  if (writeback.length) await writeMasksOntoNodes(maskContext.albumId, writeback)
   return attached
 }
 
@@ -940,7 +991,9 @@ async function runLlm(instruction, urls, label, options = {}) {
   const { responsesCompletion } = require('../lib/responses-chat')
   const tag = label || 'Photo'
   const slotByUrl = options.slotByUrl instanceof Map ? options.slotByUrl : null
-  const attached = await prepareMaskedAttachments(urls, slotByUrl)
+  const attached = await prepareMaskedAttachments(urls, slotByUrl, {
+    albumId: options.albumId || '',
+  })
   const content = attached.length
     ? [{ type: 'text', text: instruction }].concat(
         attached.map((row, index) => {
@@ -992,7 +1045,10 @@ async function runLlm(instruction, urls, label, options = {}) {
         slot: row.slot,
         findingId: row.findingId,
         url: row.originalUrl,
+        safeUrl: row.safeUrl,
+        fromNode: Boolean(row.fromNode),
       })),
+      safeUrlsIdentical: new Set(attached.map((row) => mediaBare(row.safeUrl))).size < attached.length,
       text: textOut,
     })
   }
@@ -1218,6 +1274,7 @@ async function runJob(albumId, kind, options = {}) {
     const llmTraces = []
     const llmOpts = {
       slotByUrl,
+      albumId,
       onResult: (info) => {
         llmTraces.push(info)
       },
@@ -1265,6 +1322,7 @@ async function runJob(albumId, kind, options = {}) {
           label: trace.label,
           requestedUrlCount: trace.requestedUrlCount,
           safeUrlCount: trace.safeUrlCount,
+          safeUrlsIdentical: Boolean(trace.safeUrlsIdentical),
           attachedSlots: trace.attachedSlots,
           raw: String(trace.text || '').slice(0, 12000),
         })),

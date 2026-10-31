@@ -1299,6 +1299,18 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     await persistIntakeVehicleFields(albumId, album.vehicleJson, intakeDraft)
   }
 
+  const contentTouched = payload.content != null || payload.photoDraft != null || payload.document != null
+  if (contentTouched) {
+    const { syncMediaWithFlow } = require('./media.service')
+    const { collectFlowImageRefs } = require('../utils/flow-photo-mask-writeback')
+    const freshForSync = await loadAlbum(albumId)
+    await syncMediaWithFlow(
+      albumId,
+      sortFlowNodes(readFlowNodesRaw(freshForSync)),
+      collectFlowImageRefs(previewNodes),
+    )
+  }
+
   const refreshed = await loadAlbum(albumId)
   const nodes = mapNodesForView(refreshed)
   const flowNodes = sortFlowNodes(readFlowNodesRaw(refreshed))
