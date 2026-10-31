@@ -26,6 +26,10 @@ const {
   collectQuoteConfirmGaps,
   normalizePhotoDraft,
   mergePhotoDraft,
+  normalizeNodeContent,
+  mergeNodeContent,
+  contentOfFlowNode,
+  migrateNodeToSingleContent,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
   addonDraftStillBlank,
@@ -46,17 +50,15 @@ const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolve
 const { sanitizeAiReviewForView } = require('./node-ai-review.service')
 const { ownerVisiblePlate } = require('../utils/plate-mask')
 
-/** 接车定稿：报告 photos 必须来自节点 pendingImages（与节点当前留证一致） */
+/** 接车定稿投影：报告 photos 派生自节点 content.pendingImages（非第二真源） */
 function sealIntakePhotosPayload(node, payload = {}, options = {}) {
-  const draft =
-    (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const draft = contentOfFlowNode(node)
   const out = { ...(payload && typeof payload === 'object' ? payload : {}) }
   const existing = Array.isArray(out.photos) ? out.photos : []
   const hasPhotos = existing.some((row) => {
     const url = typeof row === 'string' ? row : row && (row.url || row.src || row.rawUrl)
     return Boolean(String(url || '').trim())
   })
-  // force：改图后同步报告；默认缺图才补
   const force = Boolean(options && options.force)
   if (force || !hasPhotos) {
     out.photos = (Array.isArray(draft.pendingImages) ? draft.pendingImages : [])
@@ -84,6 +86,42 @@ function sealIntakePhotosPayload(node, payload = {}, options = {}) {
     out.confirmCopy = INTAKE_CONFIRM_COPY
   }
   return out
+}
+
+/** 写入节点唯一内容袋；兼容旧客户端仍传 photoDraft */
+function writeNodeContent(node, patch) {
+  const prev = contentOfFlowNode(node)
+  const incoming =
+    patch && typeof patch === 'object'
+      ? patch.content != null
+        ? patch.content
+        : patch.photoDraft != null
+          ? patch.photoDraft
+          : patch
+      : {}
+  const content = mergeNodeContent(prev, incoming)
+  const next = { ...node, content }
+  delete next.photoDraft
+  if (next.document && typeof next.document === 'object') {
+    next.document = {
+      ...next.document,
+      // 旧读侧仍看 payload：投影自 content，不另存真源
+      payload: { ...(next.document.payload || {}), ...content },
+    }
+  }
+  return next
+}
+
+function projectDocumentPayloadFromContent(node) {
+  if (!node || !node.document || typeof node.document !== 'object') return node
+  const content = contentOfFlowNode(node)
+  return {
+    ...node,
+    document: {
+      ...node.document,
+      payload: { ...content },
+    },
+  }
 }
 
 function albumQuoteOpts(album = {}) {
@@ -122,6 +160,14 @@ function readFlowVersion(album) {
 function readFlowNodesRaw(album) {
   const pkg = readRawContentPackage(album)
   return Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+}
+
+function migrateFlowNodesContent(pkg) {
+  const nodes = Array.isArray(pkg && pkg.flowNodes) ? pkg.flowNodes : []
+  return {
+    ...pkg,
+    flowNodes: nodes.map((node) => migrateNodeToSingleContent(node)),
+  }
 }
 
 function sortFlowNodes(nodes = []) {
@@ -178,7 +224,7 @@ function collectNodePhotoList(node, albumNodes = []) {
       ).trim(),
     })
   }
-  const draft = (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const draft = contentOfFlowNode(node)
   // 接车留证唯一真源：pendingImages（旧袋打开时已并入一次）
   if (node && node.kind === 'intake') {
     ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => push(img))
@@ -217,7 +263,7 @@ async function absorbLegacyStagePhotos(albumId, album, albumNodes) {
 function countPhotosForFlowNode(node, albumNodes = []) {
   // 完工照：整车外观/交车图以引用为主，不强制 stage_6 再存实体图
   if (node && node.kind === 'delivery_photos') {
-    const draft = (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+    const draft = contentOfFlowNode(node)
     if (String(draft.deliveryExteriorUrl || '').trim()) return 1
     const extras = Array.isArray(draft.selectedDeliveryUrls)
       ? draft.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
@@ -264,6 +310,34 @@ function buildAdviceFingerprints(album) {
   return { quote, intake, work, inspect, delivery }
 }
 
+/** 读侧重签原图：小程序 <image> 无法带 Bearer；库内应是裸 URL */
+function resignMediaUrlsForView(value, depth = 0) {
+  const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+  if (depth > 24 || value == null) return value
+  if (typeof value === 'string') {
+    if (/\/media\/files\/uploads\//i.test(value)) {
+      return resolveClientReadableMediaUrl(value) || value
+    }
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => resignMediaUrlsForView(item, depth + 1))
+  }
+  if (typeof value === 'object') {
+    const out = Array.isArray(value) ? [] : { ...value }
+    Object.keys(value).forEach((key) => {
+      out[key] = resignMediaUrlsForView(value[key], depth + 1)
+    })
+    return out
+  }
+  return value
+}
+
+function resignPhotoDraftForView(draft) {
+  if (!draft || typeof draft !== 'object') return draft || {}
+  return resignMediaUrlsForView(draft)
+}
+
 function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
   const meta = getFlowKindMeta(node.kind) || {}
   const photo = isPhotoFlowNode(node)
@@ -286,7 +360,9 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
         : node.title || meta.title || '',
     status: node.status || 'pending',
     note: node.note || '',
-    photoDraft: normalizePhotoDraft(node.photoDraft || {}),
+    content: resignPhotoDraftForView(normalizeNodeContent(contentOfFlowNode(node))),
+    // 兼容旧前端：photoDraft 只是 content 别名，不是第二真源
+    photoDraft: resignPhotoDraftForView(normalizeNodeContent(contentOfFlowNode(node))),
     legacyStageId: legacyStageIds[0] || '',
     legacyStageIds,
     photoTips: meta.photoTips || '',
@@ -353,7 +429,7 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
     // 拍照节点也可带定稿 document（接车发出、工单定稿等）；不得因 nodeCategory=photo 剥掉
     document: node.document
       ? {
-          ...node.document,
+          ...resignMediaUrlsForView(node.document),
           statusLabel: resolveDocumentStatusLabel(node.document),
           requiresConfirm: needConfirm,
         }
@@ -521,7 +597,7 @@ function collectAllWorkOrderItems(nodes = []) {
           .filter(Boolean)
       }
       const findings =
-        (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) || []
+        (Array.isArray(contentOfFlowNode(n).findings) && contentOfFlowNode(n).findings) || []
       return findings.map(mapWorkFindingToReportItem).filter(Boolean)
     })
 }
@@ -567,7 +643,53 @@ function renumberSortOrders(nodes = []) {
   return nodes
 }
 
+/** 从节点上收集挂图 URL（进行中 + 报告载荷） */
+function collectMediaUrlsFromFlowNode(node) {
+  const urls = []
+  const walk = (value, depth = 0) => {
+    if (depth > 20 || value == null) return
+    if (typeof value === 'string') {
+      if (/\/media\/files\/uploads\//i.test(value)) urls.push(value)
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => walk(item, depth + 1))
+      return
+    }
+    if (typeof value === 'object') {
+      ;['url', 'src', 'rawUrl'].forEach((key) => {
+        if (value[key]) walk(value[key], depth + 1)
+      })
+      Object.keys(value).forEach((key) => {
+        if (key === 'url' || key === 'src' || key === 'rawUrl') return
+        walk(value[key], depth + 1)
+      })
+    }
+  }
+  walk(node && node.content)
+  walk(node && node.photoDraft)
+  walk(node && node.document && node.document.payload)
+  return urls
+}
+
+async function syncFlowPackageAlbumOwnership(albumId, pkg) {
+  const { ensureAlbumOwnsMediaUrls } = require('./service-album.service')
+  const nodes = sortFlowNodes(Array.isArray(pkg && pkg.flowNodes) ? pkg.flowNodes : [])
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i]
+    const nodeId = String((node && node.id) || '').trim()
+    if (!nodeId) continue
+    const urls = collectMediaUrlsFromFlowNode(node)
+    if (!urls.length) continue
+    await ensureAlbumOwnsMediaUrls(albumId, nodeId, urls, {
+      title: node.title || node.kind || nodeId,
+      sortOrder: Number(node.sortOrder) || i,
+    })
+  }
+}
+
 async function writeFlowPackage(albumId, mutator) {
+  const { stripMediaAccessQueryDeep } = require('../lib/media-signed-url')
   const album = await prisma.album.findUnique({ where: { id: albumId } })
   if (!album) {
     const err = new Error('相册不存在')
@@ -575,12 +697,20 @@ async function writeFlowPackage(albumId, mutator) {
     throw err
   }
   const pkg = readRawContentPackage(album)
-  const next = mutator(pkg) || pkg
+  let next = mutator(pkg) || pkg
   next.flowVersion = FLOW_VERSION
+  next = migrateFlowNodesContent(next)
+  // 库内不存短期门票；读侧再签
+  next = stripMediaAccessQueryDeep(next)
   await prisma.album.update({
     where: { id: albumId },
     data: { contentPackageJson: next },
   })
+  try {
+    await syncFlowPackageAlbumOwnership(albumId, next)
+  } catch (e) {
+    console.warn('[flow] album media ownership sync failed', albumId, e && e.message)
+  }
   return next
 }
 
@@ -761,6 +891,7 @@ async function healIntakeSentUnlock(albumId) {
 
 async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, mapNodesForView } = require('./service-album.service')
+  const { stripMediaAccessQueryDeep } = require('../lib/media-signed-url')
   let album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   let nodes = mapNodesForView(album)
@@ -769,6 +900,23 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   } else if (readFlowVersion(album) < FLOW_VERSION) {
     album = await ensureFlowPackage(albumId, album, nodes)
     nodes = mapNodesForView(album)
+  }
+  // 存量：剥库内签名 + 补相册挂图归属（编辑态不是第二媒体对象）
+  try {
+    const rawPkg = readRawContentPackage(album)
+    const stripped = stripMediaAccessQueryDeep(rawPkg)
+    const before = JSON.stringify(rawPkg)
+    const after = JSON.stringify(stripped)
+    if (before !== after) {
+      await prisma.album.update({
+        where: { id: albumId },
+        data: { contentPackageJson: { ...stripped, flowVersion: FLOW_VERSION } },
+      })
+      album = await loadAlbum(albumId)
+    }
+    await syncFlowPackageAlbumOwnership(albumId, stripped)
+  } catch (e) {
+    console.warn('[flow] heal media ownership on getFlow failed', albumId, e && e.message)
   }
   await healQuotePrefillAfterReport(albumId, album)
   album = await loadAlbum(albumId)
@@ -845,7 +993,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   } = require('../../vendor/shared/utils/flow-stage-locks')
   const editFamily = familyOfKind(preview.kind, preview)
   if (
-    (payload.photoDraft != null || payload.document) &&
+    (payload.content != null || payload.photoDraft != null || payload.document) &&
     isNodeEditFrozen(previewNodes, preview) &&
     !payload.startIntakeAdvice &&
     !payload.startWorkAdvice &&
@@ -858,7 +1006,11 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     err.status = 409
     throw err
   }
-  if (preview.status === 'completed' && isPhotoFlowNode(preview) && payload.photoDraft != null) {
+  if (
+    preview.status === 'completed' &&
+    isPhotoFlowNode(preview) &&
+    (payload.content != null || payload.photoDraft != null)
+  ) {
     if (isNodeEditFrozen(previewNodes, preview)) {
       const err = new Error(freezeMessage(editFamily))
       err.status = 409
@@ -1080,29 +1232,32 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     if (payload.note != null) {
       nextNode.note = String(payload.note || '').trim()
     }
-    if (payload.photoDraft != null) {
-      nextNode.photoDraft = mergePhotoDraft(prev.photoDraft || {}, payload.photoDraft || {})
-      // 车型/里程由接车节点登记（存量合并节点 intake_inspection 同口径）
+    if (payload.content != null || payload.photoDraft != null) {
+      Object.assign(
+        nextNode,
+        writeNodeContent(prev, {
+          content: payload.content != null ? payload.content : payload.photoDraft,
+        }),
+      )
       if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
-        intakeDraft = nextNode.photoDraft
+        intakeDraft = contentOfFlowNode(nextNode)
       }
     }
     if (payload.status != null) {
       nextNode.status = String(payload.status || '').trim() || prev.status
     }
     if (payload.document != null && (prev.document || prev.kind === 'intake' || prev.kind === 'intake_inspection')) {
-      const prevDoc = prev.document || emptyDocument('intake_confirm')
+      const prevDoc = nextNode.document || prev.document || emptyDocument('intake_confirm')
       let mergedPayload = {
+        ...contentOfFlowNode(nextNode),
         ...(prevDoc.payload || {}),
         ...((payload.document && payload.document.payload) || {}),
       }
       if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
-        // 发出/改图时强制与 pendingImages 对齐，避免报告残留已删图
-        mergedPayload = sealIntakePhotosPayload(
-          { ...prev, photoDraft: nextNode.photoDraft || prev.photoDraft },
-          mergedPayload,
-          { force: true },
-        )
+        mergedPayload = sealIntakePhotosPayload(nextNode, mergedPayload, { force: true })
+        // 发出时把派生字段收回 content，payload 仅投影
+        Object.assign(nextNode, writeNodeContent(nextNode, { content: mergedPayload }))
+        mergedPayload = { ...contentOfFlowNode(nextNode) }
       }
       nextNode.document = {
         ...prevDoc,
@@ -1116,20 +1271,18 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
         if (nextNode.document.statusLabel === '车主未同意') nextNode.document.statusLabel = ''
       }
     } else if (
-      payload.photoDraft != null &&
+      (payload.content != null || payload.photoDraft != null) &&
       (prev.kind === 'intake' || prev.kind === 'intake_inspection') &&
       prev.document &&
       String(prev.document.status || '') !== 'confirmed'
     ) {
-      // 只改留证时：未确认的接车报告 photos 跟着节点走
-      const prevDoc = prev.document
+      // 只改留证时：未确认的接车报告 photos 跟着节点 content 走
+      const prevDoc = nextNode.document || prev.document
+      const sealed = sealIntakePhotosPayload(nextNode, prevDoc.payload || {}, { force: true })
+      Object.assign(nextNode, writeNodeContent(nextNode, { content: sealed }))
       nextNode.document = {
         ...prevDoc,
-        payload: sealIntakePhotosPayload(
-          { ...prev, photoDraft: nextNode.photoDraft || prev.photoDraft },
-          prevDoc.payload || {},
-          { force: true },
-        ),
+        payload: { ...contentOfFlowNode(nextNode) },
       }
     }
     if (payload.markComplete) {
@@ -1198,8 +1351,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   }
 
   const vehicle = album.vehicleJson || {}
-  const incomingDraft = mergePhotoDraft(node.photoDraft || {}, {
-    ...(payload.photoDraft || {}),
+  const incomingDraft = mergeNodeContent(contentOfFlowNode(node), {
+    ...((payload.content || payload.photoDraft || {})),
     ...(payload.chiefComplaint != null ? { chiefComplaint: payload.chiefComplaint } : {}),
     ...(payload.findings != null ? { findings: payload.findings } : {}),
     ...(payload.conclusion != null ? { conclusion: payload.conclusion } : {}),
@@ -1219,7 +1372,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   })
 
   const photoCount = countPhotosForFlowNode(
-    { ...node, photoDraft: incomingDraft },
+    { ...node, content: incomingDraft },
     nodes,
   )
   if (node.kind === 'intake') {
@@ -1250,7 +1403,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       node.kind === 'intake_inspection'
         ? incomingDraft.chiefComplaint
         : String(
-            (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+            (intakeNode && contentOfFlowNode(intakeNode).chiefComplaint) ||
               incomingDraft.chiefComplaint ||
               '',
           ).trim()
@@ -1283,7 +1436,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     const { maybeHoldDeliverForAiReview } = require('./node-ai-review.service')
     const heldDelivery = await maybeHoldDeliverForAiReview({
       album,
-      node: { ...node, photoDraft: incomingDraft },
+      node: { ...node, content: incomingDraft },
       merchantId,
       payload,
     })
@@ -1291,7 +1444,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       return {
         ...heldDelivery,
         node: mapFlowNodeForView(
-          { ...node, photoDraft: incomingDraft, aiReview: heldDelivery.review },
+          { ...node, content: incomingDraft, aiReview: heldDelivery.review },
           nodes,
         ),
       }
@@ -1304,13 +1457,13 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     if (idx < 0) return pkg
 
     list[idx] = {
-      ...list[idx],
+      ...writeNodeContent(list[idx], { content: incomingDraft }),
       status: 'completed',
-      photoDraft: incomingDraft,
     }
     if (list[idx].kind === 'intake' || list[idx].kind === 'intake_inspection') {
       const prevDoc = list[idx].document || emptyDocument('intake_confirm')
       const sealed = sealIntakePhotosPayload(list[idx], prevDoc.payload || {}, { force: true })
+      Object.assign(list[idx], writeNodeContent(list[idx], { content: sealed }))
       const prevStatus = String(prevDoc.status || '')
       list[idx] = {
         ...list[idx],
@@ -1326,7 +1479,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           ...(prevStatus === 'delivered' || prevStatus === 'pending_confirm' || prevStatus === 'confirmed'
             ? {}
             : { deliveredAt: new Date().toISOString() }),
-          payload: sealed,
+          payload: { ...contentOfFlowNode(list[idx]) },
         },
       }
     }
@@ -1359,7 +1512,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           list[idx].kind === 'intake_inspection'
             ? incomingDraft.chiefComplaint
             : String(
-                (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+                (intakeNode && contentOfFlowNode(intakeNode).chiefComplaint) ||
                   incomingDraft.chiefComplaint ||
                   '',
               ).trim()
@@ -1371,15 +1524,29 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           findings: incomingDraft.findings,
           conclusion: incomingDraft.conclusion,
         })
+        // 检测报告正文仍由检测节点 content 派生；报告节点 payload 为投影副本（兼容读侧）
+        Object.assign(list[idx], writeNodeContent(list[idx], {
+          content: {
+            ...contentOfFlowNode(list[idx]),
+            chiefComplaint,
+            findings: draft.findings,
+            conclusion: draft.conclusion,
+          },
+        }))
         const reportId = list[reportIdx].id
+        const reportContent = mergeNodeContent(contentOfFlowNode(list[reportIdx]), {
+          chiefComplaint,
+          findings: draft.findings,
+          conclusion: draft.conclusion,
+        })
         list[reportIdx] = {
-          ...list[reportIdx],
+          ...writeNodeContent(list[reportIdx], { content: reportContent }),
           status: 'in_progress',
           document: {
             ...(list[reportIdx].document || emptyDocument('inspection_report')),
             status: 'delivered',
             deliveredAt: new Date().toISOString(),
-            payload: draft,
+            payload: { ...reportContent, ...draft },
           },
         }
         if (quoteIdx >= 0) {
@@ -1518,8 +1685,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       const insp =
         nodes.find((n) => n && n.kind === 'inspection') ||
         nodes.find((n) => n && n.kind === 'intake_inspection')
-      const inspDraft =
-        (insp && insp.photoDraft && typeof insp.photoDraft === 'object' && insp.photoDraft) || {}
+      const inspDraft = contentOfFlowNode(insp)
       if (Array.isArray(inspDraft.findings) && inspDraft.findings.length) {
         const sealed = buildInspectionReportPayload({
           vehicle: album.vehicleJson || {},
@@ -1768,8 +1934,8 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
     existingNodes.find((n) => n && n.kind === 'work' && n.status === 'in_progress') ||
     existingNodes.find((n) => n && n.kind === 'work' && n.status !== 'locked') ||
     existingNodes.find((n) => n && n.kind === 'work')
-  const seedFindings = Array.isArray(workForSeed && workForSeed.photoDraft && workForSeed.photoDraft.findings)
-    ? workForSeed.photoDraft.findings
+  const seedFindings = Array.isArray(workForSeed && contentOfFlowNode(workForSeed).findings)
+    ? contentOfFlowNode(workForSeed).findings
     : []
   const addonDraft = buildAddonDraftFromWorkFindings(seedFindings)
   const openAddon = existingNodes.find((n) => {
@@ -2055,9 +2221,8 @@ function isOwnerDocContentReady(node = {}) {
         status === 'in_progress' ||
         status === 'completed' ||
         Boolean(
-          node.photoDraft &&
-            Array.isArray(node.photoDraft.findings) &&
-            node.photoDraft.findings.length,
+          Array.isArray(contentOfFlowNode(node).findings) &&
+            contentOfFlowNode(node).findings.length,
         )
       )
     default:
@@ -2087,8 +2252,8 @@ function ownerIntakePhotos(node = {}, payload = {}) {
   ) {
     return rows
   }
-  // 仅商家作业未发出时，允许预览草稿留证
-  const pending = node.photoDraft && node.photoDraft.pendingImages
+  // 仅商家作业未发出时，允许预览内容袋留证
+  const pending = contentOfFlowNode(node).pendingImages
   ;(Array.isArray(pending) ? pending : []).forEach(push)
   return rows
 }
@@ -2129,10 +2294,9 @@ function mapOwnerWorkSheetLine(row = {}) {
   return { name, brand, material, qty, note, images }
 }
 
-/** 工单卡片：已完成只读 document.payload.workItems；进行中才读 photoDraft.findings */
+/** 工单卡片：已完成只读 document.payload.workItems；进行中才读 content.findings */
 function mapOwnerWorkSheetCard(node = {}, album = {}) {
-  const draft =
-    (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const draft = contentOfFlowNode(node)
   const doc =
     (node.document && typeof node.document === 'object' && node.document) || {}
   const docPayload =
@@ -2340,25 +2504,25 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
             ? '交付人'
             : '',
     signName: String(
-      (intakeSheet && ((node.photoDraft && node.photoDraft.receiverName) || payload.receiverName)) ||
-        (kind === 'inspection_report' && (payload.inspectorName || (node.photoDraft && node.photoDraft.inspectorName))) ||
-        (kind === 'work' && ((node.photoDraft && node.photoDraft.workerName) || payload.workerName)) ||
-        (kind === 'repair_report' && (payload.delivererName || (node.photoDraft && node.photoDraft.delivererName))) ||
+      (intakeSheet && ((contentOfFlowNode(node).receiverName) || payload.receiverName)) ||
+        (kind === 'inspection_report' && (payload.inspectorName || contentOfFlowNode(node).inspectorName)) ||
+        (kind === 'work' && ((contentOfFlowNode(node).workerName) || payload.workerName)) ||
+        (kind === 'repair_report' && (payload.delivererName || contentOfFlowNode(node).delivererName)) ||
         '',
     ).trim(),
     signAtLabel: kind === 'work' || kind === 'repair_report' ? '完工时间' : '时间',
     signAt: String(
-      (intakeSheet && ((node.photoDraft && node.photoDraft.receivedAt) || payload.receivedAt)) ||
-        (kind === 'inspection_report' && (payload.inspectedAt || (node.photoDraft && node.photoDraft.inspectedAt))) ||
-        (kind === 'work' && ((node.photoDraft && node.photoDraft.finishedAt) || payload.finishedAt)) ||
-        (kind === 'repair_report' && (payload.finishedAt || (node.photoDraft && node.photoDraft.finishedAt))) ||
+      (intakeSheet && ((contentOfFlowNode(node).receivedAt) || payload.receivedAt)) ||
+        (kind === 'inspection_report' && (payload.inspectedAt || contentOfFlowNode(node).inspectedAt)) ||
+        (kind === 'work' && ((contentOfFlowNode(node).finishedAt) || payload.finishedAt)) ||
+        (kind === 'repair_report' && (payload.finishedAt || contentOfFlowNode(node).finishedAt)) ||
         '',
     ).trim(),
     belongings: String(payload.belongings || '').trim(),
     photos: intakePhotos,
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
     chiefComplaint: String(
-      payload.chiefComplaint || (node.photoDraft && node.photoDraft.chiefComplaint) || '',
+      payload.chiefComplaint || contentOfFlowNode(node).chiefComplaint || '',
     ).trim(),
     vehicleBrand,
     vehicleSeries,

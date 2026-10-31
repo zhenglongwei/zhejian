@@ -56,10 +56,35 @@ function appendMediaAccessQuery(url, objectKey) {
   return `${base}${joiner}exp=${exp}&sig=${sig}`
 }
 
+/** 持久化前：去掉媒体 URL 上的 exp/sig，避免把短期门票写进相册 JSON */
+function stripMediaAccessQueryDeep(value, depth = 0) {
+  if (depth > 28 || value == null) return value
+  if (typeof value === 'string') {
+    const s = value.trim()
+    if (!s) return value
+    if (/\/media\/files\//i.test(s) && /[?&](exp|sig)=/i.test(s)) {
+      return stripUrlQuery(s)
+    }
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => stripMediaAccessQueryDeep(item, depth + 1))
+  }
+  if (typeof value === 'object') {
+    const out = {}
+    Object.keys(value).forEach((key) => {
+      out[key] = stripMediaAccessQueryDeep(value[key], depth + 1)
+    })
+    return out
+  }
+  return value
+}
+
 module.exports = {
   isOriginalUploadObjectKey,
   stripUrlQuery,
   buildMediaSignature,
   verifyMediaSignature,
   appendMediaAccessQuery,
+  stripMediaAccessQueryDeep,
 }

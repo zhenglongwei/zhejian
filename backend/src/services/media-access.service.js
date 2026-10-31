@@ -262,6 +262,53 @@ async function matchAlbumPartsMedia(objectKey) {
   return false
 }
 
+/** 任意 JSON 树里是否引用该原图（流程草稿 / 节点文书等） */
+function jsonTreeReferencesObjectKey(value, objectKey, depth = 0) {
+  if (depth > 24 || value == null) return false
+  if (typeof value === 'string') return mediaUrlMatchesObjectKey(value, objectKey)
+  if (Array.isArray(value)) {
+    return value.some((item) => jsonTreeReferencesObjectKey(item, objectKey, depth + 1))
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value).some((key) =>
+      jsonTreeReferencesObjectKey(value[key], objectKey, depth + 1),
+    )
+  }
+  return false
+}
+
+/**
+ * 服务相册流程包原图：只住在 content_package_json（photoDraft / document），
+ * 未进 album_images 时，签名过期后仍须允许商家/车主 <image> 匿名加载。
+ */
+async function matchAlbumContentPackageMedia(objectKey) {
+  const filename = objectKeyFilename(objectKey)
+  if (!filename) return false
+
+  let rows = []
+  try {
+    rows = await prisma.$queryRaw`
+      SELECT content_package_json AS contentPackageJson
+      FROM albums
+      WHERE CAST(content_package_json AS CHAR) LIKE ${`%${filename}%`}
+      LIMIT 32
+    `
+  } catch (e) {
+    rows = await prisma.album.findMany({
+      select: { contentPackageJson: true },
+      take: 200,
+    })
+  }
+
+  for (const row of rows) {
+    const pkg = normalizeJsonRow(row.contentPackageJson)
+    if (jsonTreeReferencesObjectKey(pkg != null ? pkg : row.contentPackageJson, objectKey)) {
+      return true
+    }
+  }
+  return false
+}
+
 /** 用户头像：写入 users.avatar_url 后需供 <image> 匿名加载 */
 async function matchPublicUserAvatar(objectKey) {
   const filename = objectKeyFilename(objectKey)
@@ -360,6 +407,8 @@ async function canReadOriginalMedia(req, objectKey) {
 
   if (await matchAlbumImageMedia(objectKey)) return true
   if (await matchAlbumPartsMedia(objectKey)) return true
+  // 进度草稿图常只在 content_package_json，签名过期后与 album_images 同口径放行
+  if (await matchAlbumContentPackageMedia(objectKey)) return true
   if (await canAccessViaPublicContentCatalog(objectKey)) return true
 
   const auth = req.auth || {}
@@ -377,5 +426,7 @@ module.exports = {
   canAccessViaPublicContentCatalog,
   mediaUrlMatchesObjectKey,
   albumPartsReferenceObjectKey,
+  jsonTreeReferencesObjectKey,
   matchAlbumPartsMedia,
+  matchAlbumContentPackageMedia,
 }

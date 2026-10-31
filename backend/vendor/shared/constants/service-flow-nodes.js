@@ -237,12 +237,12 @@ function buildStandardFlowNodes() {
     status: index === 0 ? 'in_progress' : 'locked',
     photos: [],
     note: '',
-    photoDraft:
+    content:
       meta.nodeCategory === NODE_CATEGORY.PHOTO
         ? meta.kind === 'intake'
           ? emptyIntakeDraft()
           : emptyPhotoDraft()
-        : null,
+        : emptyPhotoDraft(),
     document:
       meta.nodeCategory === NODE_CATEGORY.DOCUMENT
         ? emptyDocument(meta.docType || meta.kind)

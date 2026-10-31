@@ -849,6 +849,68 @@ function stableAlbumImageId(albumId, rawUrl) {
   return `img_${albumId}_${digest}`
 }
 
+/**
+ * 挂图统一归属相册：流程节点一挂图就 upsert album_images（裸 URL）。
+ * 不 replaceAll、不触发整本预打码，只补「可读归属」。
+ */
+async function ensureAlbumOwnsMediaUrls(albumId, nodeId, urls = [], options = {}) {
+  const id = String(albumId || '').trim()
+  const nid = String(nodeId || '').trim()
+  if (!id || !nid) return { upserted: 0 }
+  const bareUrls = [
+    ...new Set(
+      (Array.isArray(urls) ? urls : [])
+        .map((u) => stripUrlQuery(String(u || '').trim()))
+        .filter((u) => u && /\/media\/files\/uploads\//i.test(u)),
+    ),
+  ]
+  if (!bareUrls.length) return { upserted: 0 }
+  const title = String(options.title || nid).trim().slice(0, 120) || nid
+  const sortOrder = Number(options.sortOrder) || 0
+  let upserted = 0
+  await prisma.$transaction(async (tx) => {
+    await tx.albumNode.upsert({
+      where: { albumId_nodeId: { albumId: id, nodeId: nid } },
+      create: {
+        albumId: id,
+        nodeId: nid,
+        title,
+        sortOrder,
+        status: 'pending',
+        note: '',
+        comparePairRows: [],
+      },
+      update: { title },
+    })
+    for (let idx = 0; idx < bareUrls.length; idx += 1) {
+      const rawUrl = bareUrls[idx].slice(0, 512)
+      const imageId = stableAlbumImageId(id, rawUrl)
+      await tx.albumImage.upsert({
+        where: { id: imageId },
+        create: {
+          id: imageId,
+          albumId: id,
+          nodeId: nid,
+          idx,
+          rawUrl,
+          caption: '',
+          checklistItemKey: '',
+          visibility: 'private',
+          publicGateStatus: 'pending',
+          publicGateReason: '',
+        },
+        update: {
+          albumId: id,
+          nodeId: nid,
+          rawUrl,
+        },
+      })
+      upserted += 1
+    }
+  })
+  return { upserted }
+}
+
 function existingAlbumImageIdByUrl(existingImages = []) {
   const map = new Map()
   ;(existingImages || []).forEach((img) => {
@@ -2986,4 +3048,6 @@ module.exports = {
   assertMerchantAlbum,
   mapNodesForView,
   normalizeVehicleJson,
+  stableAlbumImageId,
+  ensureAlbumOwnsMediaUrls,
 }

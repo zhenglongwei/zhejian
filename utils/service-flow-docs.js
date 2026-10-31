@@ -589,8 +589,106 @@ function matchPendingImage(pending, byKey, rawKey) {
   )
 }
 
+/**
+ * 节点唯一内容袋：content（兼容旧 photoDraft / 旧 document.payload 业务字段）。
+ * 报告正文由此派生，禁止再当第二真源维护。
+ */
+function normalizeNodeContent(raw = {}) {
+  const base = normalizePhotoDraft(raw || {})
+  if (Array.isArray(raw.lines)) {
+    base.lines = raw.lines.map((row) => normalizeQuoteLine(row)).filter((row) => row && row.name)
+  }
+  if (Array.isArray(raw.workItems)) {
+    base.workItems = raw.workItems
+      .map((row, index) => normalizeWorkFinding(row, index))
+      .filter((row) => row && (row.partName || (row.images && row.images.length)))
+  }
+  if (Array.isArray(raw.photos)) {
+    base.photos = normalizePendingImages(raw.photos)
+  }
+  if (raw.discovery && typeof raw.discovery === 'object') {
+    base.discovery = raw.discovery
+  }
+  if (raw.archiveCopy && typeof raw.archiveCopy === 'object') {
+    base.archiveCopy = raw.archiveCopy
+  }
+  if (raw.repairBrief != null && !base.repairBrief) {
+    base.repairBrief = String(raw.repairBrief || '').trim().slice(0, 500)
+  }
+  return base
+}
+
+function mergeNodeContent(prev = {}, patch = {}) {
+  const next = normalizeNodeContent(prev)
+  if (!patch || typeof patch !== 'object') return next
+  const mergedDraft = mergePhotoDraft(next, patch)
+  Object.assign(next, mergedDraft)
+  if (patch.lines != null) {
+    next.lines = Array.isArray(patch.lines)
+      ? patch.lines.map((row) => normalizeQuoteLine(row)).filter((row) => row && row.name)
+      : []
+  }
+  if (patch.workItems != null) {
+    next.workItems = Array.isArray(patch.workItems)
+      ? patch.workItems
+          .map((row, index) => normalizeWorkFinding(row, index))
+          .filter((row) => row && (row.partName || (row.images && row.images.length)))
+      : []
+  }
+  if (patch.photos != null) {
+    next.photos = normalizePendingImages(patch.photos)
+  }
+  if (patch.discovery != null) {
+    next.discovery = patch.discovery && typeof patch.discovery === 'object' ? patch.discovery : {}
+  }
+  if (patch.archiveCopy != null) {
+    next.archiveCopy =
+      patch.archiveCopy && typeof patch.archiveCopy === 'object' ? patch.archiveCopy : {}
+  }
+  return normalizeNodeContent(next)
+}
+
+function contentOfFlowNode(node) {
+  if (!node || typeof node !== 'object') return normalizeNodeContent({})
+  if (node.content && typeof node.content === 'object') {
+    return normalizeNodeContent(node.content)
+  }
+  if (node.photoDraft && typeof node.photoDraft === 'object') {
+    return normalizeNodeContent(node.photoDraft)
+  }
+  const doc = node.document && typeof node.document === 'object' ? node.document : null
+  const payload = doc && doc.payload && typeof doc.payload === 'object' ? doc.payload : null
+  if (payload) return normalizeNodeContent(payload)
+  return normalizeNodeContent({})
+}
+
+/** @deprecated 使用 contentOfFlowNode；保留别名避免旧调用方断裂 */
 function draftOfFlowNode(node) {
-  return node && node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}
+  return contentOfFlowNode(node)
+}
+
+/**
+ * 存量节点：把 photoDraft / payload 业务字段收进 content，并去掉平行真源。
+ * document 只留信封；payload 若仍在则改为 content 的浅引用投影（兼容旧读侧）。
+ */
+function migrateNodeToSingleContent(node) {
+  if (!node || typeof node !== 'object') return node
+  const doc = node.document && typeof node.document === 'object' ? { ...node.document } : null
+  const payload = doc && doc.payload && typeof doc.payload === 'object' ? doc.payload : null
+  const content = mergeNodeContent(
+    mergeNodeContent(payload || {}, node.photoDraft || {}),
+    node.content || {},
+  )
+  const next = { ...node, content }
+  delete next.photoDraft
+  if (doc) {
+    // 信封保留；payload 投影自 content，不再独立演化
+    next.document = {
+      ...doc,
+      payload: { ...content },
+    }
+  }
+  return next
 }
 
 function compactPriorRow(row = {}) {
@@ -1970,6 +2068,11 @@ module.exports = {
   normalizePhotoDraft,
   looksLikeWorkFinding,
   mergePhotoDraft,
+  normalizeNodeContent,
+  mergeNodeContent,
+  contentOfFlowNode,
+  draftOfFlowNode,
+  migrateNodeToSingleContent,
   normalizePendingImages,
   applyOrganizeGroups,
   inspectionSuggestions,

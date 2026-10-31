@@ -66,6 +66,7 @@
 | 检测节点 AI | `backend/data/inspect-advice-debug/{albumId}-last.json` | traces 原文、attachedSlots、finalEdits、groupsGap |
 | 其它 LLM 任务 | `backend/data/<域>-debug/{id}-last.json` 或等价 pm2/文件日志 | 同：输入摘要 + 原文 + 解析结果 + 错误 |
 | 脱敏/识图 | 既有 pm2 + smoke；缺则补「本批 id 列表 + 终端状态」 | 见 `desensitize-plate-debug` |
+| 原图 403 | access 日志 `GET /api/v1/media/files/...` → `100003` | 权限未过（签名失效且未进相册归属）。**根因口径**：库内禁存 `exp/sig`；挂图即写 `album_images`；读侧重签。草稿=相册编辑态，不是第二媒体对象（见 `26_` §1.0 / `29_` §2） |
 
 要求：
 

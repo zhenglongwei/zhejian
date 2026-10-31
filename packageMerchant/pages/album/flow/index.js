@@ -226,11 +226,33 @@ function flowDraftStorageKey(albumId, nodeId) {
   return `zj_flow_draft_${String(albumId || '').trim()}_${String(nodeId || '').trim()}`
 }
 
+function nodeContentOf(node) {
+  if (!node || typeof node !== 'object') return {}
+  if (node.content && typeof node.content === 'object') return node.content
+  if (node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
+  return {}
+}
+
+function applyNodeContent(node, bag) {
+  if (!node || typeof node !== 'object') return
+  const next = bag && typeof bag === 'object' ? bag : {}
+  node.content = next
+  node.photoDraft = next
+}
+
+function flowContentSave(bag) {
+  const next = bag && typeof bag === 'object' ? bag : {}
+  return { content: next, photoDraft: next }
+}
+
 function readLocalFlowDraft(albumId, nodeId) {
   if (!String(albumId || '').trim() || !String(nodeId || '').trim()) return null
   try {
     const raw = wx.getStorageSync(flowDraftStorageKey(albumId, nodeId))
-    if (raw && typeof raw === 'object' && raw.photoDraft) return raw
+    if (!raw || typeof raw !== 'object') return null
+    const bag = raw.content || raw.photoDraft
+    if (!bag || typeof bag !== 'object') return null
+    return { savedAt: raw.savedAt, content: bag, photoDraft: bag }
   } catch (_) {
     /* ignore */
   }
@@ -281,7 +303,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
       photoCount: Number(node.photoCount) || previewImages.length,
       chiefComplaint:
         kind === 'intake_inspection' || kind === 'intake'
-          ? String((node.photoDraft && node.photoDraft.chiefComplaint) || '')
+          ? String((nodeContentOf(node).chiefComplaint) || '')
           : '',
     }
   }
@@ -769,10 +791,9 @@ Page({
     ;(flowNodes || []).forEach((node) => {
       if (!node || node.kind !== 'work') return
       if (currentId && node.id === currentId) return
-      ;((node.photoDraft && node.photoDraft.findings) || []).forEach((raw) => put(raw, false))
+      ;(nodeContentOf(node).findings || []).forEach((raw) => put(raw, false))
     })
-    const currentFindings =
-      (activeNode && activeNode.photoDraft && activeNode.photoDraft.findings) || []
+    const currentFindings = nodeContentOf(activeNode).findings || []
     currentFindings.forEach((raw) => put(raw, true))
     return rows
   },
@@ -879,10 +900,10 @@ Page({
       }
     }
 
-    // 施工图以 photoDraft 为真源；stage_5 是落库镜像，再并入会因 URL 差异整批翻倍
+    // 施工图以节点 content 为真源；stage_5 是落库镜像，再并入会因 URL 差异整批翻倍
     ;(flowNodes || []).forEach((node) => {
       if (!node || node.kind !== 'work') return
-      ;((node.photoDraft && node.photoDraft.findings) || []).forEach((raw) => {
+      ;(nodeContentOf(node).findings || []).forEach((raw) => {
         const item = normalizeWorkFinding(raw)
         item.images.forEach((img) => put(img.url, item.partName, img.imageId))
       })
@@ -1399,7 +1420,7 @@ Page({
     // 接车＝留证：问诊 / 当前里程 / 里程表槽；外观图走相册节点
     if (kind === 'intake') {
       const intake = this.intakeNode()
-      const draft = (intake && intake.photoDraft) || {}
+      const draft = nodeContentOf(intake)
       const fromNode = normalizePendingImages(draft.pendingImages)
       const pile = normalizePendingImages(this.collectIntakePile())
       return {
@@ -1544,11 +1565,11 @@ Page({
       )
       const activeIsDoc = Boolean(active && active.document)
       const docPayload = (active && active.document && active.document.payload) || {}
-      let photoDraft = { ...((active && active.photoDraft) || {}) }
+      let photoDraft = { ...nodeContentOf(active) }
       if (active && active.id) {
         const local = readLocalFlowDraft(this.albumId, active.id)
-        if (local && local.photoDraft) {
-          photoDraft = { ...photoDraft, ...local.photoDraft }
+        if (local && (local.content || local.photoDraft)) {
+          photoDraft = { ...photoDraft, ...(local.content || local.photoDraft) }
         }
       }
       const isIntakePhotoStep = Boolean(
@@ -1643,7 +1664,7 @@ Page({
           const intake = flowNodes.find(
             (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
           )
-          const intakeDraft = (intake && intake.photoDraft) || {}
+          const intakeDraft = nodeContentOf(intake)
           const intakeLocal = intake && readLocalFlowDraft(this.albumId, intake.id)
           const intakePayload = (intake && intake.document && intake.document.payload) || {}
           chiefComplaint = String(
@@ -1962,7 +1983,7 @@ Page({
       this._openAdviceAfterLoad = false
 
       this._inspectionAiKey =
-        (active && active.photoDraft && active.photoDraft.inspectionAiKey) || ''
+        nodeContentOf(active).inspectionAiKey || ''
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
@@ -2324,7 +2345,7 @@ Page({
               ? (nodes || []).find((n) => n && n.kind === 'delivery_photos')
               : null
     const clerkPatch = clerkKind
-      ? this.buildClerkFieldData(nodes, (clerkNode && clerkNode.photoDraft) || {}, {}, {
+      ? this.buildClerkFieldData(nodes, nodeContentOf(clerkNode), {}, {
           activeKind: clerkKind,
           readOnly: albumLocked || frozen,
         })
@@ -2351,7 +2372,7 @@ Page({
     // 接车屏只绑节点 pendingImages 当场算出的列表
     if (family === 'intake') {
       const intake = this.intakeNode && this.intakeNode()
-      this.syncIntakePileFromDraft((intake && intake.photoDraft) || {})
+      this.syncIntakePileFromDraft(nodeContentOf(intake))
     }
   },
 
@@ -2363,12 +2384,10 @@ Page({
     this.setData({ complaintFocus: false })
   },
 
-  /** 接车留证：只从节点 photoDraft.pendingImages 当场算出，不读板子/preview 副本 */
+  /** 接车留证：只从节点 content.pendingImages 当场算出，不读板子/preview 副本 */
   collectIntakePile() {
     const intake = this.intakeNode && this.intakeNode()
-    const draft =
-      (intake && intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) ||
-      {}
+    const draft = nodeContentOf(intake)
     return this.intakePileFromPending(draft.pendingImages)
   },
 
@@ -2460,13 +2479,12 @@ Page({
           if (!uploadedList.length) throw new Error('上传失败')
           const intake = this.intakeNode()
           if (!intake) throw new Error('还没有接车记录')
-          const draft = (intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) || {}
+          const draft = nodeContentOf(intake)
           const pendingImages = normalizePendingImages(draft.pendingImages).concat(uploadedList)
-          await updateMerchantFlowNode(this.albumId, intake.id, {
-            photoDraft: { pendingImages },
-          })
-          intake.photoDraft = { ...draft, pendingImages }
-          this.syncIntakePileFromDraft(intake.photoDraft)
+          const next = { ...draft, pendingImages }
+          await updateMerchantFlowNode(this.albumId, intake.id, flowContentSave({ pendingImages }))
+          applyNodeContent(intake, next)
+          this.syncIntakePileFromDraft(next)
           if (typeof this.writeLocalFlowDraft === 'function') this.writeLocalFlowDraft()
           if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
             this.setData({
@@ -2501,12 +2519,12 @@ Page({
     if (!mediaKey(url)) return
     const intake = this.intakeNode()
     if (!intake) return
-    const draft = (intake.photoDraft && typeof intake.photoDraft === 'object' && intake.photoDraft) || {}
+    const draft = nodeContentOf(intake)
     const photoDraft = this.purgeIntakeDraftPhoto(draft, url)
     this.setData({ confirming: true })
     try {
-      await updateMerchantFlowNode(this.albumId, intake.id, { photoDraft })
-      intake.photoDraft = photoDraft
+      await updateMerchantFlowNode(this.albumId, intake.id, flowContentSave(photoDraft))
+      applyNodeContent(intake, photoDraft)
       // 未确认报告跟节点走（服务端也会 force 对齐）；客户端不维护 previewImages 副本
       if (intake.document && intake.document.payload && String(intake.document.status || '') !== 'confirmed') {
         intake.document = {
@@ -2543,9 +2561,9 @@ Page({
   },
 
   nodeDraft(node) {
-    const saved = (node && node.photoDraft) || {}
+    const saved = nodeContentOf(node)
     const local = node && readLocalFlowDraft(this.albumId, node.id)
-    const merged = { ...saved, ...((local && local.photoDraft) || {}) }
+    const merged = { ...saved, ...((local && (local.content || local.photoDraft)) || {}) }
     const live = this.data.activeNode && node && this.data.activeNode.id === node.id
     if (!live) return merged
     const patch = this.liveClerkDraft(node.kind)
@@ -2690,8 +2708,8 @@ Page({
       if (!node) return
       if (node.status === 'completed' && !(node.kind === 'work' && !deliveryReportSent(nodes))) return
       jobs.push(
-        updateMerchantFlowNode(this.albumId, node.id, { photoDraft: patch }).then(() => {
-          node.photoDraft = { ...(node.photoDraft || {}), ...patch }
+        updateMerchantFlowNode(this.albumId, node.id, flowContentSave(patch)).then(() => {
+          applyNodeContent(node, { ...nodeContentOf(node), ...patch })
         }),
       )
     }
@@ -3025,12 +3043,12 @@ Page({
       if (live) return live
     }
     const intake = this.intakeNode()
-    const draft = (intake && intake.photoDraft) || {}
+    const draft = nodeContentOf(intake)
     const local = intake && readLocalFlowDraft(this.albumId, intake.id)
     const payload = (intake && intake.document && intake.document.payload) || {}
     return String(
       draft.chiefComplaint ||
-        (local && local.photoDraft && local.photoDraft.chiefComplaint) ||
+        (local && (local.content || local.photoDraft) && (local.content || local.photoDraft).chiefComplaint) ||
         payload.chiefComplaint ||
         '',
     ).trim()
@@ -3048,7 +3066,7 @@ Page({
 
   intakeDraftFields() {
     const intake = this.intakeNode()
-    const draft = (intake && intake.photoDraft) || {}
+    const draft = nodeContentOf(intake)
     return {
       intake,
       pile: this.collectIntakePile(),
@@ -3128,6 +3146,12 @@ Page({
       // 一次完成：定稿发出 + 节点 completed + 解锁检测（勿先 update document 再 complete）
       await completeMerchantFlowNode(this.albumId, intake.id, {
         chiefComplaint: fields.complaint,
+        content: {
+          chiefComplaint: fields.complaint,
+          pendingImages: photos,
+          receiverName: String(this.data.receiverName || '').trim(),
+          receivedAt: String(this.data.receivedAt || '').trim(),
+        },
         photoDraft: {
           chiefComplaint: fields.complaint,
           pendingImages: photos,
@@ -3228,13 +3252,13 @@ Page({
       )
       const inspection = (this._flowNodes || []).find((item) => item && item.kind === 'inspection')
       const fromIntake = String(
-        (intake && intake.photoDraft && intake.photoDraft.chiefComplaint) ||
+        nodeContentOf(intake).chiefComplaint ||
           (intake && intake.document && intake.document.payload && intake.document.payload.chiefComplaint) ||
           '',
       ).trim()
       const fromPhoto =
-        inspection && inspection.photoDraft && Array.isArray(inspection.photoDraft.findings)
-          ? inspection.photoDraft.findings
+        Array.isArray(nodeContentOf(inspection).findings)
+          ? nodeContentOf(inspection).findings
           : []
       payload = {
         ...payload,
@@ -3242,14 +3266,10 @@ Page({
         findings:
           Array.isArray(payload.findings) && payload.findings.length ? payload.findings : fromPhoto,
         inspectorName: String(
-          payload.inspectorName ||
-            (inspection && inspection.photoDraft && inspection.photoDraft.inspectorName) ||
-            '',
+          payload.inspectorName || nodeContentOf(inspection).inspectorName || '',
         ).trim(),
         inspectedAt: String(
-          payload.inspectedAt ||
-            (inspection && inspection.photoDraft && inspection.photoDraft.inspectedAt) ||
-            '',
+          payload.inspectedAt || nodeContentOf(inspection).inspectedAt || '',
         ).trim(),
       }
     }
@@ -4899,6 +4919,7 @@ Page({
     try {
       wx.setStorageSync(flowDraftStorageKey(this.albumId, node.id), {
         savedAt: Date.now(),
+        content: this.buildPhotoDraftPayload(),
         photoDraft: this.buildPhotoDraftPayload(),
       })
     } catch (_) {
@@ -5045,9 +5066,7 @@ Page({
     ) {
       return
     }
-    await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-      photoDraft: this.buildPhotoDraftPayload(),
-    })
+    await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, flowContentSave(this.buildPhotoDraftPayload()))
   },
 
   onChiefComplaintInput(e) {
@@ -7356,7 +7375,7 @@ Page({
         const res = await completeMerchantFlowNode(
           this.albumId,
           this.data.activeNode.id,
-          Object.assign({}, this.buildPhotoDraftPayload(), extra),
+          Object.assign({}, flowContentSave(this.buildPhotoDraftPayload()), extra),
         )
         if (res && res.nextAction === 'ai_review') {
           this.applyInlineAiReview(res.review, 'complete')
