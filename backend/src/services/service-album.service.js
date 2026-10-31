@@ -2248,7 +2248,7 @@ async function resolveOwnerPhoneUpdate(existing, payload) {
   if (userPhone === previous) {
     return { userPhone: previous }
   }
-  // 可编辑期内允许改号或清空（清空后可再手填/扫码关联）；完工锁定后本函数不会被调用
+  // 可编辑期内允许改号或清空。完工后只补手机号也走这里，不改维修内容。
   if (!userPhone) {
     return { userPhone: '', userId: '' }
   }
@@ -2259,9 +2259,38 @@ async function resolveOwnerPhoneUpdate(existing, payload) {
   }
 }
 
+function isOwnerPhoneOnlyPayload(payload = {}) {
+  const keys = Object.keys(payload).filter((key) => payload[key] !== undefined && payload[key] !== null)
+  if (!keys.includes('userPhone')) return false
+  const allowed = new Set(['userPhone', 'storeId', 'store_id'])
+  return keys.every((key) => allowed.has(key))
+}
+
+async function persistOwnerPhone(existing, albumId, payload) {
+  const ownerUpdate = await resolveOwnerPhoneUpdate(existing, payload)
+  const album = Object.keys(ownerUpdate).length
+    ? await prisma.album.update({
+        where: { id: albumId },
+        data: ownerUpdate,
+        include: {
+          nodes: { orderBy: { sortOrder: 'asc' } },
+          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+          authorization: true,
+          publicCase: true,
+        },
+      })
+    : existing
+  let view = buildMerchantView(album)
+  Object.assign(view, assessPublicCaseQuality(view))
+  return attachPublishInviteFields(view, album)
+}
+
 async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
+  if (isOwnerPhoneOnlyPayload(payload)) {
+    return persistOwnerPhone(existing, albumId, payload)
+  }
   assertAlbumContentEditable(existing)
   assertMerchantCannotSetOwnerPhone(payload)
   // 关联手机号仅完工必填；保存车辆信息/节点草稿不强制关联（ALB-UX-15）
