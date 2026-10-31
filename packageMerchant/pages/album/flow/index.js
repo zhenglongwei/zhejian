@@ -6168,13 +6168,12 @@ Page({
     const inspectOrder = (Array.isArray(raw.inspectOrder) ? raw.inspectOrder : [])
       .map((row) => String(row || '').trim())
       .filter((row) => row && !this.isIntakeCoverageEcho(row))
-    const partHints = (Array.isArray(raw.partHints) ? raw.partHints : [])
-      .map((row, index) => ({
-        id: `part_${index}`,
-        title: String((row && row.title) || '').trim(),
-        body: String((row && row.body) || '').trim(),
-      }))
-      .filter((row) => row.title && row.body && !this.isIntakeCoverageEcho(row.body))
+    ;(Array.isArray(raw.partHints) ? raw.partHints : []).forEach((row) => {
+      const title = String((row && row.title) || '').trim()
+      const body = String((row && row.body) || '').trim()
+      const line = [title, body].filter(Boolean).join('：')
+      if (line && !this.isIntakeCoverageEcho(line) && !inspectOrder.includes(line)) inspectOrder.push(line)
+    })
 
     // 本单修改：只认意见 edits；每项一条（图+文打包），不再并入项上识图建议
     const seenFindings = new Set()
@@ -6190,6 +6189,8 @@ Page({
           canApply: false,
           applied: false,
           applyKind: 'photo',
+          groups: [],
+          hasGroups: false,
         })
         return
       }
@@ -6232,6 +6233,23 @@ Page({
         )
       }
       if (!canApply && !applied && !wantSplit) return
+      const shownGroups = wantSplit
+        ? groups.map((g, gi) => {
+            const partNameG = String((g && g.partName) || '').trim()
+            const adviceG = String((g && (g.advice || g.note)) || '').trim()
+            const imageLabel =
+              String((g && g.imageLabel) || '').trim() ||
+              (Array.isArray(g && g.imageSlots) && g.imageSlots.length
+                ? g.imageSlots.map((n) => `图${n}`).join('、')
+                : '')
+            return {
+              id: `${editId}_g_${gi}`,
+              partName: partNameG,
+              advice: adviceG,
+              imageLabel,
+            }
+          })
+        : []
       lines.push({
         id: editId,
         body,
@@ -6241,35 +6259,35 @@ Page({
         findingId,
         partName: nextName,
         advice: nextAdvice,
-        groups: wantSplit ? groups : [],
+        groups: shownGroups,
+        hasGroups: shownGroups.length >= 2,
       })
     })
 
     const hasFault = Boolean(faultAnalysis)
     const hasOrder = inspectOrder.length > 0
-    const hasParts = partHints.length > 0
     const hasLines = lines.length > 0
     return {
       status,
       scope: String(raw.scope || ''),
       faultAnalysis,
       inspectOrder,
-      partHints,
+      partHints: [],
       hasFault,
       hasOrder,
-      hasParts,
+      hasParts: false,
       edits: Array.isArray(raw.edits) ? raw.edits : [],
       shop: [],
       items: [],
       lines,
       hasLines,
-      hasContent: hasFault || hasOrder || hasParts || hasLines,
+      hasContent: hasFault || hasOrder || hasLines,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
       waitHint:
         raw.waitHint ||
         (status === 'queued' || status === 'running'
-          ? hasFault || hasOrder || hasParts || hasLines
+          ? hasFault || hasOrder || hasLines
             ? '正在更新'
             : '正在出意见'
           : ''),

@@ -4,9 +4,6 @@ const {
   parseWorkAdvice,
   parseDeliveryAdvice,
   parseInspectionAdvice,
-  needsInspectGroupsRepair,
-  mergeInspectAdvicePreferringGroups,
-  faultAnalysisLooksMultiTopic,
   contextOf,
 } = require('./step-advice.service')
 
@@ -94,271 +91,203 @@ test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
   assert.equal(got.items[1].display, '下摆臂胶套建议描述为：更换了开裂的下摆臂胶套。')
 })
 
-test('检测按项一条：拆图与文案合并，过滤留证套话', () => {
+test('检测意见按关键字整理：同条里划痕并组、底盘另组', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '左侧有剐蹭，先查叶子板与车门。',
-      inspectOrder: ['先看左前叶子板', '再对右前门'],
-      partHints: [{ title: '左前叶子板', body: '看变形和漆面' }],
+      故障诊断: '左后门有划痕，底盘有锈。',
+      检测顺序: ['先按诉求看异响', '再看左后门漆面是否露底'],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1', '图2'], 描述: '两张都是左后门下沿漆面划痕，建议核对是否露底。' },
+        { 检测项目: '底盘检修', 图片: ['图3'], 描述: '排气管附近有锈斑，建议再看悬挂。' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 3 }],
+    ['https://a/1.jpg', 'https://a/2.jpg', 'https://a/3.jpg'],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+      { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+    ],
+  )
+  assert.match(got.faultAnalysis, /划痕/)
+  assert.equal(got.inspectOrder.length, 2)
+  assert.equal(got.partHints.length, 0)
+  const split = got.edits.find((row) => row.findingId === 'pile')
+  assert.ok(split)
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].partName, '划痕检测')
+  assert.equal(split.groups[0].images.length, 2)
+  assert.equal(split.groups[0].imageLabel, '图1、图2')
+  assert.match(split.groups[0].advice, /露底/)
+  assert.equal(split.groups[1].partName, '底盘检修')
+  assert.equal(split.groups[1].images[0].url, 'https://a/3.jpg')
+  assert.equal(got.edits.some((row) => row.kind === 'photo'), false)
+})
+
+test('检测顺序写成整段时仍能展示，不并进拆分', () => {
+  const got = parseInspectionAdvice(
+    {
+      故障诊断: '左后门漆面剥落。',
+      检测顺序: '1. 先按异响查底盘悬挂\n2. 再查制动踏板行程',
+      拆分建议: [],
+    },
+    [{ id: 'a', name: '', note: '', photos: 1 }],
+    ['https://a/1.jpg'],
+    [{ slot: 1, url: 'https://a/1.jpg', findingId: 'a' }],
+  )
+  assert.equal(got.inspectOrder.length, 2)
+  assert.match(got.inspectOrder[0], /悬挂/)
+  assert.equal(got.edits.filter((row) => row.groups && row.groups.length >= 2).length, 0)
+})
+
+test('同一项目名的图收成一组，字面不同的名称不合并', () => {
+  const slots = [
+    { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+    { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+    { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+  ]
+  const merged = parseInspectionAdvice(
+    {
+      故障诊断: '划痕和底盘。',
+      检测顺序: ['先看漆面'],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1'], 描述: '左侧划痕。' },
+        { 检测项目: '划痕检测', 图片: ['图2'], 描述: '同一处另一角度。' },
+        { 检测项目: '底盘检修', 图片: ['图3'], 描述: '底盘有锈。' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 3 }],
+    [],
+    slots,
+  )
+  const split = merged.edits.find((row) => row.findingId === 'pile')
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].images.length, 2)
+
+  const distinct = parseInspectionAdvice(
+    {
+      故障诊断: '两处漆面。',
+      检测顺序: ['先看漆面'],
+      拆分建议: [
+        { 检测项目: '划痕', 图片: ['图1'], 描述: '短名。' },
+        { 检测项目: '划痕检测', 图片: ['图2'], 描述: '全名。' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    [],
+    slots.slice(0, 2),
+  )
+  const names = distinct.edits.find((row) => row.findingId === 'pile').groups.map((g) => g.partName)
+  assert.deepEqual(names, ['划痕', '划痕检测'])
+})
+
+test('只有一组时不出拆分，诊断和顺序仍在', () => {
+  const got = parseInspectionAdvice(
+    {
+      故障诊断: '三张都是左后门划痕。',
+      检测顺序: ['先核对漆面是否露底'],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1', '图2', '图3'], 描述: '同一处划痕。' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 3 }],
+    [],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+      { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+    ],
+  )
+  assert.match(got.faultAnalysis, /划痕/)
+  assert.equal(got.inspectOrder.length, 1)
+  assert.equal(got.edits.length, 0)
+})
+
+test('图注和空壳不能变成拆分建议', () => {
+  const slots = [
+    { slot: 1, url: 'https://cdn/a.jpg', findingId: 'pile' },
+    { slot: 2, url: 'https://cdn/b.jpg', findingId: 'pile' },
+  ]
+  const fromNotes = parseInspectionAdvice(
+    {
+      faultAnalysis: '1.漆面 2.制动',
+      inspectOrder: ['先看漆面', '再测制动'],
+      edits: [],
+      imageNotes: [
+        { slot: 1, partName: '车身漆面', note: '漆面剥落' },
+        { slot: 2, partName: '制动盘', note: '盘面磨损' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    slots,
+  )
+  assert.equal(fromNotes.edits.length, 0)
+  assert.match(fromNotes.faultAnalysis, /漆面/)
+
+  const emptyShell = parseInspectionAdvice(
+    {
+      故障诊断: '漆面和制动都要看。',
+      检测顺序: ['先看漆面'],
+      拆分建议: [{}, {}],
       edits: [
         {
           kind: 'item',
           findingId: 'pile',
-          body: '拆成叶子板与车门并写上发现',
           groups: [
-            { partName: '左前叶子板', advice: '漆面擦伤', imageSlots: [1] },
-            { partName: '左前门', advice: '边缘有刮痕', imageSlots: [2] },
+            { partName: '车身漆面', advice: '擦伤', imageSlots: [1] },
+            { partName: '制动系统', advice: '磨损', imageSlots: [2] },
           ],
         },
-        { kind: 'text', findingId: 'b', partName: '轮胎', advice: '胎侧有细纹，可先观察', body: '补写轮胎细纹' },
-        { kind: 'photo', body: '车身四周都拍到了' },
-        { kind: 'photo', body: '建议补拍清晰特写' },
       ],
     },
-    [
-      { id: 'pile', name: '', note: '', photos: 2 },
-      { id: 'b', name: '', note: '', photos: 1 },
-    ],
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    [],
+    slots,
+  )
+  assert.equal(emptyShell.edits.length, 0)
+})
+
+test('没有中文拆分键时，仍收下旧的分组字段', () => {
+  const got = parseInspectionAdvice(
+    {
+      faultAnalysis: '两项损伤。',
+      inspectOrder: ['先看漆面', '再测制动'],
+      edits: [
+        {
+          kind: 'item',
+          findingId: 'pile',
+          groups: [
+            { partName: '左后门下沿钣喷', advice: '漆面剥落需钣喷', imageNames: ['图1'] },
+            { partName: '前制动盘磨损评估', advice: '盘面磨损需测厚', imageName: '图2' },
+          ],
+        },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
     ['https://a/1.jpg', 'https://a/2.jpg'],
     [
       { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
       { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
     ],
   )
-  assert.equal(got.scope, 'inspect_v2')
-  assert.match(got.faultAnalysis, /剐蹭/)
-  assert.equal(got.inspectOrder.length, 2)
-  assert.equal(got.partHints.length, 1)
-  const split = got.edits.find((row) => row.kind === 'item' && row.findingId === 'pile')
-  assert.ok(split)
+  const split = got.edits.find((row) => row.findingId === 'pile')
   assert.equal(split.groups.length, 2)
-  assert.equal(split.groups[0].partName, '左前叶子板')
-  assert.match(split.groups[0].advice, /擦伤/)
-  const fill = got.edits.find((row) => row.kind === 'item' && row.findingId === 'b')
-  assert.ok(fill)
-  assert.equal(fill.partName, '轮胎')
-  assert.match(fill.advice, /细纹/)
-  assert.equal(got.edits.filter((row) => row.kind === 'item' && row.findingId === 'b').length, 1)
-  assert.equal(got.edits.some((row) => /四周/.test(row.body || '')), false)
-  assert.equal(got.edits.some((row) => row.kind === 'photo' && /补拍/.test(row.body)), true)
+  assert.equal(split.groups[0].imageLabel, '图1')
+  assert.equal(split.groups[1].images[0].url, 'https://a/2.jpg')
 })
 
-test('故障分析分点写清时判定为多主题', () => {
-  assert.equal(
-    faultAnalysisLooksMultiTopic(
-      '1.车门下沿漆面剥落。2.前刹车盘有磨损纹路。3.后悬挂与排气管有锈斑。',
-    ),
-    true,
-  )
-  assert.equal(faultAnalysisLooksMultiTopic('底盘整体未见明显变形。'), false)
-})
-
-test('故障分析分点但未按图拆项时不补跑拆分', () => {
-  const ctx = {
-    inspectPhotoSlots: [
-      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
-      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
-      { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
-    ],
-  }
-  const parsed = {
-    faultAnalysis: '1.漆面剥落。2.刹车盘磨损。3.底盘锈斑。',
-    inspectOrder: ['先看底盘', '再看漆面'],
-    partHints: [],
-    edits: [],
-  }
-  assert.equal(needsInspectGroupsRepair(parsed, ctx), false)
-  const partialGroups = {
-    ...parsed,
-    edits: [
-      {
-        kind: 'item',
-        findingId: 'pile',
-        body: '拆开',
-        groups: [
-          { partName: '车身', advice: 'a', images: [{ url: 'https://a/1.jpg' }] },
-          { partName: '制动', advice: 'b', images: [{ url: 'https://a/2.jpg' }] },
-        ],
-      },
-    ],
-  }
-  assert.equal(needsInspectGroupsRepair(partialGroups, ctx), true)
-  const withGroups = {
-    ...parsed,
-    edits: [
-      {
-        kind: 'item',
-        findingId: 'pile',
-        body: '拆开',
-        groups: [
-          { partName: '车身', advice: 'a', images: [{ url: 'https://a/1.jpg' }] },
-          { partName: '制动', advice: 'b', images: [{ url: 'https://a/2.jpg' }] },
-          { partName: '底盘', advice: 'c', images: [{ url: 'https://a/3.jpg' }] },
-        ],
-      },
-    ],
-  }
-  assert.equal(needsInspectGroupsRepair(withGroups, ctx), false)
-})
-
-test('补跑结果把 groups 合并进原意见', () => {
-  const base = {
-    faultAnalysis: '1.漆 2.刹',
-    edits: [{ kind: 'item', findingId: 'pile', body: '建议补写', groups: [], canApply: true }],
-  }
-  const repair = {
-    edits: [
-      {
-        kind: 'item',
-        findingId: 'pile',
-        body: '拆成漆面与制动',
-        groups: [
-          { partName: '车身漆面', advice: '剥落', images: [{ url: 'https://a/1.jpg' }] },
-          { partName: '制动系统', advice: '磨损', images: [{ url: 'https://a/2.jpg' }] },
-        ],
-      },
-    ],
-  }
-  const got = mergeInspectAdvicePreferringGroups(base, repair)
-  assert.equal(got.edits[0].groups.length, 2)
-  assert.match(got.edits[0].body, /拆成/)
-})
-
-test('模型已写 imageNotes.partName 时程序结构化成 groups', () => {
+test('图号按槽位对照片，不跟本次附图下标走', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '1.车身漆损 2.刹车盘磨损 3.底盘锈蚀',
-      inspectOrder: ['先看漆面', '再测刹车盘'],
-      partHints: [{ title: '车身修复提示', body: '除锈补漆' }],
-      edits: [],
-      imageNotes: [
-        { slot: 1, partName: '车身漆面', note: '侧围打磨露铁有锈' },
-        { slot: 2, partName: '制动系统', note: '刹车盘有沟槽' },
-        { slot: 3, partName: '底盘悬挂', note: '排气与摆臂有浮灰锈' },
-      ],
-    },
-    [{ id: 'pile', name: '', note: '', photos: 3 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg', 'https://cdn/c.jpg'],
-    [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'pile' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'pile' },
-      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'pile' },
-    ],
-  )
-  const edit = got.edits.find((row) => row.kind === 'item' && row.findingId === 'pile')
-  assert.ok(edit)
-  assert.equal(edit.groups.length, 3)
-  assert.equal(edit.groups[0].partName, '车身漆面')
-  assert.equal(edit.canApply, true)
-})
-
-test('空壳 groups + 图注已命名 → 同名槽合并成可应用拆分', () => {
-  const got = parseInspectionAdvice(
-    {
-      faultAnalysis: '1.漆面剥落。2.制动盘磨损。',
-      inspectOrder: ['车身漆面修复', '制动系统检测'],
-      partHints: [],
-      edits: [
-        {
-          kind: 'item',
-          findingId: 'fid_new_1',
-          body: '槽位1为车身，槽位2和3为制动',
-          groups: [{}, {}],
-        },
-      ],
-      imageNotes: [
-        { slot: 1, partName: '车门下沿', note: '漆面剥落' },
-        { slot: 2, partName: '制动盘', note: '盘面磨损' },
-        { slot: 3, partName: '制动盘', note: '同槽位2视角' },
-      ],
-    },
-    [{ id: 'fid_new_1', name: '车门下沿', note: '', photos: 3 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg', 'https://cdn/c.jpg'],
-    [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_new_1' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_new_1' },
-      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'fid_new_1' },
-    ],
-  )
-  const edit = got.edits.find((row) => row.kind === 'item' && row.findingId === 'fid_new_1')
-  assert.ok(edit)
-  assert.equal(edit.groups.length, 2)
-  assert.equal(edit.groups[0].partName, '车门下沿')
-  assert.equal(edit.groups[0].images.length, 1)
-  assert.equal(edit.groups[1].partName, '制动盘')
-  assert.equal(edit.groups[1].images.length, 2)
-  assert.equal(edit.canApply, true)
-})
-
-test('图注无 partName 时不把检测顺序或故障分析抄成拆分', () => {
-  const got = parseInspectionAdvice(
-    {
-      faultAnalysis: '1.底盘及悬挂系统检查：图片显示锈蚀。\n2.车身外观检查：客户反馈有划痕。',
-      inspectOrder: ['底盘锈蚀与悬挂状态评估', '车身漆面划痕检测'],
-      partHints: [],
-      edits: [{ kind: 'item', findingId: 'fid_a', body: '建议拆开', groups: [{}, {}] }],
-      imageNotes: [
-        { slot: 1, note: '侧围有锈' },
-        { slot: 2, note: '车身划痕' },
-      ],
-    },
-    [{ id: 'fid_a', name: '', note: '', photos: 2 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
-    [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_a' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_a' },
-    ],
-  )
-  assert.equal(
-    got.edits.some((row) => row.kind === 'item' && Array.isArray(row.groups) && row.groups.length >= 2),
-    false,
-  )
-})
-
-test('图注只有项目名没有观察句时仍能结构化拆分', () => {
-  const got = parseInspectionAdvice(
-    {
-      faultAnalysis: '1.底盘 2.漆面',
-      inspectOrder: [],
-      edits: [],
-      imageNotes: [
-        { slot: 1, partName: '底盘锈蚀检查' },
-        { slot: 2, partName: '车身划痕评估' },
-      ],
-    },
-    [{ id: 'pile', name: '', note: '', photos: 2 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
-    [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'pile' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'pile' },
-    ],
-  )
-  const edit = got.edits.find((row) => row.findingId === 'pile')
-  assert.ok(edit)
-  assert.equal(edit.groups.length, 2)
-  assert.equal(edit.groups[0].partName, '底盘锈蚀检查')
-})
-
-test('检测拆分按 photoSlots 槽位解析，不跟本次附图下标错位', () => {
-  const got = parseInspectionAdvice(
-    {
-      faultAnalysis: '一处划痕，两处底盘锈蚀。',
-      inspectOrder: ['先看漆面划痕', '再查底盘锈蚀'],
-      partHints: [],
-      edits: [
-        {
-          kind: 'item',
-          findingId: 'mixed',
-          body: '拆成划痕与底盘',
-          groups: [
-            { partName: '车身划痕', advice: '漆面擦伤', imageSlots: [1] },
-            { partName: '底盘锈蚀', advice: '排气管与悬挂有锈', imageSlots: [2, 3] },
-          ],
-        },
+      故障诊断: '一处划痕，两处底盘锈蚀。',
+      检测顺序: ['先看漆面划痕', '再查底盘锈蚀'],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1'], 描述: '漆面擦伤' },
+        { 检测项目: '底盘检修', 图片: [2, 3], 描述: '排气管与悬挂有锈' },
       ],
     },
     [{ id: 'mixed', name: '', note: '', photos: 3 }],
-    // 若只送了槽位 2、3（已识过槽位 1），下标与槽位号不一致
     ['https://cdn/chassis-a.jpg', 'https://cdn/chassis-b.jpg'],
     [
       { slot: 1, url: 'https://cdn/scratch.jpg', findingId: 'mixed' },
@@ -367,24 +296,20 @@ test('检测拆分按 photoSlots 槽位解析，不跟本次附图下标错位',
     ],
   )
   const split = got.edits.find((row) => row.findingId === 'mixed')
-  assert.ok(split)
-  assert.equal(split.groups.length, 2)
   assert.equal(split.groups[0].images[0].url, 'https://cdn/scratch.jpg')
   assert.equal(split.groups[1].images.length, 2)
   assert.equal(split.groups[1].images[0].url, 'https://cdn/chassis-a.jpg')
 })
 
-test('唯一多图项时，错误 findingId 重挂到真实 id', () => {
+test('写错的项编号不影响，照片落在哪一条就归哪一条', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '1.车身漆面剥落。2.制动盘有沟。',
-      inspectOrder: ['先看漆面', '再测制动'],
-      partHints: [],
+      faultAnalysis: '漆面和制动。',
+      inspectOrder: ['先看漆面'],
       edits: [
         {
           kind: 'item',
           findingId: 'pile',
-          body: '拆成车身漆面与制动系统',
           groups: [
             { partName: '车身漆面', advice: '漆面剥落', imageSlots: [1] },
             { partName: '制动系统', advice: '盘面有沟', imageSlots: [2] },
@@ -399,105 +324,21 @@ test('唯一多图项时，错误 findingId 重挂到真实 id', () => {
       { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_real' },
     ],
   )
-  const split = got.edits.find((row) => row.kind === 'item' && row.findingId === 'fid_real')
+  const split = got.edits.find((row) => row.findingId === 'fid_real')
   assert.ok(split)
   assert.equal(split.groups.length, 2)
-  assert.equal(split.groups[0].partName, '车身漆面')
   assert.equal(got.edits.some((row) => row.findingId === 'pile'), false)
 })
 
-test('imageSlots 写成图N 也能解析出 groups', () => {
+test('故障分析写成多条时仍是分行，不拼成逗号', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '1.漆面 2.制动',
-      inspectOrder: [],
-      partHints: [],
-      edits: [
-        {
-          kind: 'item',
-          findingId: 'fid_mix',
-          body: '拆开',
-          groups: [
-            { partName: '车身漆面', advice: '擦伤', imageSlots: ['图1'] },
-            { partName: '制动系统', advice: '磨损', imageSlots: ['图 2'] },
-          ],
-        },
-      ],
+      故障诊断: ['1. 车门下沿漆面剥落。', '2. 制动盘表面磨损。'],
+      检测顺序: ['先看漆面', '再测刹车盘'],
+      拆分建议: [],
     },
-    [{ id: 'fid_mix', name: '', note: '', photos: 2 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
-    [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_mix' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_mix' },
-    ],
-  )
-  const split = got.edits.find((row) => row.findingId === 'fid_mix')
-  assert.ok(split)
-  assert.equal(split.groups.length, 2)
-  assert.equal(split.groups[0].images[0].url, 'https://cdn/a.jpg')
-  assert.equal(split.groups[1].images[0].url, 'https://cdn/b.jpg')
-})
-
-test('多图分主题但 groups 未盖全槽位时仍需补跑', () => {
-  const ctx = {
-    inspectItems: [{ id: 'fid_pile', name: '', note: '', photos: 3 }],
-    inspectPhotoSlots: [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_pile' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_pile' },
-      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'fid_pile' },
-    ],
-  }
-  const partial = {
-    faultAnalysis: '1.漆面剥落。2.刹车盘磨损。3.底盘锈斑。',
-    partHints: [],
-    edits: [
-      {
-        kind: 'item',
-        findingId: 'fid_pile',
-        body: '拆开',
-        groups: [
-          { partName: '车身', advice: 'a', images: [{ url: 'https://cdn/a.jpg' }] },
-          { partName: '制动', advice: 'b', images: [{ url: 'https://cdn/b.jpg' }] },
-        ],
-      },
-    ],
-  }
-  assert.equal(needsInspectGroupsRepair(partial, ctx), true)
-  const complete = {
-    ...partial,
-    edits: [
-      {
-        kind: 'item',
-        findingId: 'fid_pile',
-        body: '拆开',
-        groups: [
-          { partName: '车身', advice: 'a', images: [{ url: 'https://cdn/a.jpg' }] },
-          { partName: '制动', advice: 'b', images: [{ url: 'https://cdn/b.jpg' }] },
-          { partName: '底盘', advice: 'c', images: [{ url: 'https://cdn/c.jpg' }] },
-        ],
-      },
-    ],
-  }
-  assert.equal(needsInspectGroupsRepair(complete, ctx), false)
-})
-
-test('faultAnalysis 为分点数组时不拼成逗号串', () => {
-  const got = parseInspectionAdvice(
-    {
-      faultAnalysis: [
-        '1. 车门下沿漆面剥落。',
-        '2. 制动盘表面磨损。',
-      ],
-      inspectOrder: ['先看漆面', '再测刹车盘'],
-      partHints: [],
-      edits: [],
-      imageNotes: {
-        1: '车门下沿漆面剥落',
-        2: '制动盘磨损环带',
-      },
-    },
-    [{ id: 'fid_a', name: '车门下沿', note: '', photos: 2 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [{ id: 'fid_a', name: '', note: '', photos: 2 }],
+    [],
     [
       { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_a' },
       { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_a' },
@@ -506,94 +347,46 @@ test('faultAnalysis 为分点数组时不拼成逗号串', () => {
   assert.match(got.faultAnalysis, /车门下沿/)
   assert.match(got.faultAnalysis, /制动盘/)
   assert.equal(/,2\./.test(got.faultAnalysis), false)
-  assert.equal(got.imageNotes.length, 2)
-  assert.equal(got.imageNotes[0].slot, 1)
-  assert.equal(got.imageNotes[1].slot, 2)
 })
 
-test('空壳 groups 不算合格拆分', () => {
+test('档位词不留在描述里', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '1.漆面剥落。2.刹车盘磨损。',
-      inspectOrder: [],
-      partHints: [],
-      edits: [
-        {
-          kind: 'item',
-          findingId: 'fid_a',
-          body: '该条目混合了车身与制动',
-          groups: [{}, {}],
-        },
+      故障诊断: '底盘有锈，状态良好的部位不写。',
+      检测顺序: ['先看锈蚀，需处理的先查'],
+      拆分建议: [
+        { 检测项目: '底盘检修', 图片: ['图1'], 描述: '锈斑需处理，放着会继续扩。' },
+        { 检测项目: '划痕检测', 图片: ['图2'], 描述: '漆面有划痕。' },
       ],
-      imageNotes: [],
     },
-    [{ id: 'fid_a', name: '', note: '', photos: 2 }],
-    ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    [{ id: 'pile', name: '', note: '', photos: 2 }],
+    [],
     [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_a' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_a' },
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
     ],
   )
-  assert.equal(
-    got.edits.some((row) => Array.isArray(row.groups) && row.groups.length >= 2),
-    false,
-  )
+  assert.equal(/需处理|状态良好/.test(got.faultAnalysis), false)
+  assert.equal(got.inspectOrder.some((line) => /需处理/.test(line)), false)
+  assert.equal(/需处理/.test(got.edits[0].groups[0].advice), false)
+  assert.match(got.edits[0].groups[0].advice, /锈斑/)
 })
 
-test('覆盖校验只要求实际送出的槽位', () => {
-  const ctx = {
-    inspectItems: [{ id: 'fid_pile', name: '', note: '', photos: 3 }],
-    inspectPhotoSlots: [
-      { slot: 1, url: 'https://cdn/a.jpg', findingId: 'fid_pile' },
-      { slot: 2, url: 'https://cdn/b.jpg', findingId: 'fid_pile' },
-      { slot: 3, url: 'https://cdn/c.jpg', findingId: 'fid_pile' },
-    ],
-  }
-  const partial = {
-    faultAnalysis: '1.漆面剥落。2.刹车盘磨损。',
-    partHints: [],
-    edits: [
-      {
-        kind: 'item',
-        findingId: 'fid_pile',
-        body: '拆开',
-        groups: [
-          { partName: '车身', advice: 'a', images: [{ url: 'https://cdn/a.jpg' }] },
-          { partName: '制动', advice: 'b', images: [{ url: 'https://cdn/b.jpg' }] },
-        ],
-      },
-    ],
-  }
-  assert.equal(needsInspectGroupsRepair(partial, ctx), true)
-  const attached = new Set(['https://cdn/a.jpg', 'https://cdn/b.jpg'])
-  assert.equal(needsInspectGroupsRepair(partial, ctx, attached), false)
-  const onlyOne = new Set(['https://cdn/a.jpg'])
-  assert.equal(needsInspectGroupsRepair(partial, ctx, onlyOne), false)
-})
-
-test('两个多图项时错误 findingId 不误挂', () => {
+test('跨条的图不并成一条拆分', () => {
   const got = parseInspectionAdvice(
     {
-      faultAnalysis: '1.漆面 2.制动 3.底盘',
-      inspectOrder: [],
-      partHints: [],
-      edits: [
-        {
-          kind: 'item',
-          findingId: 'pile',
-          body: '拆开',
-          groups: [
-            { partName: '车身漆面', advice: '擦伤', imageSlots: [1] },
-            { partName: '制动系统', advice: '磨损', imageSlots: [2] },
-          ],
-        },
+      故障诊断: '两条都有照片。',
+      检测顺序: ['先看漆面'],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1', '图3'], 描述: '两张划痕不在同一条里。' },
+        { 检测项目: '底盘检修', 图片: ['图2'], 描述: '底盘。' },
       ],
     },
     [
       { id: 'fid_a', name: '', note: '', photos: 2 },
       { id: 'fid_b', name: '', note: '', photos: 2 },
     ],
-    ['https://cdn/a1.jpg', 'https://cdn/a2.jpg', 'https://cdn/b1.jpg', 'https://cdn/b2.jpg'],
+    [],
     [
       { slot: 1, url: 'https://cdn/a1.jpg', findingId: 'fid_a' },
       { slot: 2, url: 'https://cdn/a2.jpg', findingId: 'fid_a' },
@@ -601,11 +394,11 @@ test('两个多图项时错误 findingId 不误挂', () => {
       { slot: 4, url: 'https://cdn/b2.jpg', findingId: 'fid_b' },
     ],
   )
-  assert.equal(
-    got.edits.some((row) => row.kind === 'item' && Array.isArray(row.groups) && row.groups.length >= 2),
-    false,
-  )
-  assert.equal(got.edits.some((row) => row.findingId === 'pile'), false)
+  const onA = got.edits.find((row) => row.findingId === 'fid_a')
+  assert.ok(onA)
+  assert.equal(onA.groups.length, 2)
+  assert.equal(onA.groups[0].images.length, 1)
+  assert.equal(got.edits.some((row) => row.findingId === 'fid_b'), false)
 })
 
 test('交车出简述与车主关心的问题', () => {

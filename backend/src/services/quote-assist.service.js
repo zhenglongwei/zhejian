@@ -200,12 +200,15 @@ async function runQuoteAssistJob(albumId, merchantId) {
         ),
         inspectionAdvice: {
           faultAnalysis: text(inspectionAdvice.faultAnalysis),
-          inspectOrder: Array.isArray(inspectionAdvice.inspectOrder)
-            ? inspectionAdvice.inspectOrder.slice(0, 6)
-            : [],
-          partHints: Array.isArray(inspectionAdvice.partHints)
-            ? inspectionAdvice.partHints.slice(0, 6)
-            : [],
+          inspectOrder: (Array.isArray(inspectionAdvice.inspectOrder) ? inspectionAdvice.inspectOrder : [])
+            .map((row) => text(row))
+            .filter(Boolean)
+            .concat(
+              (Array.isArray(inspectionAdvice.partHints) ? inspectionAdvice.partHints : [])
+                .map((row) => [text(row && row.title), text(row && row.body)].filter(Boolean).join('：'))
+                .filter(Boolean),
+            )
+            .slice(0, 6),
           edits: Array.isArray(inspectionAdvice.edits)
             ? inspectionAdvice.edits
                 .map((row) => ({

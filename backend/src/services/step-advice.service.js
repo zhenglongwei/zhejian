@@ -286,7 +286,6 @@ function adviceHasContent(advice, kind) {
   if (kind === 'inspect') {
     return Boolean(text(advice.faultAnalysis)) ||
       (Array.isArray(advice.inspectOrder) && advice.inspectOrder.length > 0) ||
-      (Array.isArray(advice.partHints) && advice.partHints.length > 0) ||
       (Array.isArray(advice.edits) && advice.edits.length > 0) ||
       (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.shop) && advice.shop.length > 0)
@@ -375,51 +374,38 @@ function zhOnly(value, max = 120) {
     .slice(0, max)
 }
 
-/** 故障分析：兼容字符串或分点数组（避免 Array.toString 变成「1.…,2.…」） */
-function zhFaultAnalysis(value, max = 200) {
-  if (Array.isArray(value)) {
-    const lines = value
-      .map((row) => zhOnly(row, Math.min(max, 120)))
-      .filter(Boolean)
-    return zhOnly(lines.join('\n'), max)
+/** 检测顺序：模型常写成一整段或 {title,body}，一律收成中文短句数组 */
+function normalizeInspectOrder(raw) {
+  const rows = []
+  const push = (value) => {
+    let s = ''
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      s = zhOnly(value.text || value.body || value.title || value.step || value.item || value.name, 80)
+    } else {
+      s = zhOnly(value, 80)
+    }
+    s = s.replace(/^\d+[.、．)\]）]\s*/, '').trim()
+    if (s && !isIntakeCoverageEcho(s) && !rows.includes(s)) rows.push(s)
   }
-  return zhOnly(value, max)
+  if (Array.isArray(raw)) {
+    raw.forEach(push)
+  } else if (typeof raw === 'string') {
+    String(raw)
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .forEach(push)
+  }
+  return rows.slice(0, 6)
 }
 
-/** imageNotes：兼容数组或 { "1": "观察" } 按槽对象 */
-function normalizeImageNotesInput(raw) {
-  if (Array.isArray(raw)) {
-    return raw
-      .map((row) => {
-        if (!row || typeof row !== 'object') return null
-        const slot = resolveInspectSlotNumber(row.slot)
-        const note = zhOnly(row.note || row.body || row.text, 80)
-        const partName = zhOnly(row.partName || row.title, 16)
-        if (!slot || (!note && !partName)) return null
-        return { slot, partName, note }
-      })
-      .filter(Boolean)
-  }
-  if (raw && typeof raw === 'object') {
-    return Object.keys(raw)
-      .map((key) => {
-        const slot = resolveInspectSlotNumber(key)
-        const val = raw[key]
-        const note =
-          typeof val === 'string'
-            ? zhOnly(val, 80)
-            : zhOnly(val && (val.note || val.body || val.text), 80)
-        const partName =
-          typeof val === 'object' && val
-            ? zhOnly(val.partName || val.title, 16)
-            : ''
-        if (!slot || (!note && !partName)) return null
-        return { slot, partName, note }
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.slot - b.slot)
-  }
-  return []
+function collectGroupSlotNumbers(g) {
+  const raw = []
+    .concat(Array.isArray(g && g.imageSlots) ? g.imageSlots : [])
+    .concat(Array.isArray(g && g.imageNames) ? g.imageNames : [])
+    .concat(g && g.imageName ? [g.imageName] : [])
+    .concat(Array.isArray(g && g.photoNames) ? g.photoNames : [])
+  return [...new Set(raw.map(resolveInspectSlotNumber).filter(Boolean))]
 }
 
 /** 槽位号：认数字或「图N」 */
@@ -438,267 +424,166 @@ function resolveInspectSlotNumber(slot) {
   return 0
 }
 
-/**
- * 模型已在 imageNotes 写出不同 partName（检测项目名，不一定是部位）时，程序只做结构化编 groups。
- * 同名槽合并；名称必须来自模型，禁止用故障分析/检测顺序猜名。
- */
-function buildGroupsFromNamedImageNotes(imageNotes, findingSlots, slotUrl) {
-  const slots = Array.isArray(findingSlots) ? findingSlots : []
-  if (slots.length < 2) return []
-  const slotSet = new Set(slots.map((row) => Number(row && row.slot)).filter((n) => n >= 1))
-  const byName = new Map()
-  ;(Array.isArray(imageNotes) ? imageNotes : []).forEach((row) => {
-    const slot = Number(row && row.slot) || 0
-    if (!slotSet.has(slot)) return
-    const partName = zhOnly(row && row.partName, 16)
-    if (!partName) return
-    const url =
-      (typeof slotUrl === 'function' ? text(slotUrl(slot)) : '') ||
-      text((slots.find((s) => Number(s && s.slot) === slot) || {}).url)
-    if (!url) return
-    const advice = zhOnly(row && row.note, 120)
-    if (!byName.has(partName)) {
-      byName.set(partName, { partName, advice: '', result: '', images: [] })
-    }
-    const group = byName.get(partName)
-    if (advice && !group.advice) group.advice = advice
-    const bare = mediaBare(url)
-    if (!group.images.some((img) => mediaBare(img.url) === bare)) {
-      group.images.push({ url })
-    }
-  })
-  const groups = [...byName.values()].filter((g) => g.partName && g.images.length)
-  return groups.length >= 2 ? groups : []
+/** 去掉检测三档用词，避免档位词进店员意见 */
+function dropRankWords(value) {
+  return text(value)
+    .replace(/需处理|需关注|状态良好/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
 }
 
-/** 恰好一个多图项时，把模型写错的 findingId 重挂到该项；多个多图项则不猜 */
-function soleMultiPhotoFindingId(items, photoSlots) {
-  const ids = new Set()
-  ;(Array.isArray(items) ? items : []).forEach((row) => {
-    const id = text(row && row.id)
-    if (id && Number(row && row.photos) >= 2) ids.add(id)
-  })
-  const slotCounts = new Map()
-  ;(Array.isArray(photoSlots) ? photoSlots : []).forEach((row) => {
-    const id = text(row && row.findingId)
-    if (!id) return
-    slotCounts.set(id, (slotCounts.get(id) || 0) + 1)
-  })
-  slotCounts.forEach((n, id) => {
-    if (n >= 2) ids.add(id)
-  })
-  const list = [...ids]
-  return list.length === 1 ? list[0] : ''
+function zhInspectName(value) {
+  return zhOnly(dropRankWords(value), 24)
 }
 
-function parseInspectionAdvice(raw, items, photoUrls, photoSlots) {
-  const parsed = parseReviewModelJson(raw) || {}
-  const byItemId = new Map(
-    (Array.isArray(items) ? items : []).map((row) => [text(row && row.id), row]).filter((pair) => pair[0]),
-  )
-  const urls = Array.isArray(photoUrls) ? photoUrls : []
-  const slots = Array.isArray(photoSlots) ? photoSlots : []
-  const soleMultiId = soleMultiPhotoFindingId(items, photoSlots)
-  const resolveFindingId = (rawId) => {
-    const findingId = text(rawId)
-    if (!findingId) return ''
-    if (byItemId.has(findingId)) return findingId
-    if (soleMultiId) return soleMultiId
-    return ''
+function zhInspectProse(value, max = 200) {
+  if (Array.isArray(value)) {
+    const lines = value.map((row) => zhOnly(dropRankWords(row), Math.min(max, 120))).filter(Boolean)
+    return zhOnly(lines.join('\n'), max)
   }
-  const slotUrl = (slot) => {
-    const n = resolveInspectSlotNumber(slot)
-    if (!n) return ''
-    const hit = slots.find((row) => Number(row && row.slot) === n)
-    if (hit && hit.url) return text(hit.url)
-    if (n <= urls.length) return text(urls[n - 1])
-    return ''
-  }
-  const parseGroups = (list) =>
-    (Array.isArray(list) ? list : [])
-      .map((g) => {
-        const partName = zhOnly(g && g.partName, 16)
-        const advice = zhOnly(g && g.advice, 120)
-        const images = (Array.isArray(g && g.images) ? g.images : [])
-          .map((img) => {
-            const url = text(typeof img === 'object' && img ? img.url : img)
-            return url ? { url } : null
-          })
-          .filter(Boolean)
-        const fromSlots = (Array.isArray(g && g.imageSlots) ? g.imageSlots : [])
-          .map(slotUrl)
-          .filter(Boolean)
-          .map((url) => ({ url }))
-        const shots = images.length ? images : fromSlots
-        if (!partName || !shots.length) return null
-        return { partName, advice, result: '', images: shots }
-      })
+  return zhOnly(dropRankWords(value), max)
+}
+
+function slotTokens(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    return value
+      .split(/[、,，;；\s]+/)
+      .map((part) => part.trim())
       .filter(Boolean)
-
-  const faultRaw = zhFaultAnalysis(parsed.faultAnalysis, 200)
-  const faultAnalysis = isIntakeCoverageEcho(faultRaw) ? '' : faultRaw
-  const inspectOrder = (Array.isArray(parsed.inspectOrder) ? parsed.inspectOrder : [])
-    .map((row) => zhOnly(row, 40))
-    .filter((row) => row && !isIntakeCoverageEcho(row))
-    .slice(0, 6)
-  const partHints = (Array.isArray(parsed.partHints) ? parsed.partHints : [])
-    .map((row) => {
-      const title = zhOnly(row && (row.title || row.partName), 16)
-      const body = zhOnly(row && row.body, 80)
-      if (!title || !body || isIntakeCoverageEcho(body)) return null
-      return { title, body }
-    })
-    .filter(Boolean)
-    .slice(0, 6)
-
-  // 按检测项合并：拆图 + 文案只留一条
-  const byFinding = new Map()
-  const photos = []
-  const mergeItem = (row) => {
-    const findingId = resolveFindingId(row && (row.findingId || row.id))
-    if (!findingId) return
-    const body = zhOnly(row && row.body, 120)
-    const partName = zhOnly(row && (row.partName || row.title), 16)
-    const advice = zhOnly(row && row.advice, 120)
-    const groups = parseGroups(row && row.groups)
-    const prev = byFinding.get(findingId) || {
-      findingId,
-      partName: '',
-      advice: '',
-      body: '',
-      groups: [],
-    }
-    if (partName) prev.partName = partName
-    if (advice) prev.advice = advice
-    if (body && !isIntakeCoverageEcho(body)) prev.body = body
-    if (groups.length >= 2) prev.groups = groups
-    else if (groups.length === 1 && !prev.partName) {
-      prev.partName = groups[0].partName
-      if (groups[0].advice) prev.advice = groups[0].advice
-    }
-    byFinding.set(findingId, prev)
   }
+  if (value == null || value === '') return []
+  return [value]
+}
 
+/**
+ * 拆分建议优先认中文关键字。没有该键时，才收下旧的 edits.groups，避免偶发旧键整段空白。
+ * 有「拆分建议」键时（含空数组）不再回看 edits，避免空拆分被旧字段补回来。
+ */
+function rawInspectSplitRows(parsed) {
+  if (!parsed || typeof parsed !== 'object') return []
+  if (Array.isArray(parsed['拆分建议'])) return parsed['拆分建议']
+  if (Array.isArray(parsed.splits)) return parsed.splits
+  const rows = []
   ;(Array.isArray(parsed.edits) ? parsed.edits : []).forEach((row) => {
-    const kind = text(row && row.kind)
-    if (kind === 'photo') {
-      const body = zhOnly(row && row.body, 120)
-      if (!body || isIntakeCoverageEcho(body)) return
-      photos.push({
-        id: `edit_photo_${photos.length}`,
-        kind: 'photo',
-        findingId: resolveFindingId(row.findingId || row.id),
-        body,
-        canApply: false,
-      })
-      return
-    }
-    // item / text / split 一律按项合并
-    if (kind === 'item' || kind === 'text' || kind === 'split' || !kind) mergeItem(row)
+    if (!row || text(row.kind) === 'photo') return
+    if (Array.isArray(row.groups)) rows.push(...row.groups)
   })
-  ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
-    const findingId = resolveFindingId(row && row.id)
-    const body = zhOnly(row && row.body, 120)
-    if (!findingId || !body || isIntakeCoverageEcho(body) || byFinding.has(findingId)) return
-    mergeItem({
-      findingId,
-      partName: zhOnly(row && (row.title || row.partName), 16),
-      advice: body,
-      body,
+  return rows
+}
+
+/**
+ * 按模型写出的检测项目原样归到「这些图已经所在的那一条」。
+ * 同一条里名称完全相同才收成一组；名称不同不猜成同一项。跨条的图不并进同一条。
+ * 同一条里不足两组，不产出拆分建议。
+ */
+function organizeInspectSplits(rawGroups, photoSlots) {
+  const slots = Array.isArray(photoSlots) ? photoSlots : []
+  const byFinding = new Map()
+  ;(Array.isArray(rawGroups) ? rawGroups : []).forEach((g) => {
+    if (!g || typeof g !== 'object') return
+    const partName = zhInspectName(g['检测项目'] || g.partName || g.name || g.title)
+    const advice = zhInspectProse(g['描述'] || g.advice || g.body || g.note, 200)
+    if (!partName) return
+    const slotNums = collectGroupSlotNumbers({
+      imageSlots: slotTokens(g['图片']).concat(slotTokens(g.imageSlots)),
+      imageNames: slotTokens(g.imageNames),
+      imageName: g.imageName,
+      photoNames: g.photoNames,
+    })
+    ;(Array.isArray(g.images) ? g.images : []).forEach((img) => {
+      const url = text(typeof img === 'object' && img ? img.url : img)
+      if (!url) return
+      const hit = slots.find((row) => mediaBare(row && row.url) === mediaBare(url))
+      const slot = Number(hit && hit.slot) || 0
+      if (slot && !slotNums.includes(slot)) slotNums.push(slot)
+    })
+    slotNums.forEach((slot) => {
+      const hit = slots.find((row) => Number(row && row.slot) === slot)
+      const findingId = text(hit && hit.findingId)
+      const url = text(hit && hit.url)
+      if (!findingId || !url) return
+      if (!byFinding.has(findingId)) byFinding.set(findingId, new Map())
+      const named = byFinding.get(findingId)
+      if (!named.has(partName)) {
+        named.set(partName, { partName, advice: '', images: [], imageSlots: [] })
+      }
+      const group = named.get(partName)
+      if (advice && !group.advice) group.advice = advice
+      if (!group.imageSlots.includes(slot)) group.imageSlots.push(slot)
+      const bare = mediaBare(url)
+      if (!group.images.some((img) => mediaBare(img.url) === bare)) group.images.push({ url })
     })
   })
-  ;(Array.isArray(parsed.gaps) ? parsed.gaps : []).forEach((row) => {
-    const kindRaw = text(row && row.kind)
-    const body = zhOnly(row && row.body, 120)
-    const title = zhOnly(row && (row.title || row.partName), 16)
-    if (!body || isIntakeCoverageEcho(body)) return
-    if (kindRaw === 'unclear_photo' || kindRaw === 'follow_up' || kindRaw === 'how') {
-      photos.push({
-        id: `edit_photo_${photos.length}`,
-        kind: 'photo',
-        findingId: '',
-        body: title ? `${title}：${body}` : body,
-        canApply: false,
+  const edits = []
+  byFinding.forEach((named, findingId) => {
+    const groups = [...named.values()]
+      .filter((row) => row.partName && row.images.length)
+      .map((row) => {
+        const imageSlots = row.imageSlots.slice().sort((a, b) => a - b)
+        return {
+          partName: row.partName,
+          advice: row.advice,
+          result: '',
+          images: row.images,
+          imageSlots,
+          imageLabel: imageSlots.map((n) => `图${n}`).join('、'),
+        }
       })
-      return
-    }
-    if (kindRaw === 'missing_item' || kindRaw === 'miss' || kindRaw === 'omit') {
-      photos.push({
-        id: `edit_photo_${photos.length}`,
-        kind: 'photo',
-        findingId: '',
-        body: title ? `建议补查「${title}」。${body}` : body,
-        canApply: false,
-      })
-    }
-  })
-
-  const imageNotes = normalizeImageNotesInput(parsed.imageNotes)
-  // 空壳 groups：用模型已写的 imageNotes.partName 结构化（名称认模型）
-  const findingIdsForHydrate = new Set()
-  slots.forEach((row) => {
-    const id = text(row && row.findingId)
-    if (id) findingIdsForHydrate.add(id)
-  })
-  byItemId.forEach((_, id) => findingIdsForHydrate.add(id))
-  findingIdsForHydrate.forEach((findingId) => {
-    const findingSlots = slots.filter((row) => text(row && row.findingId) === findingId)
-    if (findingSlots.length < 2) return
-    const prev = byFinding.get(findingId) || {
+    if (groups.length < 2) return
+    const names = groups.map((row) => row.partName).filter(Boolean)
+    edits.push({
+      id: `edit_item_${findingId}`,
+      kind: 'item',
       findingId,
       partName: '',
       advice: '',
-      body: '',
-      groups: [],
-    }
-    if (Array.isArray(prev.groups) && prev.groups.length >= 2) return
-    const hydrated = buildGroupsFromNamedImageNotes(imageNotes, findingSlots, slotUrl)
-    if (hydrated.length < 2) return
-    prev.groups = hydrated
-    if (!prev.body) {
-      const names = hydrated.map((g) => g.partName).filter(Boolean)
-      prev.body = `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`
-    }
-    byFinding.set(findingId, prev)
-  })
-
-  const edits = []
-  byFinding.forEach((row) => {
-    if (edits.length >= 10) return
-    const current = byItemId.get(row.findingId)
-    const curName = text(current && current.name)
-    const curNote = text(current && current.note)
-    const groups = Array.isArray(row.groups) && row.groups.length >= 2 ? row.groups : []
-    const nextName = !curName ? row.partName : ''
-    const nextAdvice = !curNote ? row.advice || (!groups.length ? row.body : '') : ''
-    if (!groups.length && !nextName && !nextAdvice) return
-    const names = groups.map((g) => g.partName).filter(Boolean)
-    const body =
-      row.body ||
-      (groups.length
-        ? `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`
-        : [nextName, nextAdvice].filter(Boolean).join(' · '))
-    edits.push({
-      id: `edit_item_${row.findingId}`,
-      kind: 'item',
-      findingId: row.findingId,
-      partName: nextName,
-      advice: nextAdvice,
-      body,
+      body: `拆成${names.map((n) => `「${n}」`).join('')}并写上检查发现`,
       groups,
       canApply: true,
     })
   })
+  return edits
+}
 
+function imageNotesFromInspectEdits(edits) {
+  const notes = []
+  ;(Array.isArray(edits) ? edits : []).forEach((row) => {
+    ;(Array.isArray(row && row.groups) ? row.groups : []).forEach((g) => {
+      const note = text(g && g.advice).slice(0, 120)
+      if (!note) return
+      ;(Array.isArray(g.imageSlots) ? g.imageSlots : []).forEach((slot) => {
+        notes.push({ slot, note })
+      })
+    })
+  })
+  return notes
+}
+
+function parseInspectionAdvice(raw, _items, _photoUrls, photoSlots) {
+  const parsed = parseReviewModelJson(raw) || {}
+  const faultSource =
+    parsed['故障诊断'] != null
+      ? parsed['故障诊断']
+      : parsed['故障分析'] != null
+        ? parsed['故障分析']
+        : parsed.faultAnalysis
+  const faultRaw = zhInspectProse(faultSource, 200)
+  const faultAnalysis = isIntakeCoverageEcho(faultRaw) ? '' : faultRaw
+  const orderSource = parsed['检测顺序'] != null ? parsed['检测顺序'] : parsed.inspectOrder
+  const inspectOrder = normalizeInspectOrder(orderSource)
+    .map((line) => dropRankWords(line))
+    .filter((line) => line && !isIntakeCoverageEcho(line))
+  const edits = organizeInspectSplits(rawInspectSplitRows(parsed), photoSlots).slice(0, 10)
   return {
     scope: 'inspect_v2',
     faultAnalysis,
     inspectOrder,
-    partHints,
-    edits: edits.concat(photos).slice(0, 12),
+    partHints: [],
+    edits,
     shop: [],
     items: [],
-    imageNotes,
+    imageNotes: imageNotesFromInspectEdits(edits),
   }
 }
 
@@ -814,6 +699,18 @@ function deliveryPhotoUrls(delivery) {
   return urls
 }
 
+/** 旧意见里的部件参考并进检测顺序，下游不再单看一块 */
+function foldPartHintsIntoOrder(advice) {
+  const order = (Array.isArray(advice && advice.inspectOrder) ? advice.inspectOrder : [])
+    .map((row) => text(row))
+    .filter(Boolean)
+  ;(Array.isArray(advice && advice.partHints) ? advice.partHints : []).forEach((row) => {
+    const line = [text(row && (row.title || row.partName)), text(row && row.body)].filter(Boolean).join('：')
+    if (line && !order.includes(line)) order.push(line)
+  })
+  return order.slice(0, 6)
+}
+
 function contextOf(album) {
   const nodes = readFlowNodes(album)
   const { buildCaseFactPack } = require('../utils/case-geo-factpack')
@@ -858,12 +755,7 @@ function contextOf(album) {
     inspectAdviceSummary: text(inspectionAdvice.updatedAt)
       ? {
           faultAnalysis: text(inspectionAdvice.faultAnalysis).slice(0, 120),
-          inspectOrder: Array.isArray(inspectionAdvice.inspectOrder)
-            ? inspectionAdvice.inspectOrder.slice(0, 4)
-            : [],
-          partHints: Array.isArray(inspectionAdvice.partHints)
-            ? inspectionAdvice.partHints.slice(0, 4)
-            : [],
+          inspectOrder: foldPartHintsIntoOrder(inspectionAdvice),
           edits: Array.isArray(inspectionAdvice.edits)
             ? inspectionAdvice.edits
                 .map((row) => ({ kind: text(row.kind), body: text(row.body) }))
@@ -1131,77 +1023,22 @@ function inspectionContextPayload(ctx, options = {}) {
   }
 }
 
-function slotsForFinding(ctx, findingId) {
-  const id = text(findingId)
-  return (Array.isArray(ctx && ctx.inspectPhotoSlots) ? ctx.inspectPhotoSlots : []).filter(
-    (row) => text(row && row.findingId) === id && text(row && row.url),
-  )
-}
-
-/** 提示词里钉死：多图项必须按真实 findingId + 槽位出 groups */
-function requiredInspectSplitHints(ctx) {
-  return multiPhotoFindingIds(ctx)
-    .map((id) => {
-      const slots = slotsForFinding(ctx, id).map((row) => Number(row.slot))
-      if (slots.length < 2) return ''
-      return `- findingId "${id}" owns slots [${slots.join(', ')}]: if those slots belong to DIFFERENT shop inspection lines (检测项目), you MUST emit one edits[] row with findingId="${id}" and groups[] so each listed slot appears in exactly one group; partName = real inspection line name, not necessarily a body-part label.`
-    })
-    .filter(Boolean)
-}
-
 function inspectionInstruction(ctx, options = {}) {
   const payload = inspectionContextPayload(ctx, options)
-  const multiIds = multiPhotoFindingIds(ctx)
-  const exampleId = multiIds[0] || 'FINDING_ID'
-  const exampleSlots = slotsForFinding(ctx, exampleId).map((row) => Number(row.slot))
-  const s1 = exampleSlots[0] || 1
-  const s2 = exampleSlots[1] || 2
-  const s3 = exampleSlots[2] || 3
-  const exampleLead = multiIds[0]
-    ? `Example when finding "${exampleId}" has different inspection lines across its slots:`
-    : 'Example (replace FINDING_ID with the exact photoSlots[].findingId of the multi-photo item):'
-  const required = requiredInspectSplitHints(ctx)
   return [
     'You assist a Chinese auto-shop clerk on the inspection step.',
-    'Output THREE SEPARATE blocks. Do not mix them:',
-    'A) faultAnalysis = diagnosis (complaint + what the photos show). Text only. Read-only for the clerk.',
-    'B) inspectOrder = suggested check path FROM THE OWNER COMPLAINT (what to inspect next, in order). Text only. NOT a plan to split uploaded photos. Never copy these lines into groups[].partName.',
-    'C) photo split = edits[].groups, ONLY if uploaded photos on one findingId belong to DIFFERENT shop inspection lines.',
-    '',
-    'When C applies (mixed photos that a shop would record as different 检测项目):',
-    '1) Look at every attached image (slot ids in photoSlots / newPhotoSlots). Name each line as a real-shop 检测项目 after looking at THAT photo (e.g.「前制动盘磨损评估」「左后门下沿钣喷」).',
-    '2) Forbidden names: bare body-part labels「车门」「刹车」, process words, or copying inspectOrder / faultAnalysis headings.',
-    '3) Emit exactly ONE edits[] row for that findingId with groups[]: each group needs partName, advice (why / what to watch), imageSlots (numeric 图N / slot ids). Every slot of that finding in exactly one group.',
-    '4) findingId MUST be copied from Context items[].id or photoSlots[].findingId. Never invent "pile".',
-    '5) FORBIDDEN: groups:[{},{}] or group missing partName/imageSlots.',
-    'When photos of that finding are the SAME inspection line: OMIT groups. Text-only A+B is a successful result.',
-    'Do NOT invent a split because faultAnalysis has 1. 2. 3. Diagnosis topics ≠ photo split.',
-    '',
-    ...(required.length
-      ? ['If these findings actually mix different inspection lines in the photos, emit groups:', ...required, '']
-      : []),
-    exampleLead,
-    `{"edits":[{"kind":"item","findingId":"${exampleId}","body":"拆成左后门下沿钣喷、前制动盘磨损评估、底盘锈蚀检查","groups":[{"partName":"左后门下沿钣喷","advice":"漆面剥落需钣喷","imageSlots":[${s1}]},{"partName":"前制动盘磨损评估","advice":"盘面磨损需测厚","imageSlots":[${s2}]},{"partName":"底盘锈蚀检查","advice":"锈斑需进一步检查","imageSlots":[${s3}]}]}]}`,
-    '',
-    'Other rules:',
-    '- Intake is context only — never restate intake coverage.',
-    '- Natural-language JSON string values: Simplified Chinese only (no English words inside those strings).',
-    '- Do not invent damage absent from photos/text. No labels 需处理 / 需关注 / 状态良好.',
-    '- faultAnalysis: prefer one string with newlines (1. …\\n2. …), not a JSON array.',
-    '- imageNotes: {slot, partName, note} per attached slot; partName only if that photo is its own inspection line; never a substitute for groups, never copied from inspectOrder.',
-    '- kind=photo edits are reminders only (no apply). partHints are read-only.',
+    'Think in this order, then return ONE JSON object. Do not output per-photo notes, a separate parts list, or finding ids.',
+    '1. From the owner complaint, write 检测顺序: what to check first, then next. Put part-specific watchpoints inside these sentences.',
+    '2. Look at each attached photo and name what is actually visible. Complaint and 检测顺序 are background only. Do not invent damage absent from the photo. Do not copy a 检测顺序 sentence into 检测项目.',
+    '3. Assign each photo to a shop inspection item a Chinese repair shop would open, such as 划痕检测, 底盘检修, or 前制动盘磨损评估. Photos that are semantically the same item must share one name. Put the location and what you see into 描述.',
+    '4. Split or merge ONLY among photos that share the same findingId in Context photoSlots. Do not combine photos the clerk already placed on different findings. If that finding\'s photos are one inspection item, leave them out of 拆分建议.',
+    '5. 故障诊断 uses the complaint plus what the photos actually show.',
+    '6. Each 描述 is one Chinese paragraph: what these photos show, what to verify next, and — only when the photos show it — what happens if left alone. Never use the labels 需处理, 需关注, or 状态良好.',
+    '图片 values are slot labels from Context photoSlots, written as 图1, 图2, matching the slot number.',
+    'Intake text is context only. Never restate intake coverage. Natural-language values are Simplified Chinese only.',
     `Context JSON: ${JSON.stringify(payload)}`,
-    'Return JSON only with keys: faultAnalysis, inspectOrder, partHints, edits, imageNotes.',
+    'Return JSON only: {"故障诊断":"……","检测顺序":["先查……","再查……"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"左后门下沿漆面有划痕，建议核对是否露底"}]}',
   ].join('\n')
-}
-
-/** 故障分析是否已分出多个主题（模型已能区分，却可能漏写 groups） */
-function faultAnalysisLooksMultiTopic(faultAnalysis) {
-  const s = text(faultAnalysis)
-  if (!s) return false
-  const marks = s.match(/[1-9]\s*[.、．]/g) || []
-  if (marks.length >= 2) return true
-  return (s.match(/；|;/g) || []).length >= 2 && s.length >= 40
 }
 
 function multiPhotoFindingIds(ctx) {
@@ -1219,168 +1056,6 @@ function multiPhotoFindingIds(ctx) {
     counts.set(id, Math.max(counts.get(id) || 0, photos))
   })
   return [...counts.entries()].filter(([, n]) => n >= 2).map(([id]) => id)
-}
-
-function inspectionHasSplitForFinding(parsed, findingId, ctx, attachedUrlKeys) {
-  const id = text(findingId)
-  const edit = (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).find(
-    (row) =>
-      text(row && row.kind) !== 'photo' &&
-      text(row && row.findingId) === id &&
-      Array.isArray(row.groups) &&
-      row.groups.length >= 2,
-  )
-  if (!edit) return false
-  const groups = edit.groups
-  if (!groups.every((g) => text(g && g.partName) && Array.isArray(g.images) && g.images.length)) {
-    return false
-  }
-  const slots = slotsForFinding(ctx, id)
-  const required =
-    attachedUrlKeys && attachedUrlKeys.size
-      ? slots.filter((row) => attachedUrlKeys.has(mediaBare(row.url)))
-      : slots
-  if (required.length < 2) return true
-  const covered = new Set()
-  groups.forEach((g) => {
-    ;(Array.isArray(g.images) ? g.images : []).forEach((img) => {
-      const key = mediaBare(img && img.url)
-      if (key) covered.add(key)
-    })
-  })
-  return required.every((row) => covered.has(mediaBare(row.url)))
-}
-
-/** 模型已按图写出不同检测项目名或空壳 groups，却还没有合格拆分 → 补跑。故障分析/检测顺序分点不算要拆图。 */
-function needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys) {
-  const multi = multiPhotoFindingIds(ctx)
-  if (!multi.length) return false
-  if (attachedUrlKeys && attachedUrlKeys.size && attachedUrlKeys.size < 2) return false
-  const missing = multi.some((id) => !inspectionHasSplitForFinding(parsed, id, ctx, attachedUrlKeys))
-  if (!missing) return false
-  const namedNotes = new Set(
-    (Array.isArray(parsed && parsed.imageNotes) ? parsed.imageNotes : [])
-      .map((row) => text(row && row.partName))
-      .filter(Boolean),
-  )
-  const attemptedSplit = (Array.isArray(parsed && parsed.edits) ? parsed.edits : []).some((row) => {
-    if (text(row && row.kind) === 'photo') return false
-    return Array.isArray(row && row.groups) && row.groups.length >= 2
-  })
-  return namedNotes.size >= 2 || attemptedSplit
-}
-
-function inspectionGroupsRepairInstruction(ctx, previousParsed, options = {}) {
-  const payload = inspectionContextPayload(ctx, options)
-  const attachedUrlKeys = options.attachedUrlKeys || null
-  const missingIds = multiPhotoFindingIds(ctx).filter(
-    (id) => !inspectionHasSplitForFinding(previousParsed, id, ctx, attachedUrlKeys),
-  )
-  const notes = Array.isArray(previousParsed && previousParsed.imageNotes)
-    ? previousParsed.imageNotes
-    : []
-  const slotPlan = missingIds.map((id) => {
-    const slots = slotsForFinding(ctx, id).map((row) => Number(row.slot))
-    const slotHints = slots.map((slot) => {
-      const hit = notes.find((row) => Number(row && row.slot) === slot)
-      return {
-        slot,
-        note: text(hit && hit.note),
-        partNameHint: text(hit && hit.partName),
-      }
-    })
-    return { findingId: id, slots, slotHints }
-  })
-  const exampleId = (slotPlan[0] && slotPlan[0].findingId) || 'FINDING_ID'
-  const exampleSlots = (slotPlan[0] && slotPlan[0].slots) || [1, 2]
-  const filledExample = {
-    edits: [
-      {
-        kind: 'item',
-        findingId: exampleId,
-        body: '按主题拆开',
-        groups: exampleSlots.slice(0, 2).map((slot, index) => {
-          const hint =
-            (slotPlan[0] &&
-              Array.isArray(slotPlan[0].slotHints) &&
-              slotPlan[0].slotHints.find((row) => Number(row.slot) === slot)) ||
-            null
-          return {
-            partName: text(hint && hint.partNameHint) || (index === 0 ? '左后门下沿钣喷' : '前制动盘磨损评估'),
-            advice: text(hint && hint.note) || (index === 0 ? '漆面损伤需钣喷' : '盘面磨损需测厚'),
-            imageSlots: [slot],
-          }
-        }),
-      },
-    ],
-  }
-  // 同一检测项目的槽位应合并：示例里若有第 3 槽，提示模型可并入相近检测项目
-  if (exampleSlots.length >= 3 && filledExample.edits[0].groups.length >= 2) {
-    filledExample.edits[0].groups[1].imageSlots = exampleSlots.slice(1)
-  }
-  return [
-    'Your previous JSON started a photo split (groups or named imageNotes) but groups were EMPTY or incomplete.',
-    'This repair is ONLY about splitting uploaded photos. Do NOT copy inspectOrder or faultAnalysis headings into partName.',
-    'FORBIDDEN (never return this): "groups":[{},{}]  — empty objects are INVALID.',
-    'Each group MUST include non-empty partName, advice, and imageSlots (numbers from missingSplitPlan).',
-    'partName = real-shop 检测项目 named from the photos, not a body-part or process label.',
-    'Use missingSplitPlan[].slotHints (from your own previous imageNotes) as material to FILL groups.',
-    'Merge slots that belong to the SAME inspection line into ONE group; different lines → different groups.',
-    'Keep faultAnalysis / inspectOrder / partHints / imageNotes unless a tiny fix is required.',
-    'For EACH entry in missingSplitPlan, emit exactly ONE kind=item edit with findingId copied exactly.',
-    'Natural-language string values: Simplified Chinese only.',
-    'Do not invent damage beyond photos and slotHints.',
-    `missingSplitPlan: ${JSON.stringify(slotPlan)}`,
-    `photoSlots: ${JSON.stringify(payload.photoSlots)}`,
-    `VALID filled shape example (adapt partName/advice/imageSlots to the photos; do not leave fields blank): ${JSON.stringify(filledExample)}`,
-    `Previous JSON: ${JSON.stringify({
-      faultAnalysis: previousParsed && previousParsed.faultAnalysis,
-      inspectOrder: previousParsed && previousParsed.inspectOrder,
-      partHints: previousParsed && previousParsed.partHints,
-      edits: previousParsed && previousParsed.edits,
-      imageNotes: notes,
-    })}`,
-    'Return the full corrected JSON only (same keys as before).',
-  ].join('\n')
-}
-
-function mergeInspectAdvicePreferringGroups(base, repair) {
-  if (!repair || typeof repair !== 'object') return base
-  const baseEdits = Array.isArray(base && base.edits) ? base.edits.slice() : []
-  const repairEdits = Array.isArray(repair.edits) ? repair.edits : []
-  repairEdits.forEach((row) => {
-    if (!row || text(row.kind) === 'photo') return
-    const findingId = text(row.findingId)
-    if (!findingId || !Array.isArray(row.groups) || row.groups.length < 2) return
-    const idx = baseEdits.findIndex(
-      (item) => text(item && item.kind) !== 'photo' && text(item && item.findingId) === findingId,
-    )
-    if (idx >= 0) baseEdits[idx] = { ...baseEdits[idx], ...row, groups: row.groups, canApply: true }
-    else baseEdits.push({ ...row, canApply: true })
-  })
-  return {
-    ...base,
-    faultAnalysis: text(base && base.faultAnalysis) || text(repair.faultAnalysis),
-    inspectOrder:
-      Array.isArray(base && base.inspectOrder) && base.inspectOrder.length
-        ? base.inspectOrder
-        : Array.isArray(repair.inspectOrder)
-          ? repair.inspectOrder
-          : [],
-    partHints:
-      Array.isArray(base && base.partHints) && base.partHints.length
-        ? base.partHints
-        : Array.isArray(repair.partHints)
-          ? repair.partHints
-          : [],
-    edits: baseEdits,
-    imageNotes:
-      Array.isArray(base && base.imageNotes) && base.imageNotes.length
-        ? base.imageNotes
-        : Array.isArray(repair.imageNotes)
-          ? repair.imageNotes
-          : [],
-  }
 }
 
 function deliveryInstruction(ctx) {
@@ -1506,26 +1181,6 @@ async function runJob(albumId, kind, options = {}) {
         if (key) attachedUrlKeys.add(key)
       })
     })
-    // 检测：分析已分主题却漏合格 groups → 带着图英文补跑（最多两次）；仍缺则不算出成
-    if (kind === 'inspect') {
-      const repairOpts = { ...inspectOpts, attachedUrlKeys }
-      for (
-        let attempt = 0;
-        attempt < 2 && needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys);
-        attempt += 1
-      ) {
-        const repairRaw = await runLlm(
-          inspectionGroupsRepairInstruction(ctx, parsed, repairOpts),
-          urls,
-          attempt === 0 ? 'InspectGroups' : 'InspectGroupsRetry',
-          llmOpts,
-        )
-        if (!repairRaw) break
-        const repaired = parseInspectionAdvice(repairRaw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
-        parsed = mergeInspectAdvicePreferringGroups(parsed, repaired)
-      }
-    }
-    const groupsGap = kind === 'inspect' && needsInspectGroupsRepair(parsed, ctx, attachedUrlKeys)
     const ok = adviceHasContent(parsed, kind)
     // 简述/问答只挂在意见里，店员点应用才写入节点草稿；确认交车时再同步 archiveCopy
     const advicePayload =
@@ -1537,7 +1192,6 @@ async function runJob(albumId, kind, options = {}) {
         : parsed
     if (kind === 'inspect') {
       writeInspectAdviceDebug(albumId, {
-        groupsGap,
         ok,
         multiPhotoFindingIds: multiPhotoFindingIds(ctx),
         photoSlots: ctx.inspectPhotoSlots,
@@ -1553,6 +1207,7 @@ async function runJob(albumId, kind, options = {}) {
         finalEdits: Array.isArray(parsed && parsed.edits) ? parsed.edits : [],
         faultAnalysis: text(parsed && parsed.faultAnalysis).slice(0, 500),
         inspectOrder: Array.isArray(parsed && parsed.inspectOrder) ? parsed.inspectOrder : [],
+        inspectOrderLen: Array.isArray(parsed && parsed.inspectOrder) ? parsed.inspectOrder.length : 0,
       })
     }
     await patchNode(albumId, nodeKind, (item) => {
@@ -1565,7 +1220,7 @@ async function runJob(albumId, kind, options = {}) {
               ...advicePayload,
               status: 'failed',
               fingerprint,
-              errorMessage: groupsGap ? '拆分建议未出成，请刷新再试' : '未能出意见',
+              errorMessage: '未能出意见',
               updatedAt: new Date().toISOString(),
             },
       }
@@ -1699,7 +1354,4 @@ module.exports = {
   parseWorkAdvice,
   parseDeliveryAdvice,
   parseInspectionAdvice,
-  needsInspectGroupsRepair,
-  mergeInspectAdvicePreferringGroups,
-  faultAnalysisLooksMultiTopic,
 }
