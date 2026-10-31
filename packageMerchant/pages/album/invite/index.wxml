@@ -43,9 +43,23 @@
         </view>
       </view>
       <view
+        wx:if="{{!showPhoneInput}}"
         class="album-invite__switch text-caption"
         bindtap="onSwitchToManualPhone"
       >改用手填手机号</view>
+      <view wx:else class="album-invite__phone-form">
+        <input
+          class="album-invite__phone-input text-body"
+          type="number"
+          maxlength="11"
+          focus="{{phoneInputFocus}}"
+          placeholder="车主手机号"
+          placeholder-class="album-invite__phone-placeholder"
+          value="{{ownerPhoneInput}}"
+          disabled="{{savingPhone}}"
+          bindinput="onOwnerPhoneInput"
+        />
+      </view>
     </ui-card>
 
     <ui-card shadow="{{true}}" padding="{{true}}">

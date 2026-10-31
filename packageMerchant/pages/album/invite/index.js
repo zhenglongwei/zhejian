@@ -1,6 +1,7 @@
 const {
   fetchMerchantServiceAlbum,
   fetchMerchantAlbumClaimQrcode,
+  saveMerchantServiceAlbum,
 } = require('../../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
@@ -18,6 +19,10 @@ Page({
     detail: null,
     qrcodeDataUrl: '',
     qrcodeMessage: '正在生成小程序码…',
+    showPhoneInput: false,
+    phoneInputFocus: false,
+    ownerPhoneInput: '',
+    savingPhone: false,
   },
 
   onLoad(options) {
@@ -156,10 +161,43 @@ Page({
   },
 
   onSwitchToManualPhone() {
-    if (!this.albumId) return
-    wx.redirectTo({
-      url: `${MERCHANT_ALBUM_FLOW_PAGE}?albumId=${this.albumId}`,
-    })
+    if (!this.albumId || (this.data.detail && this.data.detail.hasOwner)) return
+    this.setData({ showPhoneInput: true, phoneInputFocus: true })
+  },
+
+  onOwnerPhoneInput(e) {
+    const digits = String((e.detail && e.detail.value) || '').replace(/\D/g, '').slice(0, 11)
+    this.setData({ ownerPhoneInput: digits })
+    if (digits.length === 11) this.onSaveOwnerPhone()
+  },
+
+  async onSaveOwnerPhone() {
+    if (this._savingPhone || !this.albumId) return
+    const phone = String(this.data.ownerPhoneInput || '').replace(/\D/g, '')
+    if (phone.length !== 11) {
+      wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
+      return
+    }
+    this._savingPhone = true
+    this.setData({ savingPhone: true })
+    try {
+      const detail = await saveMerchantServiceAlbum(this.albumId, { userPhone: phone })
+      this.setData({
+        detail,
+        savingPhone: false,
+        showPhoneInput: false,
+        phoneInputFocus: false,
+      })
+      if (detail && detail.hasOwner) {
+        this.stopOwnerPoll()
+        wx.showToast({ title: '已关联', icon: 'success' })
+      }
+    } catch (e) {
+      this.setData({ savingPhone: false })
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+    } finally {
+      this._savingPhone = false
+    }
   },
 
   onContinue() {
