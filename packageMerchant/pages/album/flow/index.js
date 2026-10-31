@@ -245,6 +245,14 @@ function flowContentSave(bag) {
   return { content: next, photoDraft: next }
 }
 
+function quoteLinesOf(node) {
+  const bag = nodeContentOf(node)
+  const payload = (node && node.document && node.document.payload) || {}
+  const fromContent = Array.isArray(bag.lines) ? bag.lines : []
+  const fromDoc = Array.isArray(payload.lines) ? payload.lines : []
+  return fromContent.length ? fromContent : fromDoc
+}
+
 function readLocalFlowDraft(albumId, nodeId) {
   if (!String(albumId || '').trim() || !String(nodeId || '').trim()) return null
   try {
@@ -1160,7 +1168,7 @@ Page({
     }
   },
 
-  setQuoteLines(lines) {
+  setQuoteLines(lines, options = {}) {
     const quoteLines = this.decorateQuoteLines(lines, this.quoteEvidenceSource())
     const patch = {
       quoteLines,
@@ -1178,7 +1186,15 @@ Page({
         patch.adviceCanRefresh = !this.data.readOnly
       }
     }
-    this.setData(patch, () => this.scheduleAutoSaveDoc())
+    this.setData(patch, () => {
+      if (options && options.persistNow) {
+        this.flushDocDraftSave().catch((err) => {
+          this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+        })
+        return
+      }
+      this.scheduleAutoSaveDoc()
+    })
   },
 
   syncQuoteEvidenceFromFindings() {
@@ -1787,8 +1803,13 @@ Page({
             : docPayload.confirmCopy || '')
         warrantyPeriod = docPayload.warrantyPeriod || ''
         warrantyNotes = resolveWarrantyNotes(docPayload)
-        if (Array.isArray(docPayload.lines) && docPayload.lines.length) {
-          quoteLines = docPayload.lines.map((line) => normalizeQuoteLine(line))
+        {
+          const fromNode = quoteLinesOf(active)
+          if (fromNode.length) {
+            quoteLines = fromNode.map((line) => normalizeQuoteLine(line))
+          } else if (Array.isArray(docPayload.lines) && docPayload.lines.length) {
+            quoteLines = docPayload.lines.map((line) => normalizeQuoteLine(line))
+          }
         }
         if (active.kind === 'inspection_report') {
           const quoteNode = flowNodes.find(
@@ -1796,9 +1817,7 @@ Page({
           )
           const quotePayload =
             (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
-          const fromQuote = Array.isArray(quotePayload.lines)
-            ? quotePayload.lines.map((line) => normalizeQuoteLine(line))
-            : []
+          const fromQuote = quoteLinesOf(quoteNode).map((line) => normalizeQuoteLine(line))
           const hasNamed = fromQuote.some((row) => String(row.name || '').trim())
           const quoteDraft = buildQuoteDraft({
             findings,
@@ -5066,7 +5085,20 @@ Page({
     ) {
       return
     }
+    this.writeLocalFlowDraft()
     await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, flowContentSave(this.buildPhotoDraftPayload()))
+  },
+
+  commitAppliedPhotoDraft() {
+    this.writeLocalFlowDraft()
+    return this.persistPhotoDraft()
+      .then(() => {
+        this.writeLocalFlowDraft()
+        this.setAutoSaveLabel('已自动保存')
+      })
+      .catch((err) => {
+        this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
+      })
   },
 
   onChiefComplaintInput(e) {
@@ -5482,7 +5514,7 @@ Page({
           },
           autoSaveLabel: '保存中…',
         },
-        () => this.scheduleAutoSavePhotos(),
+        () => this.commitAppliedPhotoDraft(),
       )
       wx.showToast({ title: '已写入简述', icon: 'none' })
       return
@@ -5504,7 +5536,7 @@ Page({
           },
           autoSaveLabel: '保存中…',
         },
-        () => this.scheduleAutoSavePhotos(),
+        () => this.commitAppliedPhotoDraft(),
       )
       wx.showToast({ title: '已写入问答', icon: 'none' })
     }
@@ -5579,7 +5611,7 @@ Page({
     } else {
       quoteLines = prev.concat([nextLine])
     }
-    this.setQuoteLines(quoteLines)
+    this.setQuoteLines(quoteLines, { persistNow: true })
     wx.showToast({ title: `已写入${name}`, icon: 'none' })
   },
 
@@ -6353,7 +6385,7 @@ Page({
         chiefComplaint,
         autoSaveLabel: '保存中…',
       },
-      () => this.scheduleAutoSaveDraftOnly(),
+      () => this.commitAppliedPhotoDraft(),
     )
   },
 
@@ -7013,12 +7045,9 @@ Page({
             : this.findingImagesFromRows(findings, this.data.odometerUrl),
       }
     })
-    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' })
-    this.persistPhotoDraft()
-      .then(() => this.setAutoSaveLabel('已自动保存'))
-      .catch((err) => {
-        this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
-      })
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
+      this.commitAppliedPhotoDraft()
+    })
     return true
   },
 
@@ -7206,30 +7235,38 @@ Page({
     }
     const kind = this.data.activeKind
     if (kind === 'inspection_report') {
+      const reportPayload = this.buildDocPayloadForSave()
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: { status: 'draft', payload: this.buildDocPayloadForSave() },
+        ...flowContentSave(reportPayload),
+        document: { status: 'draft', payload: reportPayload },
       })
       const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
         const quoteNode = (this._flowNodes || []).find((n) => n && n.id === quoteNodeId)
         const quoteStatus = String((quoteNode && quoteNode.document && quoteNode.document.status) || '')
         if (quoteStatus !== 'pending_confirm' && quoteStatus !== 'confirmed' && quoteStatus !== 'cancelled') {
+          const quotePayload = this.buildQuotePayloadForSave()
           await updateMerchantFlowNode(this.albumId, quoteNodeId, {
-            document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+            ...flowContentSave(quotePayload),
+            document: { status: 'draft', payload: quotePayload },
           })
         }
       }
       return
     }
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
+      const quotePayload = this.buildQuotePayloadForSave()
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+        ...flowContentSave(quotePayload),
+        document: { status: 'draft', payload: quotePayload },
       })
       return
     }
     if (kind === 'repair_report') {
+      const reportPayload = this.buildDocPayloadForSave()
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: { status: 'draft', payload: this.buildDocPayloadForSave() },
+        ...flowContentSave(reportPayload),
+        document: { status: 'draft', payload: reportPayload },
       })
     }
   },
@@ -7681,10 +7718,7 @@ Page({
     this.setData({
       inspectionAdvice: { ...this.data.inspectionAdvice, shop, lines },
       autoSaveLabel: '保存中…',
-    })
-    this.persistPhotoDraft()
-      .then(() => this.setAutoSaveLabel('已自动保存'))
-      .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+    }, () => this.commitAppliedPhotoDraft())
   },
 
   pickAdviceFinding(findings, item) {
@@ -7717,23 +7751,27 @@ Page({
       (row) => row && row.id === lineId && row.canApply && row.body,
     )
     if (!item) return
+    let changed = false
     const sections = (this.data.sections || []).map((section) => {
       if (!section || !section.findingMode || section.findingKind !== 'work') return section
       const findings = section.findings || []
       const target = this.pickAdviceFinding(findings, item)
       if (!target) return section
+      changed = true
       return {
         ...section,
         findings: findings.map((row) => (row === target ? { ...row, caption: item.body } : row)),
       }
     })
+    if (!changed) {
+      wx.showToast({ title: '没对上施工项，请刷新后再应用', icon: 'none' })
+      return
+    }
     this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
       this.setData({
         workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
       })
-      this.persistPhotoDraft()
-        .then(() => this.setAutoSaveLabel('已自动保存'))
-        .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+      this.commitAppliedPhotoDraft()
     })
   },
 
@@ -7789,8 +7827,7 @@ Page({
         workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
       })
       this.persistPhotos()
-        .then(() => this.persistPhotoDraft())
-        .then(() => this.setAutoSaveLabel('已自动保存'))
+        .then(() => this.commitAppliedPhotoDraft())
         .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
     })
   },
@@ -7814,22 +7851,28 @@ Page({
   /** 本单修改应用：有 groups 则拆成多项并写入各组文案；否则只填该项空着的部位名/检查发现。仅此处允许改检测项列表。 */
   applyInspectionItemEdit(line) {
     const findingId = String((line && line.findingId) || '')
-    if (!findingId) return
     const groups = Array.isArray(line && line.groups) ? line.groups : []
     const wantSplit = groups.length >= 2
     const nextName = String((line && line.partName) || '').trim()
     const nextAdvice = String((line && line.advice) || '').trim()
-    const editId = String((line && line.id) || `edit_item_${findingId}`)
-    if (!this._appliedInspectEditIds) this._appliedInspectEditIds = new Set()
-    this._appliedInspectEditIds.add(editId)
+    const editId = String((line && line.id) || (findingId ? `edit_item_${findingId}` : ''))
+    if (!editId) return
     let expandKey = ''
+    let changed = false
     const sections = (this.data.sections || []).map((section, si) => {
       if (!section || !section.findingMode) return section
       const list = section.findings || []
-      const idx = list.findIndex((row) => row && String(row.id || '') === findingId)
+      let idx = findingId ? list.findIndex((row) => row && String(row.id || '') === findingId) : -1
+      if (idx < 0 && wantSplit) {
+        const piles = list
+          .map((row, i) => ({ i, n: ((row && row.images) || []).length }))
+          .filter((row) => row.n >= 2)
+        if (piles.length === 1) idx = piles[0].i
+      }
       if (idx < 0) return section
       if (wantSplit) {
-        const applyId = String((line && line.id) || `edit_item_${findingId}`)
+        const applyId = editId
+        const target = list[idx]
         const withApply = list.map((row, i) =>
           i === idx
             ? {
@@ -7837,17 +7880,16 @@ Page({
                 aiApply: {
                   id: applyId,
                   kind: 'split',
-                  groups: groups.map((g) => ({
-                    partName: String((g && g.partName) || '').trim(),
-                    advice: String((g && g.advice) || '').trim(),
-                    result: String((g && g.result) || '').trim(),
-                    images: Array.isArray(g && g.images) ? g.images : [],
-                  })),
+                  groups,
                 },
               }
             : row,
         )
         const findings = applyInspectionSuggestion(withApply, applyId)
+        if (findings.length === list.length && findings[idx] && target && findings[idx].id === target.id) {
+          return section
+        }
+        changed = true
         expandKey = `${si}:${idx}`
         return {
           ...section,
@@ -7856,12 +7898,18 @@ Page({
         }
       }
       const findings = list.map((row, fi) => {
-        if (!row || String(row.id || '') !== findingId) return row
+        if (fi !== idx) return row
+        const partName = String(row.partName || '').trim() || nextName
+        const advice = String(row.advice || '').trim() || nextAdvice
+        if (partName === String(row.partName || '').trim() && advice === String(row.advice || '').trim()) {
+          return row
+        }
+        changed = true
         expandKey = `${si}:${fi}`
         return {
           ...row,
-          partName: String(row.partName || '').trim() || nextName,
-          advice: String(row.advice || '').trim() || nextAdvice,
+          partName,
+          advice,
           aiApply: null,
         }
       })
@@ -7871,17 +7919,22 @@ Page({
         images: this.findingImagesFromRows(findings, this.data.odometerUrl),
       }
     })
+    if (!changed) {
+      wx.showToast({ title: '没对上检测项，请刷新后再应用', icon: 'none' })
+      return
+    }
+    if (!this._appliedInspectEditIds) this._appliedInspectEditIds = new Set()
+    this._appliedInspectEditIds.add(editId)
     this.setSectionsWithFindings(
       sections,
       { autoSaveLabel: '保存中…' },
       expandKey || this.data.expandedFindingKey,
       () => {
+        this.writeLocalFlowDraft()
         this.setData({
           inspectionAdvice: this.decorateInspectionAdvice(this.data.inspectionAdvice, this.data.sections),
         })
-        this.persistPhotoDraft()
-          .then(() => this.setAutoSaveLabel('已自动保存'))
-          .catch((err) => this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络'))
+        this.commitAppliedPhotoDraft()
       },
     )
   },

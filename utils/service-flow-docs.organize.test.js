@@ -448,6 +448,32 @@ test('inspection AI suggests a fill and does not change the row until apply', ()
   assert.equal(applied[0].aiApply, null)
 })
 
+test('inspection split apply remaps group urls to current finding photos', () => {
+  const suggested = [
+    {
+      id: 'fid_mix',
+      partName: '待填',
+      result: '',
+      advice: '',
+      images: [a, b],
+      aiApply: {
+        id: 'apply_fid_mix',
+        kind: 'split',
+        groups: [
+          { partName: '刹车片', advice: '磨薄', images: [{ url: `${a.url}?exp=1` }] },
+          { partName: '制动盘', advice: '有沟', images: [{ url: `${b.url}?exp=1` }] },
+        ],
+      },
+    },
+  ]
+  const applied = applyInspectionSuggestion(suggested, 'apply_fid_mix')
+  assert.equal(applied.length, 2)
+  assert.equal(applied[0].partName, '刹车片')
+  assert.equal(applied[0].images[0].url, a.url)
+  assert.equal(applied[1].partName, '制动盘')
+  assert.equal(applied[1].images[0].url, b.url)
+})
+
 test('inspection AI suggests a split and apply keeps each photo on its new item', () => {
   const suggested = inspectionSuggestions(
     [{ id: 'fid_mix', partName: '待填', result: '', advice: '', images: [a, b] }],

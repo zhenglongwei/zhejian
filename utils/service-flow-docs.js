@@ -1873,15 +1873,38 @@ function shotsInOrganizeGroup(images, group) {
         : []
   const shots = []
   const seen = new Set()
-  keys.forEach((raw) => {
-    const img = matchPendingImage(pending, byKey, raw)
+  const push = (img) => {
     if (!img) return
     const key = mediaKey(img.url)
     if (!key || seen.has(key)) return
     seen.add(key)
     shots.push(img)
+  }
+  keys.forEach((raw) => {
+    push(matchPendingImage(pending, byKey, raw))
+  })
+  normalizePendingImages(group && group.images).forEach((img) => {
+    push(matchPendingImage(pending, byKey, img.url) || img)
   })
   return shots
+}
+
+/** 拆分建议里的图对回当前项上的现图（签名参数可变，按图片身份对）。 */
+function hydrateInspectionSplitGroups(finding, groups) {
+  const pool = normalizePendingImages((finding && finding.images) || [])
+  return (Array.isArray(groups) ? groups : [])
+    .map((group) => {
+      const partName = String((group && group.partName) || '').trim()
+      if (!partName) return null
+      const shots = shotsInOrganizeGroup(pool, group)
+      return {
+        partName,
+        result: String((group && group.result) || '').trim(),
+        advice: String((group && group.advice) || '').trim(),
+        images: shots.length ? shots : normalizePendingImages(group && group.images),
+      }
+    })
+    .filter(Boolean)
 }
 
 /** 检测：AI 只挂建议。一批图对一项时补空字段；对不上时建议拆开。不改原项。 */
@@ -1952,7 +1975,8 @@ function applyInspectionSuggestion(findings, applyId) {
   const proposal = row.aiApply
   if (proposal.kind === 'split' && Array.isArray(proposal.groups) && proposal.groups.length) {
     const used = new Set()
-    const created = proposal.groups.map((group, index) => {
+    const splitGroups = hydrateInspectionSplitGroups(row, proposal.groups)
+    const created = (splitGroups.length ? splitGroups : proposal.groups).map((group, index) => {
       const shots = normalizePendingImages(group.images)
       shots.forEach((img) => {
         const key = mediaKey(img.url)

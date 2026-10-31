@@ -1255,10 +1255,10 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       }
       if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
         mergedPayload = sealIntakePhotosPayload(nextNode, mergedPayload, { force: true })
-        // 发出时把派生字段收回 content，payload 仅投影
-        Object.assign(nextNode, writeNodeContent(nextNode, { content: mergedPayload }))
-        mergedPayload = { ...contentOfFlowNode(nextNode) }
       }
+      // 单据信封与内容袋同一份：报价/检测报告/完工应用不得只改 payload
+      Object.assign(nextNode, writeNodeContent(nextNode, { content: mergedPayload }))
+      mergedPayload = { ...contentOfFlowNode(nextNode) }
       nextNode.document = {
         ...prevDoc,
         ...payload.document,
