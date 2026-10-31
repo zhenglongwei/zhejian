@@ -78,6 +78,21 @@ test('empty 加一项 draft with id survives remap after save', () => {
   assert.equal(rows[1].images.length, 0)
 })
 
+test('写了检查发现也不能不点检查结果', () => {
+  const gaps = collectInspectionReportGaps({
+    chiefComplaint: '刹车异响',
+    findings: [
+      {
+        partName: '制动盘检查',
+        result: '',
+        advice: '盘面有沟槽，建议安排处理。',
+        images: [{ url: 'https://cdn.example/api/v1/media/files/uploads/disc.jpg' }],
+      },
+    ],
+  })
+  assert.ok(gaps.some((row) => row.includes('制动盘检查') && row.includes('请选择检查结果')))
+})
+
 test('inspection gaps name unnamed rows without a list index', () => {
   const gaps = collectInspectionReportGaps({
     chiefComplaint: '漏油',

@@ -1037,7 +1037,7 @@
                               >{{opt.value}}</view>
                             </view>
                           </view>
-                          <view wx:if="{{finding.result && !finding.recordOnly}}" class="merchant-flow-page__field">
+                          <view wx:if="{{finding.advice || (finding.result && !finding.recordOnly)}}" class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">检查发现</text>
                             <textarea
                               class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -1048,7 +1048,7 @@
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
                               data-field="advice"
-                              disabled="{{readOnly || !finding.adviceRequired}}"
+                              disabled="{{readOnly || (finding.result && !finding.adviceRequired)}}"
                               bindinput="onSectionFindingFieldInput"
                             />
                           </view>
@@ -1397,7 +1397,7 @@
                           >{{opt.value}}</view>
                         </view>
                       </view>
-                      <view wx:if="{{item.result && !item.recordOnly}}" class="merchant-flow-page__field">
+                      <view wx:if="{{item.advice || (item.result && !item.recordOnly)}}" class="merchant-flow-page__field">
                         <text class="text-caption text-secondary merchant-flow-page__field-label">检查发现</text>
                         <textarea
                           class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -1408,7 +1408,7 @@
                           style="height: 96rpx;"
                           data-index="{{index}}"
                           data-field="advice"
-                          disabled="{{readOnly || !item.adviceRequired}}"
+                          disabled="{{readOnly || (item.result && !item.adviceRequired)}}"
                           bindinput="onFindingFieldInput"
                         />
                       </view>
@@ -1933,6 +1933,7 @@
                   <block wx:if="{{item.hasGroups}}">
                     <view wx:for="{{item.groups}}" wx:for-item="g" wx:key="id" class="merchant-flow-page__advice-ask">
                       <text class="merchant-flow-page__advice-ask-title">{{g.partName}}</text>
+                      <text wx:if="{{g.result}}" class="merchant-flow-page__advice-ask-body">检查结果：{{g.result}}</text>
                       <text wx:if="{{g.imageLabel}}" class="merchant-flow-page__advice-ask-body">{{g.imageLabel}}</text>
                       <text wx:if="{{g.advice}}" class="merchant-flow-page__advice-ask-body">{{g.advice}}</text>
                     </view>

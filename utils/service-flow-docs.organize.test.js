@@ -460,8 +460,8 @@ test('inspection split apply remaps group urls to current finding photos', () =>
         id: 'apply_fid_mix',
         kind: 'split',
         groups: [
-          { partName: '刹车片', advice: '磨薄', images: [{ url: `${a.url}?exp=1` }] },
-          { partName: '制动盘', advice: '有沟', images: [{ url: `${b.url}?exp=1` }] },
+          { partName: '刹车片', advice: '磨薄', result: '需处理', images: [{ url: `${a.url}?exp=1` }] },
+          { partName: '制动盘', advice: '有沟', result: '需关注', images: [{ url: `${b.url}?exp=1` }] },
         ],
       },
     },
@@ -469,8 +469,10 @@ test('inspection split apply remaps group urls to current finding photos', () =>
   const applied = applyInspectionSuggestion(suggested, 'apply_fid_mix')
   assert.equal(applied.length, 2)
   assert.equal(applied[0].partName, '刹车片')
+  assert.equal(applied[0].result, '需处理')
   assert.equal(applied[0].images[0].url, a.url)
   assert.equal(applied[1].partName, '制动盘')
+  assert.equal(applied[1].result, '需关注')
   assert.equal(applied[1].images[0].url, b.url)
 })
 

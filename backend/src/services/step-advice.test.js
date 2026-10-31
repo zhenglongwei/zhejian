@@ -182,6 +182,34 @@ test('同一项目名的图收成一组，字面不同的名称不合并', () =>
   assert.deepEqual(names, ['划痕', '划痕检测'])
 })
 
+test('处理意见只收四档，同名组合时留下更需要动手的一档', () => {
+  const slots = [
+    { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+    { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+    { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+  ]
+  const got = parseInspectionAdvice(
+    {
+      故障分析: '漆面、底盘、制动盘。',
+      检测顺序: [],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1'], 描述: '漆面已露底。', 处理意见: '需处理' },
+        { 检测项目: '底盘检测', 图片: ['图2'], 描述: '连接正常。', 处理意见: '状态良好' },
+        { 检测项目: '制动盘检查', 图片: ['图3'], 描述: '只看到外观。', 处理意见: '建议更换' },
+        { 检测项目: '划痕检测', 图片: ['图1'], 描述: '另一句。', 处理意见: '需关注' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 3 }],
+    [],
+    slots,
+  )
+  const groups = got.edits[0].groups
+  const byName = Object.fromEntries(groups.map((row) => [row.partName, row.result]))
+  assert.equal(byName['划痕检测'], '需处理')
+  assert.equal(byName['底盘检测'], '状态良好')
+  assert.equal(byName['制动盘检查'], '')
+})
+
 test('只有一组时仍展示拆分建议，但不能应用', () => {
   const got = parseInspectionAdvice(
     {

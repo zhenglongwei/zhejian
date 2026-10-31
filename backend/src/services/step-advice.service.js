@@ -442,6 +442,28 @@ function resolveInspectSlotNumber(slot) {
   return 0
 }
 
+const INSPECT_HANDLE_RANK = {
+  状态良好: 1,
+  仅记录: 2,
+  需关注: 3,
+  需处理: 4,
+}
+
+/** 处理意见只收四档原词。其它写法留空，不从描述里猜。 */
+function inspectHandleOpinion(value) {
+  const raw = text(value).replace(/[。．.]$/, '')
+  return Object.prototype.hasOwnProperty.call(INSPECT_HANDLE_RANK, raw) ? raw : ''
+}
+
+/** 同一项目名收成一组时，留下更需要动手的那一档。 */
+function preferInspectHandle(current, incoming) {
+  const left = inspectHandleOpinion(current)
+  const right = inspectHandleOpinion(incoming)
+  if (!left) return right
+  if (!right) return left
+  return INSPECT_HANDLE_RANK[right] > INSPECT_HANDLE_RANK[left] ? right : left
+}
+
 /** 去掉检测三档用词，避免档位词进店员意见 */
 function dropRankWords(value) {
   return text(value)
@@ -502,6 +524,7 @@ function organizeInspectSplits(rawGroups, photoSlots) {
     if (!g || typeof g !== 'object') return
     const partName = zhInspectName(g['检测项目'] || g.partName || g.name || g.title)
     const advice = zhInspectProse(g['描述'] || g.advice || g.body || g.note, 200)
+    const opinion = inspectHandleOpinion(g['处理意见'] || g.result)
     if (!partName) return
     const slotNums = collectGroupSlotNumbers({
       imageSlots: slotTokens(g['图片']).concat(slotTokens(g.imageSlots)),
@@ -524,10 +547,11 @@ function organizeInspectSplits(rawGroups, photoSlots) {
       if (!byFinding.has(findingId)) byFinding.set(findingId, new Map())
       const named = byFinding.get(findingId)
       if (!named.has(partName)) {
-        named.set(partName, { partName, advice: '', images: [], imageSlots: [] })
+        named.set(partName, { partName, advice: '', result: '', images: [], imageSlots: [] })
       }
       const group = named.get(partName)
       if (advice && !group.advice) group.advice = advice
+      if (opinion) group.result = preferInspectHandle(group.result, opinion)
       if (!group.imageSlots.includes(slot)) group.imageSlots.push(slot)
       const bare = mediaBare(url)
       if (!group.images.some((img) => mediaBare(img.url) === bare)) group.images.push({ url })
@@ -542,7 +566,7 @@ function organizeInspectSplits(rawGroups, photoSlots) {
         return {
           partName: row.partName,
           advice: row.advice,
-          result: '',
+          result: inspectHandleOpinion(row.result),
           images: row.images,
           imageSlots,
           imageLabel: imageSlots.map((n) => `图${n}`).join('、'),
@@ -1141,7 +1165,8 @@ function inspectionInstruction(ctx, options = {}) {
     '',
     '4. 把同一条里、语义上属于同一检测项目的照片分成一组。',
     '结合这一组全部照片，用一段话说清：说明了什么问题，要不要马上处理，不处理会怎样。',
-    '图里看不出后果就不要编。不要使用「需处理」「需关注」「状态良好」。',
+    '图里看不出后果就不要编。描述里不要写「需处理」「需关注」「状态良好」「仅记录」。',
+    '每组另写「处理意见」，只能是这四个词里的一个：状态良好、需关注、需处理、仅记录。按这一组的实际情况选，不要总写需处理。',
     '已经分在不同条里的照片不要并到一起。写入「拆分建议」。',
     '',
     '5. 用第4步得到的检测项目，对照第1步那份清单。',
@@ -1157,7 +1182,7 @@ function inspectionInstruction(ctx, options = {}) {
     `参考材料：${JSON.stringify(material)}`,
     '',
     '只返回 JSON，不要其它文字。示例只说明有哪几个键，句子按这次的诉求和照片写，不要照抄示例里的占位话：',
-    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样"}],"检测顺序":["第1步里还没有照片覆盖的那一项"]}',
+    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样","处理意见":"需处理"}],"检测顺序":["第1步里还没有照片覆盖的那一项"]}',
   ].join('\n')
 }
 

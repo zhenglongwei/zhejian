@@ -1208,6 +1208,40 @@ Page({
     })
   },
 
+  presentInspectionGaps(gaps) {
+    const list = Array.isArray(gaps) ? gaps.filter(Boolean) : []
+    if (!list.length) return false
+    const expandKey = this.findFirstIncompleteFindingKey()
+    if (expandKey) this.setSectionsWithFindings(this.data.sections, {}, expandKey)
+    const missingResult = list.some((row) => /检查结果/.test(row))
+    wx.showModal({
+      title: missingResult ? '请先选择检查结果' : '请先补全检测内容',
+      content: `${list.slice(0, 4).join('\n')}${list.length > 4 ? `\n…共 ${list.length} 项` : ''}`,
+      showCancel: false,
+      confirmText: '去补全',
+    })
+    return true
+  },
+
+  /** 生成检测报告前：每一项都要点上检查结果。写了检查发现也不能过。 */
+  blockInspectionUntilResultChosen() {
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    if (kind !== 'inspection' && kind !== 'intake_inspection') return false
+    const intakeNode = (this._flowNodes || []).find((n) => n && n.kind === 'intake')
+    const draftPayload = {
+      chiefComplaint:
+        kind === 'intake_inspection'
+          ? this.data.chiefComplaint
+          : String(
+              (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+                this.data.chiefComplaint ||
+                '',
+            ).trim(),
+      findings: this.collectFindingsFromSections(),
+    }
+    return this.presentInspectionGaps(collectInspectionReportGaps(draftPayload))
+  },
+
   collectFindingsFromSections(sections = this.data.sections) {
     const findingSection = (sections || []).find((s) => s.findingMode)
     if (!findingSection) return []
@@ -3295,7 +3329,7 @@ Page({
     if (key === 'inspect') {
       const gaps = collectInspectionReportGaps(payload)
       if (gaps.length) {
-        wx.showToast({ title: gaps[0], icon: 'none' })
+        this.presentInspectionGaps(gaps)
         return
       }
     }
@@ -3335,6 +3369,7 @@ Page({
       return
     }
     if (action === 'generateReport' || action === 'sendQuote' || action === 'remindDelivery') {
+      if (action === 'generateReport' && this.blockInspectionUntilResultChosen()) return
       this._previewAcceptAction = action
       this.onOpenRecordPreview()
       return
@@ -6207,6 +6242,7 @@ Page({
       const groups = Array.isArray(row.groups) ? row.groups : []
       const wantSplit = groups.length >= 2
       const showGroups = groups.length >= 1
+      const photosLanded = wantSplit && this.inspectSplitPhotosLanded(groups, findings)
       const partName = String((row && row.partName) || '').trim()
       const advice = String((row && row.advice) || '').trim()
       const curName = String((current && current.partName) || '').trim()
@@ -6217,20 +6253,23 @@ Page({
       const editId = String((row && row.id) || `edit_item_${findingId}`)
       if (!this._appliedInspectEditIds) this._appliedInspectEditIds = new Set()
       const markedApplied = this._appliedInspectEditIds.has(editId)
-      const splitChildrenPresent =
-        wantSplit &&
-        groups.length >= 2 &&
-        groups.every((g) => {
-          const name = String((g && g.partName) || '').trim()
-          if (!name) return false
-          return findings.some((f) => String((f && f.partName) || '').trim() === name)
-        })
       let canApply = false
       let applied = false
+      const resultPending =
+        wantSplit &&
+        groups.some((group) => {
+          const name = String((group && group.partName) || '').trim()
+          const opinion = String((group && group.result) || '').trim()
+          if (!name || !opinion) return false
+          const host = findings.find((row) => String((row && row.partName) || '').trim() === name)
+          return Boolean(host && !String((host.result) || '').trim())
+        })
       if (wantSplit) {
-        // 原项还在 → 可应用；仅点过应用或列表已能对上拆后子项 → 已应用（findingId 对不上不得冒充已应用）
-        canApply = stillThere && !markedApplied
-        applied = markedApplied || (!stillThere && splitChildrenPresent)
+        // 图已经在对应检测项上、检查结果也点上，才算已应用。
+        const hasPhotoHost =
+          stillThere || findings.some((row) => ((row && row.images) || []).length > 0)
+        canApply = (!photosLanded && hasPhotoHost) || resultPending
+        applied = photosLanded && !resultPending
       } else if (showGroups) {
         // 一组只展示检测项目和描述，不改检测项
         canApply = false
@@ -6252,11 +6291,24 @@ Page({
               (Array.isArray(g && g.imageSlots) && g.imageSlots.length
                 ? g.imageSlots.map((n) => `图${n}`).join('、')
                 : '')
+            const images = (Array.isArray(g && g.images) ? g.images : [])
+              .map((img) => {
+                if (typeof img === 'string') return { url: img }
+                if (!img || typeof img !== 'object') return null
+                const url = String(img.url || img.rawUrl || '').trim()
+                if (!url) return null
+                const maskedUrl = String(img.maskedUrl || img.preMaskedUrl || '').trim()
+                return maskedUrl ? { url, maskedUrl, preMaskedUrl: maskedUrl } : { url }
+              })
+              .filter(Boolean)
             return {
               id: `${editId}_g_${gi}`,
               partName: partNameG,
               advice: adviceG,
               imageLabel,
+              result: String((g && g.result) || '').trim(),
+              images,
+              imageSlots: images.length || !Array.isArray(g && g.imageSlots) ? [] : g.imageSlots,
             }
           })
         : []
@@ -7375,16 +7427,7 @@ Page({
       }
       const gaps = collectInspectionReportGaps(draftPayload)
       if (gaps.length) {
-        const expandKey = this.findFirstIncompleteFindingKey()
-        if (expandKey) {
-          this.setSectionsWithFindings(this.data.sections, {}, expandKey)
-        }
-        wx.showModal({
-          title: '请先补全检测内容',
-          content: `${gaps.slice(0, 4).join('\n')}${gaps.length > 4 ? `\n…共 ${gaps.length} 项` : ''}`,
-          showCancel: false,
-          confirmText: '去补全',
-        })
+        this.presentInspectionGaps(gaps)
         return
       }
     }
@@ -7877,6 +7920,28 @@ Page({
     }
   },
 
+  /** 拆分建议里的图是否已经挂在同名检测项上。 */
+  inspectSplitPhotosLanded(groups, findings) {
+    const list = Array.isArray(findings) ? findings : []
+    let expected = 0
+    let landed = 0
+    ;(Array.isArray(groups) ? groups : []).forEach((group) => {
+      const keys = (Array.isArray(group && group.images) ? group.images : [])
+        .map((img) => mediaKey(typeof img === 'string' ? img : img && (img.url || img.rawUrl)))
+        .filter(Boolean)
+      if (!keys.length) return
+      expected += 1
+      const name = String((group && group.partName) || '').trim()
+      const host = list.find((row) => String((row && row.partName) || '').trim() === name)
+      if (!host) return
+      const have = new Set(
+        (host.images || []).map((img) => mediaKey(img && img.url)).filter(Boolean),
+      )
+      if (keys.every((key) => have.has(key))) landed += 1
+    })
+    return expected > 0 && landed === expected
+  },
+
   /** 本单修改应用：有 groups 则拆成多项并写入各组文案；否则只填该项空着的部位名/检查发现。仅此处允许改检测项列表。 */
   applyInspectionItemEdit(line) {
     const findingId = String((line && line.findingId) || '')
@@ -7898,12 +7963,50 @@ Page({
           .filter((row) => row.n >= 2)
         if (piles.length === 1) idx = piles[0].i
       }
+      if (wantSplit && this.inspectSplitPhotosLanded(groups, list)) {
+        let stamped = false
+        const findings = list.map((row) => {
+          const name = String((row && row.partName) || '').trim()
+          const group = groups.find((item) => String((item && item.partName) || '').trim() === name)
+          const opinion = String((group && group.result) || '').trim()
+          if (!opinion || String((row && row.result) || '').trim()) return row
+          stamped = true
+          return { ...row, result: opinion }
+        })
+        if (!stamped) return section
+        changed = true
+        expandKey = `${si}:${idx >= 0 ? idx : 0}`
+        return {
+          ...section,
+          findings,
+          images: this.findingImagesFromRows(findings, this.data.odometerUrl),
+        }
+      }
       if (idx < 0) return section
       if (wantSplit) {
+        const names = new Set(
+          groups.map((g) => String((g && g.partName) || '').trim()).filter(Boolean),
+        )
+        const pruned = list.filter((row) => {
+          if (!row || String(row.id || '') === findingId) return true
+          const name = String(row.partName || '').trim()
+          const count = ((row.images) || []).length
+          return !(names.has(name) && count === 0)
+        })
+        let splitAt = findingId
+          ? pruned.findIndex((row) => row && String(row.id || '') === findingId)
+          : -1
+        if (splitAt < 0) {
+          const piles = pruned
+            .map((row, i) => ({ i, n: ((row && row.images) || []).length }))
+            .filter((row) => row.n >= 2)
+          if (piles.length === 1) splitAt = piles[0].i
+        }
+        if (splitAt < 0) return section
         const applyId = editId
-        const target = list[idx]
-        const withApply = list.map((row, i) =>
-          i === idx
+        const target = pruned[splitAt]
+        const withApply = pruned.map((row, i) =>
+          i === splitAt
             ? {
                 ...row,
                 aiApply: {
@@ -7915,11 +8018,16 @@ Page({
             : row,
         )
         const findings = applyInspectionSuggestion(withApply, applyId)
-        if (findings.length === list.length && findings[idx] && target && findings[idx].id === target.id) {
+        if (
+          findings.length === pruned.length &&
+          findings[splitAt] &&
+          target &&
+          findings[splitAt].id === target.id
+        ) {
           return section
         }
         changed = true
-        expandKey = `${si}:${idx}`
+        expandKey = `${si}:${splitAt}`
         return {
           ...section,
           findings,
@@ -8076,11 +8184,7 @@ Page({
     const quotePayload = this.buildQuotePayloadForSave()
     const reportGaps = collectInspectionReportGaps(reportPayload)
     if (reportGaps.length) {
-      wx.showModal({
-        title: '请先补全报告',
-        content: reportGaps.slice(0, 4).join('\n'),
-        showCancel: false,
-      })
+      this.presentInspectionGaps(reportGaps)
       return
     }
     const quoteGaps = collectQuoteConfirmGaps(quotePayload)
