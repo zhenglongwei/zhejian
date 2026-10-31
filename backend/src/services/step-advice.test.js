@@ -401,6 +401,35 @@ test('跨条的图不并成一条拆分', () => {
   assert.equal(got.edits.some((row) => row.findingId === 'fid_b'), false)
 })
 
+test('故障诊断按看见的问题分行，换行保留', () => {
+  const got = parseInspectionAdvice(
+    {
+      故障诊断: '1. 左后门下沿漆面剥落露底。\n2. 底盘悬挂与排气管有锈迹。',
+      检测顺序: ['先看漆面', '再看底盘'],
+      拆分建议: [
+        { 检测项目: '划痕检测', 图片: ['图1', '图2'], 描述: '两张都是车门下沿漆面。' },
+        { 检测项目: '底盘检修', 图片: ['图3'], 描述: '底盘与悬挂。' },
+        { 检测项目: '制动盘检查', 图片: ['图4'], 描述: '制动盘盘面。' },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 4 }],
+    [],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+      { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+      { slot: 4, url: 'https://a/4.jpg', findingId: 'pile' },
+    ],
+  )
+  assert.match(got.faultAnalysis, /漆面剥落/)
+  assert.match(got.faultAnalysis, /底盘悬挂/)
+  assert.match(got.faultAnalysis, /\n/)
+  const split = got.edits.find((row) => row.findingId === 'pile')
+  assert.equal(split.groups.length, 3)
+  assert.equal(split.groups[0].images.length, 2)
+  assert.equal(split.groups[2].partName, '制动盘检查')
+})
+
 test('交车出简述与车主关心的问题', () => {
   const got = parseDeliveryAdvice({
     repairBrief: '更换下摆臂胶套，并做了机油机滤保养。',

@@ -1913,7 +1913,12 @@
           <block wx:elif="{{stageBoard.family === 'inspect' && inspectionAdvice.hasContent}}">
             <view wx:if="{{inspectionAdvice.hasFault}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">故障分析</text>
-              <text class="merchant-flow-page__advice-ask-body">{{inspectionAdvice.faultAnalysis}}</text>
+              <block wx:if="{{inspectionAdvice.faultLines.length > 1}}">
+                <view wx:for="{{inspectionAdvice.faultLines}}" wx:key="*this" class="merchant-flow-page__advice-ask">
+                  <text class="merchant-flow-page__advice-ask-body">{{index + 1}}. {{item}}</text>
+                </view>
+              </block>
+              <text wx:else class="merchant-flow-page__advice-ask-body">{{inspectionAdvice.faultAnalysis}}</text>
             </view>
             <view wx:if="{{inspectionAdvice.hasOrder}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">检测顺序</text>

@@ -568,7 +568,7 @@ function parseInspectionAdvice(raw, _items, _photoUrls, photoSlots) {
       : parsed['故障分析'] != null
         ? parsed['故障分析']
         : parsed.faultAnalysis
-  const faultRaw = zhInspectProse(faultSource, 200)
+  const faultRaw = zhInspectProse(faultSource, 400)
   const faultAnalysis = isIntakeCoverageEcho(faultRaw) ? '' : faultRaw
   const orderSource = parsed['检测顺序'] != null ? parsed['检测顺序'] : parsed.inspectOrder
   const inspectOrder = normalizeInspectOrder(orderSource)
@@ -917,7 +917,7 @@ async function runLlm(instruction, urls, label, options = {}) {
         attached.map((row, index) => {
           // 必须标真实 photoSlots.slot，禁止用附图数组下标冒充槽位号
           const caption = row.slot
-            ? `${tag} photoSlots.slot=${row.slot} findingId=${row.findingId || ''}`
+            ? `图${row.slot}。只根据这一张判断内容，不要用其它图代替。`
             : `${tag} image ${index + 1}`
           return [
             { type: 'text', text: caption },
@@ -1029,15 +1029,16 @@ function inspectionInstruction(ctx, options = {}) {
     'You assist a Chinese auto-shop clerk on the inspection step.',
     'Think in this order, then return ONE JSON object. Do not output per-photo notes, a separate parts list, or finding ids.',
     '1. From the owner complaint, write 检测顺序: what to check first, then next. Put part-specific watchpoints inside these sentences.',
-    '2. Look at each attached photo and name what is actually visible. Complaint and 检测顺序 are background only. Do not invent damage absent from the photo. Do not copy a 检测顺序 sentence into 检测项目.',
-    '3. Assign each photo to a shop inspection item a Chinese repair shop would open, such as 划痕检测, 底盘检修, or 前制动盘磨损评估. Photos that are semantically the same item must share one name. Put the location and what you see into 描述.',
-    '4. Split or merge ONLY among photos that share the same findingId in Context photoSlots. Do not combine photos the clerk already placed on different findings. If that finding\'s photos are one inspection item, leave them out of 拆分建议.',
-    '5. 故障诊断 uses the complaint plus what the photos actually show.',
-    '6. Each 描述 is one Chinese paragraph: what these photos show, what to verify next, and — only when the photos show it — what happens if left alone. Never use the labels 需处理, 需关注, or 状态良好.',
-    '图片 values are slot labels from Context photoSlots, written as 图1, 图2, matching the slot number.',
+    '2. Each photo is labeled 图N immediately before the image. Judge THAT image alone. Do not describe later photos using the first photo. Complaint and 检测顺序 are background only. Do not invent damage absent from that photo. Do not copy a 检测顺序 sentence into 检测项目.',
+    '3. Assign each photo to a shop inspection item a Chinese repair shop would open, such as 划痕检测, 底盘检修, or 前制动盘磨损评估. Two angles of the same subject share one name. A door-paint photo, an underbody photo, and a brake-disc photo are different items. Never write that every photo is the same close-up unless you have looked at each 图N and they really show that subject.',
+    '4. Split or merge ONLY among photos that share the same findingId in Context photoSlots. Do not combine photos the clerk already placed on different findings. 拆分建议 is [] only when every photo on that finding shows the same subject.',
+    '5. 故障诊断: one short line per distinct problem actually visible, separated by newlines. Do not collapse different photos into one paragraph about the first photo.',
+    '6. Each 描述 is one Chinese paragraph about THAT group only: what these photos show, what to verify next, and — only when those photos show it — what happens if left alone. Never use the labels 需处理, 需关注, or 状态良好.',
+    '图片 values are the 图N labels. Do not invent finding ids.',
     'Intake text is context only. Never restate intake coverage. Natural-language values are Simplified Chinese only.',
+    'WRONG: one 检测项目 covering 图1 through 图4 when a later photo shows underbody or a brake disc.',
     `Context JSON: ${JSON.stringify(payload)}`,
-    'Return JSON only: {"故障诊断":"……","检测顺序":["先查……","再查……"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"左后门下沿漆面有划痕，建议核对是否露底"}]}',
+    'Return JSON only: {"故障诊断":"1. 左后门下沿漆面大面积剥落露底。\\n2. 底盘悬挂与排气管有锈迹。","检测顺序":["先查漆面是否露底","再查底盘与悬挂"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"两张都是车门下沿漆面剥落。"},{"检测项目":"底盘检修","图片":["图3"],"描述":"底盘与悬挂，不是漆面特写。"}]}',
   ].join('\n')
 }
 
@@ -1048,7 +1049,7 @@ function multiPhotoFindingIds(ctx) {
     if (!id) return
     counts.set(id, (counts.get(id) || 0) + 1)
   })
-  // 槽位未齐时仍认草稿项上的张数，避免漏触发补跑
+  // 多图项：一条检测项上挂了两张及以上的图
   ;(Array.isArray(ctx.inspectItems) ? ctx.inspectItems : []).forEach((row) => {
     const id = text(row && row.id)
     const photos = Number(row && row.photos) || 0

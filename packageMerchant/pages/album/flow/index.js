@@ -6150,6 +6150,7 @@ Page({
         lines: [],
         hasLines: false,
         faultAnalysis: '',
+        faultLines: [],
         inspectOrder: [],
         partHints: [],
         hasFault: false,
@@ -6165,6 +6166,10 @@ Page({
     const faultAnalysis = this.isIntakeCoverageEcho(raw.faultAnalysis)
       ? ''
       : String(raw.faultAnalysis || '').trim()
+    const faultLines = faultAnalysis
+      .split(/\n+/)
+      .map((line) => line.replace(/^\d+[.、．)\]）]\s*/, '').trim())
+      .filter((line) => line && !this.isIntakeCoverageEcho(line))
     const inspectOrder = (Array.isArray(raw.inspectOrder) ? raw.inspectOrder : [])
       .map((row) => String(row || '').trim())
       .filter((row) => row && !this.isIntakeCoverageEcho(row))
@@ -6271,6 +6276,7 @@ Page({
       status,
       scope: String(raw.scope || ''),
       faultAnalysis,
+      faultLines,
       inspectOrder,
       partHints: [],
       hasFault,
