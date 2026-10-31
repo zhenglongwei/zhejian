@@ -1025,20 +1025,50 @@ function inspectionContextPayload(ctx, options = {}) {
 
 function inspectionInstruction(ctx, options = {}) {
   const payload = inspectionContextPayload(ctx, options)
+  const byFinding = new Map()
+  ;(Array.isArray(payload.photoSlots) ? payload.photoSlots : []).forEach((row) => {
+    const id = text(row && row.findingId) || '未分组'
+    if (!byFinding.has(id)) byFinding.set(id, [])
+    byFinding.get(id).push(`图${row.slot}`)
+  })
+  const pileText = byFinding.size
+    ? [...byFinding.values()].map((list) => `- ${list.join('、')} 在同一条里，只能在这几张之间归并`).join('\n')
+    : '- 本次没有检测图'
+  const material = {
+    客户诉求: payload.complaint || '',
+    接车要点: payload.intakeContext || '',
+    已有检测项: (Array.isArray(payload.items) ? payload.items : []).map((row) => ({
+      条目: row && row.id,
+      名称: (row && row.name) || '',
+      已写说明: (row && row.note) || '',
+    })),
+  }
   return [
-    'You assist a Chinese auto-shop clerk on the inspection step.',
-    'Think in this order, then return ONE JSON object. Do not output per-photo notes, a separate parts list, or finding ids.',
-    '1. From the owner complaint, write 检测顺序: what to check first, then next. Put part-specific watchpoints inside these sentences.',
-    '2. Each photo is labeled 图N immediately before the image. Judge THAT image alone. Do not describe later photos using the first photo. Complaint and 检测顺序 are background only. Do not invent damage absent from that photo. Do not copy a 检测顺序 sentence into 检测项目.',
-    '3. Assign each photo to a shop inspection item a Chinese repair shop would open, such as 划痕检测, 底盘检修, or 前制动盘磨损评估. Two angles of the same subject share one name. A door-paint photo, an underbody photo, and a brake-disc photo are different items. Never write that every photo is the same close-up unless you have looked at each 图N and they really show that subject.',
-    '4. Split or merge ONLY among photos that share the same findingId in Context photoSlots. Do not combine photos the clerk already placed on different findings. 拆分建议 is [] only when every photo on that finding shows the same subject.',
-    '5. 故障诊断: one short line per distinct problem actually visible, separated by newlines. Do not collapse different photos into one paragraph about the first photo.',
-    '6. Each 描述 is one Chinese paragraph about THAT group only: what these photos show, what to verify next, and — only when those photos show it — what happens if left alone. Never use the labels 需处理, 需关注, or 状态良好.',
-    '图片 values are the 图N labels. Do not invent finding ids.',
-    'Intake text is context only. Never restate intake coverage. Natural-language values are Simplified Chinese only.',
-    'WRONG: one 检测项目 covering 图1 through 图4 when a later photo shows underbody or a brake disc.',
-    `Context JSON: ${JSON.stringify(payload)}`,
-    'Return JSON only: {"故障诊断":"1. 左后门下沿漆面大面积剥落露底。\\n2. 底盘悬挂与排气管有锈迹。","检测顺序":["先查漆面是否露底","再查底盘与悬挂"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"两张都是车门下沿漆面剥落。"},{"检测项目":"底盘检修","图片":["图3"],"描述":"底盘与悬挂，不是漆面特写。"}]}',
+    '你是修理厂店员的助手，正在整理检测这一步的意见。',
+    '按下面的顺序思考，只返回一个 JSON。不要把思考过程、每张图的草稿写进返回。',
+    '',
+    '1. 根据接车时的客户诉求，先写故障诊断和检测顺序。',
+    '检测顺序只写先查什么、再查什么。部件上要注意的，写进这些句子里，不要再单开一块。',
+    '2. 再逐张看图。每张图紧前面标着「图1」「图2」。只根据这一张判断它拍了什么，不要用前面那张图的内容去写后面的图。图上没有的损伤不要编。',
+    '客户诉求和检测顺序只作背景。不要把检测顺序里的句子原样抄成检测项目名称。',
+    '3. 结合照片内容和真实汽修场景，判断每张图在做哪一项检测。名称用店里会开的检测项目，例如划痕检测、底盘检修、制动盘检查。',
+    '拍的是同一处、同一项的，用同一个名称。车门漆面、底盘、制动盘是不同的项目，不能写成同一项。',
+    '4. 只在下面列出的、同一条里的照片之间归并或拆开。语义上属于同一项的图收成一组，返回时这一项只留一个名称。',
+    '例如两张都是划痕，归到划痕检测；一张是底盘，单独成底盘检修；一张是制动盘，单独成制动盘检查。',
+    '已经分在不同条里的照片不要并到一起。这一条里的照片如果其实是同一个项目，拆分建议用空数组。',
+    '5. 每一组用一段描述写完：这组图上看见什么，建议接着核什么。图上能看出放着会怎样时再写，看不出来就不要编。',
+    '不要使用「需处理」「需关注」「状态良好」。',
+    '',
+    '故障诊断按实际看见的不同问题分行，一行一个问题，不要合成一段只讲第一张图。',
+    '不要复述接车时车身四周有没有拍全。',
+    '',
+    '同一条里的照片：',
+    pileText,
+    '',
+    `参考材料：${JSON.stringify(material)}`,
+    '',
+    '只返回 JSON，不要其它文字。名称和分组必须按这次的照片来写，不要照抄下面示例里的项目：',
+    '{"故障诊断":"1. 左后门下沿漆面大面积剥落露底。\\n2. 底盘悬挂与排气管有锈迹。\\n3. 制动盘盘面有磨损。","检测顺序":["先查漆面是否露底","再查底盘与悬挂","再看制动盘"],"拆分建议":[{"检测项目":"划痕检测","图片":["图1","图2"],"描述":"两张都是车门下沿漆面剥落，建议核对是否露底。"},{"检测项目":"底盘检修","图片":["图3"],"描述":"拍的是底盘和悬挂，不是漆面特写。"},{"检测项目":"制动盘检查","图片":["图4"],"描述":"拍的是制动盘盘面。"}]}',
   ].join('\n')
 }
 
