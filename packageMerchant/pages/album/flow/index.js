@@ -72,7 +72,6 @@ const {
   resolveWarrantyNotes,
   isVagueWarrantyPeriod,
   parseMileageKm,
-  stripFigureIndexTalk,
   pickOdometerSlot,
   isOdometerFinding,
   applyOrganizeGroups,
@@ -1916,7 +1915,7 @@ Page({
       const addonDiscoveryImages = Array.isArray(discovery.images)
         ? discovery.images.filter(Boolean)
         : []
-      const addonDiscoveryNote = stripFigureIndexTalk(discovery.note)
+      const addonDiscoveryNote = String(discovery.note || '')
       const addonDiscoveryReady = Boolean(
         discovery.ready && addonDiscoveryImages.length && addonDiscoveryNote.trim(),
       )

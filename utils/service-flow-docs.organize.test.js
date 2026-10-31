@@ -403,6 +403,19 @@ test('stripFigureIndexTalk drops 图4、图5 so copy matches the photos on scree
   )
 })
 
+test('施工说明输入原样保留，不在输入时清图号或标点', () => {
+  const { normalizeWorkFinding, normalizeFinding, normalizeQuoteLine } = require('./service-flow-docs')
+  assert.equal(
+    normalizeWorkFinding({ partName: '前刹车片', caption: '已更换前片，见图1；' }).caption,
+    '已更换前片，见图1；',
+  )
+  assert.equal(
+    normalizeFinding({ partName: '制动盘', advice: '盘面有沟，' }).advice,
+    '盘面有沟，',
+  )
+  assert.equal(normalizeQuoteLine({ name: '更换前片', note: '含工时；' }).note, '含工时；')
+})
+
 test('work organize observation does not keep 图N in caption', () => {
   const { findings } = applyOrganizeGroups({
     pendingImages: [a],

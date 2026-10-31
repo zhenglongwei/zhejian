@@ -36,7 +36,6 @@ const {
   listQuoteLineEvidenceUrls,
   resolveWarrantyNotes,
   parseMileageKm,
-  stripFigureIndexTalk,
   parseAmount,
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
@@ -2300,7 +2299,7 @@ function mapOwnerWorkSheetLine(row = {}) {
   const material = String(row.material || '').trim()
   const brand = String(row.brand || '').trim()
   const qty = String(row.qty || '').trim()
-  const note = stripFigureIndexTalk(row.caption)
+  const note = String(row.caption || '')
   const images = ownerWorkImages(row)
   if (!name && !material && !note && !images.length) return null
   return { name, brand, material, qty, note, images }
@@ -2476,7 +2475,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     cancelledBy,
     ownerRejectReason,
-    discoveryNote: stripFigureIndexTalk(discovery.note),
+    discoveryNote: String(discovery.note || ''),
     discoveryImages,
     statusLabel: isCancelled
       ? cancelledBy === 'owner'

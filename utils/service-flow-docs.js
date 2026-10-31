@@ -25,14 +25,16 @@ function parseMileageKm(value) {
   return String(Math.round(n))
 }
 
-/** 给店员/车主看的说明里去掉「图1、图2」，只留部位和状态 */
+/** 给店员/车主看的说明里去掉「图1、图2」，只留部位和状态。没出现图号时原文不动，避免输入时吞掉逗号分号。 */
 function stripFigureIndexTalk(value) {
   let s = String(value || '')
   if (!s) return ''
+  const before = s
   s = s.replace(/如(?:图\s*\d+\s*[、,，和及]?\s*)+所示/g, '')
   s = s.replace(/见(?:图\s*\d+\s*[、,，和及]?\s*)+/g, '')
   s = s.replace(/图\s*\d+(?:\s*[、,，和及]\s*图\s*\d+)*/g, '')
   s = s.replace(/第\s*\d+\s*张(?:图|照片)?/g, '')
+  if (s === before) return s
   s = s.replace(/[；;]{2,}/g, '；')
   s = s.replace(/[、，,]{2,}/g, '，')
   s = s.replace(/^[的、，,；;：:\s]+/, '')
@@ -199,9 +201,9 @@ function normalizeItemFinding(raw = {}, index = -1) {
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
     : collectFindingImages(raw)
   images = capImages(images, FINDING_IMAGES_MAX)
-  const caption = stripFigureIndexTalk(raw.caption)
+  const caption = String(raw.caption || '')
   const result = normalizeFindingResult(raw.result)
-  let advice = stripFigureIndexTalk(raw.advice)
+  let advice = String(raw.advice || '')
   if (result === FINDING_RESULT.OK && !advice) advice = FINDING_ADVICE_NONE
   const first = images[0] || { url: '', imageId: '' }
   return {
@@ -314,7 +316,7 @@ function normalizeWorkFinding(raw = {}, index = -1) {
     if (one) images = [one]
   }
   images = images.slice(0, WORK_IMAGES_MAX)
-  const caption = stripFigureIndexTalk(raw.caption)
+  const caption = String(raw.caption || '')
   const partName = String(raw.partName || '').trim()
   const first = images[0] || null
   return {
@@ -1461,7 +1463,7 @@ function normalizeQuoteLine(raw = {}, index = -1) {
     name: String(raw.name || '').trim(),
     brand: String(raw.brand || '').trim(),
     amount: amount == null ? '' : amount,
-    note: stripFigureIndexTalk(raw.note),
+    note: String(raw.note || ''),
     evidenceUrl: evidenceUrls[0] || '',
     evidenceUrls,
   })
@@ -1469,7 +1471,7 @@ function normalizeQuoteLine(raw = {}, index = -1) {
 
 function workFindingAddonNote(row = {}) {
   return [row.caption, row.material]
-    .map((part) => stripFigureIndexTalk(part))
+    .map((part) => String(part || '').trim())
     .filter(Boolean)
     .join(' · ')
 }
