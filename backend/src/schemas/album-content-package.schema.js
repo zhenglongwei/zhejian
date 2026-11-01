@@ -95,12 +95,7 @@ function emptyGeneratingPackage(triggeredAt = new Date().toISOString()) {
 }
 
 function isPackageReady(pkg) {
-  return (
-    pkg &&
-    pkg.status === CONTENT_PACKAGE_STATUS.READY &&
-    pkg.drafts &&
-    Object.keys(pkg.drafts).length > 0
-  )
+  return Boolean(pkg && pkg.status === CONTENT_PACKAGE_STATUS.READY)
 }
 
 function isPackageGenerating(pkg) {

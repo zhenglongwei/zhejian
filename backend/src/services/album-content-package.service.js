@@ -1,17 +1,13 @@
 /**
- * USER-PUB · 完工异步内容包：一次 LLM 产出质量建议 + 五平台长文
- * 仅完工触发；车主 social-copy 读缓存。
+ * 完工内容包：质量建议 + 案例稿。不再产出五平台长文。
+ * 短图文在读取时现算，见 album-social-card。
  */
 const fs = require('fs')
 const path = require('path')
 const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
-const { findGeoLlmViolation, sanitizeGeoLlmText } = require('../constants/geo-llm-compliance')
-const {
-  SOCIAL_PLATFORMS,
-  SOCIAL_PLATFORM_LIST,
-} = require('../constants/album-social-platforms')
+const { sanitizeGeoLlmText } = require('../constants/geo-llm-compliance')
 const {
   CONTENT_PACKAGE_STATUS,
   CONTENT_PACKAGE_SOURCE,
@@ -114,59 +110,9 @@ function parseLlmJson(text) {
   }
 }
 
-function scrubAiTaste(text) {
-  const markers = [
-    '值得一提的是',
-    '在当今',
-    '作为一名车主',
-    '希望对大家有所帮助',
-    '干货满满',
-    '赋能',
-    '沉浸式',
-    '绝绝子',
-    '家人们谁懂啊',
-  ]
-  let value = String(text || '')
-  for (const marker of markers) {
-    value = value.split(marker).join('')
-  }
-  return value.replace(/\n{3,}/g, '\n\n').trim()
-}
-
-function composeCopy(title, body) {
-  const t = String(title || '').trim()
-  const b = String(body || '').trim()
-  if (t && b) return `${t}\n\n${b}`
-  return t || b
-}
-
-function sanitizeDraft(raw, platformId) {
-  const meta = SOCIAL_PLATFORMS[platformId] || SOCIAL_PLATFORMS.xiaohongshu
-  if (!raw || typeof raw !== 'object') return null
-  let title = scrubAiTaste(sanitizeGeoLlmText(raw.title || ''))
-  let body = scrubAiTaste(sanitizeGeoLlmText(raw.body || raw.content || ''))
-  let tips = sanitizeGeoLlmText(raw.tips || '').slice(0, 40)
-  const joined = composeCopy(title, body)
-  if (!joined) return null
-  const violation = findGeoLlmViolation(joined)
-  if (violation) return null
-  if (joined.length > meta.maxChars) {
-    body = body.slice(0, Math.max(80, meta.maxChars - (title ? title.length + 2 : 0)))
-  }
-  return {
-    title,
-    body,
-    tips: tips || `可粘贴到${meta.label}`,
-  }
-}
-
 function buildRulePackage(albumView, ruleQuality, merchantCaseDraft = null) {
-  const { buildFacts, buildRuleDraft } = require('./album-social-copy.service')
+  const { buildFacts } = require('./album-social-copy.service')
   const facts = buildFacts(albumView)
-  const drafts = {}
-  Object.keys(SOCIAL_PLATFORMS).forEach((platformId) => {
-    drafts[platformId] = buildRuleDraft(facts, platformId)
-  })
   return {
     status: CONTENT_PACKAGE_STATUS.READY,
     source: CONTENT_PACKAGE_SOURCE.RULE,
@@ -179,7 +125,7 @@ function buildRulePackage(albumView, ruleQuality, merchantCaseDraft = null) {
       .join('｜')
       .slice(0, 800),
     qualitySuggestions: (ruleQuality && ruleQuality.suggestions) || [],
-    drafts,
+    drafts: {},
     merchantCaseDraft,
     generatedAt: new Date().toISOString(),
     error: '',
@@ -190,27 +136,20 @@ async function buildLlmPackage(albumView, ruleQuality, merchantCaseDraft = null)
   const cfg = getPackageLlmConfig()
   if (!cfg.enabled || cfg.dryRun || !cfg.apiKey) return null
 
-  const { buildFacts, buildRuleDraft } = require('./album-social-copy.service')
+  const { buildFacts } = require('./album-social-copy.service')
   const {
     mergeLlmSectionsIntoDraft,
   } = require('./merchant-case-draft.service')
   const facts = buildFacts(albumView)
-  const platforms = SOCIAL_PLATFORM_LIST.map((p) => ({
-    id: p.id,
-    label: p.label,
-    styleBrief: SOCIAL_PLATFORMS[p.id].styleBrief,
-    maxChars: SOCIAL_PLATFORMS[p.id].maxChars,
-  }))
 
   const userPayload = {
     task: 'album_content_package',
     facts,
-    platforms,
     ruleQualityHints: (ruleQuality && ruleQuality.suggestions) || [],
     merchantCaseDraftHint: {
       title: merchantCaseDraft && merchantCaseDraft.title,
       sectionKeys: ['symptom', 'diagnosis', 'plan', 'process', 'handover'],
-      note: '可选：输出 merchantCaseDraft（仅文字章节，禁止金额与图片 URL）',
+      note: '可选：输出 merchantCaseDraft（仅文字章节，禁止金额与图片 URL）。不要写社交媒体长文。',
     },
   }
 
@@ -227,26 +166,11 @@ async function buildLlmPackage(albumView, ruleQuality, merchantCaseDraft = null)
   })
 
   const parsed = parseLlmJson(completion.text)
-  const drafts = {}
-  const rawDrafts = parsed.drafts && typeof parsed.drafts === 'object' ? parsed.drafts : {}
-  Object.keys(SOCIAL_PLATFORMS).forEach((platformId) => {
-    const draft = sanitizeDraft(rawDrafts[platformId], platformId)
-    if (draft) drafts[platformId] = draft
-  })
-
-  if (Object.keys(drafts).length < 3) {
-    return null
-  }
-
-  Object.keys(SOCIAL_PLATFORMS).forEach((platformId) => {
-    if (!drafts[platformId]) {
-      drafts[platformId] = buildRuleDraft(facts, platformId)
-    }
-  })
-
   const qualitySuggestions = Array.isArray(parsed.qualitySuggestions)
     ? parsed.qualitySuggestions
     : []
+  const factSummary = sanitizeGeoLlmText(parsed.factSummary || '').slice(0, 800)
+  if (!qualitySuggestions.length && !parsed.merchantCaseDraft && !factSummary) return null
 
   let nextMerchantDraft = merchantCaseDraft
   if (parsed.merchantCaseDraft && merchantCaseDraft) {
@@ -259,9 +183,9 @@ async function buildLlmPackage(albumView, ruleQuality, merchantCaseDraft = null)
   return {
     status: CONTENT_PACKAGE_STATUS.READY,
     source: CONTENT_PACKAGE_SOURCE.LLM,
-    factSummary: sanitizeGeoLlmText(parsed.factSummary || '').slice(0, 800),
+    factSummary,
     qualitySuggestions,
-    drafts,
+    drafts: {},
     merchantCaseDraft: nextMerchantDraft,
     generatedAt: new Date().toISOString(),
     error: '',

@@ -32,6 +32,7 @@ const {
   applyAlbumContentOptimizeDraft,
 } = require('../services/album-content-optimize.service')
 const { interpretAlbumThemeCard } = require('../services/album-vision-ondemand.service')
+const { getMerchantSocialCards } = require('../services/album-social-card.service')
 const {
   getMerchantPlanPartsContext,
   saveMerchantPlanPartsDraft,
@@ -312,6 +313,20 @@ router.post('/service-albums/:albumId/case-draft/ai-polish', requireAuth(['merch
       storeId,
       req.auth.merchantId,
       req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/social-cards', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await getMerchantSocialCards(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
     )
     return ok(res, data)
   } catch (e) {

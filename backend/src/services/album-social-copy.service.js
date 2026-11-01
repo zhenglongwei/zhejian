@@ -4,12 +4,9 @@
 const fs = require('fs')
 const path = require('path')
 const { config } = require('../config')
-const { getUserServiceAlbum } = require('./service-album.service')
-const { SERVICE_ALBUM_STATUS } = require('../constants/v2')
 const { findGeoLlmViolation, sanitizeGeoLlmText } = require('../constants/geo-llm-compliance')
 const {
   SOCIAL_PLATFORMS,
-  SOCIAL_PLATFORM_LIST,
   normalizeSocialPlatform,
 } = require('../constants/album-social-platforms')
 const { chatCompletion } = require('../lib/dashscope-chat')
@@ -47,20 +44,6 @@ function readSystemPrompt() {
     return fs.readFileSync(PROMPT_PATH, 'utf8')
   } catch {
     return '你是普通车主写手，只输出 JSON，禁止编造事实与营销话术。'
-  }
-}
-
-function assertAlbumCompleted(albumView) {
-  const status = albumView && albumView.status
-  const ok =
-    status === SERVICE_ALBUM_STATUS.COMPLETED ||
-    status === SERVICE_ALBUM_STATUS.PUBLISHED ||
-    status === 'published' ||
-    status === 'completed'
-  if (!ok) {
-    const err = new Error('相册完工后才能生成分享文案')
-    err.status = 409
-    throw err
   }
 }
 
@@ -291,102 +274,29 @@ async function buildLlmDraft(facts, platformId) {
  * }>}
  */
 async function generateAlbumSocialCopy(albumId, userId, platformRaw) {
-  const albumView = await getUserServiceAlbum(albumId, userId)
-  assertAlbumCompleted(albumView)
-
-  const platform = normalizeSocialPlatform(platformRaw)
-  const meta = SOCIAL_PLATFORMS[platform]
-  const {
-    CONTENT_PACKAGE_STATUS,
-    GENERATING_WAIT_MESSAGE,
-  } = require('../constants/album-content-package')
-  const {
-    readPackageFromAlbum,
-    isPackageReady,
-    isPackageGenerating,
-    isPackageSkipped,
-  } = require('./album-content-package.service')
-  const { prisma } = require('../lib/prisma')
-
-  const row = await prisma.album.findUnique({
-    where: { id: albumId },
-    select: { contentPackageJson: true },
-  })
-  const pkg = readPackageFromAlbum(row)
-
-  if (
-    pkg &&
-    pkg.merchantCaseDraft &&
-    pkg.merchantCaseDraft.confirmedAt
-  ) {
-    const { draftToPlainText, normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
-    const draft = normalizeMerchantCaseDraft(pkg.merchantCaseDraft)
-    const title = (draft && draft.title) || ''
-    const body = draftToPlainText(draft)
-    const text = composeCopy(title, body)
-    return {
-      status: CONTENT_PACKAGE_STATUS.READY,
-      platform,
-      platformLabel: meta.label,
-      platforms: SOCIAL_PLATFORM_LIST,
-      title,
-      body,
-      text,
-      tips: '来自门店确认案例稿，可直接粘贴；请勿添加金额或诱导分享领钱。',
-      source: 'merchant_case_draft',
-    }
-  }
-
-  if (isPackageGenerating(pkg)) {
-    return {
-      status: CONTENT_PACKAGE_STATUS.GENERATING,
-      message: GENERATING_WAIT_MESSAGE,
-      platform,
-      platformLabel: meta.label,
-      platforms: SOCIAL_PLATFORM_LIST,
-      title: '',
-      body: '',
-      text: '',
-      tips: '',
-      source: '',
-    }
-  }
-
-  if (isPackageReady(pkg) && pkg.drafts[platform]) {
-    const draft = pkg.drafts[platform]
-    const text = composeCopy(draft.title, draft.body)
-    return {
-      status: CONTENT_PACKAGE_STATUS.READY,
-      platform,
-      platformLabel: meta.label,
-      platforms: SOCIAL_PLATFORM_LIST,
-      title: draft.title || '',
-      body: draft.body || '',
-      text,
-      tips: draft.tips || '',
-      source: pkg.source || 'cache',
-    }
-  }
-
-  // 无内容包 / 留痕不齐跳过 LLM / 历史完工：规则稿（不触发 LLM）
-  const facts = buildFacts(albumView)
-  const draft = buildRuleDraft(facts, platform)
-  const text = composeCopy(draft.title, draft.body)
+  const { getOwnerSocialCards } = require('./album-social-card.service')
+  const pack = await getOwnerSocialCards(albumId, userId)
+  const wanted = ['moments', 'xiaohongshu', 'douyin'].includes(String(platformRaw || ''))
+    ? String(platformRaw)
+    : 'moments'
+  const card = (pack.cards || []).find((item) => item.id === wanted) || (pack.cards || [])[0] || {}
   return {
-    status: CONTENT_PACKAGE_STATUS.READY,
-    platform,
-    platformLabel: meta.label,
-    platforms: SOCIAL_PLATFORM_LIST,
-    title: draft.title || '',
-    body: draft.body || '',
-    text,
-    tips: draft.tips || '',
-    source: isPackageSkipped(pkg) ? 'skipped_incomplete' : 'legacy_rule',
+    status: 'ready',
+    platform: card.id || wanted,
+    platformLabel: card.label || '',
+    platforms: (pack.cards || []).map((item) => ({ id: item.id, label: item.label })),
+    title: '',
+    body: card.caption || card.text || '',
+    text: card.text || '',
+    tips: '',
+    source: 'social_card',
+    images: pack.images || [],
   }
 }
 
 function listSocialPlatforms() {
-  return SOCIAL_PLATFORM_LIST
+  const { PLATFORMS } = require('../../../utils/album-social-card')
+  return PLATFORMS.map((item) => ({ id: item.id, label: item.label }))
 }
 
 module.exports = {

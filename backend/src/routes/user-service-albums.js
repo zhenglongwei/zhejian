@@ -30,6 +30,7 @@ const {
   generateAlbumSocialCopy,
   listSocialPlatforms,
 } = require('../services/album-social-copy.service')
+const { getOwnerSocialCards } = require('../services/album-social-card.service')
 
 const router = express.Router()
 
@@ -239,7 +240,17 @@ router.post('/service-albums/:albumId/share', requireAuth(['user']), async (req,
   }
 })
 
-/** USER-PUB · 多平台社交媒体长文（车主复制用，不上网） */
+/** 短图文：朋友圈 / 小红书 / 抖音 + 打码图 */
+router.get('/service-albums/:albumId/social-cards', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await getOwnerSocialCards(req.params.albumId, req.auth.userId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+/** 兼容旧入口：返回同一套短图文里的一则，不再返回长文 */
 router.get('/service-albums/:albumId/social-copy', requireAuth(['user']), async (req, res, next) => {
   try {
     const data = await generateAlbumSocialCopy(

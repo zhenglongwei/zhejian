@@ -33,7 +33,7 @@ test('normalizeAlbumContentPackage keeps drafts', () => {
   assert.ok(isPackageReady(pkg))
 })
 
-test('buildRulePackage covers five platforms', () => {
+test('buildRulePackage no longer writes social long-form drafts', () => {
   const pkg = buildRulePackage(
     {
       serviceName: '钣金',
@@ -45,10 +45,9 @@ test('buildRulePackage covers five platforms', () => {
     { suggestions: [{ message: '规则提示', level: 'weak' }] }
   )
   assert.equal(pkg.status, 'ready')
-  assert.ok(pkg.drafts.xiaohongshu)
-  assert.ok(pkg.drafts.douyin)
-  assert.ok(pkg.drafts.wechat_mp)
-  assert.match(pkg.drafts.xiaohongshu.body || pkg.drafts.xiaohongshu.title, /钣金/)
+  assert.deepEqual(pkg.drafts, {})
+  assert.match(pkg.factSummary, /钣金/)
+  assert.ok(isPackageReady(pkg))
 })
 
 test('collectMissingFromPanels detects absent rows', () => {
