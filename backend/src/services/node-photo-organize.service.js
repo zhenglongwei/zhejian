@@ -126,17 +126,19 @@ function normalizeGroups(rawGroups, pending) {
     .filter(Boolean)
 }
 
-async function collectMaskedPending(albumId, pending = []) {
-  const { collectMaskedUrlsForRawList } = require('./desensitize.service')
-  const packed = await collectMaskedUrlsForRawList(
-    albumId,
-    (pending || []).map((img, index) => ({
-      url: text(img && img.url),
-      label: `图${index + 1}`,
-      imageKey: mediaKey(img && img.url),
-    })),
-  )
-  return packed
+function pendingVisionRows(pending = []) {
+  return (pending || [])
+    .map((img, index) => {
+      const url = text(img && img.url)
+      if (!url) return null
+      return {
+        url,
+        label: `图${index + 1}`,
+        rawUrl: url,
+        imageKey: mediaKey(img && img.url),
+      }
+    })
+    .filter(Boolean)
 }
 
 function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorFacts }) {
@@ -144,7 +146,8 @@ function buildInstruction({ mode, existingParts, cachedNotes, quoteNames, priorF
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
     MECHANIC_VOICE_RULES,
-    '落项用内部编号：返回 imageSlots 填 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。本批只附已打码的图，编号可能不连续；没附图的编号不要写进组。',
+    '落项用内部编号：返回 imageSlots 填 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。附图是原图，编号可能不连续；没附图的编号不要写进组。',
+    'JSON 另带 masks。框出车牌、车架号、人脸，以及手机号、姓名、证件。kind 只用 plate、vin、face、phone、name、document。imageSlot 用附图图号。regions 的 left、top、width、height 是相对整张图的 0 到 1。没有遮挡就给空数组。',
     'observation、advice、caption 只写部位和看见的状态（如旧件胶套撕裂、下摆臂有磨损）。禁止写图1、图2、第几张，用户对不上号。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
@@ -338,20 +341,20 @@ async function loadFlowVisionCaches(album, pending, maskedUrls) {
       continue
     }
     const fp = fingerprintMasked(masked.url)
-    const hit = await prisma.albumImageVisionCache.findUnique({
-      where: {
-        albumImageId_promptVersion: {
-          albumImageId: imageRow.id,
-          promptVersion: FLOW_ORGANIZE_PROMPT_VERSION,
-        },
-      },
+    const rows = await prisma.albumImageVisionCache.findMany({
+      where: { albumImageId: imageRow.id },
     })
-    if (hit && hit.contentFingerprint === fp) {
+    const { reuseExistingLook } = require('./image-look-cache')
+    const decision = reuseExistingLook(rows, {
+      version: FLOW_ORGANIZE_PROMPT_VERSION,
+      fingerprint: fp,
+    })
+    if (decision.reuse && decision.row) {
       await prisma.albumImageVisionCache.update({
-        where: { id: hit.id },
+        where: { id: decision.row.id },
         data: { hitCount: { increment: 1 }, lastHitAt: new Date() },
       })
-      cached.push({ ...hit, imageKey: key, resultJson: hit.resultJson || {} })
+      cached.push({ ...decision.row, imageKey: key, resultJson: decision.row.resultJson || {} })
     } else {
       uncachedMasked.push({ ...masked, albumImageId: imageRow.id, albumId: imageRow.albumId })
     }
@@ -471,23 +474,20 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     priorFacts = null
   }
 
-  const masked = await collectMaskedPending(albumId, pending)
-  if (!masked.ready) {
-    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true, cacheHits: 0 }
-  }
-  if (!masked.urls.length) {
+  const visionRows = pendingVisionRows(pending)
+  if (!visionRows.length) {
     return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: false, cacheHits: 0 }
   }
 
   let cached = []
-  let uncachedMasked = masked.urls
+  let uncachedMasked = visionRows
   try {
-    const loaded = await loadFlowVisionCaches(album, pending, masked.urls)
+    const loaded = await loadFlowVisionCaches(album, pending, visionRows)
     cached = loaded.cached
     uncachedMasked = loaded.uncachedMasked
   } catch (_) {
     cached = []
-    uncachedMasked = masked.urls
+    uncachedMasked = visionRows
   }
   const cachedGroups =
     mode === 'intake' ? groupsFromCache(cached, pending) : groupsFromFindingCache(cached, pending)
@@ -513,6 +513,12 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
     })
     try {
       const fresh = (await runOrganizeVision({ instruction, maskedUrls: visionUrls })) || {}
+      try {
+        const { queueApplyModelMasks } = require('./model-mask.service')
+        queueApplyModelMasks(visionUrls, fresh)
+      } catch (_) {
+        /* 遮挡打不上不影响成项 */
+      }
       let freshGroups = normalizeGroups(fresh.groups, pending)
       if (mode === 'work') freshGroups = stampWorkQuoteMatch(freshGroups, quoteNames)
       parsed = {

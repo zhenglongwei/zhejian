@@ -142,7 +142,11 @@ function collectAssetsFromAlbum(album) {
 
 function resolvePreMaskStatus(assets) {
   if (!assets.length) return PRE_MASK_STATUS.READY
+  const pending = assets.filter((a) =>
+    a.status === ASSET_STATUS.RAW_UPLOADED || a.status === ASSET_STATUS.MASKING,
+  ).length
   const failed = assets.filter((a) => a.status === ASSET_STATUS.MASK_FAILED).length
+  if (pending > 0) return PRE_MASK_STATUS.RUNNING
   if (failed === assets.length) return PRE_MASK_STATUS.FAILED
   if (failed > 0) return PRE_MASK_STATUS.PARTIAL_FAILED
   return PRE_MASK_STATUS.READY

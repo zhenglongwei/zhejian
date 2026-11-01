@@ -157,12 +157,20 @@ function isDesensitizeTerminal(media = {}) {
   )
 }
 
+/** 分析没给出区域时曾把原图标成已脱敏。这种成功不能复用。 */
+function isUnpaintedModelMask(media = {}) {
+  if (String(media.engineVersion || '') !== 'model-mask-v1') return false
+  const tags = Array.isArray(media.riskTags) ? media.riskTags : []
+  return tags.length === 0
+}
+
 function shouldUseCachedDesensitize(media, context = {}) {
   if (!media.desensitizedUrl || media.desensitizeStatus !== DESENSITIZE_STATUS.SUCCESS) {
     return false
   }
   if (!media.desensitizedKey) return false
   if (isCollapsedMaskKey(media.desensitizedKey)) return false
+  if (isUnpaintedModelMask(media)) return false
   if (isStubCopyArtifact(media.objectKey, media.desensitizedKey)) {
     console.info('[media] ignore cached desensitize: stub copy artifact', {
       objectKey: media.objectKey,
@@ -310,7 +318,9 @@ async function runMediaDesensitize(mediaId, context = {}) {
   )
 
   try {
-    const engineResult = await processImage(sourcePath, destTmp, {})
+    const engineResult = await processImage(sourcePath, destTmp, {
+      boxes: Array.isArray(context.boxes) ? context.boxes : [],
+    })
     if (fs.existsSync(destTmp)) {
       const outBuf = await fs.promises.readFile(destTmp)
       await writeMediaBuffer(desensitizedKey, outBuf, {
@@ -389,6 +399,10 @@ async function runMediaDesensitize(mediaId, context = {}) {
 
 const maskJobsByMediaId = new Map()
 
+function hasMaskBoxes(context = {}) {
+  return Array.isArray(context.boxes) && context.boxes.length > 0
+}
+
 async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
   const media = await ensureMediaRecordFromUrl(rawUrl)
   if (!media) {
@@ -411,6 +425,16 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
       ok: false,
       settled: true,
       needManual: media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL,
+      riskTags: media.riskTags || [],
+      riskLevel: media.privacyRiskLevel || '',
+    }
+  }
+  if (!hasMaskBoxes(context) && !isUnpaintedModelMask(media)) {
+    return {
+      mediaId: media.id,
+      maskedUrl: '',
+      ok: false,
+      settled: true,
       riskTags: media.riskTags || [],
       riskLevel: media.privacyRiskLevel || '',
     }

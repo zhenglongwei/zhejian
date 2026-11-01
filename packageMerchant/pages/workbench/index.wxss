@@ -51,8 +51,32 @@ page {
   letter-spacing: 2rpx;
 }
 
+.mch-top__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.mch-brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
 .mch-brand {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 36rpx;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.mch-pricing {
+  flex: none;
+  color: var(--color-mch-blue);
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
   line-height: 1.35;
 }

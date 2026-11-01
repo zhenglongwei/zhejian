@@ -73,6 +73,18 @@ test('共用的默认打码文件不算这张图自己的结果', () => {
   assert.equal(shouldSkipRerunDesensitize(media, {}), false)
 })
 
+test('没打上任何区域的成功记录不能当打码结果复用', () => {
+  const media = {
+    desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
+    desensitizedUrl: 'https://x/media/files/uploads/desensitized/asset/abc_0.jpg',
+    desensitizedKey: 'uploads/desensitized/asset/abc_0.jpg',
+    objectKey: 'uploads/2026/11/a.jpg',
+    engineVersion: 'model-mask-v1',
+    riskTags: [],
+  }
+  assert.equal(shouldSkipRerunDesensitize(media, {}), false)
+})
+
 test('host retryFailed still reuses success cache', () => {
   const media = {
     desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,

@@ -1,70 +1,30 @@
 <ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
-  <block wx:if="{{status === 'loading'}}">
-    <view class="merchant-sub__pad">
-      <ui-skeleton rows="{{4}}" title="{{true}}" />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'error'}}">
-    <view class="merchant-sub__gate">
-      <ui-empty
-        theme="album"
-        title="加载失败"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
-      />
-    </view>
-  </block>
-
-  <block wx:else>
-    <view class="merchant-sub">
-      <view class="merchant-sub__folio surface-album-folio">
-        <view class="merchant-sub__folio-main">
-          <view class="merchant-sub__folio-row">
-            <text class="text-h2 merchant-sub__folio-title">{{folioTitle}}</text>
-            <ui-tag variant="success" text="{{folioTag}}" />
-          </view>
-        </view>
-      </view>
-
-      <view class="merchant-sub__main surface-album-panel">
-        <view class="merchant-sub__status">
-          <view class="merchant-sub__status-row">
-            <text class="text-caption text-secondary merchant-sub__status-label">当前状态</text>
-            <text class="text-body merchant-sub__status-value">{{currentStatus}}</text>
-          </view>
-        </view>
-
-        <view class="surface-album-inset-divider" />
-
-        <view class="merchant-sub__summary">
-          <view class="merchant-sub__summary-row">
-            <text class="text-h3">{{planSummary.name}}</text>
-            <ui-tag variant="info" text="当前方案" />
-          </view>
-          <text class="merchant-sub__price text-h2">{{planSummary.priceLabel}}</text>
-          <text class="text-caption text-secondary">{{planSummary.trialLabel}}</text>
-        </view>
-
-        <view class="surface-album-inset-divider" />
-
-        <view class="merchant-sub__table">
-          <view class="merchant-sub__tr merchant-sub__tr--head">
-            <text class="merchant-sub__th text-caption">项目</text>
-            <text class="merchant-sub__th merchant-sub__th--value text-caption">说明</text>
-          </view>
-          <view wx:for="{{planRows}}" wx:key="item" class="merchant-sub__tr">
-            <text class="merchant-sub__td text-caption">{{item.item}}</text>
-            <text class="merchant-sub__td merchant-sub__td--value text-caption">{{item.value}}</text>
-          </view>
-        </view>
-
-        <view class="surface-album-inset-divider" />
-
-        <text class="text-caption text-secondary merchant-sub__hint">{{planFooter}}</text>
-        <text class="text-caption text-link merchant-sub__link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
+  <view class="merchant-sub">
+    <view class="merchant-sub__hero">
+      <text class="merchant-sub__kicker">{{amountLabel}}</text>
+      <view class="merchant-sub__price">
+        <text class="merchant-sub__yen">{{priceMark}}</text>
+        <view class="merchant-sub__price-blank" />
       </view>
     </view>
-  </block>
+
+    <view class="merchant-sub__card">
+      <text class="merchant-sub__section">{{benefitsTitle}}</text>
+      <view class="merchant-sub__benefits">
+        <view
+          wx:for="{{benefits}}"
+          wx:for-item="title"
+          wx:key="*this"
+          class="merchant-sub__benefit"
+        >
+          <view class="merchant-sub__check">
+            <text class="merchant-sub__check-mark">✓</text>
+          </view>
+          <text class="merchant-sub__benefit-text">{{title}}</text>
+        </view>
+      </view>
+    </view>
+
+    <text class="merchant-sub__link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
+  </view>
 </ui-tool-page-shell>

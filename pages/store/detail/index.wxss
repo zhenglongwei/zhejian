@@ -19,6 +19,42 @@
   height: 100%;
 }
 
+.store-detail__hero--gap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  border: 2rpx dashed var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+.store-detail__photo-gap-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.store-detail__hero-gap-line {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.store-detail__gap {
+  margin-top: var(--space-sm);
+}
+
+.store-detail__gap-label {
+  flex: none;
+  font-weight: var(--font-weight-semibold);
+}
+
+.store-detail__gap--on {
+  opacity: 0.72;
+}
+
 .store-detail__body {
   padding-top: var(--space-md);
 }

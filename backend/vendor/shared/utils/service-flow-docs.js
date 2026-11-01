@@ -602,7 +602,16 @@ function normalizeNodeContent(raw = {}) {
   }
   if (Array.isArray(raw.workItems)) {
     base.workItems = raw.workItems
-      .map((row, index) => normalizeWorkFinding(row, index))
+      .map((row, index) =>
+        normalizeWorkFinding(
+          {
+            ...(row || {}),
+            partName: (row && (row.partName || row.name)) || '',
+            caption: (row && (row.caption || row.note)) || '',
+          },
+          index,
+        ),
+      )
       .filter((row) => row && (row.partName || (row.images && row.images.length)))
   }
   if (Array.isArray(raw.photos)) {
@@ -616,6 +625,12 @@ function normalizeNodeContent(raw = {}) {
   }
   if (raw.repairBrief != null && !base.repairBrief) {
     base.repairBrief = String(raw.repairBrief || '').trim().slice(0, 500)
+  }
+  if (Array.isArray(raw.deliveryPhotos)) {
+    base.deliveryPhotos = mapPhotoRows(raw.deliveryPhotos)
+  }
+  if (raw.totalAmount != null && raw.totalAmount !== '') {
+    base.totalAmount = raw.totalAmount
   }
   return base
 }
@@ -633,7 +648,16 @@ function mergeNodeContent(prev = {}, patch = {}) {
   if (patch.workItems != null) {
     next.workItems = Array.isArray(patch.workItems)
       ? patch.workItems
-          .map((row, index) => normalizeWorkFinding(row, index))
+          .map((row, index) =>
+            normalizeWorkFinding(
+              {
+                ...(row || {}),
+                partName: (row && (row.partName || row.name)) || '',
+                caption: (row && (row.caption || row.note)) || '',
+              },
+              index,
+            ),
+          )
           .filter((row) => row && (row.partName || (row.images && row.images.length)))
       : []
   }
@@ -647,21 +671,66 @@ function mergeNodeContent(prev = {}, patch = {}) {
     next.archiveCopy =
       patch.archiveCopy && typeof patch.archiveCopy === 'object' ? patch.archiveCopy : {}
   }
+  if (patch.deliveryPhotos != null) {
+    next.deliveryPhotos = mapPhotoRows(patch.deliveryPhotos)
+  }
+  if (patch.totalAmount != null && patch.totalAmount !== '') {
+    next.totalAmount = patch.totalAmount
+  }
   return normalizeNodeContent(next)
+}
+
+function contentBagHasSubstance(raw) {
+  if (!raw || typeof raw !== 'object') return false
+  const keys = [
+    'chiefComplaint',
+    'findings',
+    'pendingImages',
+    'lines',
+    'workItems',
+    'photos',
+    'deliveryPhotos',
+    'repairBrief',
+    'ownerFaqs',
+    'warrantyPeriod',
+    'warrantyNotes',
+    'deliveryExteriorUrl',
+    'selectedDeliveryUrls',
+    'workerName',
+    'receiverName',
+    'inspectorName',
+    'delivererName',
+    'conclusion',
+    'belongings',
+    'totalAmount',
+  ]
+  return keys.some((key) => {
+    const value = raw[key]
+    if (Array.isArray(value)) return value.length > 0
+    if (typeof value === 'number') return Number.isFinite(value) && value !== 0
+    return Boolean(String(value == null ? '' : value).trim())
+  })
+}
+
+function pickContentSource(node) {
+  const payload =
+    node && node.document && node.document.payload && typeof node.document.payload === 'object'
+      ? node.document.payload
+      : null
+  const candidates = [node && node.content, node && node.photoDraft, payload]
+  for (let i = 0; i < candidates.length; i += 1) {
+    const raw = candidates[i]
+    if (raw && typeof raw === 'object' && contentBagHasSubstance(raw)) return raw
+  }
+  if (node && node.content && typeof node.content === 'object') return node.content
+  if (node && node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
+  if (payload) return payload
+  return {}
 }
 
 function contentOfFlowNode(node) {
   if (!node || typeof node !== 'object') return normalizeNodeContent({})
-  if (node.content && typeof node.content === 'object') {
-    return normalizeNodeContent(node.content)
-  }
-  if (node.photoDraft && typeof node.photoDraft === 'object') {
-    return normalizeNodeContent(node.photoDraft)
-  }
-  const doc = node.document && typeof node.document === 'object' ? node.document : null
-  const payload = doc && doc.payload && typeof doc.payload === 'object' ? doc.payload : null
-  if (payload) return normalizeNodeContent(payload)
-  return normalizeNodeContent({})
+  return normalizeNodeContent(pickContentSource(node))
 }
 
 /** @deprecated 使用 contentOfFlowNode；保留别名避免旧调用方断裂 */
@@ -669,27 +738,58 @@ function draftOfFlowNode(node) {
   return contentOfFlowNode(node)
 }
 
+function envelopeOnlyDocument(doc) {
+  if (!doc || typeof doc !== 'object') return doc
+  return { ...doc, payload: {} }
+}
+
+function preserveGeneratedReportFields(content = {}, payload = {}) {
+  if (!payload || typeof payload !== 'object') return content
+  const next = { ...(content || {}) }
+  const copyIfEmpty = (key) => {
+    const cur = next[key]
+    const incoming = payload[key]
+    const curEmpty = Array.isArray(cur) ? !cur.length : !String(cur == null ? '' : cur).trim()
+    const incomingHas = Array.isArray(incoming)
+      ? incoming.length > 0
+      : incoming != null && String(incoming).trim()
+    if (curEmpty && incomingHas) next[key] = incoming
+  }
+  ;[
+    'workItems',
+    'deliveryPhotos',
+    'repairBrief',
+    'warrantyPeriod',
+    'warrantyNotes',
+    'ownerFaqs',
+    'totalAmount',
+    'delivererName',
+    'finishedAt',
+    'confirmCopy',
+    'lines',
+    'findings',
+    'photos',
+    'chiefComplaint',
+    'conclusion',
+  ].forEach(copyIfEmpty)
+  return normalizeNodeContent(next)
+}
+
 /**
- * 存量节点：把 photoDraft / payload 业务字段收进 content，并去掉平行真源。
- * document 只留信封；payload 若仍在则改为 content 的浅引用投影（兼容旧读侧）。
+ * 一次性把旧底稿/旧信封收进节点内容。只给库迁移脚本用，禁止挂在每次保存上。
  */
 function migrateNodeToSingleContent(node) {
   if (!node || typeof node !== 'object') return node
   const doc = node.document && typeof node.document === 'object' ? { ...node.document } : null
   const payload = doc && doc.payload && typeof doc.payload === 'object' ? doc.payload : null
-  const content = mergeNodeContent(
+  const folded = mergeNodeContent(
     mergeNodeContent(payload || {}, node.photoDraft || {}),
     node.content || {},
   )
+  const content = preserveGeneratedReportFields(folded, payload || {})
   const next = { ...node, content }
   delete next.photoDraft
-  if (doc) {
-    // 信封保留；payload 投影自 content，不再独立演化
-    next.document = {
-      ...doc,
-      payload: { ...content },
-    }
-  }
+  if (doc) next.document = envelopeOnlyDocument(doc)
   return next
 }
 
@@ -1680,6 +1780,8 @@ function buildRepairReportPayload({
     // 兼容旧读侧：不再写入空话默认；存量字段置空
     warrantyScope: '',
     warrantyExclusions: '',
+    delivererName: String(photoDraft.delivererName || '').trim(),
+    finishedAt: String(photoDraft.finishedAt || '').trim(),
     confirmCopy:
       String(confirmCopy || photoDraft.confirmCopy || '').trim() ||
       '本人确认上述施工与交车状态，并知悉质保条款。',
@@ -1875,15 +1977,38 @@ function shotsInOrganizeGroup(images, group) {
         : []
   const shots = []
   const seen = new Set()
-  keys.forEach((raw) => {
-    const img = matchPendingImage(pending, byKey, raw)
+  const push = (img) => {
     if (!img) return
     const key = mediaKey(img.url)
     if (!key || seen.has(key)) return
     seen.add(key)
     shots.push(img)
+  }
+  keys.forEach((raw) => {
+    push(matchPendingImage(pending, byKey, raw))
+  })
+  normalizePendingImages(group && group.images).forEach((img) => {
+    push(matchPendingImage(pending, byKey, img.url) || img)
   })
   return shots
+}
+
+/** 拆分建议里的图对回当前项上的现图（签名参数可变，按图片身份对）。 */
+function hydrateInspectionSplitGroups(finding, groups) {
+  const pool = normalizePendingImages((finding && finding.images) || [])
+  return (Array.isArray(groups) ? groups : [])
+    .map((group) => {
+      const partName = String((group && group.partName) || '').trim()
+      if (!partName) return null
+      const shots = shotsInOrganizeGroup(pool, group)
+      return {
+        partName,
+        result: String((group && group.result) || '').trim(),
+        advice: String((group && group.advice) || '').trim(),
+        images: shots.length ? shots : normalizePendingImages(group && group.images),
+      }
+    })
+    .filter(Boolean)
 }
 
 /** 检测：AI 只挂建议。一批图对一项时补空字段；对不上时建议拆开。不改原项。 */
@@ -1954,7 +2079,8 @@ function applyInspectionSuggestion(findings, applyId) {
   const proposal = row.aiApply
   if (proposal.kind === 'split' && Array.isArray(proposal.groups) && proposal.groups.length) {
     const used = new Set()
-    const created = proposal.groups.map((group, index) => {
+    const splitGroups = hydrateInspectionSplitGroups(row, proposal.groups)
+    const created = (splitGroups.length ? splitGroups : proposal.groups).map((group, index) => {
       const shots = normalizePendingImages(group.images)
       shots.forEach((img) => {
         const key = mediaKey(img.url)
@@ -2073,7 +2199,9 @@ module.exports = {
   normalizeNodeContent,
   mergeNodeContent,
   contentOfFlowNode,
+  contentBagHasSubstance,
   draftOfFlowNode,
+  envelopeOnlyDocument,
   migrateNodeToSingleContent,
   normalizePendingImages,
   applyOrganizeGroups,

@@ -96,6 +96,14 @@ Page({
     })
   },
 
+  onOpenStore() {
+    const storeId = this.data.storeId
+    if (!storeId) return
+    wx.navigateTo({
+      url: `/pages/store/detail/index?id=${encodeURIComponent(storeId)}`,
+    })
+  },
+
   onEdit() {
     wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index?section=basic' })
   },

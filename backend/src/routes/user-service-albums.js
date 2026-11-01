@@ -243,7 +243,9 @@ router.post('/service-albums/:albumId/share', requireAuth(['user']), async (req,
 /** 短图文：朋友圈 / 小红书 / 抖音 + 打码图 */
 router.get('/service-albums/:albumId/social-cards', requireAuth(['user']), async (req, res, next) => {
   try {
-    const data = await getOwnerSocialCards(req.params.albumId, req.auth.userId)
+    const data = await getOwnerSocialCards(req.params.albumId, req.auth.userId, {
+      refresh: req.query.refresh === '1' || req.query.refresh === 'true',
+    })
     return ok(res, data)
   } catch (e) {
     next(e)

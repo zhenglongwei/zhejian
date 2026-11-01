@@ -29,6 +29,8 @@ const {
   normalizeNodeContent,
   mergeNodeContent,
   contentOfFlowNode,
+  contentBagHasSubstance,
+  envelopeOnlyDocument,
   migrateNodeToSingleContent,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
@@ -39,6 +41,12 @@ const {
   parseAmount,
   resolveQuoteConfirmCopy,
 } = resolveShared('utils/service-flow-docs.js')
+const {
+  buildOwnerPreviewDoc,
+  previewAlbumOf,
+  workItemsFromFindings,
+  formatClerkAtForDoc,
+} = resolveShared('utils/owner-preview-doc.js')
 const { planAllPhotoFolds } = resolveShared('utils/flow-node-photos.js')
 const { quoteFace } = resolveShared('utils/service-flow-quote-draft.js')
 const { applyAddonInsert, reopenWorkBesideOpenAddon } = resolveShared('utils/service-flow-addon-insert.js')
@@ -58,25 +66,25 @@ function sealIntakePhotosPayload(node, payload = {}, options = {}) {
     const url = typeof row === 'string' ? row : row && (row.url || row.src || row.rawUrl)
     return Boolean(String(url || '').trim())
   })
-  const force = Boolean(options && options.force)
-  if (force || !hasPhotos) {
-    out.photos = (Array.isArray(draft.pendingImages) ? draft.pendingImages : [])
-      .map((img) => {
-        const url = typeof img === 'string' ? img : img && (img.url || img.rawUrl)
-        const clean = String(url || '').trim()
-        if (!clean) return null
-        const imageId =
-          typeof img === 'object' && img ? String(img.imageId || img.id || '').trim() : ''
-        const caption =
-          typeof img === 'object' && img ? String(img.caption || '').trim() : ''
-        return {
-          url: clean,
-          ...(imageId ? { imageId } : {}),
-          ...(caption ? { caption } : {}),
-        }
-      })
-      .filter(Boolean)
-  }
+  const fromNode = (Array.isArray(draft.pendingImages) ? draft.pendingImages : [])
+    .map((img) => {
+      const url = typeof img === 'string' ? img : img && (img.url || img.rawUrl)
+      const clean = String(url || '').trim()
+      if (!clean) return null
+      const imageId =
+        typeof img === 'object' && img ? String(img.imageId || img.id || '').trim() : ''
+      const caption =
+        typeof img === 'object' && img ? String(img.caption || '').trim() : ''
+      return {
+        url: clean,
+        ...(imageId ? { imageId } : {}),
+        ...(caption ? { caption } : {}),
+      }
+    })
+    .filter(Boolean)
+  if (fromNode.length) out.photos = fromNode
+  else if (!hasPhotos) out.photos = []
+  void options
   if (!String(out.chiefComplaint || '').trim()) {
     const complaint = String(draft.chiefComplaint || '').trim()
     if (complaint) out.chiefComplaint = complaint
@@ -101,18 +109,19 @@ function writeNodeContent(node, patch) {
   const content = mergeNodeContent(prev, incoming)
   const next = { ...node, content }
   delete next.photoDraft
-  if (next.document && typeof next.document === 'object') {
-    next.document = {
-      ...next.document,
-      // 旧读侧仍看 payload：投影自 content，不另存真源
-      payload: { ...(next.document.payload || {}), ...content },
-    }
-  }
   return next
 }
 
 function projectDocumentPayloadFromContent(node) {
   if (!node || !node.document || typeof node.document !== 'object') return node
+  if (
+    node.kind === 'repair_report' ||
+    node.kind === 'inspection_report' ||
+    node.kind === 'quote_confirm' ||
+    node.kind === 'addon_quote_confirm'
+  ) {
+    return node
+  }
   const content = contentOfFlowNode(node)
   return {
     ...node,
@@ -121,6 +130,227 @@ function projectDocumentPayloadFromContent(node) {
       payload: { ...content },
     },
   }
+}
+
+function finishReportStatusSent(doc) {
+  const status = String((doc && doc.status) || '')
+  return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+}
+
+function textHasValue(value) {
+  return Boolean(String(value || '').trim())
+}
+
+function finishReportHasDeliveryFields(payload = {}) {
+  return Boolean(
+    textHasValue(payload.repairBrief) ||
+      textHasValue(payload.warrantyPeriod) ||
+      textHasValue(payload.warrantyNotes) ||
+      (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
+      (Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length),
+  )
+}
+
+function frozenDeliveryHasBody(draft = {}) {
+  return Boolean(
+    textHasValue(draft.repairBrief) ||
+      textHasValue(draft.warrantyPeriod) ||
+      textHasValue(draft.warrantyNotes) ||
+      textHasValue(draft.deliveryExteriorUrl) ||
+      (Array.isArray(draft.selectedDeliveryUrls) && draft.selectedDeliveryUrls.length) ||
+      (Array.isArray(draft.ownerFaqs) && draft.ownerFaqs.length),
+  )
+}
+
+function deliveryFieldsFromReport(payload = {}) {
+  const photos = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
+  const urls = photos
+    .map((row) => String((typeof row === 'string' ? row : row && (row.url || row.src)) || '').trim())
+    .filter(Boolean)
+  return {
+    repairBrief: String(payload.repairBrief || '').trim(),
+    ownerFaqs: Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [],
+    warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
+    warrantyNotes: String(payload.warrantyNotes || '').trim(),
+    deliveryExteriorUrl: urls[0] || '',
+    selectedDeliveryUrls: urls,
+    delivererName: String(payload.delivererName || '').trim(),
+    finishedAt: String(payload.finishedAt || '').trim(),
+    confirmCopy: String(payload.confirmCopy || '').trim(),
+  }
+}
+
+function keepFilledWorkPatch(prev = {}, incoming = {}) {
+  const next = { ...(incoming && typeof incoming === 'object' ? incoming : {}) }
+  const prevFindings = Array.isArray(prev.findings) ? prev.findings : []
+  const nextFindings = Array.isArray(next.findings) ? next.findings : []
+  if (!nextFindings.length && prevFindings.length) next.findings = prevFindings
+  ;['workerName', 'finishedAt'].forEach((key) => {
+    if (!textHasValue(next[key]) && textHasValue(prev[key])) next[key] = prev[key]
+  })
+  if (
+    (!Array.isArray(next.pendingImages) || !next.pendingImages.length) &&
+    Array.isArray(prev.pendingImages) &&
+    prev.pendingImages.length
+  ) {
+    next.pendingImages = prev.pendingImages
+  }
+  return next
+}
+
+function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
+  const next = { ...incoming }
+  ;[
+    'repairBrief',
+    'warrantyPeriod',
+    'warrantyNotes',
+    'warrantyScope',
+    'warrantyExclusions',
+    'deliveryExteriorUrl',
+    'delivererName',
+    'finishedAt',
+    'confirmCopy',
+  ].forEach((key) => {
+    if (!textHasValue(next[key]) && textHasValue(prev[key])) next[key] = prev[key]
+  })
+  if (
+    (!Array.isArray(next.selectedDeliveryUrls) || !next.selectedDeliveryUrls.length) &&
+    Array.isArray(prev.selectedDeliveryUrls) &&
+    prev.selectedDeliveryUrls.length
+  ) {
+    next.selectedDeliveryUrls = prev.selectedDeliveryUrls
+  }
+  if (
+    (!Array.isArray(next.ownerFaqs) || !next.ownerFaqs.length) &&
+    Array.isArray(prev.ownerFaqs) &&
+    prev.ownerFaqs.length
+  ) {
+    next.ownerFaqs = prev.ownerFaqs
+  }
+  if (
+    (!Array.isArray(next.pendingImages) || !next.pendingImages.length) &&
+    Array.isArray(prev.pendingImages) &&
+    prev.pendingImages.length
+  ) {
+    next.pendingImages = prev.pendingImages
+  }
+  return next
+}
+
+function buildFinishReportFromFrozenNodes(nodes = [], album = {}) {
+  const delivery = (nodes || []).find((row) => row && row.kind === 'delivery_photos')
+  const draft = delivery ? contentOfFlowNode(delivery) : {}
+  const inspectionReport = (nodes || []).find((row) => row && row.kind === 'inspection_report')
+  return buildRepairReportPayload({
+    chiefComplaint:
+      (inspectionReport &&
+        inspectionReport.document &&
+        inspectionReport.document.payload &&
+        inspectionReport.document.payload.chiefComplaint) ||
+      '',
+    workItems: attachQuoteAmountsToWorkItems(collectAllWorkOrderItems(nodes), nodes),
+    deliveryImages: [],
+    photoDraft: draft,
+    totalAmount: collectConfirmedQuoteTotal(nodes),
+    confirmCopy: REPAIR_CONFIRM_COPY,
+  })
+}
+
+function finishReportMissingFrozenFields(payload = {}, draft = {}, nodes = []) {
+  const missingPhotos =
+    !(Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) &&
+    (textHasValue(draft.deliveryExteriorUrl) ||
+      (Array.isArray(draft.selectedDeliveryUrls) && draft.selectedDeliveryUrls.length))
+  const missingBrief = !textHasValue(payload.repairBrief) && textHasValue(draft.repairBrief)
+  const missingWarranty =
+    !textHasValue(payload.warrantyPeriod) && textHasValue(draft.warrantyPeriod)
+  const missingFaqs =
+    !(Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length) &&
+    Array.isArray(draft.ownerFaqs) &&
+    draft.ownerFaqs.length
+  const missingWork =
+    !(Array.isArray(payload.workItems) && payload.workItems.length) &&
+    collectAllWorkOrderItems(nodes).length > 0
+  return missingPhotos || missingBrief || missingWarranty || missingFaqs || missingWork
+}
+
+function pendingImagesFromReportPhotos(payload = {}) {
+  return (Array.isArray(payload.photos) ? payload.photos : [])
+    .map((img) => {
+      const url = typeof img === 'string' ? img : img && (img.url || img.src || img.rawUrl)
+      const clean = String(url || '').trim()
+      if (!clean) return null
+      const imageId =
+        typeof img === 'object' && img ? String(img.imageId || img.id || '').trim() : ''
+      return imageId ? { url: clean, imageId } : { url: clean }
+    })
+    .filter(Boolean)
+}
+
+/** 旧册一次收口：空节点从已生成报告找回；薄报告从冻住节点重生成并落在报告上 */
+function healFinishReportPackage(pkg = {}, album = {}) {
+  const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+  let changed = false
+  const intakeIdx = list.findIndex(
+    (row) => row && (row.kind === 'intake' || row.kind === 'intake_inspection'),
+  )
+  if (intakeIdx >= 0) {
+    const intake = list[intakeIdx]
+    const draft = contentOfFlowNode(intake)
+    const payload = (intake.document && intake.document.payload) || {}
+    const fromReport = pendingImagesFromReportPhotos(payload)
+    if (
+      (!Array.isArray(draft.pendingImages) || !draft.pendingImages.length) &&
+      fromReport.length
+    ) {
+      list[intakeIdx] = writeNodeContent(intake, { content: { pendingImages: fromReport } })
+      changed = true
+    }
+  }
+  const deliveryIdx = list.findIndex((row) => row && row.kind === 'delivery_photos')
+  const repairIdx = list.findIndex((row) => row && row.kind === 'repair_report')
+  if (deliveryIdx < 0 || repairIdx < 0) {
+    if (!changed) return { pkg, changed: false }
+    return { pkg: { ...pkg, flowVersion: FLOW_VERSION, flowNodes: list }, changed: true }
+  }
+  const delivery = list[deliveryIdx]
+  const repair = list[repairIdx]
+  const draft = contentOfFlowNode(delivery)
+  const reportBody = contentOfFlowNode(repair)
+  if (
+    String(delivery.status || '') === 'completed' &&
+    !frozenDeliveryHasBody(draft) &&
+    finishReportHasDeliveryFields(reportBody)
+  ) {
+    list[deliveryIdx] = writeNodeContent(delivery, { content: deliveryFieldsFromReport(reportBody) })
+    changed = true
+  }
+  const frozen = contentOfFlowNode(list[deliveryIdx])
+  if (
+    finishReportStatusSent(repair.document) &&
+    finishReportMissingFrozenFields(reportBody, frozen, list)
+  ) {
+    const generated = buildFinishReportFromFrozenNodes(list, album)
+    list[repairIdx] = {
+      ...writeNodeContent(list[repairIdx], { content: generated }),
+      document: envelopeOnlyDocument(repair.document || emptyDocument('repair_report')),
+    }
+    changed = true
+  }
+  if (!changed) return { pkg, changed: false }
+  return { pkg: { ...pkg, flowVersion: FLOW_VERSION, flowNodes: list }, changed: true }
+}
+
+async function persistHealedFinishReport(albumId, album) {
+  const raw =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const { pkg, changed } = healFinishReportPackage(raw, album)
+  if (!changed) return album
+  await writeFlowPackage(albumId, () => pkg)
+  const { loadAlbum } = require('./service-album.service')
+  return loadAlbum(albumId)
 }
 
 function albumQuoteOpts(album = {}) {
@@ -167,6 +397,22 @@ function migrateFlowNodesContent(pkg) {
     ...pkg,
     flowNodes: nodes.map((node) => migrateNodeToSingleContent(node)),
   }
+}
+
+function nodeNeedsLegacyFold(node) {
+  if (!node || typeof node !== 'object') return false
+  if (node.photoDraft && typeof node.photoDraft === 'object') return true
+  const payload = node.document && node.document.payload
+  return Boolean(payload && typeof payload === 'object' && contentBagHasSubstance(payload))
+}
+
+/** 一次性库迁移：收进节点内容，薄交车报告按冻住节点重生成。禁止挂写路径。 */
+function migrateFlowPackageOnce(pkg = {}, album = {}) {
+  const nodes = Array.isArray(pkg && pkg.flowNodes) ? pkg.flowNodes : []
+  const foldedNeeded = nodes.some(nodeNeedsLegacyFold)
+  const folded = migrateFlowNodesContent(pkg)
+  const healed = healFinishReportPackage(folded, album)
+  return { pkg: healed.pkg, changed: foldedNeeded || healed.changed }
 }
 
 function sortFlowNodes(nodes = []) {
@@ -360,7 +606,7 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
     status: node.status || 'pending',
     note: node.note || '',
     content: resignPhotoDraftForView(normalizeNodeContent(contentOfFlowNode(node))),
-    // 兼容旧前端：photoDraft 只是 content 别名，不是第二真源
+    // 兼容旧前端：photoDraft / payload 只是 content 别名，不是第二真源
     photoDraft: resignPhotoDraftForView(normalizeNodeContent(contentOfFlowNode(node))),
     legacyStageId: legacyStageIds[0] || '',
     legacyStageIds,
@@ -428,7 +674,10 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
     // 拍照节点也可带定稿 document（接车发出、工单定稿等）；不得因 nodeCategory=photo 剥掉
     document: node.document
       ? {
-          ...resignMediaUrlsForView(node.document),
+          ...resignMediaUrlsForView({
+            ...envelopeOnlyDocument(node.document),
+            payload: contentOfFlowNode(node),
+          }),
           statusLabel: resolveDocumentStatusLabel(node.document),
           requiresConfirm: needConfirm,
         }
@@ -531,7 +780,7 @@ function collectConfirmedQuoteTotal(nodes = []) {
         String((n.document && n.document.status) || '') === 'confirmed',
     )
     .reduce((sum, n) => {
-      const lines = (n.document && n.document.payload && n.document.payload.lines) || []
+      const lines = contentOfFlowNode(n).lines || []
       if (!Array.isArray(lines)) return sum
       return sum + lines.reduce((s, line) => s + (Number(line && line.amount) || 0), 0)
     }, 0)
@@ -544,7 +793,7 @@ function attachQuoteAmountsToWorkItems(workItems = [], nodes = []) {
   ;(nodes || []).forEach((n) => {
     if (n.kind !== 'quote_confirm' && n.kind !== 'addon_quote_confirm') return
     if (String((n.document && n.document.status) || '') !== 'confirmed') return
-    const lines = (n.document && n.document.payload && n.document.payload.lines) || []
+    const lines = contentOfFlowNode(n).lines || []
     ;(Array.isArray(lines) ? lines : []).forEach((line) => {
       const id = String((line && line.id) || '').trim()
       const name = String((line && line.name) || '').trim()
@@ -567,38 +816,46 @@ function attachQuoteAmountsToWorkItems(workItems = [], nodes = []) {
   })
 }
 
+function mapSealedWorkItem(row) {
+  return mapWorkFindingToReportItem({
+    partName: (row && (row.partName || row.name)) || '',
+    caption: (row && (row.caption || row.note)) || '',
+    brand: (row && row.brand) || '',
+    material: (row && row.material) || '',
+    qty: (row && row.qty) || '',
+    quoteLineId: (row && row.quoteLineId) || '',
+    images: (row && row.images) || [],
+    url: row && row.url,
+  })
+}
+
+/** 工单正文以施工记录为准；payload.workItems 只是投影，条目更少时回落投影 */
+function workRecordsFromNode(n) {
+  const findings =
+    (Array.isArray(contentOfFlowNode(n).findings) && contentOfFlowNode(n).findings) || []
+  const fromFindings = findings.map(mapWorkFindingToReportItem).filter(Boolean)
+  const sealedRaw =
+    n && n.document && n.document.payload && Array.isArray(n.document.payload.workItems)
+      ? n.document.payload.workItems
+      : []
+  const fromSealed = sealedRaw.map(mapSealedWorkItem).filter(Boolean)
+  return fromFindings.length >= fromSealed.length ? fromFindings : fromSealed
+}
+
 /** 完工报告的施工项：取自工单（work 节点）如实登记的施工记录，不再由报价派生 */
 function collectAllWorkOrderItems(nodes = []) {
-  return (nodes || [])
-    .filter((n) => n.kind === 'work')
-    .flatMap((n) => {
-      const sealed =
-        n.document &&
-        n.document.payload &&
-        Array.isArray(n.document.payload.workItems) &&
-        n.document.payload.workItems.length
-          ? n.document.payload.workItems
-          : null
-      if (sealed) {
-        return sealed
-          .map((row) =>
-            mapWorkFindingToReportItem({
-              partName: (row && (row.partName || row.name)) || '',
-              caption: (row && (row.caption || row.note)) || '',
-              brand: (row && row.brand) || '',
-              material: (row && row.material) || '',
-              qty: (row && row.qty) || '',
-              quoteLineId: (row && row.quoteLineId) || '',
-              images: (row && row.images) || [],
-              url: row && row.url,
-            }),
-          )
-          .filter(Boolean)
-      }
-      const findings =
-        (Array.isArray(contentOfFlowNode(n).findings) && contentOfFlowNode(n).findings) || []
-      return findings.map(mapWorkFindingToReportItem).filter(Boolean)
-    })
+  return (nodes || []).filter((n) => n && n.kind === 'work').flatMap(workRecordsFromNode)
+}
+
+function collectOwnerRepairWorkItems(nodes = [], payload = {}) {
+  const fromNodes = collectAllWorkOrderItems(nodes)
+  if (fromNodes.length) return attachQuoteAmountsToWorkItems(fromNodes, nodes)
+  const fromPayload = Array.isArray(payload.workItems) ? payload.workItems : []
+  if (fromPayload.length) {
+    return attachQuoteAmountsToWorkItems(fromPayload.map(mapSealedWorkItem).filter(Boolean), nodes)
+  }
+  const items = Array.isArray(payload.items) ? payload.items : []
+  return attachQuoteAmountsToWorkItems(items.map(mapSealedWorkItem).filter(Boolean), nodes)
 }
 
 /** 工单条目 → 完工报告施工项。金额不由工单带；交车时再按报价挂上。 */
@@ -698,8 +955,7 @@ async function writeFlowPackage(albumId, mutator) {
   const pkg = readRawContentPackage(album)
   let next = mutator(pkg) || pkg
   next.flowVersion = FLOW_VERSION
-  next = migrateFlowNodesContent(next)
-  // 库内不存短期门票；读侧再签
+  // 库内不存短期门票；读侧再签。禁止在此整理旧数据。
   next = stripMediaAccessQueryDeep(next)
   await prisma.album.update({
     where: { id: albumId },
@@ -786,9 +1042,8 @@ async function healQuotePrefillAfterReport(albumId, album = null) {
     const report = nodes[reportIdx]
     const quote = nodes[quoteIdx]
     const reportDoc = report.document || {}
-    const findings = (reportDoc.payload && reportDoc.payload.findings) || []
-    const existingLines =
-      (quote.document && quote.document.payload && quote.document.payload.lines) || []
+    const findings = contentOfFlowNode(report).findings || []
+    const existingLines = contentOfFlowNode(quote).lines || []
     const hasNamedLine = existingLines.some((row) => String((row && row.name) || '').trim())
     const assistStatus = String((quote.quoteAssist && quote.quoteAssist.status) || '')
     const assistBusy = assistStatus === 'queued' || assistStatus === 'running'
@@ -945,7 +1200,6 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   album = await absorbLegacyStagePhotos(albumId, album, nodes)
   await healOpenAddonBesideWork(albumId)
   await healIntakeSentUnlock(albumId)
-  album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
   const {
     resolveCapabilityForMerchant,
@@ -1232,10 +1486,26 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       nextNode.note = String(payload.note || '').trim()
     }
     if (payload.content != null || payload.photoDraft != null) {
+      let incoming = payload.content != null ? payload.content : payload.photoDraft
+      const intakeLocked =
+        (prev.kind === 'intake' || prev.kind === 'intake_inspection') &&
+        (String(prev.status || '') === 'completed' ||
+          ['delivered', 'pending_confirm', 'confirmed'].indexOf(
+            String((prev.document && prev.document.status) || ''),
+          ) >= 0)
+      const deliveryLocked =
+        prev.kind === 'delivery_photos' && String(prev.status || '') === 'completed'
+      const workLocked = prev.kind === 'work' && String(prev.status || '') === 'completed'
+      if (intakeLocked || deliveryLocked) {
+        incoming = keepFilledDeliveryPatch(contentOfFlowNode(prev), incoming)
+      }
+      if (workLocked) {
+        incoming = keepFilledWorkPatch(contentOfFlowNode(prev), incoming)
+      }
       Object.assign(
         nextNode,
         writeNodeContent(prev, {
-          content: payload.content != null ? payload.content : payload.photoDraft,
+          content: incoming,
         }),
       )
       if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
@@ -1253,17 +1523,14 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
         ...((payload.document && payload.document.payload) || {}),
       }
       if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
-        mergedPayload = sealIntakePhotosPayload(nextNode, mergedPayload, { force: true })
+        mergedPayload = sealIntakePhotosPayload(nextNode, mergedPayload)
       }
-      // 单据信封与内容袋同一份：报价/检测报告/完工应用不得只改 payload
       Object.assign(nextNode, writeNodeContent(nextNode, { content: mergedPayload }))
-      mergedPayload = { ...contentOfFlowNode(nextNode) }
-      nextNode.document = {
+      nextNode.document = envelopeOnlyDocument({
         ...prevDoc,
         ...payload.document,
         docType: (payload.document && payload.document.docType) || prevDoc.docType || 'intake_confirm',
-        payload: mergedPayload,
-      }
+      })
       if (String(payload.document.status || '') === 'pending_confirm') {
         nextNode.document.ownerRejectReason = ''
         nextNode.document.ownerRejectedAt = ''
@@ -1277,12 +1544,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     ) {
       // 只改留证时：未确认的接车报告 photos 跟着节点 content 走
       const prevDoc = nextNode.document || prev.document
-      const sealed = sealIntakePhotosPayload(nextNode, prevDoc.payload || {}, { force: true })
-      Object.assign(nextNode, writeNodeContent(nextNode, { content: sealed }))
-      nextNode.document = {
-        ...prevDoc,
-        payload: { ...contentOfFlowNode(nextNode) },
-      }
+      nextNode.document = envelopeOnlyDocument(prevDoc)
     }
     if (payload.markComplete) {
       nextNode.status = 'completed'
@@ -1473,12 +1735,10 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
     if (list[idx].kind === 'intake' || list[idx].kind === 'intake_inspection') {
       const prevDoc = list[idx].document || emptyDocument('intake_confirm')
-      const sealed = sealIntakePhotosPayload(list[idx], prevDoc.payload || {}, { force: true })
-      Object.assign(list[idx], writeNodeContent(list[idx], { content: sealed }))
       const prevStatus = String(prevDoc.status || '')
       list[idx] = {
         ...list[idx],
-        document: {
+        document: envelopeOnlyDocument({
           ...prevDoc,
           docType: prevDoc.docType || 'intake_confirm',
           status:
@@ -1490,25 +1750,16 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           ...(prevStatus === 'delivered' || prevStatus === 'pending_confirm' || prevStatus === 'confirmed'
             ? {}
             : { deliveredAt: new Date().toISOString() }),
-          payload: { ...contentOfFlowNode(list[idx]) },
-        },
+        }),
       }
     }
     if (list[idx].kind === 'work') {
-      const workItems = (Array.isArray(incomingDraft.findings) ? incomingDraft.findings : [])
-        .map(mapWorkFindingToReportItem)
-        .filter(Boolean)
       list[idx] = {
         ...list[idx],
-        document: {
+        document: envelopeOnlyDocument({
           ...(list[idx].document || emptyDocument('work')),
           status: 'completed',
-          payload: {
-            workItems,
-            workerName: String(incomingDraft.workerName || '').trim(),
-            finishedAt: String(incomingDraft.finishedAt || '').trim(),
-          },
-        },
+        }),
       }
       unlockAfterWorkComplete(list, idx)
     } else unlockNextNode(list, idx)
@@ -1551,37 +1802,38 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           conclusion: draft.conclusion,
         })
         list[reportIdx] = {
-          ...writeNodeContent(list[reportIdx], { content: reportContent }),
+          ...writeNodeContent(list[reportIdx], { content: { ...reportContent, ...draft } }),
           status: 'in_progress',
-          document: {
+          document: envelopeOnlyDocument({
             ...(list[reportIdx].document || emptyDocument('inspection_report')),
             status: 'delivered',
             deliveredAt: new Date().toISOString(),
-            payload: { ...reportContent, ...draft },
-          },
+          }),
         }
         if (quoteIdx >= 0) {
-          const prevQuoteDoc = list[quoteIdx].document || emptyDocument('quote_confirm')
-          const existingLines = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
+          const prevQuote = list[quoteIdx]
+          const existingLines =
+            contentOfFlowNode(prevQuote).lines ||
+            ((prevQuote.document && prevQuote.document.payload && prevQuote.document.payload.lines) || [])
           const hasNamed = existingLines.some((row) => String((row && row.name) || '').trim())
+          const quoteContent = mergeNodeContent(contentOfFlowNode(prevQuote), {
+            lines: hasNamed
+              ? existingLines
+              : quoteLinesForAlbum(draft.findings, album, existingLines),
+            confirmCopy: quoteCopyForAlbum(
+              album,
+              contentOfFlowNode(prevQuote).confirmCopy ||
+                (prevQuote.document &&
+                  prevQuote.document.payload &&
+                  prevQuote.document.payload.confirmCopy),
+            ),
+          })
           list[quoteIdx] = {
-            ...list[quoteIdx],
-            // 仍锁定：等「通知车主」与报告一并解锁给车主
-            document: {
-              ...prevQuoteDoc,
+            ...writeNodeContent(prevQuote, { content: quoteContent }),
+            document: envelopeOnlyDocument({
+              ...(prevQuote.document || emptyDocument('quote_confirm')),
               status: 'draft',
-              payload: {
-                ...(prevQuoteDoc.payload || {}),
-                lines: hasNamed
-                  ? existingLines
-                  : quoteLinesForAlbum(draft.findings, album, existingLines),
-                confirmCopy: quoteCopyForAlbum(
-                  album,
-                  prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
-                ),
-                evidenceRef: reportId,
-              },
-            },
+            }),
           }
         }
       }
@@ -1589,34 +1841,15 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
 
     if (list[idx].kind === 'delivery_photos') {
       const repairIdx = list.findIndex((n) => n.kind === 'repair_report')
-      const inspectionReport = list.find((n) => n.kind === 'inspection_report')
-      const delivery = nodes.find((n) => n.id === 'stage_6')
       if (repairIdx >= 0) {
-        // 金额只认已确认报价（含补充报价）；施工不填金额，交车不再对账拦截
-        const quoteTotal = collectConfirmedQuoteTotal(list)
-        // 交车图只认本步草稿勾选/外观；禁止再从 stage_6 散图另拷一份
-        void delivery
-        const draft = buildRepairReportPayload({
-          chiefComplaint:
-            (inspectionReport &&
-              inspectionReport.document &&
-              inspectionReport.document.payload &&
-              inspectionReport.document.payload.chiefComplaint) ||
-            '',
-          workItems: attachQuoteAmountsToWorkItems(collectAllWorkOrderItems(list), list),
-          deliveryImages: [],
-          photoDraft: incomingDraft,
-          totalAmount: quoteTotal,
-          confirmCopy: REPAIR_CONFIRM_COPY,
-        })
+        const draft = buildFinishReportFromFrozenNodes(list)
         list[repairIdx] = {
-          ...list[repairIdx],
+          ...writeNodeContent(list[repairIdx], { content: draft }),
           status: 'in_progress',
-          document: {
+          document: envelopeOnlyDocument({
             ...(list[repairIdx].document || emptyDocument('repair_report')),
             status: 'pending_confirm',
-            payload: draft,
-          },
+          }),
         }
         // 公开说明镜像：用报告简述/问答同步 archiveCopy
         try {
@@ -2280,60 +2513,83 @@ function mapOwnerFriendlyLine(row = {}) {
   }
 }
 
-function ownerWorkImages(row = {}) {
+function ownerFaqRows(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((row, index) => ({
+      id: String((row && row.id) || `faq_${index + 1}`),
+      question: String((row && (row.question || row.q)) || '').trim(),
+      answer: String((row && (row.answer || row.a)) || '').trim(),
+    }))
+    .filter((row) => row.question)
+    .slice(0, 5)
+}
+
+function signPreviewMedia(doc) {
   const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
-  const images = []
-  const list = Array.isArray(row.images) ? row.images : []
-  list.forEach((img) => {
-    const raw = typeof img === 'string' ? img : img && (img.url || img.src)
-    const url = resolveClientReadableMediaUrl(raw)
-    if (!url || images.some((item) => item.url === url)) return
-    images.push({ url })
-  })
-  return images
+  const signUrl = (url) => resolveClientReadableMediaUrl(url) || String(url || '').trim()
+  const signPhotos = (list) =>
+    (Array.isArray(list) ? list : [])
+      .map((photo) => {
+        if (typeof photo === 'string') {
+          const url = signUrl(photo)
+          return url ? { url } : null
+        }
+        if (!photo || typeof photo !== 'object') return photo
+        const url = signUrl(photo.url)
+        return url ? { ...photo, url } : photo
+      })
+      .filter((item) => item && (typeof item === 'string' || item.url))
+  if (!doc || typeof doc !== 'object') return doc
+  const signItem = (row) =>
+    row && typeof row === 'object' ? { ...row, images: signPhotos(row.images) } : row
+  return {
+    ...doc,
+    items: Array.isArray(doc.items) ? doc.items.map(signItem) : doc.items,
+    workItems: Array.isArray(doc.workItems) ? doc.workItems.map(signItem) : doc.workItems,
+    photos: signPhotos(doc.photos),
+    deliveryPhotos: signPhotos(doc.deliveryPhotos),
+  }
 }
 
-/** 工单条目 → 车主可见行：项目、说明、证物图。不带金额。 */
-function mapOwnerWorkSheetLine(row = {}) {
-  const name = String(row.partName || '').trim()
-  const material = String(row.material || '').trim()
-  const brand = String(row.brand || '').trim()
-  const qty = String(row.qty || '').trim()
-  const note = String(row.caption || '')
-  const images = ownerWorkImages(row)
-  if (!name && !material && !note && !images.length) return null
-  return { name, brand, material, qty, note, images }
+function workFindingsForPreview(node) {
+  const draft = contentOfFlowNode(node)
+  if (Array.isArray(draft.findings) && draft.findings.length) return draft.findings
+  return workRecordsFromNode(node).map((row) => ({
+    partName: row.name,
+    caption: row.note,
+    brand: row.brand,
+    material: row.material,
+    qty: row.qty,
+    images: row.images,
+  }))
 }
 
-/** 工单卡片：已完成只读 document.payload.workItems；进行中才读 content.findings */
+/** 工单卡片：与商家「看车主看到的」同一套派生 */
 function mapOwnerWorkSheetCard(node = {}, album = {}) {
   const draft = contentOfFlowNode(node)
   const doc =
     (node.document && typeof node.document === 'object' && node.document) || {}
   const docPayload =
     (doc.payload && typeof doc.payload === 'object' ? doc.payload : {}) || {}
-  const fromDoc = Array.isArray(docPayload.workItems) ? docPayload.workItems : []
-  const sealed =
-    String(node.status || '') === 'completed' ||
-    String(doc.status || '') === 'completed' ||
-    String(doc.status || '') === 'delivered'
-  const mapDocRow = (row) => ({
-    partName: String((row && (row.partName || row.name)) || '').trim(),
-    caption: String((row && (row.caption || row.note)) || '').trim(),
-    brand: String((row && row.brand) || '').trim(),
-    material: String((row && row.material) || '').trim(),
-    qty: String((row && row.qty) || '').trim(),
-    images: Array.isArray(row && row.images) ? row.images : [],
-    url: row && row.url,
+  const records = workRecordsFromNode(node)
+  const preview = buildOwnerPreviewDoc({
+    family: 'work',
+    album: previewAlbumOf(album),
+    workItems: records.length
+      ? records.map((row) => ({
+          name: row.name,
+          brand: row.brand,
+          material: row.material,
+          qty: row.qty,
+          note: row.note,
+          images: row.images,
+        }))
+      : workItemsFromFindings(workFindingsForPreview(node)),
+    signName: String(docPayload.workerName || draft.workerName || '').trim(),
+    signAt: formatClerkAtForDoc(docPayload.finishedAt || draft.finishedAt || ''),
   })
-  const rows = sealed
-    ? fromDoc.map(mapDocRow)
-    : fromDoc.length
-      ? fromDoc.map(mapDocRow)
-      : Array.isArray(draft.findings)
-        ? draft.findings
-        : []
-  const items = rows.map(mapOwnerWorkSheetLine).filter(Boolean)
+  const body = signPreviewMedia(preview.doc || {})
+  const items = Array.isArray(body.items) ? body.items : []
   const photos = []
   const seen = new Set()
   items.forEach((row) => {
@@ -2345,9 +2601,10 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
   })
   const done = String(node.status || '') === 'completed'
   return {
+    ...body,
     id: node.id,
     kind: 'work',
-    title: node.title || '维修工单',
+    title: body.title || node.title || '维修工单',
     segmentLabel: node.segmentLabel || '',
     isAddon: String(node.insertedReason || '') === 'addon',
     cancelled: false,
@@ -2358,24 +2615,12 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
     discoveryImages: [],
     statusLabel: done ? '已完工' : '施工中',
     needsConfirm: false,
-    storeName: String(
-      (album && (album.storeName || (album.store && album.store.name))) || '',
-    ).trim(),
-    metaLine: '',
     confirmCopy: '',
     styleVariant: 'document',
-    chiefComplaint: '',
-    conclusion: '',
-    findings: [],
-    lines: [],
     items,
     workItems: items,
     totalAmount: 0,
     totalAmountLabel: '',
-    signLabel: '施工人',
-    signName: String(docPayload.workerName || draft.workerName || '').trim(),
-    signAtLabel: '',
-    signAt: String(docPayload.finishedAt || draft.finishedAt || '').trim(),
     photos,
     deliveryPhotos: [],
     warrantyPeriod: '',
@@ -2413,10 +2658,10 @@ function buildDocMetaLine({
   return parts.join(' · ')
 }
 
-function mapOwnerFlowDocCard(node = {}, album = {}) {
+function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
   if (node.kind === 'work') return mapOwnerWorkSheetCard(node, album)
   const doc = node.document || {}
-  const payload = doc.payload || {}
+  const payload = contentOfFlowNode(node)
   const needsConfirm =
     requiresOwnerConfirm(node) &&
     String(doc.status || '') === 'pending_confirm'
@@ -2428,11 +2673,18 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     ...(row || {}),
     result: ownerFindingResultLabel((row && row.result) || ''),
   }))
-  const workItemsRaw = Array.isArray(payload.workItems) ? payload.workItems : items
+  const workItemsRaw =
+    kind === 'repair_report'
+      ? Array.isArray(payload.workItems)
+        ? payload.workItems
+        : []
+      : Array.isArray(payload.workItems) && payload.workItems.length
+        ? payload.workItems
+        : items
   const workItems = workItemsRaw.map(mapOwnerFriendlyLine)
   const amountSource = lines.length ? lines : items.length ? items : workItems
   const totalAmount =
-    payload.totalAmount != null
+    payload.totalAmount != null && Number(payload.totalAmount) > 0
       ? payload.totalAmount
       : amountSource.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   const vehicle = (album && album.vehicleJson) || (album && album.vehicle) || {}
@@ -2461,6 +2713,25 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   const ownerRejectReason = String(doc.ownerRejectReason || '').trim()
   const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
   const discoveryImages = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
+  const finishDoc =
+    kind === 'repair_report'
+      ? signPreviewMedia(
+          buildOwnerPreviewDoc({
+            family: 'finish',
+            album: previewAlbumOf(album),
+            mileageText,
+            workItems: Array.isArray(payload.workItems) ? payload.workItems : [],
+            totalAmount: payload.totalAmount,
+            deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
+            repairBrief: payload.repairBrief,
+            ownerFaqs: payload.ownerFaqs,
+            warrantyPeriod: payload.warrantyPeriod,
+            warrantyNotes: resolveWarrantyNotes(payload),
+            signName: payload.delivererName,
+            signAt: formatClerkAtForDoc(payload.finishedAt || ''),
+          }).doc,
+        )
+      : null
   return {
     id: node.id,
     kind,
@@ -2470,7 +2741,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
         ? quoteFace({ templateId: album.templateId, serviceName: album.serviceName }).addonTitle
         : kind === 'quote_confirm'
           ? '报价单'
-          : node.title || '',
+          : (finishDoc && finishDoc.title) || node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     cancelledBy,
@@ -2487,15 +2758,17 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     needsConfirm,
     cancelled: isCancelled,
     cancelReason,
-    storeName,
-    metaLine: buildDocMetaLine({
-      reportDate,
-      vehicleBrand,
-      vehicleSeries,
-      vehicleDisplay,
-      mileageText,
-      plateDisplay,
-    }),
+    storeName: (finishDoc && finishDoc.storeName) || storeName,
+    metaLine:
+      (finishDoc && finishDoc.metaLine) ||
+      buildDocMetaLine({
+        reportDate,
+        vehicleBrand,
+        vehicleSeries,
+        vehicleDisplay,
+        mileageText,
+        plateDisplay,
+      }),
     confirmCopy: intakeSheet
       ? ''
       : kind === 'repair_report'
@@ -2518,15 +2791,17 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
       (intakeSheet && ((contentOfFlowNode(node).receiverName) || payload.receiverName)) ||
         (kind === 'inspection_report' && (payload.inspectorName || contentOfFlowNode(node).inspectorName)) ||
         (kind === 'work' && ((contentOfFlowNode(node).workerName) || payload.workerName)) ||
-        (kind === 'repair_report' && (payload.delivererName || contentOfFlowNode(node).delivererName)) ||
+        (kind === 'repair_report' && (finishDoc && finishDoc.signName)) ||
         '',
     ).trim(),
-    signAtLabel: kind === 'work' || kind === 'repair_report' ? '完工时间' : '时间',
+    signAtLabel:
+      (finishDoc && finishDoc.signAtLabel) ||
+      (kind === 'work' || kind === 'repair_report' ? '完工时间' : '时间'),
     signAt: String(
       (intakeSheet && ((contentOfFlowNode(node).receivedAt) || payload.receivedAt)) ||
         (kind === 'inspection_report' && (payload.inspectedAt || contentOfFlowNode(node).inspectedAt)) ||
         (kind === 'work' && ((contentOfFlowNode(node).finishedAt) || payload.finishedAt)) ||
-        (kind === 'repair_report' && (payload.finishedAt || contentOfFlowNode(node).finishedAt)) ||
+        (kind === 'repair_report' && finishDoc && finishDoc.signAt) ||
         '',
     ).trim(),
     belongings: String(payload.belongings || '').trim(),
@@ -2543,22 +2818,31 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     conclusion: String(payload.conclusion || ''),
     findings,
     lines,
-    items: displayItems,
-    workItems,
-    totalAmount,
-    totalAmountLabel: intakeSheet ? '' : `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
-    deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
-    repairBrief: String(payload.repairBrief || '').trim(),
-    ownerFaqs: (Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [])
-      .map((row, index) => ({
-        id: String((row && row.id) || `faq_${index + 1}`),
-        question: String((row && (row.question || row.q)) || '').trim(),
-        answer: String((row && (row.answer || row.a)) || '').trim(),
-      }))
-      .filter((row) => row.question)
-      .slice(0, 5),
-    warrantyPeriod: String(payload.warrantyPeriod || ''),
-    warrantyNotes: resolveWarrantyNotes(payload),
+    items: finishDoc ? finishDoc.workItems : displayItems,
+    workItems: finishDoc ? finishDoc.workItems : workItems,
+    totalAmount: finishDoc
+      ? payload.totalAmount != null
+        ? payload.totalAmount
+        : totalAmount
+      : totalAmount,
+    totalAmountLabel: intakeSheet
+      ? ''
+      : finishDoc
+        ? finishDoc.totalAmountLabel
+        : `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
+    deliveryPhotos: finishDoc
+      ? finishDoc.deliveryPhotos
+      : Array.isArray(payload.deliveryPhotos)
+        ? payload.deliveryPhotos
+        : [],
+    repairBrief: finishDoc
+      ? finishDoc.repairBrief
+      : String(payload.repairBrief || '').trim(),
+    ownerFaqs: finishDoc ? finishDoc.ownerFaqs : ownerFaqRows(payload.ownerFaqs),
+    warrantyPeriod: finishDoc
+      ? finishDoc.warrantyPeriod
+      : String(payload.warrantyPeriod || ''),
+    warrantyNotes: finishDoc ? finishDoc.warrantyNotes : resolveWarrantyNotes(payload),
     warrantyScope: String(payload.warrantyScope || ''),
     warrantyExclusions: String(payload.warrantyExclusions || ''),
   }
@@ -2604,23 +2888,23 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
           }
         })
       : doc.lines
-    const items = Array.isArray(doc.items)
-      ? doc.items.map((row) => {
-          if (!row || typeof row !== 'object' || !Array.isArray(row.images)) return row
-          return {
-            ...row,
-            images: row.images.map((photo) => {
-              if (typeof photo === 'string') {
-                const url = remapUrl(photo)
-                return url ? { url } : photo
-              }
-              if (!photo || typeof photo !== 'object') return photo
-              const url = remapUrl(photo.url)
-              return url && url !== photo.url ? { ...photo, url } : photo
-            }),
+    const remapItemImages = (row) => {
+      if (!row || typeof row !== 'object' || !Array.isArray(row.images)) return row
+      return {
+        ...row,
+        images: row.images.map((photo) => {
+          if (typeof photo === 'string') {
+            const url = remapUrl(photo)
+            return url ? { url } : photo
           }
-        })
-      : doc.items
+          if (!photo || typeof photo !== 'object') return photo
+          const url = remapUrl(photo.url)
+          return url && url !== photo.url ? { ...photo, url } : photo
+        }),
+      }
+    }
+    const items = Array.isArray(doc.items) ? doc.items.map(remapItemImages) : doc.items
+    const workItems = Array.isArray(doc.workItems) ? doc.workItems.map(remapItemImages) : doc.workItems
     const photos = Array.isArray(doc.photos)
       ? doc.photos.map((photo) => {
           if (typeof photo === 'string') {
@@ -2648,6 +2932,7 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
       findings,
       lines,
       items,
+      workItems,
       photos,
       deliveryPhotos,
       needsConfirm: false,
@@ -2660,8 +2945,8 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
   const rawNodes = sortFlowNodes(readFlowNodesRaw(album))
   if (!rawNodes.length) return []
 
-  return rawNodes
-    .map((node) => mapFlowNodeForView(node, albumNodes))
+  const allMapped = rawNodes.map((node) => mapFlowNodeForView(node, albumNodes))
+  return allMapped
     .filter((node) => isOwnerDocumentKind(node.kind))
     .filter((node) => {
       const doc = node.document || {}
@@ -2674,12 +2959,14 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
       const hasSubstance =
         Boolean(payload) &&
         (Boolean(String(payload.chiefComplaint || '').trim()) ||
+          Boolean(String(payload.repairBrief || '').trim()) ||
           (Array.isArray(payload.findings) && payload.findings.length) ||
           (Array.isArray(payload.lines) && payload.lines.length) ||
           (Array.isArray(payload.items) && payload.items.length) ||
           (Array.isArray(payload.workItems) && payload.workItems.length) ||
           (Array.isArray(payload.photos) && payload.photos.length) ||
           (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
+          (Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length) ||
           Boolean(String(payload.warrantyPeriod || '').trim()) ||
           Boolean(String(payload.conclusion || '').trim()))
 
@@ -2697,7 +2984,7 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
         }
       }
 
-      return remapDoc(mapOwnerFlowDocCard(node, album))
+      return remapDoc(mapOwnerFlowDocCard(node, album, allMapped))
     })
 }
 
@@ -2743,8 +3030,8 @@ function buildOwnerFlowView(album, albumNodes = []) {
       nodeUpdatedAt: latestFlowActivityAt(album),
     }
   }
-  const mapped = rawNodes
-    .map((node) => mapFlowNodeForView(node, albumNodes))
+  const allMapped = rawNodes.map((node) => mapFlowNodeForView(node, albumNodes))
+  const mapped = allMapped
     .filter((node) => isOwnerDocumentKind(node.kind))
     .filter((node) => {
       const doc = node.document || {}
@@ -2768,7 +3055,7 @@ function buildOwnerFlowView(album, albumNodes = []) {
         styleVariant: node.kind === 'inspection_report' ? 'evidence' : 'document',
       }
     }
-    const card = mapOwnerFlowDocCard(node, album)
+    const card = mapOwnerFlowDocCard(node, album, allMapped)
     const done = isFlowNodeDone(node) && !card.needsConfirm
     return {
       ...card,
@@ -3214,4 +3501,7 @@ module.exports = {
   insertAddonPlan,
   cancelAddonPlan,
   mapFlowNodeForView,
+  healFinishReportPackage,
+  persistHealedFinishReport,
+  migrateFlowPackageOnce,
 }

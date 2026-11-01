@@ -55,10 +55,6 @@ function sentence(text, max = 42) {
   return line.slice(0, max)
 }
 
-function placeLine(facts) {
-  return [facts.city, facts.storeName].filter(Boolean).join(' · ')
-}
-
 function noteLines(facts, count) {
   const out = []
   ;(facts.notes || []).forEach((note) => {
@@ -76,52 +72,30 @@ function finish(lines) {
     .join('\n')
 }
 
-function composeOwner(platformId, facts) {
+function composeOwner(facts) {
   const service = facts.serviceName || '这次维修'
   const vehicle = facts.vehicleLabel || ''
-  const place = placeLine(facts)
   const note = noteLines(facts, 1)[0] || ''
-  const more = noteLines(facts, 3)
-  if (platformId === 'douyin') {
-    return finish([
-      vehicle ? `${vehicle}，${service}做完了` : `${service}做完了`,
-      note,
-    ])
+  const who = vehicle ? `我这台${vehicle}` : '我这台车'
+  return {
+    moments: finish([`${who}今天把${service}做了。`, note]),
+    xhs: finish([`${who}，${service}做完了。`, note]),
+    douyin: finish([`${who}，${service}。`, note]),
+    slideLine: sentence(`${vehicle}${service}`, 14) || sentence(service, 14),
   }
-  if (platformId === 'xiaohongshu') {
-    const title = vehicle ? `${vehicle}${service}，过程记一下` : `${service}，过程记一下`
-    return finish([
-      title,
-      '',
-      note || '到店之后的过程拍下来了',
-      more[1] || '',
-      '车牌打过码，都是实拍',
-      place,
-    ])
-  }
-  return finish([
-    vehicle ? `${vehicle}，今天把${service}做了。` : `今天把${service}做了。`,
-    note,
-    place,
-  ])
 }
 
-function composeMerchant(platformId, facts) {
-  const head =
-    sentence(facts.title, 22) ||
-    [facts.vehicleLabel, facts.serviceName].filter(Boolean).join(' · ') ||
-    '维修过程'
+function composeMerchant(facts) {
+  const service = facts.serviceName || sentence(facts.title, 18) || '这次维修'
+  const vehicle = facts.vehicleLabel || ''
   const detail = sentence(facts.summary, 36) || noteLines(facts, 1)[0] || ''
-  const extra = noteLines(facts, 2)[1] || ''
-  const place = placeLine(facts)
-  if (platformId === 'douyin') {
-    return finish([head, detail])
+  const head = vehicle ? `这台${vehicle}` : '这台车'
+  return {
+    moments: finish([`${head}，${service}。`, detail]),
+    xhs: finish([`${head}${service}。`, detail]),
+    douyin: finish([`${vehicle || '这台车'}，${service}。`, detail]),
+    slideLine: sentence(`${vehicle}${service}`, 14) || sentence(service, 14),
   }
-  if (platformId === 'xiaohongshu') {
-    const title = /[|｜]/.test(head) ? head : `${head}｜过程`
-    return finish([title, '', detail, extra, '实拍，车牌已打码', place])
-  }
-  return finish([`${head}。`, detail, place])
 }
 
 function sanitizeFacts(raw = {}) {
@@ -151,39 +125,43 @@ function normalizeImages(images) {
   return out.slice(0, 9)
 }
 
-function withCaption(card) {
-  const lines = String(card.text || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-  if (card.id === 'xiaohongshu') {
-    return {
-      ...card,
-      text: lines[0] || '',
-      caption: lines.slice(1).join('\n'),
-    }
-  }
-  if (card.id === 'douyin') {
-    return {
-      ...card,
-      text: lines.slice(0, 2).join('\n'),
-      caption: lines.slice(2).join('\n') || lines.slice(0, 2).join('\n'),
-    }
-  }
-  return { ...card, caption: '' }
+function slidesFor(images, line, keepLine) {
+  return images.map((img) => ({
+    id: img.id,
+    line: keepLine ? String(line || '').trim() : '',
+  }))
 }
 
 function buildSocialCardSet({ audience = 'owner', facts = {}, images = [] } = {}) {
   const safe = sanitizeFacts(facts)
-  const voice = audience === 'merchant' ? composeMerchant : composeOwner
-  const cards = PLATFORMS.map((platform) => withCaption({
-    id: platform.id,
-    label: platform.label,
-    text: clip(voice(platform.id, safe), platform.maxChars),
-  }))
+  const voice = audience === 'merchant' ? composeMerchant(safe) : composeOwner(safe)
+  const list = normalizeImages(images)
+  const cards = [
+    {
+      id: 'moments',
+      label: '朋友圈',
+      text: clip(voice.moments, 160),
+      caption: '',
+      slides: slidesFor(list, '', false),
+    },
+    {
+      id: 'xiaohongshu',
+      label: '小红书',
+      text: '',
+      caption: clip(voice.xhs, 360),
+      slides: slidesFor(list, voice.slideLine, true),
+    },
+    {
+      id: 'douyin',
+      label: '抖音',
+      text: '',
+      caption: clip(voice.douyin, 280),
+      slides: slidesFor(list, voice.slideLine, true),
+    },
+  ]
   return {
     audience: audience === 'merchant' ? 'merchant' : 'owner',
-    images: normalizeImages(images),
+    images: list,
     cards,
   }
 }

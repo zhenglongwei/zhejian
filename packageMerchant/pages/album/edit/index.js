@@ -13,7 +13,7 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   switchMerchantServiceAlbumTemplate,
-  exportMerchantCaseDraftCopy,
+  fetchMerchantSocialCards,
   interpretMerchantAlbumVision,
   unhostMerchantAlbum,
   unpublishHostedMerchantAlbum,
@@ -27,6 +27,14 @@ const {
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
 const { draftToAiSummary } = require('../../../../utils/merchant-case-draft-display')
+const {
+  applySocialPayload,
+  rememberSocialText,
+  rememberSocialCaption,
+  switchSocialPlatform,
+  toggleSocialImage,
+} = require('../../../../utils/social-card-session')
+const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../../utils/social-card-actions')
 const {
   resolveAlbumHasOwner,
   MERCHANT_ALBUM_INVITE_PAGE,
@@ -3041,22 +3049,68 @@ Page({
   },
 
   async onCopyCaseDraftExport() {
-    if (!this.albumId) return
+    if (!this.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({
+      socialVisible: true,
+      socialLoading: true,
+      socialPlatforms: [],
+      socialImages: [],
+      socialText: '',
+      socialSaveDisabled: true,
+    })
     try {
-      wx.showLoading({ title: '准备文案', mask: true })
-      const data = await exportMerchantCaseDraftCopy(this.albumId)
-      wx.hideLoading()
-      const text = (data && data.text) || ''
-      if (!text) {
-        wx.showToast({ title: '暂无可复制文案', icon: 'none' })
-        return
-      }
-      await wx.setClipboardData({ data: text })
-      wx.showToast({ title: '已复制，可发自媒体', icon: 'success' })
+      const payload = await fetchMerchantSocialCards(this.albumId)
+      applySocialPayload(this, payload, '打码完成后可保存')
     } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+      this.setData({ socialVisible: false, socialLoading: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
     }
+  },
+
+  async onRefreshSocial() {
+    if (!this.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({ socialRefreshing: true })
+    try {
+      const payload = await fetchMerchantSocialCards(this.albumId, { refresh: true })
+      applySocialPayload(this, payload, '打码完成后可保存')
+    } catch (e) {
+      this.setData({ socialRefreshing: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
+    }
+  },
+
+  onCloseSocial() {
+    this.setData({ socialVisible: false })
+  },
+
+  onSocialPlatform(e) {
+    switchSocialPlatform(this, e.detail && e.detail.id)
+  },
+
+  onSocialToggle(e) {
+    toggleSocialImage(this, e.detail && e.detail.id)
+  },
+
+  onSocialText(e) {
+    rememberSocialText(this, e.detail && e.detail.value)
+  },
+
+  onSocialCaption(e) {
+    rememberSocialCaption(this, e.detail && e.detail.value)
+  },
+
+  onCopySocial() {
+    copyCurrentSocialText(this)
+  },
+
+  onSaveSocial() {
+    saveCurrentSocialImages(this)
   },
 
   onInviteOwnerScan() {

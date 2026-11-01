@@ -243,6 +243,70 @@ test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => 
   assert.equal(done.photos[0].url, MASK)
 })
 
+test('托管完工章只读已生成的交车报告', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'pending_confirm',
+          payload: {
+            repairBrief: '右前门补漆完成',
+            warrantyPeriod: '12 个月',
+            warrantyNotes: '不含事故损伤',
+            deliveryPhotos: [{ url: RAW }],
+          },
+        },
+      },
+    ],
+    album: { images: [{ url: RAW, maskedUrl: MASK }] },
+    contentNodes: [],
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.ok(done)
+  assert.equal(done.repairBrief, '右前门补漆完成')
+  assert.equal(done.warrantyPeriod, '12 个月')
+  assert.match(done.warrantyNotes, /事故/)
+  assert.ok(done.photos.length >= 1)
+})
+
+test('托管完工章：报告为空时不从交车底稿拼', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'd',
+        kind: 'delivery_photos',
+        sortOrder: 5,
+        status: 'completed',
+        content: {
+          repairBrief: '右前门补漆完成',
+          warrantyPeriod: '12 个月',
+          warrantyNotes: '不含事故损伤',
+          deliveryExteriorUrl: RAW,
+          selectedDeliveryUrls: [WORK],
+        },
+      },
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'pending_confirm',
+          payload: {},
+        },
+      },
+    ],
+    album: { images: [{ url: RAW, maskedUrl: MASK }] },
+    contentNodes: [],
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.equal(done, undefined)
+})
+
 test('buildPublicServiceFlow 无流转则空章节', () => {
   assert.deepEqual(buildPublicServiceFlow({}).chapters, [])
 })

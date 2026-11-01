@@ -2426,6 +2426,16 @@
   margin-top: 24rpx;
 }
 
+.ov-extra--row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.ov-extra__btn {
+  flex: 1;
+  min-width: 0;
+}
+
 .ov-work--top {
   z-index: 30;
 }

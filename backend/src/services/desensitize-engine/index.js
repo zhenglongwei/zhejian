@@ -1,12 +1,12 @@
-const sharp = require('sharp')
 const { config } = require('../../config')
 const { mergeBoxes } = require('./bbox')
 const { writeMaskedImage } = require('./masker')
 const { detectSensitiveRegions } = require('./detectors/aliyun')
-const { prepareOrientedWorkingCopy } = require('./oriented')
+const { prepareOrientedWorkingCopy, writePrivacyDetectJpeg } = require('./oriented')
+const { detectPlateViaViapi } = require('./detectors/viapi-plate')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v8'
+const ENGINE_VERSION = 'aliyun-v9'
 
 function filterBogusFaceBoxes(boxes, imageWidth, imageHeight) {
   if (!imageWidth || !imageHeight) return boxes
@@ -174,17 +174,136 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
  * @param {string} destPath
  * @param {{ publicUrl?: string }} [options]
  */
+const MASK_KINDS = {
+  phone: 'phone',
+  手机号: 'phone',
+  name: 'name',
+  姓名: 'name',
+  document: 'document',
+  证件: 'document',
+  face: 'face',
+  人脸: 'face',
+  plate: 'plate',
+  车牌: 'plate',
+  vin: 'vin',
+  车架号: 'vin',
+}
+
+function asRatioBox(box, width, height) {
+  const rawKind = String((box && (box.kind || box.type)) || '').trim().toLowerCase()
+  const kind = MASK_KINDS[rawKind]
+  if (!kind) return null
+  let left = Number(box.left)
+  let top = Number(box.top)
+  let boxWidth = Number(box.width)
+  let boxHeight = Number(box.height)
+  if (![left, top, boxWidth, boxHeight].every((n) => Number.isFinite(n) && n >= 0)) return null
+  const normalized = left <= 1 && top <= 1 && boxWidth <= 1 && boxHeight <= 1
+  if (normalized) {
+    left *= width
+    top *= height
+    boxWidth *= width
+    boxHeight *= height
+  }
+  left = Math.max(0, Math.min(Math.round(left), width - 1))
+  top = Math.max(0, Math.min(Math.round(top), height - 1))
+  boxWidth = Math.max(1, Math.min(Math.round(boxWidth), width - left))
+  boxHeight = Math.max(1, Math.min(Math.round(boxHeight), height - top))
+  if (boxWidth < 4 || boxHeight < 4) return null
+  return { type: kind, left, top, width: boxWidth, height: boxHeight, source: 'model' }
+}
+
+function plateAuthFailed(err) {
+  const text = `${err && err.code ? err.code : ''} ${err && err.message ? err.message : ''}`
+  return /auth|forbidden|InvalidAccessKey|not authorized|NoPermission/i.test(text)
+}
+
+/**
+ * 模型给出的区域照打。车牌没有框时再认一次并打实心灰块。
+ * 认到字却套不出框，或识别接口失败时，不得把原图标成已脱敏。
+ */
 async function processImage(sourcePath, destPath, options = {}) {
   const engine = config.desensitize.engine
   if (engine === 'dev') {
     return processImageDev(sourcePath, destPath)
   }
-  if (engine === 'aliyun') {
-    return processImageAliyun(sourcePath, destPath, options)
+
+  const oriented = await prepareOrientedWorkingCopy(sourcePath)
+  try {
+    const { width, height } = oriented
+    const declared = (Array.isArray(options.boxes) ? options.boxes : [])
+      .map((box) => asRatioBox(box, width, height))
+      .filter(Boolean)
+    let plateBoxes = []
+    let plateMiss = false
+    let authFailed = false
+    if (!declared.some((box) => box.type === 'plate')) {
+      const jpeg = await writePrivacyDetectJpeg(oriented.workingPath)
+      try {
+        const viapi = await detectPlateViaViapi(jpeg.path, jpeg.width, jpeg.height)
+        plateBoxes = scaleBoxes(viapi.boxes || [], jpeg.width, jpeg.height, width, height)
+        plateMiss = Boolean(viapi.plateTextFound && !plateBoxes.length)
+      } catch (err) {
+        plateMiss = true
+        authFailed = plateAuthFailed(err)
+        console.warn(
+          '[desensitize-engine] plate fallback failed',
+          String((err && err.message) || err || '').slice(0, 160),
+        )
+      } finally {
+        jpeg.cleanup()
+      }
+    }
+
+    const merged = mergeBoxes(declared.concat(plateBoxes), width, height)
+    const hasPlate = merged.some((box) => box.type === 'plate' || box.type === 'mixed')
+    if ((plateMiss || authFailed) && !hasPlate) {
+      return {
+        taskStatus: 'NEED_MANUAL',
+        riskLevel: 'high',
+        riskTags: ['plate'],
+        detections: merged,
+        engineVersion: ENGINE_VERSION,
+        needManual: true,
+        warnings: [authFailed ? 'plate-auth' : 'plate-miss'],
+      }
+    }
+
+    if (merged.length) {
+      console.info('[desensitize-engine] mask boxes', {
+        imageSize: { width, height },
+        boxes: merged.map((box) => ({
+          type: box.type,
+          left: box.left,
+          top: box.top,
+          width: box.width,
+          height: box.height,
+          source: box.source,
+        })),
+      })
+    }
+
+    await writeMaskedImage(oriented.workingPath, destPath, merged)
+    const riskTags = []
+    merged.forEach((box) => {
+      if (box.type === 'mixed' || box.type === 'plate') {
+        if (!riskTags.includes('plate')) riskTags.push('plate')
+        return
+      }
+      if (box.type && !riskTags.includes(box.type)) riskTags.push(box.type)
+    })
+    return {
+      taskStatus: 'SUCCESS',
+      riskLevel: riskTags.length ? 'medium' : 'low',
+      riskTags,
+      detections: merged,
+      engineVersion: ENGINE_VERSION,
+      needManual: false,
+      warnings: [],
+    }
+  } finally {
+    oriented.cleanup()
   }
-  const err = new Error(`未知脱敏引擎: ${engine}`)
-  err.code = 'UNKNOWN_ENGINE'
-  throw err
 }
 
 module.exports = {

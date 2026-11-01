@@ -6,6 +6,8 @@
  * 只做节点 AI 检查需要的最小子集：非流式、单轮、可带图。
  */
 
+const { apiHost, callerFromStack, recordLlmCall, scrubNode } = require('./llm-call-record')
+
 function resolveErrorMessage(body, status) {
   if (body && typeof body === 'object') {
     const message = (body.error && body.error.message) || body.message
@@ -87,33 +89,87 @@ async function responsesCompletion(options) {
   const controller = new AbortController()
   const timeoutMs = Number(options.timeoutMs) || 60000
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const caller = callerFromStack()
+  const started = Date.now()
+  const apiUrl = String(options.apiUrl || '').trim()
+  const model = String(options.model || '').trim()
+  const request = {
+    messages: options.messages || [],
+    temperature: options.temperature != null ? options.temperature : 0.2,
+  }
   try {
-    const res = await fetch(String(options.apiUrl || '').trim(), {
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${String(options.apiKey || '').trim()}`,
       },
       body: JSON.stringify({
-        model: String(options.model || '').trim(),
+        model,
         input: toResponsesInput(options.messages || []),
-        temperature: options.temperature != null ? options.temperature : 0.2,
+        temperature: request.temperature,
         stream: false,
       }),
       signal: controller.signal,
     })
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
+      recordLlmCall({
+        ok: false,
+        channel: 'responses',
+        caller,
+        model,
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        status: res.status,
+        request: scrubNode(request),
+        response: scrubNode(body),
+      })
       const err = new Error(resolveErrorMessage(body, res.status))
       err.status = res.status
       err.body = body
       throw err
     }
-    return { text: extractResponsesText(body) }
+    const text = extractResponsesText(body)
+    recordLlmCall({
+      ok: true,
+      channel: 'responses',
+      caller,
+      model,
+      apiHost: apiHost(apiUrl),
+      elapsedMs: Date.now() - started,
+      status: res.status,
+      request: scrubNode(request),
+      response: scrubNode(body),
+      text,
+    })
+    return { text }
   } catch (error) {
     if (error && error.name === 'AbortError') {
+      recordLlmCall({
+        ok: false,
+        channel: 'responses',
+        caller,
+        model,
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        error: '模型响应超时',
+        request: scrubNode(request),
+      })
       const err = new Error('模型响应超时')
       throw err
+    }
+    if (!error.status && !error.body) {
+      recordLlmCall({
+        ok: false,
+        channel: 'responses',
+        caller,
+        model,
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        error: String(error.message || error).slice(0, 300),
+        request: scrubNode(request),
+      })
     }
     throw error
   } finally {

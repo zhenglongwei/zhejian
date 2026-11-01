@@ -57,6 +57,109 @@ function looksMaskedPlate(plate) {
   return /\*{2,}/.test(String(plate || ''))
 }
 
+function previewAlbumOf(album = {}) {
+  const vehicle = (album && (album.vehicle || album.vehicleJson)) || {}
+  const store = (album && album.store) || {}
+  return {
+    storeName: String((album && (album.storeName || store.name)) || '').trim(),
+    templateId: String((album && album.templateId) || '').trim(),
+    serviceName: String((album && album.serviceName) || '').trim(),
+    vehicle,
+  }
+}
+
+function workItemsFromFindings(findings = []) {
+  return (Array.isArray(findings) ? findings : [])
+    .map((row) => ({
+      name: String((row && (row.partName || row.name)) || '').trim(),
+      brand: String((row && row.brand) || '').trim(),
+      material: String((row && row.material) || '').trim(),
+      qty: String((row && row.qty) || '').trim(),
+      note: String((row && (row.caption || row.note)) || '').trim(),
+      images: photoRows((row && row.images) || (row && row.url ? [row.url] : [])),
+      amount: row && row.amount != null ? row.amount : '',
+      quoteLineId: String((row && row.quoteLineId) || '').trim(),
+    }))
+    .filter((row) => row.name)
+}
+
+function quoteTotalsFromNodes(nodes = []) {
+  const quoteByName = {}
+  let quoteTotal = 0
+  ;(nodes || []).forEach((node) => {
+    if (!node || (node.kind !== 'quote_confirm' && node.kind !== 'addon_quote_confirm')) return
+    const status = String((node.document && node.document.status) || '')
+    if (status === 'cancelled') return
+    const lines =
+      (node.document && node.document.payload && node.document.payload.lines) || []
+    lines.forEach((line) => {
+      const name = String((line && line.name) || '').trim()
+      const amount = Number(line && line.amount)
+      if (!name || !Number.isFinite(amount)) return
+      quoteByName[name] = (quoteByName[name] || 0) + amount
+      quoteTotal += amount
+    })
+  })
+  return { quoteByName, quoteTotal }
+}
+
+function finishWorkItemsFromFindingsList(findingsList = [], quoteByName = {}) {
+  const workItems = []
+  ;(Array.isArray(findingsList) ? findingsList : []).forEach((findings) => {
+    workItemsFromFindings(findings).forEach((item) => {
+      const own = Number(item.amount)
+      const fromQuote = quoteByName[item.name]
+      workItems.push({
+        name: item.name,
+        brand: item.brand,
+        note: item.note,
+        amount: Number.isFinite(own) && own > 0 ? own : fromQuote != null ? fromQuote : '',
+      })
+    })
+  })
+  return workItems
+}
+
+function deliveryPhotosFromDraft(draft = {}, live = {}) {
+  const liveExterior = String((live && live.exterior) || '').trim()
+  const liveExtras = Array.isArray(live && live.extras) ? live.extras : []
+  const useLive = Boolean(live && live.useLive && (liveExterior || liveExtras.length))
+  const exterior = useLive
+    ? liveExterior
+    : String((draft && draft.deliveryExteriorUrl) || liveExterior || '').trim()
+  const extras = useLive
+    ? liveExtras
+    : Array.isArray(draft && draft.selectedDeliveryUrls)
+      ? draft.selectedDeliveryUrls
+      : []
+  const deliveryPhotos = []
+  const seen = {}
+  const push = (url) => {
+    const text = String(url || '').trim()
+    if (!text || seen[text]) return
+    seen[text] = true
+    deliveryPhotos.push({ url: text })
+  }
+  push(exterior)
+  extras.forEach(push)
+  return deliveryPhotos
+}
+
+function formatClerkAtForDoc(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/)
+  if (iso) {
+    return `${Number(iso[2])}月${Number(iso[3])}日 ${iso[4] || '00'}:${iso[5] || '00'}`
+  }
+  const cn = raw.match(/^(\d{1,2})月(\d{1,2})日(?:\s+(\d{1,2}):(\d{2}))?/)
+  if (cn) {
+    const time = cn[3] != null ? `${String(Number(cn[3])).padStart(2, '0')}:${cn[4] || '00'}` : ''
+    return `${Number(cn[1])}月${Number(cn[2])}日${time ? ` ${time}` : ''}`
+  }
+  return raw
+}
+
 /** 交给车主的单据用完整车牌。展示号是打码后的，只在没有明文时才用。 */
 function albumMetaLine(album, mileageText) {
   const vehicle = (album && album.vehicle) || {}
@@ -203,9 +306,9 @@ function buildOwnerPreviewDoc(input = {}) {
   if (family === 'finish') {
     const workItems = (Array.isArray(input.workItems) ? input.workItems : [])
       .map((row) => ({
-        name: String((row && row.name) || '').trim(),
+        name: String((row && (row.name || row.partName)) || '').trim(),
         brand: String((row && row.brand) || '').trim(),
-        note: String((row && row.note) || '').trim(),
+        note: String((row && (row.note || row.caption)) || '').trim(),
         amount: row && row.amount != null ? row.amount : '',
       }))
       .filter((row) => row.name)
@@ -261,4 +364,10 @@ function buildOwnerPreviewDoc(input = {}) {
 
 module.exports = {
   buildOwnerPreviewDoc,
+  previewAlbumOf,
+  workItemsFromFindings,
+  quoteTotalsFromNodes,
+  finishWorkItemsFromFindingsList,
+  deliveryPhotosFromDraft,
+  formatClerkAtForDoc,
 }

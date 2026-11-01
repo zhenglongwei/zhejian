@@ -1,6 +1,6 @@
 /**
  * 商家工具权益说明（权益页共用）
- * 当前：全功能免费使用，不展示价格与试用/付费 CTA
+ * 收费页只写权益名称，不写释义。历史选套餐文案仍留在本文件，当前页不用。
  */
 
 const PLAN_SELECT_HERO = {
@@ -30,14 +30,20 @@ const PLAN_SELECT_FOOTER =
 
 const PLAN_SELECT_CTA = '进入工作台'
 
-/** 工作台 · 套餐与工具权益页 */
+/** 工作台 · 收费页。金额先空着；权益只写名称。 */
 const SUBSCRIPTION_COPY = {
-  sectionTitle: '工具权益说明',
+  amountLabel: '金额',
+  priceMark: '¥',
+  benefitsTitle: '包含权益',
   agreementLink: '查看《套餐与工具服务协议》',
-  folioTitle: '免费使用',
-  folioTag: '当前方案',
-  currentStatus: '免费使用中',
 }
+
+const SUBSCRIPTION_BENEFITS = [
+  '不限次使用AI分析',
+  '无限案例公示',
+  '访问数据看板',
+  '无限生成朋友圈、自媒体图文转发素材',
+]
 
 module.exports = {
   PLAN_SELECT_HERO,
@@ -46,4 +52,5 @@ module.exports = {
   PLAN_SELECT_FOOTER,
   PLAN_SELECT_CTA,
   SUBSCRIPTION_COPY,
+  SUBSCRIPTION_BENEFITS,
 }

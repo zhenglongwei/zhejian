@@ -5,7 +5,15 @@ const {
   prepareReviewImagePreview,
 } = require('../../../services/album-review')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
-const { fetchServiceAlbum } = require('../../../services/service-album')
+const { fetchServiceAlbum, fetchAlbumSocialCards } = require('../../../services/service-album')
+const {
+  applySocialPayload,
+  rememberSocialText,
+  rememberSocialCaption,
+  switchSocialPlatform,
+  toggleSocialImage,
+} = require('../../../utils/social-card-session')
+const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../utils/social-card-actions')
 const { persistLocalImages } = require('../../../utils/media-upload')
 const { checkAuth } = require('../../../utils/auth')
 const {
@@ -445,5 +453,70 @@ Page({
 
   onShareAppMessage() {
     return this.buildShareAppMessagePayload()
+  },
+
+  async onOpenSocialCard() {
+    if (!this.data.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({
+      socialVisible: true,
+      socialLoading: true,
+      socialPlatforms: [],
+      socialImages: [],
+      socialText: '',
+      socialSaveDisabled: true,
+    })
+    try {
+      const payload = await fetchAlbumSocialCards(this.data.albumId)
+      applySocialPayload(this, payload, '照片还在处理')
+    } catch (e) {
+      this.setData({ socialVisible: false, socialLoading: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
+    }
+  },
+
+  async onRefreshSocial() {
+    if (!this.data.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({ socialRefreshing: true })
+    try {
+      const payload = await fetchAlbumSocialCards(this.data.albumId, { refresh: true })
+      applySocialPayload(this, payload, '照片还在处理')
+    } catch (e) {
+      this.setData({ socialRefreshing: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
+    }
+  },
+
+  onCloseSocial() {
+    this.setData({ socialVisible: false })
+  },
+
+  onSocialPlatform(e) {
+    switchSocialPlatform(this, e.detail && e.detail.id)
+  },
+
+  onSocialToggle(e) {
+    toggleSocialImage(this, e.detail && e.detail.id)
+  },
+
+  onSocialText(e) {
+    rememberSocialText(this, e.detail && e.detail.value)
+  },
+
+  onSocialCaption(e) {
+    rememberSocialCaption(this, e.detail && e.detail.value)
+  },
+
+  onCopySocial() {
+    copyCurrentSocialText(this)
+  },
+
+  onSaveSocial() {
+    saveCurrentSocialImages(this)
   },
 })

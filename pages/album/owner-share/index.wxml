@@ -17,58 +17,36 @@
   </block>
 
   <block wx:else>
-    <view class="page-content album-owner-share__body album-owner-share__body--ritual">
-      <view class="album-owner-share__hero album-owner-share__hero--invite">
-        <view class="album-owner-share__avatar-wrap" aria-hidden="true">
-          <image
-            class="album-owner-share__avatar"
-            src="/assets/share/officer-avatar.jpg"
-            mode="aspectFit"
-          />
-        </view>
-        <text wx:if="{{officerTitle}}" class="album-owner-share__officer text-body">{{officerTitle}}</text>
-        <text class="album-owner-share__pitch text-body">{{heroPitch}}</text>
-        <view class="notice notice--info album-owner-share__tip">
-          <text class="album-owner-share__tip-text">{{heroTip}}</text>
-        </view>
+    <view class="page-content album-owner-share__body">
+      <text wx:if="{{cardError}}" class="text-body">{{cardError}}</text>
+      <social-card
+        id="socialPosterCard"
+        wx:else
+        platforms="{{socialPlatforms}}"
+        active-id="{{socialPlatform}}"
+        images="{{socialImages}}"
+        text="{{socialText}}"
+        caption="{{socialCaption}}"
+        loading="{{socialLoading}}"
+        refreshing="{{socialRefreshing}}"
+        revision="{{socialRevision}}"
+        empty-text="照片还在处理"
+        show-actions="{{false}}"
+        bind:platformchange="onSocialPlatform"
+        bind:imagetoggle="onSocialToggle"
+        bind:textinput="onSocialText"
+        bind:captioninput="onSocialCaption"
+        bind:refresh="onRefreshSocial"
+      />
 
-        <view
-          wx:if="{{mode !== 'pending'}}"
-          class="album-owner-share__channels album-owner-share__channels--in-hero"
-        >
-          <view class="album-owner-share__channel" bindtap="onTimelineTap">
-            <view class="album-owner-share__channel-icon">
-              <image class="album-owner-share__channel-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />
-            </view>
-            <view class="album-owner-share__channel-copy">
-              <text class="text-body">分享到朋友圈</text>
-              <text class="text-caption text-secondary">按提示从右上角发出</text>
-            </view>
-          </view>
-          <button class="album-owner-share__channel album-owner-share__channel-btn" open-type="share">
-            <view class="album-owner-share__channel-icon">
-              <image class="album-owner-share__channel-img" src="/assets/share/icon-friend.svg" mode="aspectFit" />
-            </view>
-            <view class="album-owner-share__channel-copy">
-              <text class="text-body">分享给朋友</text>
-              <text class="text-caption text-secondary">发给微信好友或群</text>
-            </view>
-          </button>
-          <view class="album-owner-share__channel" bindtap="onCopyLinkTap">
-            <view class="album-owner-share__channel-icon">
-              <image class="album-owner-share__channel-img" src="/assets/share/icon-social.svg" mode="aspectFit" />
-            </view>
-            <view class="album-owner-share__channel-copy">
-              <text class="text-body">复制分享链接</text>
-              <text class="text-caption text-secondary">打开的是这本脱敏相册</text>
-            </view>
-          </view>
-        </view>
+      <view wx:if="{{!cardError}}" class="album-owner-share__quiet">
+        <button class="album-owner-share__quiet-btn text-caption" open-type="share">发给微信好友</button>
+        <text class="text-caption text-link" bindtap="onCopyLinkTap">复制相册链接</text>
       </view>
     </view>
 
-    <ui-fixed-bottom-bar wx:if="{{mode === 'pending'}}">
-      <ui-button type="secondary" block bind:btntap="onBack">知道了</ui-button>
+    <ui-fixed-bottom-bar wx:if="{{!cardError}}" safeArea="{{true}}">
+      <ui-button type="primary" block bind:btntap="onDownloadPoster">下载图文</ui-button>
     </ui-fixed-bottom-bar>
   </block>
 </view>

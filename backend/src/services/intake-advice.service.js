@@ -146,7 +146,7 @@ async function runGenerateLlm(urls) {
     '- coverage and missing MUST agree: every false in coverage appears in missing; never put a side in missing when coverage says true.',
     '- Output natural-language strings in Simplified Chinese. Keys in English.',
     'Return JSON only:',
-    '{"coverage":{"front":true,"rear":true,"left":true,"right":true},"missing":["车头"|"车尾"|"左侧"|"右侧"],"tips":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
+    '{"coverage":{"front":true,"rear":true,"left":true,"right":true},"missing":["车头"|"车尾"|"左侧"|"右侧"],"tips":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
   const content = [{ type: 'text', text: instruction }].concat(
     (urls || []).flatMap((url, index) => [
@@ -177,6 +177,12 @@ async function runGenerateLlm(urls) {
       })
       const parsed = parseIntakeAdvicePayload(result && result.text)
       if (!intakeAdviceHasContent(parsed)) continue
+      try {
+        const { queueApplyModelMasks } = require('./model-mask.service')
+        queueApplyModelMasks(urls, result && result.text)
+      } catch (_) {
+        /* 打码失败不影响出意见 */
+      }
       return parsed
     } catch (_) {
       /* 换下一家 */
@@ -197,6 +203,12 @@ async function runIntakeAdviceJob(albumId) {
       (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
     )
     if (!intake) return
+    const refs = intakePhotoRefs(intake)
+    const allUrls = refs.map((ref) => ref && ref.url).filter(Boolean)
+    const { noteForUrl, notesForAlbumImages } = require('./image-look-cache')
+    const known = await notesForAlbumImages(album)
+    const visionUrls = allUrls.filter((url) => !noteForUrl(url, known))
+    if (allUrls.length && !visionUrls.length) return
     const fingerprint = buildFingerprint(album)
     await patchIntakeNode(albumId, (item) => ({
       ...item,
@@ -207,31 +219,7 @@ async function runIntakeAdviceJob(albumId) {
         updatedAt: new Date().toISOString(),
       },
     }))
-    const refs = intakePhotoRefs(intake)
-    const { resolveDesensitizedUrlForAsset } = require('./media.service')
-    const { usableMaskedProductUrl } = require('../lib/media-storage')
-    const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
-    const maskedUrls = []
-    const writeback = []
-    for (let i = 0; i < refs.length; i += 1) {
-      const ref = refs[i]
-      if (ref.maskedUrl) {
-        maskedUrls.push(ref.maskedUrl)
-        continue
-      }
-      const masked = await resolveDesensitizedUrlForAsset(ref.url, {
-        force: false,
-        albumId,
-        nodeId: 'intake',
-        idx: i + 1,
-      })
-      const safeUrl = usableMaskedProductUrl(masked && masked.ok ? masked.maskedUrl : '')
-      if (!safeUrl) continue
-      writeback.push({ rawUrl: ref.url, maskedUrl: safeUrl })
-      maskedUrls.push(safeUrl)
-    }
-    if (writeback.length) await persistMaskedPairsToAlbumFlow(albumId, writeback)
-    const parsed = maskedUrls.length ? await runGenerateLlm(maskedUrls) : null
+    const parsed = visionUrls.length ? await runGenerateLlm(visionUrls) : null
     await patchIntakeNode(albumId, (item) => {
       const draft = contentOfFlowNode(item)
       const imageNotes = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
@@ -239,7 +227,7 @@ async function runIntakeAdviceJob(albumId) {
       noteRows.forEach((row) => {
         const slot = Number(row && row.slot)
         const note = text(row && row.note)
-        const url = maskedUrls[slot - 1]
+        const url = visionUrls[slot - 1]
         const key = String(url || '')
           .trim()
           .split('?')[0]
@@ -249,12 +237,12 @@ async function runIntakeAdviceJob(albumId) {
       const next = {
         ...item,
         content: { ...draft, imageNotes },
-        intakeAdvice: !maskedUrls.length || parsed
+        intakeAdvice: !visionUrls.length || parsed
           ? {
               status: 'ready',
               scope: 'coverage',
               fingerprint,
-              noPhotos: !maskedUrls.length,
+              noPhotos: !visionUrls.length,
               covered: parsed ? parsed.covered : false,
               diagnosis: '',
               photoTips: Array.isArray(parsed && parsed.tips) ? parsed.tips : [],

@@ -385,13 +385,15 @@ function buildReviewContext(album, node, extra = {}) {
   }
 }
 
-async function collectMaskedUrlsForNode(albumId, node) {
-  const { collectMaskedUrlsForRawList } = require('./desensitize.service')
-  const entries = collectNodeImageEntries(node).map((row) => ({
-    url: row.url,
-    label: row.label,
-  }))
-  return collectMaskedUrlsForRawList(albumId, entries, { requireAll: false })
+function collectVisionUrlsForNode(node) {
+  const urls = collectNodeImageEntries(node)
+    .map((row) => ({
+      url: row.url,
+      label: row.label,
+      rawUrl: row.url,
+    }))
+    .filter((row) => row.url)
+  return { ready: true, urls }
 }
 
 async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
@@ -492,7 +494,8 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     '仪表、里程不是发现项：补拍仪表时 part 写「仪表」，不要填 findingIndex。',
     'photo：how 写拍哪、怎么拍（距离、要入镜的读数、避码）；不要 suggestedText。',
     'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName / quoteLineNote 之一；suggestedText 必须是可直接填进该字段的整句。',
-    '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。只用打码图。',
+    '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。附图是原图。',
+    'JSON 另带 masks。框出车牌、车架号、人脸，以及手机号、姓名、证件。kind 只用 plate、vin、face、phone、name、document。imageSlot 从 1 起，按附图顺序。regions 的 left、top、width、height 是相对整张图的 0 到 1。没有就给空数组。',
     'priorFacts 是前面各步已经识过或写过的文字，不要再看那些图，不要改已经确认的检测和报价。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,
@@ -541,6 +544,12 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
       if (!parsed) continue
       const suggestions = keepCompletenessSuggestions(parseModelSuggestions(parsed, []), ctx)
       const merchantBrief = parseMerchantBrief(parsed, ctx)
+      try {
+        const { applyModelMasks } = require('./model-mask.service')
+        await applyModelMasks(labeled, parsed.masks)
+      } catch (_) {
+        /* 遮挡打不上不影响意见 */
+      }
       return { suggestions, merchantBrief, source: 'llm', engine: engine.id }
     } catch (error) {
       failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
@@ -564,7 +573,7 @@ async function analyzeNode(album, node, capability) {
   const fallback = keepCompletenessSuggestions(buildRuleSuggestions(ctx), ctx)
   let masked = { ready: true, urls: [] }
   if (collectNodeImageUrls(imageNode).length) {
-    masked = await collectMaskedUrlsForNode(album.id, imageNode)
+    masked = collectVisionUrlsForNode(imageNode)
   }
   let visionUrls = masked.urls || []
   let photoObservations = []
@@ -583,14 +592,22 @@ async function analyzeNode(album, node, capability) {
     let byImageId = {}
     if (ids.length) {
       try {
+        const { reuseExistingLook } = require('./image-look-cache')
         const rows = await prisma.albumImageVisionCache.findMany({
-          where: {
-            albumImageId: { in: ids },
-            promptVersion: FLOW_ORGANIZE_PROMPT_VERSION,
-          },
+          where: { albumImageId: { in: ids } },
         })
+        const grouped = {}
         rows.forEach((row) => {
-          if (row && row.albumImageId) byImageId[row.albumImageId] = row
+          const id = row && row.albumImageId
+          if (!id) return
+          if (!grouped[id]) grouped[id] = []
+          grouped[id].push(row)
+        })
+        Object.keys(grouped).forEach((id) => {
+          const decision = reuseExistingLook(grouped[id], {
+            version: FLOW_ORGANIZE_PROMPT_VERSION,
+          })
+          if (decision.reuse && decision.row) byImageId[id] = decision.row
         })
       } catch (_) {
         byImageId = {}

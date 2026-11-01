@@ -55,6 +55,11 @@
         </view>
       </view>
 
+      <block wx:if="{{ch.repairBrief}}">
+        <text class="host-archive-preview__k">本次维修简述</text>
+        <text class="host-archive-preview__p">{{ch.repairBrief}}</text>
+      </block>
+
       <view wx:if="{{ch.photos.length}}" class="host-archive-preview__photos">
         <view
           wx:for="{{ch.photos}}"

@@ -1410,7 +1410,7 @@ async function listUserServiceAlbums(userId, options = {}) {
 }
 
 async function getUserServiceAlbum(albumId, userId) {
-  const album = await loadAlbum(albumId)
+  let album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在或已被删除')
     err.status = 404

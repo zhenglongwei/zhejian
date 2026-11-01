@@ -751,7 +751,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   const { buildHostContentReviewDocs } = require('./service-flow.service')
   const { buildPublicServiceFlow } = require('../utils/public-service-flow')
 
-  const album = await loadAlbum(albumId)
+  let album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
     err.status = 404

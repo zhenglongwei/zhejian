@@ -15,6 +15,7 @@
     "album-old-part-traces": "/components/album-old-part-traces/index",
     "album-checklist-editor": "/components/album-checklist-editor/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-bottom-sheet": "/components/bottom-sheet/index"
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "social-card": "/components/social-card-sheet/index"
   }
 }

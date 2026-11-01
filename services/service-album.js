@@ -119,6 +119,26 @@ async function fetchSharedAlbum(token) {
   return get(`/user/shared-albums/${encodeURIComponent(token)}`)
 }
 
+/** 短图文：朋友圈 / 小红书 / 抖音 + 打码图 */
+async function fetchAlbumSocialCards(albumId, options = {}) {
+  if (ENV.mode === 'mock') {
+    const { buildSocialCardSet } = require('../utils/album-social-card')
+    const detail = await mockFetchServiceAlbum(albumId)
+    return buildSocialCardSet({
+      audience: 'owner',
+      facts: {
+        serviceName: detail.serviceName,
+        storeName: detail.storeName,
+        vehicleLabel: detail.vehicleDisplay,
+        notes: (detail.nodes || []).map((node) => node && node.note).filter(Boolean),
+      },
+      images: [],
+    })
+  }
+  const params = options && options.refresh ? { refresh: '1' } : {}
+  return get(`/user/service-albums/${encodeURIComponent(albumId)}/social-cards`, params)
+}
+
 /** USER-PUB · 多平台社交媒体长文（车主复制） */
 async function fetchAlbumSocialCopy(albumId, platform = 'xiaohongshu') {
   if (ENV.mode === 'mock') {
@@ -184,6 +204,7 @@ module.exports = {
   fetchSharedAlbum,
   fetchAlbumClaimPreview,
   claimServiceAlbum,
+  fetchAlbumSocialCards,
   fetchAlbumSocialCopy,
   interpretOwnerAlbumVision,
 }

@@ -800,26 +800,19 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         }
       }
       maskCount += 1
-      const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
-        albumId,
-        nodeId: asset.nodeId,
-        idx: asset.idx,
-        force: albumForce || stub,
-      })
-      const preMaskedUrl = masked.ok ? masked.maskedUrl : ''
       return {
         assetId: asset.assetId,
-        mediaId: masked.mediaId || '',
+        mediaId: (prev && prev.mediaId) || '',
         nodeId: asset.nodeId,
         nodeTitle: asset.nodeTitle,
         idx: asset.idx,
         rawUrl: asset.rawUrl,
-        maskedUrl: preMaskedUrl,
-        preMaskedUrl,
-        status: preMaskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
+        maskedUrl: '',
+        preMaskedUrl: '',
+        status: ASSET_STATUS.RAW_UPLOADED,
         previewed: false,
-        riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : preMaskedUrl ? [] : [],
-        riskLevel: masked.riskLevel || (preMaskedUrl ? 'low' : ''),
+        riskTags: [],
+        riskLevel: '',
       }
   })
   console.info('[desensitize] incremental pre-mask', {

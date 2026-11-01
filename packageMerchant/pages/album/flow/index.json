@@ -12,6 +12,8 @@
     "flow-unmatched-photos": "/components/flow-unmatched-photos/index",
     "flow-finding-card": "/components/flow-finding-card/index",
     "flow-pick-sheet": "/components/flow-pick-sheet/index",
-    "ai-fab": "/components/ai-fab/index"
+    "ai-fab": "/components/ai-fab/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "social-card": "/components/social-card-sheet/index"
   }
 }

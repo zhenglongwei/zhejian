@@ -1,6 +1,11 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { buildStoreHomeModel, countPublicAlbums, monthViewTotal } = require('./merchant-store-home')
+const {
+  buildStoreHomeModel,
+  buildOwnerStoreDetailGaps,
+  countPublicAlbums,
+  monthViewTotal,
+} = require('./merchant-store-home')
 
 test('缺项按真实资料算百分比，不写推荐概率', () => {
   const model = buildStoreHomeModel({
@@ -42,6 +47,32 @@ test('资料齐了不再提示补充', () => {
   assert.equal(model.missingLine, '')
   assert.equal(model.techValue, '1 位技师')
   assert.equal(model.introDone, true)
+})
+
+test('认证未通过才在详情标出缺项，已认证不标', () => {
+  const thin = {
+    storeName: '我的门店',
+    address: '',
+    intro: '',
+    services: [],
+    photos: {},
+    authStatus: 'none',
+  }
+  const gaps = buildOwnerStoreDetailGaps(thin)
+  assert.equal(gaps.active, true)
+  assert.equal(gaps.notes.name, '还没填门店名称')
+  assert.equal(gaps.notes.address, '还没填地址')
+  assert.equal(gaps.notes.services, '还没填擅长服务')
+  assert.equal(gaps.notes.cert, '还没上传资质')
+  assert.ok(gaps.photoNotes.some((line) => /门头/.test(line)))
+
+  const verified = buildOwnerStoreDetailGaps({
+    ...thin,
+    publisherTrust: { authStatus: 'verified' },
+  })
+  assert.equal(verified.active, false)
+  assert.deepEqual(verified.notes, {})
+  assert.deepEqual(verified.photoNotes, [])
 })
 
 test('公开案例认已上网的相册，浏览量只加门店和案例', () => {

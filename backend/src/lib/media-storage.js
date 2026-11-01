@@ -34,7 +34,11 @@ function resolveUploadDir(subdir) {
 function buildPublicMediaUrl(relativePath) {
   const rel = String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '')
   const base = `${config.publicBaseUrl}/api/v1/media/files/${rel}`
-  return appendMediaAccessQuery(base, rel)
+  const withAccess = appendMediaAccessQuery(base, rel)
+  if (!/\/desensitized\//.test(rel)) return withAccess
+  const version = encodeURIComponent(config.desensitize.cacheVersion || '1')
+  const joiner = withAccess.includes('?') ? '&' : '?'
+  return `${withAccess}${joiner}v=${version}`
 }
 
 /** 将库内旧域名 URL 统一为当前 PUBLIC_BASE_URL，并为原图补 signed query */

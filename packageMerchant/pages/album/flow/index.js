@@ -12,7 +12,16 @@ const {
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,
   recognizeVehicleIntakeOcr,
+  fetchMerchantSocialCards,
 } = require('../../../../services/merchant-service-album')
+const {
+  applySocialPayload,
+  rememberSocialText,
+  rememberSocialCaption,
+  switchSocialPlatform,
+  toggleSocialImage,
+} = require('../../../../utils/social-card-session')
+const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../../utils/social-card-actions')
 const {
   SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_STATUS_LABEL,
@@ -44,7 +53,14 @@ const {
 const { merchantDocTitle, presentMerchantTimeline } = require('../../../../utils/merchant-flow-steps')
 const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../../utils/merchant-album-overview')
 const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
-const { buildOwnerPreviewDoc } = require('../../../../utils/owner-preview-doc')
+const {
+  buildOwnerPreviewDoc,
+  previewAlbumOf,
+  workItemsFromFindings,
+  quoteTotalsFromNodes,
+  finishWorkItemsFromFindingsList,
+  deliveryPhotosFromDraft,
+} = require('../../../../utils/owner-preview-doc')
 const {
   buildMerchantStageBoard,
   stageKeyOf,
@@ -618,6 +634,7 @@ Page({
     notifyConfirmDisabled: false,
     showQuoteAiCheck: false,
     adviceOpen: false,
+    advicePaintWaiting: false,
     adviceStale: false,
     adviceCanRefresh: false,
     adviceWaitHint: '',
@@ -1473,7 +1490,8 @@ Page({
       const draft = nodeContentOf(intake)
       const fromNode = normalizePendingImages(draft.pendingImages)
       const pile = normalizePendingImages(this.collectIntakePile())
-      return {
+      const pendingImages = fromNode.length ? fromNode : pile
+      const intakeSave = {
         chiefComplaint: this.data.chiefComplaint || draft.chiefComplaint,
         receiverName: String(this.data.receiverName || draft.receiverName || '').trim(),
         receivedAt: String(this.data.receivedAt || draft.receivedAt || '').trim(),
@@ -1484,8 +1502,9 @@ Page({
         odometerUrl: String(draft.odometerUrl || this.data.odometerUrl || '').trim(),
         odometerImageId: String(draft.odometerImageId || this.data.odometerImageId || '').trim(),
         intakeResults: [],
-        pendingImages: fromNode.length ? fromNode : pile,
       }
+      if (pendingImages.length) intakeSave.pendingImages = pendingImages
+      return intakeSave
     }
     // 检测＝细查：部位 findings + 结论（结论进检测报告）
     if (kind === 'inspection') {
@@ -1529,16 +1548,15 @@ Page({
     if (kind === 'delivery_photos') {
       const exterior = String(this.data.deliveryExteriorUrl || '').trim()
       const photos = this.data.deliveryPhotos || this.data.workImagePool || []
-      return {
+      const selectedDeliveryUrls = photos
+        .filter((row) => row && row.url && row.url !== exterior)
+        .map((row) => row.url)
+      const deliverySave = {
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: String(this.data.delivererName || '').trim(),
         finishedAt: String(this.data.finishedAt || '').trim(),
         confirmCopy: REPAIR_CONFIRM_COPY,
-        deliveryExteriorUrl: exterior,
-        selectedDeliveryUrls: photos
-          .filter((row) => row && row.url && row.url !== exterior)
-          .map((row) => row.url),
         repairBrief: String(this.data.repairBrief || '').trim(),
         ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
           .map((row, index) => ({
@@ -1549,6 +1567,9 @@ Page({
           .filter((row) => row.question)
           .slice(0, 5),
       }
+      if (exterior) deliverySave.deliveryExteriorUrl = exterior
+      if (selectedDeliveryUrls.length) deliverySave.selectedDeliveryUrls = selectedDeliveryUrls
+      return deliverySave
     }
     return {}
   },
@@ -1619,7 +1640,24 @@ Page({
       if (active && active.id) {
         const local = readLocalFlowDraft(this.albumId, active.id)
         if (local && (local.content || local.photoDraft)) {
-          photoDraft = { ...photoDraft, ...(local.content || local.photoDraft) }
+          const bag = { ...(local.content || local.photoDraft) }
+          if (
+            !normalizePendingImages(bag.pendingImages).length &&
+            normalizePendingImages(photoDraft.pendingImages).length
+          ) {
+            delete bag.pendingImages
+          }
+          if (
+            !(Array.isArray(bag.selectedDeliveryUrls) && bag.selectedDeliveryUrls.length) &&
+            Array.isArray(photoDraft.selectedDeliveryUrls) &&
+            photoDraft.selectedDeliveryUrls.length
+          ) {
+            delete bag.selectedDeliveryUrls
+          }
+          if (!String(bag.deliveryExteriorUrl || '').trim() && String(photoDraft.deliveryExteriorUrl || '').trim()) {
+            delete bag.deliveryExteriorUrl
+          }
+          photoDraft = { ...photoDraft, ...bag }
         }
       }
       const isIntakePhotoStep = Boolean(
@@ -1703,7 +1741,6 @@ Page({
             odometerUrl: hydrated.odometerUrl,
             odometerImageId: hydrated.odometerImageId,
             mileageKm: hydrated.mileageKm || photoDraft.mileageKm,
-            pendingImages: [],
             intakeResults: [],
           }
         }
@@ -1967,6 +2004,23 @@ Page({
           }
         }
       }
+      if (
+        (active && (active.kind === 'delivery_photos' || active.kind === 'repair_report')) ||
+        stageKeyOf(stageKeyForBoard || this.data.stageKey) === 'finish'
+      ) {
+        const filled = this.deliveryFormFromNodes(album, flowNodes, photoDraft)
+        warrantyPeriod = filled.warrantyPeriod || warrantyPeriod
+        warrantyNotes = filled.warrantyNotes || warrantyNotes
+        repairBrief = filled.repairBrief || repairBrief
+        if (filled.ownerFaqs.length) ownerFaqs = filled.ownerFaqs
+        confirmCopy = filled.confirmCopy || confirmCopy
+        if (filled.deliveryExteriorUrl) deliveryExteriorUrl = filled.deliveryExteriorUrl
+        if (filled.deliveryPhotos.length) {
+          deliveryPhotos = filled.deliveryPhotos
+          workImagePool = filled.workImagePool
+          deliveryExtraCount = filled.deliveryExtraCount
+        }
+      }
       const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
       const face = quoteFace({
         templateId: album && album.templateId,
@@ -2118,7 +2172,10 @@ Page({
         aiReview: null,
         sections,
         adviceApplyRows: this.buildAdviceApplyRows(sections, null),
-        pendingImages: normalizePendingImages(photoDraft.pendingImages),
+        pendingImages: isIntakePhotoStep ? [] : normalizePendingImages(photoDraft.pendingImages),
+        intakePile: isIntakePhotoStep
+          ? this.intakePileFromPending(photoDraft.pendingImages)
+          : this.data.intakePile,
         organizingPhotos: false,
         organizeResultHint: '',
         intakeResults: Array.isArray(photoDraft.intakeResults)
@@ -2211,6 +2268,7 @@ Page({
         ...openStageBar,
       }, () => {
         this.syncAdviceChrome()
+        this.settleAdvicePaintWaiting()
         if (this._foldInspectionPending) {
           this._foldInspectionPending = false
           this.persistPhotoDraft().catch(() => {})
@@ -2914,104 +2972,85 @@ Page({
       const work = nodes.find((node) => node && node.kind === 'work')
       const draft = this.nodeDraft(work)
       const source = this.data.activeKind === 'work' ? this.collectFindingsFromSections() : draft.findings || []
-      const items = (source || []).map((row) => ({
-        name: String((row && row.partName) || '').trim(),
-        brand: String((row && row.brand) || '').trim(),
-        note: String((row && row.caption) || '').trim(),
-        images: row && row.images ? row.images : row && row.url ? [{ url: row.url }] : [],
-      })).filter((row) => row.name)
+      let workItems = workItemsFromFindings(source)
+      if (!workItems.length) {
+        const sealed =
+          (work && work.document && work.document.payload && work.document.payload.workItems) || []
+        workItems = workItemsFromFindings(
+          sealed.map((row) => ({
+            partName: (row && (row.partName || row.name)) || '',
+            caption: (row && (row.caption || row.note)) || '',
+            brand: (row && row.brand) || '',
+            material: (row && row.material) || '',
+            qty: (row && row.qty) || '',
+            images: (row && row.images) || [],
+          })),
+        )
+      }
       return buildOwnerPreviewDoc({
         family: 'work',
-        album,
+        album: previewAlbumOf(album),
         mileageText,
-        workItems: items,
+        workItems,
         signName: draft.workerName || this.data.workerName,
         signAt: formatClerkAtForDoc(draft.finishedAt || this.data.workFinishedAt),
       })
     }
+    const reportReady = Boolean(
+      String(repairPayload.repairBrief || '').trim() ||
+        String(repairPayload.warrantyPeriod || '').trim() ||
+        (Array.isArray(repairPayload.deliveryPhotos) && repairPayload.deliveryPhotos.length) ||
+        (Array.isArray(repairPayload.ownerFaqs) && repairPayload.ownerFaqs.length) ||
+        (Array.isArray(repairPayload.workItems) && repairPayload.workItems.length),
+    )
+    if (reportReady && String((delivery && delivery.status) || '') === 'completed') {
+      return buildOwnerPreviewDoc({
+        family: 'finish',
+        album: previewAlbumOf(album),
+        mileageText,
+        workItems: Array.isArray(repairPayload.workItems) ? repairPayload.workItems : [],
+        totalAmount: repairPayload.totalAmount,
+        deliveryPhotos: Array.isArray(repairPayload.deliveryPhotos) ? repairPayload.deliveryPhotos : [],
+        repairBrief: repairPayload.repairBrief,
+        ownerFaqs: repairPayload.ownerFaqs,
+        warrantyPeriod: repairPayload.warrantyPeriod,
+        warrantyNotes: repairPayload.warrantyNotes,
+        signName: repairPayload.delivererName,
+        signAt: formatClerkAtForDoc(repairPayload.finishedAt || ''),
+      })
+    }
     const works = nodes.filter((node) => node && node.kind === 'work')
-    const quoteByName = {}
-    let quoteTotal = 0
-    nodes.forEach((node) => {
-      if (!node || (node.kind !== 'quote_confirm' && node.kind !== 'addon_quote_confirm')) return
-      const status = String((node.document && node.document.status) || '')
-      if (status === 'cancelled') return
-      const lines = (node.document && node.document.payload && node.document.payload.lines) || []
-      lines.forEach((line) => {
-        const name = String((line && line.name) || '').trim()
-        const amount = Number(line && line.amount)
-        if (!name || !Number.isFinite(amount)) return
-        quoteByName[name] = (quoteByName[name] || 0) + amount
-        quoteTotal += amount
-      })
-    })
-    const workItems = []
-    works.forEach((node) => {
-      const findings = (this.nodeDraft(node).findings) || []
-      findings.forEach((row) => {
-        const name = String((row && row.partName) || '').trim()
-        if (!name) return
-        const own = Number(row && row.amount)
-        const fromQuote = quoteByName[name]
-        workItems.push({
-          name,
-          brand: String((row && row.brand) || '').trim(),
-          note: String((row && row.caption) || '').trim(),
-          amount: Number.isFinite(own) && own > 0 ? own : fromQuote != null ? fromQuote : '',
-        })
-      })
-    })
-    const onDelivery = Boolean(this.data.isDeliveryPhotoStep)
+    const { quoteByName, quoteTotal } = quoteTotalsFromNodes(nodes)
+    const workItems = finishWorkItemsFromFindingsList(
+      works.map((node) => this.nodeDraft(node).findings || []),
+      quoteByName,
+    )
     const liveExterior = String(this.data.deliveryExteriorUrl || '').trim()
     const liveExtras = (this.data.deliveryPhotos || this.data.workImagePool || [])
       .filter((row) => row && row.url && row.url !== liveExterior)
       .map((row) => row.url)
-    const useLive = onDelivery && (liveExterior || liveExtras.length)
-    const exterior = useLive
-      ? liveExterior
-      : String(deliveryDraft.deliveryExteriorUrl || liveExterior || '').trim()
-    const extras = useLive
-      ? liveExtras
-      : Array.isArray(deliveryDraft.selectedDeliveryUrls)
-        ? deliveryDraft.selectedDeliveryUrls
-        : []
-    const deliveryPhotos = []
-    const seenPhoto = {}
-    const pushDeliveryPhoto = (url) => {
-      const text = String(url || '').trim()
-      if (!text || seenPhoto[text]) return
-      seenPhoto[text] = true
-      deliveryPhotos.push({ url: text })
-    }
-    pushDeliveryPhoto(exterior)
-    extras.forEach(pushDeliveryPhoto)
     return buildOwnerPreviewDoc({
       family: 'finish',
-      album,
+      album: previewAlbumOf(album),
       mileageText,
       workItems,
       totalAmount: quoteTotal,
-      deliveryPhotos,
-      repairBrief:
-        deliveryDraft.repairBrief ||
-        repairPayload.repairBrief ||
-        this.data.repairBrief ||
-        '',
+      deliveryPhotos: deliveryPhotosFromDraft(deliveryDraft, {
+        useLive: Boolean(this.data.isDeliveryPhotoStep),
+        exterior: liveExterior,
+        extras: liveExtras,
+      }),
+      repairBrief: deliveryDraft.repairBrief || this.data.repairBrief || '',
       ownerFaqs:
         (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
           ? deliveryDraft.ownerFaqs
           : null) ||
-        (Array.isArray(repairPayload.ownerFaqs) && repairPayload.ownerFaqs.length
-          ? repairPayload.ownerFaqs
-          : null) ||
         this.data.ownerFaqs ||
         [],
-      warrantyPeriod: deliveryDraft.warrantyPeriod || repairPayload.warrantyPeriod || this.data.warrantyPeriod,
-      warrantyNotes: deliveryDraft.warrantyNotes || repairPayload.warrantyNotes || this.data.warrantyNotes,
-      signName: deliveryDraft.delivererName || repairPayload.delivererName,
-      signAt: formatClerkAtForDoc(
-        deliveryDraft.finishedAt || repairPayload.finishedAt || this.data.finishedAt,
-      ),
+      warrantyPeriod: deliveryDraft.warrantyPeriod || this.data.warrantyPeriod,
+      warrantyNotes: deliveryDraft.warrantyNotes || this.data.warrantyNotes,
+      signName: deliveryDraft.delivererName,
+      signAt: formatClerkAtForDoc(deliveryDraft.finishedAt || this.data.finishedAt),
     })
   },
 
@@ -3974,6 +4013,64 @@ Page({
     this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
     this.scheduleAutoSavePhotos()
     this.scheduleParkDetachedPhotos()
+  },
+
+  deliveryFormFromNodes(album, flowNodes = [], photoDraft = {}) {
+    const deliveryNode = (flowNodes || []).find((node) => node && node.kind === 'delivery_photos')
+    const deliveryDraft = nodeContentOf(deliveryNode)
+    const faqSource =
+      (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
+        ? deliveryDraft.ownerFaqs
+        : null) ||
+      (Array.isArray(photoDraft.ownerFaqs) && photoDraft.ownerFaqs.length
+        ? photoDraft.ownerFaqs
+        : null) ||
+      []
+    const selected =
+      (Array.isArray(deliveryDraft.selectedDeliveryUrls) &&
+      deliveryDraft.selectedDeliveryUrls.length
+        ? deliveryDraft.selectedDeliveryUrls
+        : null) ||
+      (Array.isArray(photoDraft.selectedDeliveryUrls) && photoDraft.selectedDeliveryUrls.length
+        ? photoDraft.selectedDeliveryUrls
+        : null) ||
+      []
+    const exterior = String(
+      deliveryDraft.deliveryExteriorUrl || photoDraft.deliveryExteriorUrl || '',
+    ).trim()
+    const source = {
+      ...photoDraft,
+      ...deliveryDraft,
+      selectedDeliveryUrls: selected,
+      deliveryExteriorUrl: exterior,
+    }
+    const packed = this.hydrateDeliveryGallery(album, source, exterior)
+    return {
+      warrantyPeriod: String(
+        deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || '',
+      ).trim(),
+      warrantyNotes:
+        resolveWarrantyNotes(deliveryDraft) || resolveWarrantyNotes(photoDraft),
+      repairBrief: String(
+        deliveryDraft.repairBrief || photoDraft.repairBrief || '',
+      ).trim(),
+      ownerFaqs: (Array.isArray(faqSource) ? faqSource : [])
+        .map((row, index) => ({
+          id: String((row && row.id) || `faq_${index + 1}`),
+          question: String((row && (row.question || row.q)) || '').trim(),
+          answer: String((row && (row.answer || row.a)) || '').trim(),
+        }))
+        .filter((row) => row.question)
+        .slice(0, 5),
+      confirmCopy:
+        deliveryDraft.confirmCopy ||
+        photoDraft.confirmCopy ||
+        REPAIR_CONFIRM_COPY,
+      deliveryPhotos: packed.deliveryPhotos,
+      workImagePool: packed.workImagePool,
+      deliveryExtraCount: packed.deliveryExtraCount,
+      deliveryExteriorUrl: packed.deliveryExteriorUrl || exterior,
+    }
   },
 
   packDeliveryGallery(photos = [], exteriorUrl = '') {
@@ -5111,6 +5208,19 @@ Page({
 
   async persistPhotoDraft() {
     const kind = this.data.activeNode && this.data.activeNode.kind
+    if (this.data.readOnly) return
+    if (kind === 'delivery_photos' && String(this.data.activeNode.status || '') === 'completed') {
+      return
+    }
+    if (kind === 'work' && String(this.data.activeNode.status || '') === 'completed') {
+      return
+    }
+    if (
+      (kind === 'intake' || kind === 'intake_inspection') &&
+      (this.data.intakeSent || String(this.data.activeNode.status || '') === 'completed')
+    ) {
+      return
+    }
     if (
       kind !== 'intake_inspection' &&
       kind !== 'intake' &&
@@ -7576,13 +7686,39 @@ Page({
       return payload
     }
     if (kind === 'repair_report') {
+      const preview = this.reportPreviewFor('交车报告')
+      const doc = (preview && preview.doc) || {}
+      const faqs =
+        (Array.isArray(this.data.ownerFaqs) && this.data.ownerFaqs.length
+          ? this.data.ownerFaqs
+          : null) ||
+        (Array.isArray(base.ownerFaqs) && base.ownerFaqs.length ? base.ownerFaqs : null) ||
+        doc.ownerFaqs ||
+        []
+      const workItems =
+        (Array.isArray(base.workItems) && base.workItems.length
+          ? base.workItems
+          : null) ||
+        doc.workItems ||
+        []
+      const deliveryPhotos =
+        (Array.isArray(base.deliveryPhotos) && base.deliveryPhotos.length
+          ? base.deliveryPhotos
+          : null) ||
+        doc.deliveryPhotos ||
+        []
       return {
         ...base,
         confirmCopy: REPAIR_CONFIRM_COPY,
-        warrantyPeriod: this.data.warrantyPeriod || base.warrantyPeriod,
-        warrantyNotes: this.data.warrantyNotes || base.warrantyNotes,
-        delivererName: String(this.data.delivererName || base.delivererName || '').trim(),
-        finishedAt: String(this.data.finishedAt || base.finishedAt || '').trim(),
+        warrantyPeriod: this.data.warrantyPeriod || base.warrantyPeriod || doc.warrantyPeriod,
+        warrantyNotes: this.data.warrantyNotes || base.warrantyNotes || doc.warrantyNotes,
+        delivererName: String(this.data.delivererName || base.delivererName || doc.signName || '').trim(),
+        finishedAt: String(this.data.finishedAt || base.finishedAt || doc.signAt || '').trim(),
+        repairBrief: String(this.data.repairBrief || base.repairBrief || doc.repairBrief || '').trim(),
+        ownerFaqs: faqs,
+        workItems,
+        deliveryPhotos,
+        totalAmount: base.totalAmount != null ? base.totalAmount : doc.totalAmount,
       }
     }
     return base
@@ -7637,11 +7773,73 @@ Page({
     const isWaiting = Boolean(advice && advice.isWaiting)
     this.setData({
       adviceStale: Boolean(advice && advice.stale),
-      adviceCanRefresh: !this.data.readOnly && (hasContent || failed),
+      adviceCanRefresh: !this.data.readOnly && (hasContent || failed) && !isWaiting,
       adviceWaitHint:
         (advice && advice.waitHint) ||
         (isWaiting ? (hasContent ? '正在更新' : '正在出意见') : ''),
+      adviceFailText: failed && !isWaiting ? ((advice && advice.errorMessage) || '这次没出成，点刷新再试') : '',
     })
+  },
+
+  /** 弹层先进入等待，再保存、再请求。否则会空等两三秒。 */
+  showAdviceWaiting() {
+    const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
+    const prev = this.currentAdviceBundle() || {}
+    const waitHint = prev.hasContent ? '正在更新' : '正在出意见'
+    const next = {
+      ...prev,
+      status: prev.hasContent ? 'running' : 'queued',
+      isWaiting: true,
+      waitHint,
+    }
+    const patch = {
+      adviceOpen: true,
+      advicePaintWaiting: true,
+      adviceWaitHint: waitHint,
+      adviceCanRefresh: false,
+    }
+    if (family === 'intake') patch.intakeAdvice = next
+    else if (family === 'inspect') patch.inspectionAdvice = next
+    else if (family === 'quote') patch.quoteAssist = next
+    else if (family === 'work') patch.workAdvice = next
+    else if (family === 'finish') patch.deliveryAdvice = next
+    else {
+      patch.inspectionAdvice = next
+      patch.intakeAdvice = next
+    }
+    this.setData(patch)
+  },
+
+  failAdviceWait(message) {
+    const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
+    const prev = this.currentAdviceBundle() || {}
+    const next = {
+      ...prev,
+      status: 'failed',
+      isWaiting: false,
+      waitHint: '',
+      errorMessage: message || '未能出意见',
+    }
+    const patch = {
+      advicePaintWaiting: false,
+      adviceWaitHint: '',
+      adviceCanRefresh: !this.data.readOnly,
+    }
+    if (family === 'intake') patch.intakeAdvice = next
+    else if (family === 'inspect') patch.inspectionAdvice = next
+    else if (family === 'quote') patch.quoteAssist = next
+    else if (family === 'work') patch.workAdvice = next
+    else if (family === 'finish') patch.deliveryAdvice = next
+    else patch.inspectionAdvice = next
+    this.setData(patch, () => this.syncAdviceChrome())
+  },
+
+  settleAdvicePaintWaiting() {
+    if (!this.data.advicePaintWaiting) return
+    const advice = this.currentAdviceBundle()
+    if (advice && (advice.status === 'ready' || advice.status === 'failed') && !advice.isWaiting) {
+      this.setData({ advicePaintWaiting: false }, () => this.syncAdviceChrome())
+    }
   },
 
   /**
@@ -7651,7 +7849,7 @@ Page({
     const force = Boolean(options && options.force)
     if (this.data.confirming) return
     if (this.data.adviceOpen && !force) {
-      this.setData({ adviceOpen: false })
+      this.setData({ adviceOpen: false, advicePaintWaiting: false })
       return
     }
     const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
@@ -7678,7 +7876,6 @@ Page({
   },
 
   async onInspectionAi() {
-    if (this.data.organizingPhotos) return
     return this.openAdvicePanel()
   },
 
@@ -7712,7 +7909,7 @@ Page({
   },
 
   onCloseAdvice() {
-    this.setData({ adviceOpen: false })
+    this.setData({ adviceOpen: false, advicePaintWaiting: false })
   },
 
   onAdvicePanelTap() {},
@@ -7733,15 +7930,16 @@ Page({
       wx.showToast({ title: '先填品牌车系', icon: 'none' })
       return
     }
-    this.setData({ confirming: true, adviceOpen: true })
+    this.setData({ confirming: true })
+    this.showAdviceWaiting()
     try {
       await this.persistPhotoDraft()
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         startIntakeAdvice: true,
         forceRefresh: force,
       })
-      await this.loadFlow({ silent: true })
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+      this.resumeQuoteAssistPoll()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
     } finally {
@@ -7754,13 +7952,15 @@ Page({
     if (this.data.readOnly || this.data.confirming) return
     if (this.data.quoteAssist && this.data.quoteAssist.isWaiting) return
     if (!this._nodeAiReviewEntitled) return
+    this.setData({ confirming: true })
+    this.showAdviceWaiting()
     try {
       await this.flushDocDraftSave()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '请先保存当前修改', icon: 'none' })
+      this.setData({ confirming: false })
       return
     }
-    this.setData({ confirming: true, adviceOpen: true })
     try {
       const quotePayload = this.buildQuotePayloadForSave()
       const quoteNodeId =
@@ -7772,8 +7972,8 @@ Page({
           forceRefresh: force,
         })
       }
-      await this.loadFlow({ silent: true })
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+      this.resumeQuoteAssistPoll()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
     } finally {
@@ -8095,31 +8295,30 @@ Page({
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
       return
     }
-    if (!force) {
-      const findings = this.collectFindingsFromSections()
-      const hasItem = findings.some(
-        (row) =>
-          String((row && row.partName) || '').trim() ||
-          String((row && row.advice) || '').trim() ||
-          (row.images && row.images.length),
-      )
-      if (!hasItem) {
-        this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
-        wx.showToast({ title: '先拍检查图或写检查项', icon: 'none' })
-        return
-      }
+    const findings = this.collectFindingsFromSections()
+    const hasItem = findings.some(
+      (row) =>
+        String((row && row.partName) || '').trim() ||
+        String((row && row.advice) || '').trim() ||
+        (row.images && row.images.length),
+    )
+    if (!hasItem && !this.intakeComplaintText()) {
+      this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+      wx.showToast({ title: '先写车主诉求', icon: 'none' })
+      return
     }
-    this.setData({ adviceOpen: true })
+    this.showAdviceWaiting()
     try {
       await this.persistPhotoDraft()
       await updateMerchantFlowNode(this.albumId, node.id, {
         startInspectionAdvice: true,
         forceRefresh: force,
       })
-      await this.loadFlow({ silent: true })
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+      this.resumeQuoteAssistPoll()
     } catch (e) {
       const message = (e && e.message) || '未能出意见'
+      this.failAdviceWait(message)
       wx.showToast({ title: message, icon: 'none' })
     }
   },
@@ -8137,15 +8336,16 @@ Page({
     if (this.data.readOnly || this.data.confirming) return
     const node = this.data.activeNode
     if (!node || !node.id) return
-    this.setData({ confirming: true, adviceOpen: true })
+    this.setData({ confirming: true })
+    this.showAdviceWaiting()
     try {
       await this.persistPhotoDraft()
       const res = await updateMerchantFlowNode(this.albumId, node.id, {
         [flag]: true,
         forceRefresh: force,
       })
-      await this.loadFlow({ silent: true })
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
+      this.resumeQuoteAssistPoll()
       if (res && !res.queued && !res.reuse && force) {
         wx.showToast({ title: '暂不可用', icon: 'none' })
       }
@@ -8675,5 +8875,70 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
     })
+  },
+
+  async onCopySocialCard() {
+    if (!this.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({
+      socialVisible: true,
+      socialLoading: true,
+      socialPlatforms: [],
+      socialImages: [],
+      socialText: '',
+      socialSaveDisabled: true,
+    })
+    try {
+      const payload = await fetchMerchantSocialCards(this.albumId)
+      applySocialPayload(this, payload, '打码完成后可保存')
+    } catch (e) {
+      this.setData({ socialVisible: false, socialLoading: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
+    }
+  },
+
+  async onRefreshSocial() {
+    if (!this.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({ socialRefreshing: true })
+    try {
+      const payload = await fetchMerchantSocialCards(this.albumId, { refresh: true })
+      applySocialPayload(this, payload, '打码完成后可保存')
+    } catch (e) {
+      this.setData({ socialRefreshing: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
+    }
+  },
+
+  onCloseSocial() {
+    this.setData({ socialVisible: false })
+  },
+
+  onSocialPlatform(e) {
+    switchSocialPlatform(this, e.detail && e.detail.id)
+  },
+
+  onSocialToggle(e) {
+    toggleSocialImage(this, e.detail && e.detail.id)
+  },
+
+  onSocialText(e) {
+    rememberSocialText(this, e.detail && e.detail.value)
+  },
+
+  onSocialCaption(e) {
+    rememberSocialCaption(this, e.detail && e.detail.value)
+  },
+
+  onCopySocial() {
+    copyCurrentSocialText(this)
+  },
+
+  onSaveSocial() {
+    saveCurrentSocialImages(this)
   },
 })

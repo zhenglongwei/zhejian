@@ -3,6 +3,8 @@
  * @see https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
  */
 
+const { apiHost, callerFromStack, recordLlmCall, scrubNode } = require('./llm-call-record')
+
 const DEFAULT_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 
 function resolveApiError(body, status) {
@@ -87,6 +89,8 @@ async function chatCompletion(options) {
   const controller = new AbortController()
   const timeoutMs = Number(options.timeoutMs) || 45000
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const caller = callerFromStack()
+  const started = Date.now()
 
   try {
     const res = await fetch(apiUrl, {
@@ -100,17 +104,63 @@ async function chatCompletion(options) {
     })
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
+      recordLlmCall({
+        ok: false,
+        channel: 'chat',
+        caller,
+        model: payload.model,
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        status: res.status,
+        request: scrubNode({ messages: payload.messages, temperature: payload.temperature }),
+        response: scrubNode(body),
+      })
       const err = new Error(resolveApiError(body, res.status))
       err.status = res.status
       err.body = body
       throw err
     }
-    return parseChatCompletionBody(body)
+    const parsed = parseChatCompletionBody(body)
+    recordLlmCall({
+      ok: true,
+      channel: 'chat',
+      caller,
+      model: payload.model,
+      apiHost: apiHost(apiUrl),
+      elapsedMs: Date.now() - started,
+      status: res.status,
+      request: scrubNode({ messages: payload.messages, temperature: payload.temperature }),
+      response: scrubNode(body),
+      text: parsed.text,
+    })
+    return parsed
   } catch (error) {
     if (error.name === 'AbortError') {
+      recordLlmCall({
+        ok: false,
+        channel: 'chat',
+        caller,
+        model: payload.model,
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        error: 'llm_timeout',
+        request: scrubNode({ messages: payload.messages, temperature: payload.temperature }),
+      })
       const err = new Error('llm_timeout')
       err.code = 'LLM_TIMEOUT'
       throw err
+    }
+    if (!error.status && !error.body) {
+      recordLlmCall({
+        ok: false,
+        channel: 'chat',
+        caller,
+        model: payload.model,
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        error: String(error.message || error).slice(0, 300),
+        request: scrubNode({ messages: payload.messages, temperature: payload.temperature }),
+      })
     }
     throw error
   } finally {

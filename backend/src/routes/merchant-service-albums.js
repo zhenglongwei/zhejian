@@ -327,6 +327,7 @@ router.get('/service-albums/:albumId/social-cards', requireAuth(['merchant']), a
       req.params.albumId,
       storeId,
       req.auth.merchantId,
+      { refresh: req.query.refresh === '1' || req.query.refresh === 'true' },
     )
     return ok(res, data)
   } catch (e) {

@@ -327,12 +327,21 @@ function heroPill(current, finished) {
   return { text: '进行中', tone: 'blue' }
 }
 
+function finishAwaitingOwner(current) {
+  if (!current || current.key !== 'finish') return false
+  return (current.nodes || []).some((node) => {
+    const status = String((node && node.document && node.document.status) || '')
+    return status === 'pending_confirm'
+  })
+}
+
 function actionLabel(current, finished) {
   if (finished || !current) return ''
   if (current.key === 'intake') return '继续接车'
   if (current.key === 'inspect') return '继续检测'
   if (current.key.startsWith('quote')) return '去确认报价'
   if (current.key.startsWith('work')) return '补充施工记录'
+  if (finishAwaitingOwner(current)) return '待客户确认'
   return '去完工'
 }
 

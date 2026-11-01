@@ -30,6 +30,15 @@
         <view class="store-detail__head-row">
           <view class="store-detail__head">
             <text class="store-detail__name text-h1">{{store.name}}</text>
+            <view
+              wx:if="{{ownerGaps.name}}"
+              class="notice notice--warning store-detail__gap"
+              data-section="basic"
+              hover-class="store-detail__gap--on"
+              bindtap="onFillGap"
+            >
+              <text>{{ownerGaps.name}}</text>
+            </view>
             <view class="store-detail__tags">
               <ui-tag
                 wx:for="{{headTags}}"
@@ -54,6 +63,21 @@
           />
         </view>
 
+        <view
+          wx:if="{{!heroImages.length && ownerPhotoGaps.length}}"
+          class="store-detail__hero store-detail__hero--gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <view class="store-detail__photo-gap-lines">
+            <text
+              wx:for="{{ownerPhotoGaps}}"
+              wx:key="*this"
+              class="store-detail__hero-gap-line text-body"
+            >{{item}}</text>
+          </view>
+        </view>
         <view wx:if="{{heroImages.length}}" class="store-detail__hero">
         <swiper
           wx:if="{{heroImages.length > 1}}"
@@ -82,32 +106,92 @@
           bindtap="onPreviewEnvironment"
         />
         </view>
+        <view
+          wx:if="{{heroImages.length && ownerPhotoGaps.length}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <view class="store-detail__photo-gap-lines">
+            <text wx:for="{{ownerPhotoGaps}}" wx:key="*this">{{item}}</text>
+          </view>
+        </view>
       </view>
 
       <view
-        wx:if="{{storeAddress || storePhone || storeBusinessHours || storeIntro}}"
+        wx:if="{{showInfoPanel}}"
         class="surface-album-panel store-detail__panel"
       >
         <view wx:if="{{storeAddress}}" class="store-detail__line" bindtap="onNavigateTap">
           <text class="store-detail__line-label text-caption">地址</text>
           <text class="store-detail__line-value text-body {{showStoreNavigate ? 'store-detail__line-value--link' : ''}}">{{storeAddress}}</text>
         </view>
+        <view
+          wx:elif="{{ownerGaps.address}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text class="store-detail__gap-label">地址</text>
+          <text>{{ownerGaps.address}}</text>
+        </view>
         <view wx:if="{{storePhone}}" class="store-detail__line" bindtap="onCallStore">
           <text class="store-detail__line-label text-caption">电话</text>
           <text class="store-detail__line-value store-detail__line-value--link text-body">{{storePhoneDisplay}}</text>
+        </view>
+        <view
+          wx:elif="{{ownerGaps.phone}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text class="store-detail__gap-label">电话</text>
+          <text>{{ownerGaps.phone}}</text>
         </view>
         <view wx:if="{{storeBusinessHours}}" class="store-detail__line">
           <text class="store-detail__line-label text-caption">营业</text>
           <text class="store-detail__line-value text-body">{{storeBusinessHours}}</text>
         </view>
+        <view
+          wx:elif="{{ownerGaps.hours}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text class="store-detail__gap-label">营业</text>
+          <text>{{ownerGaps.hours}}</text>
+        </view>
         <view wx:if="{{storeIntro}}" class="store-detail__line">
           <text class="store-detail__line-label text-caption">简介</text>
           <text class="store-detail__line-value text-body">{{storeIntro}}</text>
         </view>
+        <view
+          wx:if="{{storeIntro && ownerGaps.intro}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text>{{ownerGaps.intro}}</text>
+        </view>
+        <view
+          wx:elif="{{ownerGaps.intro}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="basic"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text class="store-detail__gap-label">简介</text>
+          <text>{{ownerGaps.intro}}</text>
+        </view>
       </view>
 
       <view
-        wx:if="{{serviceChips.length || brandChips.length || vehicleChips.length || notAcceptingChips.length || equipmentChips.length}}"
+        wx:if="{{showSkillPanel}}"
         class="surface-album-panel store-detail__panel"
       >
         <view class="store-detail__section-head">
@@ -144,9 +228,18 @@
             <ui-tag wx:for="{{notAcceptingChips}}" wx:key="*this" variant="default" text="{{item}}" />
           </view>
         </view>
+        <view
+          wx:if="{{showServiceGap}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="skill"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text>{{ownerGaps.services}}</text>
+        </view>
       </view>
 
-      <view wx:if="{{certWall.length || certNameTags.length}}" class="surface-album-panel store-detail__panel">
+      <view wx:if="{{showCertPanel}}" class="surface-album-panel store-detail__panel">
         <view class="store-detail__section-head">
           <view class="surface-album-section-accent" />
           <text class="deep-link-detail__section-title text-h2">门店资质</text>
@@ -166,6 +259,15 @@
         </view>
         <view wx:if="{{certNameTags.length}}" class="store-detail__chips">
           <ui-tag wx:for="{{certNameTags}}" wx:key="*this" variant="default" text="{{item}}" />
+        </view>
+        <view
+          wx:if="{{showCertGap}}"
+          class="notice notice--warning store-detail__gap"
+          data-section="cert"
+          hover-class="store-detail__gap--on"
+          bindtap="onFillGap"
+        >
+          <text>{{ownerGaps.cert}}</text>
         </view>
       </view>
 

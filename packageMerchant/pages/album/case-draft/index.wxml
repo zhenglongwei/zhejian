@@ -170,7 +170,7 @@
 
   <ui-fixed-bottom-bar wx:if="{{status === 'normal'}}" safeArea="{{true}}">
     <view slot="left" class="case-draft__bar-left">
-      <ui-button type="ghost" size="sm" bind:btntap="onCopyExport">复制文案</ui-button>
+      <ui-button type="ghost" size="sm" bind:btntap="onCopyExport">下载图文</ui-button>
       <ui-button
         wx:if="{{editable && showPublishPrimary}}"
         type="secondary"
@@ -215,4 +215,33 @@
       bind:btntap="onConfirmDraft"
     >确认案例稿</ui-button>
   </ui-fixed-bottom-bar>
+
+  <ui-bottom-sheet
+    visible="{{socialVisible}}"
+    title="发到自媒体"
+    showActions="{{false}}"
+    scrollable="{{false}}"
+    bind:close="onCloseSocial"
+  >
+    <social-card
+      platforms="{{socialPlatforms}}"
+      active-id="{{socialPlatform}}"
+      images="{{socialImages}}"
+      text="{{socialText}}"
+      caption="{{socialCaption}}"
+      loading="{{socialLoading}}"
+      refreshing="{{socialRefreshing}}"
+      revision="{{socialRevision}}"
+      empty-text="打码完成后可保存"
+      show-actions="{{true}}"
+      save-disabled="{{socialSaveDisabled}}"
+      bind:platformchange="onSocialPlatform"
+      bind:imagetoggle="onSocialToggle"
+      bind:textinput="onSocialText"
+      bind:captioninput="onSocialCaption"
+      bind:refresh="onRefreshSocial"
+      bind:copy="onCopySocial"
+      bind:save="onSaveSocial"
+    />
+  </ui-bottom-sheet>
 </view>

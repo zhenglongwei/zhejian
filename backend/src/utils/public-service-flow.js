@@ -8,6 +8,8 @@ const {
   resolveStoreProcessedPublicUrl,
   isDesensitizedMediaUrl,
 } = require('../lib/media-url')
+const { resolveShared } = require('./resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 const SKIP_PHOTO_KINDS = {
   intake_inspection: true,
@@ -120,6 +122,7 @@ function harvestFlowNodeMaskedUrls(lookup, flowNodes) {
   }
   ;(flowNodes || []).forEach((node) => {
     if (!node) return
+    if (node.content) harvestBag(node.content)
     if (node.photoDraft) harvestBag(node.photoDraft)
     if (node.document && node.document.payload) harvestBag(node.document.payload)
   })
@@ -181,7 +184,7 @@ function stripLine(row, lookup) {
   if (!row || typeof row !== 'object') return null
   const name = text(row.name || row.partName)
   const brand = text(row.brand)
-  const note = cleanPublicNote(row.note || row.advice)
+  const note = cleanPublicNote(row.note || row.caption || row.advice)
   let evidenceUrl = ''
   if (text(row.evidenceMaskedUrl)) {
     evidenceUrl =
@@ -208,7 +211,7 @@ function mapFinding(row, lookup) {
 }
 
 function collectWorkPhotos(node, lookup) {
-  const draft = (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const draft = contentOfFlowNode(node)
   const findings = Array.isArray(draft.findings) ? draft.findings : []
   const photos = []
   const seenRaw = new Set()
@@ -267,8 +270,7 @@ function photosFromPublicNodes(contentNodes, titleHints) {
 
 /** 工单条目（公网版，去金额）：项目 + 用料/品牌/数量 + 说明 */
 function collectWorkSheetPublicItems(node) {
-  const draft =
-    (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const draft = contentOfFlowNode(node)
   const rows = Array.isArray(draft.findings) ? draft.findings : []
   return rows
     .map((row) => {
@@ -304,6 +306,7 @@ function chapterHasContent(chapter) {
   if (!chapter) return false
   if (text(chapter.chiefComplaint)) return true
   if (text(chapter.note)) return true
+  if (text(chapter.repairBrief)) return true
   if (text(chapter.warrantyPeriod) || text(chapter.warrantyNotes)) return true
   if (Array.isArray(chapter.findings) && chapter.findings.length) return true
   if (Array.isArray(chapter.items) && chapter.items.length) return true
@@ -324,10 +327,32 @@ function publicTitle(node) {
   return text(node && node.title) || '记录'
 }
 
-function mapDocumentChapter(node, lookup) {
+function mapRepairChapter(node, lookup) {
+  const payload = contentOfFlowNode(node)
+  const itemsSource = Array.isArray(payload.workItems) && payload.workItems.length
+    ? payload.workItems
+    : Array.isArray(payload.items)
+      ? payload.items
+      : []
+  return {
+    id: node.id || '',
+    kind: 'repair_report',
+    title: publicTitle(node),
+    items: itemsSource.map((row) => stripLine(row, lookup)).filter(Boolean),
+    photos: collectDeliveryPhotos({ deliveryPhotos: payload.deliveryPhotos }, lookup),
+    repairBrief: text(payload.repairBrief),
+    warrantyPeriod: text(payload.warrantyPeriod),
+    warrantyNotes: publicWarrantyNotes({
+      warrantyNotes: payload.warrantyNotes,
+      warrantyScope: payload.warrantyScope,
+    }),
+  }
+}
+
+function mapDocumentChapter(node, lookup, allNodes = []) {
   const doc = (node && node.document) || {}
   if (text(doc.status) === 'cancelled') return null
-  const payload = (doc.payload && typeof doc.payload === 'object' && doc.payload) || {}
+  const payload = contentOfFlowNode(node)
   const kind = text(node.kind)
   if (kind === 'inspection_report') {
     return {
@@ -350,22 +375,7 @@ function mapDocumentChapter(node, lookup) {
         .filter(Boolean),
     }
   }
-  if (kind === 'repair_report') {
-    const itemsSource = Array.isArray(payload.workItems)
-      ? payload.workItems
-      : Array.isArray(payload.items)
-        ? payload.items
-        : []
-    return {
-      id: node.id || '',
-      kind,
-      title: publicTitle(node),
-      items: itemsSource.map((row) => stripLine(row, lookup)).filter(Boolean),
-      photos: collectDeliveryPhotos(payload, lookup),
-      warrantyPeriod: text(payload.warrantyPeriod),
-      warrantyNotes: publicWarrantyNotes(payload),
-    }
-  }
+  if (kind === 'repair_report') return mapRepairChapter(node, lookup)
   return null
 }
 
@@ -401,7 +411,7 @@ function buildPublicServiceFlow(input = {}) {
       if (chapterHasContent(chapter)) chapters.push(chapter)
       return
     }
-    const chapter = mapDocumentChapter(node, lookup)
+    const chapter = mapDocumentChapter(node, lookup, flowNodes)
     if (chapterHasContent(chapter)) chapters.push(chapter)
   })
   return { chapters }

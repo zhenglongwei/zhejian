@@ -14,35 +14,6 @@
   line-height: 1.5;
 }
 
-.merchant-host-page__steps {
-  display: flex;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
-}
-
-.merchant-host-page__step {
-  flex: 1;
-  padding: var(--space-xs) 0;
-  text-align: center;
-  font-size: var(--font-size-caption);
-  color: var(--color-text-secondary);
-  border-bottom: 4rpx solid var(--color-border);
-}
-
-.merchant-host-page__step.is-on {
-  color: var(--color-primary);
-  font-weight: 600;
-  border-bottom-color: var(--color-primary);
-}
-
-.merchant-host-page__step.is-reached {
-  color: var(--color-text-primary);
-}
-
-.merchant-host-page__step.is-locked {
-  color: var(--color-text-tertiary);
-}
-
 .merchant-host-page__status {
   display: flex;
   flex-direction: column;

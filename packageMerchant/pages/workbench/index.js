@@ -85,6 +85,7 @@ Page({
     switchingStore: false,
     geoOpportunity: null,
     planTag: null,
+    showPricing: false,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     opening: false,
@@ -299,6 +300,7 @@ Page({
       canManageStores,
       geoOpportunity,
       planTag,
+      showPricing: canManageStaff,
     })
   },
 

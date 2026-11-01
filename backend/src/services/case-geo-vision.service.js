@@ -70,6 +70,13 @@ async function describeDesensitizedImage(imageUrl, ctx) {
 
   const publicUrl = resolvePublicImageUrl(imageUrl)
   if (!publicUrl.startsWith('http')) return ''
+  try {
+    const { lookTextByUrl } = require('./image-look-cache')
+    const seen = await lookTextByUrl(publicUrl)
+    if (seen) return sanitizeGeoLlmText(seen).slice(0, 120)
+  } catch (_) {
+    /* 没有记录就继续看这张图 */
+  }
 
   const service = sanitizeGeoLlmText(ctx.row?.serviceName || '维修')
   const city = sanitizeGeoLlmText(ctx.row?.city || '')

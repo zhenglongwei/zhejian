@@ -1,10 +1,10 @@
 const {
   fetchMerchantServiceAlbum,
   hostMerchantAlbum,
+  unhostMerchantAlbum,
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
   confirmHostedPublicPublish,
-  cancelPublicHostIntent,
   fetchHostPublicFace,
   ensureHostDesensitizeTask,
 } = require('../../../../services/merchant-service-album')
@@ -13,7 +13,6 @@ const { SERVICE_ALBUM_STATUS } = require('../../../../constants/service-album-st
 const {
   resolveWizardStep,
   resolveWizardMaxStep,
-  canVisitWizardStep,
   shouldKeepExistingGeoDraft,
 } = require('../../../../utils/host-wizard-step')
 
@@ -129,6 +128,7 @@ function normalizeArchiveChapters(chapters) {
     photos: Array.isArray(ch && ch.photos) ? ch.photos : [],
     warrantyPeriod: String((ch && ch.warrantyPeriod) || ''),
     warrantyNotes: String((ch && ch.warrantyNotes) || ''),
+    repairBrief: String((ch && ch.repairBrief) || ''),
   }))
 }
 
@@ -388,9 +388,13 @@ Page({
         return
       }
       this.applyAlbum(album)
-      if (this.data.wizardStep === 2 && this.data.hostMode === 'public') {
+      if (this.data.hosted && this.data.hostVisibility === 'public') {
+        await this.loadPublicFace({ silent: true })
+      } else if (this.data.hosted && this.data.hostMode === 'public') {
         this._autoMaskTried = false
         await this.enterPublicPreview()
+      } else if (this.data.hosted) {
+        await this.loadPublicFace({ silent: true })
       }
     } catch (e) {
       this.setData({
@@ -400,28 +404,50 @@ Page({
     }
   },
 
-  applyAlbum(album) {
+  applyAlbum(album, options = {}) {
     const hostMeta = album.hostMeta || {}
     const stage = String(hostMeta.publicPublishStage || '')
     const geoLayer = hostMeta.geoLayer || {}
     const geoDraft = hostMeta.geoDraft || {}
+    const archiveCopy = album.archiveCopy || null
+    this._archiveCopy = archiveCopy
     const hosted = Boolean(hostMeta.hosted)
     const visibility = hostMeta.visibility || 'private'
     const hostMode =
       hosted && (stage || visibility === 'public') ? 'public' : hosted ? 'private' : this.data.hostMode
-    const wizardStep = resolveWizardStep(hostMeta, hostMode)
-    const wizardMaxStep = resolveWizardMaxStep(hostMeta, hostMode)
-    const draftForUi =
-      geoDraft && (geoDraft.summary || (geoDraft.highlights && geoDraft.highlights.length) || (geoDraft.faq && geoDraft.faq.length))
-        ? geoDraft
+    const wizardMaxStep = resolveWizardMaxStep(hostMeta)
+    const livePublic = hosted && visibility === 'public'
+    // 已上店页直接看档案。还没上店页的公开，打码完成前停在选方式步
+    let wizardStep = resolveWizardStep(hostMeta)
+    if (livePublic || (options.keepPreview && hosted)) wizardStep = 2
+    else if (hosted && hostMode === 'public') wizardStep = 1
+    const fromLayer = {
+      summary: geoLayer.summary || '',
+      highlights: geoLayer.highlights || [],
+      faq: geoLayer.faq || [],
+      faultDesc: geoDraft.faultDesc || '',
+      inspectResult: geoDraft.inspectResult || '',
+      repairPlan: geoDraft.repairPlan || '',
+      resultConfirm: geoDraft.resultConfirm || '',
+    }
+    const hasGeoDraft =
+      geoDraft &&
+      (geoDraft.summary ||
+        (geoDraft.highlights && geoDraft.highlights.length) ||
+        (geoDraft.faq && geoDraft.faq.length))
+    const draftForUi = hasGeoDraft
+      ? geoDraft
+      : fromLayer.summary || (fromLayer.faq && fromLayer.faq.length)
+        ? fromLayer
         : {
-            summary: geoLayer.summary || '',
-            highlights: geoLayer.highlights || [],
-            faq: geoLayer.faq || [],
-            faultDesc: geoDraft.faultDesc || '',
-            inspectResult: geoDraft.inspectResult || '',
-            repairPlan: geoDraft.repairPlan || '',
-            resultConfirm: geoDraft.resultConfirm || '',
+            summary: (archiveCopy && archiveCopy.summary) || '',
+            highlights: [],
+            faq: (archiveCopy && archiveCopy.faq) || [],
+            faultDesc: '',
+            inspectResult: '',
+            repairPlan: '',
+            resultConfirm: '',
+            source: (archiveCopy && archiveCopy.source) || '',
           }
     this.setData({
       status: 'ready',
@@ -449,19 +475,48 @@ Page({
     this.setData({ hostMode: mode })
   },
 
-  onWizardStepTap(e) {
-    const step = Number(e.currentTarget.dataset.step)
-    if (!canVisitWizardStep(step, this.data.wizardMaxStep)) return
-    if (step === this.data.wizardStep) return
-    if (step === 2) {
-      // 打码完成前不切预览步
-      this._autoMaskTried = false
-      Promise.resolve()
-        .then(() => this.enterPublicPreview())
-        .catch(() => {})
+  seedGeoFromArchiveCopy() {
+    if (String(this.data.geoSummary || '').trim()) return
+    const copy = this._archiveCopy
+    if (!copy || !String(copy.summary || '').trim()) return
+    this.setData(
+      applyGeoDraftToPageData({
+        summary: copy.summary,
+        highlights: [],
+        faq: copy.faq || [],
+        source: copy.source || 'repair_report',
+      }),
+    )
+  },
+
+  onBack() {
+    if (
+      this.data.hosted ||
+      this.data.working ||
+      this.data.preparingPublicPreview ||
+      this.data.maskAutoRunning
+    ) {
       return
     }
-    this.setData({ wizardStep: step })
+    this.setData({ wizardStep: 1 })
+  },
+
+  async onNext() {
+    if (this.data.working || this.data.hosted) return
+    if (this.data.preparingPublicPreview || this.data.maskAutoRunning) return
+    if (this.data.hostMode === 'public') {
+      this._autoMaskTried = false
+      await this.enterPublicPreview()
+      return
+    }
+    this.setData({ working: true })
+    try {
+      await this.loadPublicFace()
+      this.seedGeoFromArchiveCopy()
+      this.setData({ wizardStep: 2 })
+    } finally {
+      this.setData({ working: false })
+    }
   },
 
   async loadPublicFace(options = {}) {
@@ -539,82 +594,69 @@ Page({
     }
   },
 
-  async onSubmitHost() {
-    if (this.data.working || this.data.hosted) return
-    this.setData({ working: true })
-    try {
-      const wantPublic = this.data.hostMode === 'public'
-      await hostMerchantAlbum(this.albumId, {
-        mode: this.data.hostMode,
-        useDesensitizeTool: true,
-      })
-      const album = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(album)
-      if (wantPublic) {
-        this._autoMaskTried = false
-        await this.enterPublicPreview()
-        wx.showToast({ title: '已存档，请预览', icon: 'success' })
-      } else {
-        wx.showToast({ title: '已私密存档', icon: 'success' })
+  async onConfirmHost() {
+    if (this.data.working || this.data.hosted || this.data.wizardStep !== 2) return
+    if (this.data.hostMode !== 'public') {
+      this.setData({ working: true })
+      try {
+        await hostMerchantAlbum(this.albumId, {
+          mode: 'private',
+          useDesensitizeTool: true,
+        })
+        const album = await fetchMerchantServiceAlbum(this.albumId)
+        this.applyAlbum(album)
+        wx.showToast({ title: '已托管', icon: 'success' })
+      } catch (e) {
+        wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
+      } finally {
+        this.setData({ working: false })
       }
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
-    } finally {
-      this.setData({ working: false })
+      return
     }
+    const summary = String(this.data.geoSummary || '').trim()
+    if (!summary) {
+      wx.showToast({ title: '请填写店页摘要', icon: 'none' })
+      return
+    }
+    const short = shortFaqLabels(this.data.geoFaq)
+    if (!short.length) {
+      this.setData({ showPrivacyAgreement: true })
+      return
+    }
+    const named = short.find(Boolean)
+    const content =
+      short.length === 1 && named
+        ? `「${named.slice(0, 18)}」的回答比较短。`
+        : '有回答比较短。'
+    wx.showModal({
+      title: '回答较短',
+      content,
+      confirmText: '仍要公开',
+      cancelText: '回去改',
+      success: (res) => {
+        if (res.confirm) this.setData({ showPrivacyAgreement: true })
+      },
+    })
   },
 
-  async onSwitchToPublic() {
-    if (this.data.working) return
-    this.setData({ working: true })
-    try {
-      await hostMerchantAlbum(this.albumId, { mode: 'public', useDesensitizeTool: true })
-      const album = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(album)
-      this._autoMaskTried = false
-      await this.enterPublicPreview()
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-    } finally {
-      this.setData({ working: false })
-    }
-  },
-
-  async onCancelPublicIntent() {
-    if (this.data.working) return
-    const isLive = this.data.hostVisibility === 'public'
+  async onCancelHost() {
+    if (this.data.working || !this.data.hosted) return
     const ok = await new Promise((resolve) => {
       wx.showModal({
-        title: isLive ? '取消公开？' : '改回仅私密？',
-        content: isLive
-          ? '店页将不再展示本单，档案仍保留在案例站。'
-          : '将清空公开进度，档案仍私密托管。',
-        confirmText: isLive ? '取消公开' : '改回私密',
+        title: '取消托管',
+        content: '网站上将不再展示，档案仍留在小程序。确认？',
         success: (res) => resolve(Boolean(res.confirm)),
       })
     })
     if (!ok) return
     this.setData({ working: true })
     try {
-      await cancelPublicHostIntent(this.albumId)
+      await unhostMerchantAlbum(this.albumId)
       const album = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(album)
       this._autoMaskTried = false
-      this.setData({
-        hostMode: 'private',
-        reviewDocs: [],
-        maskImages: [],
-        unmaskedCount: 0,
-        needsManualCount: 0,
-        pendingMaskCount: 0,
-        showMaskBanner: false,
-        maskAutoFailed: false,
-        previewTexts: [],
-        previewImages: [],
-        privacyBlocks: [],
-        qualitySuggestions: [],
-      })
-      wx.showToast({ title: '已改回私密', icon: 'success' })
+      this.applyAlbum(album)
+      this.setData({ hostMode: 'private' })
+      wx.showToast({ title: '已取消托管', icon: 'success' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
@@ -694,6 +736,7 @@ Page({
 
   async onReviewImageEdit(e) {
     if (this.data.working) return
+    if (this.data.hostVisibility === 'public') return
     const url = e.detail && e.detail.url
     if (!url) return
     this.setData({ working: true })
@@ -832,6 +875,17 @@ Page({
   },
 
   async ensureGeoDraftForPreview() {
+    if (!this.data.hosted) {
+      this.seedGeoFromArchiveCopy()
+      this.setData(
+        decorateGeoCopyState(
+          this._baseQualitySuggestions,
+          this.data.geoSummary,
+          this.data.geoFaq,
+        ),
+      )
+      return
+    }
     if (shouldKeepExistingGeoDraft(this.data)) {
       this.setData(
         decorateGeoCopyState(
@@ -859,34 +913,6 @@ Page({
     }
   },
 
-  onContinuePublish() {
-    if (this.data.working) return
-    const summary = String(this.data.geoSummary || '').trim()
-    if (!summary) {
-      wx.showToast({ title: '请填写店页摘要', icon: 'none' })
-      return
-    }
-    const short = shortFaqLabels(this.data.geoFaq)
-    if (!short.length) {
-      this.setData({ showPrivacyAgreement: true })
-      return
-    }
-    const named = short.find(Boolean)
-    const content =
-      short.length === 1 && named
-        ? `「${named.slice(0, 18)}」的回答比较短。`
-        : '有回答比较短。'
-    wx.showModal({
-      title: '回答较短',
-      content,
-      confirmText: '仍要公开',
-      cancelText: '回去改',
-      success: (res) => {
-        if (res.confirm) this.setData({ showPrivacyAgreement: true })
-      },
-    })
-  },
-
   onDismissPrivacyAgreement() {
     if (this.data.working) return
     this.setData({ showPrivacyAgreement: false })
@@ -902,7 +928,14 @@ Page({
       return
     }
     this.setData({ working: true })
+    const createdHost = !this.data.hosted
     try {
+      if (createdHost) {
+        await hostMerchantAlbum(this.albumId, {
+          mode: 'public',
+          useDesensitizeTool: true,
+        })
+      }
       const audit = await auditHostedPublicPrivacy(this.albumId)
       const blocks = audit.hardBlocks || []
       this.setData({
@@ -913,6 +946,10 @@ Page({
           : this.data.qualitySuggestions,
       })
       if (!audit.passed) {
+        if (createdHost) {
+          await unhostMerchantAlbum(this.albumId)
+          this.setData({ hosted: false })
+        }
         this.setData({ showPrivacyAgreement: false })
         wx.showToast({
           title: (blocks[0] && blocks[0].message) || '还有需改的文案',
@@ -934,8 +971,16 @@ Page({
       this.setData({ showPrivacyAgreement: false })
       wx.showToast({ title: '已上店页', icon: 'success' })
       const album = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(album)
+      this.applyAlbum(album, { keepPreview: true })
     } catch (e) {
+      if (createdHost) {
+        try {
+          await unhostMerchantAlbum(this.albumId)
+        } catch (_) {
+          /* 撤回失败时仍提示公开失败 */
+        }
+        this.setData({ hosted: false, showPrivacyAgreement: false })
+      }
       wx.showToast({ title: (e && e.message) || '公开失败', icon: 'none' })
     } finally {
       this.setData({ working: false })

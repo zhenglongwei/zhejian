@@ -14,7 +14,7 @@
     <view class="mch-store__card">
       <view class="mch-store__identity">
         <view class="mch-store__logo" catchtap="onLogoMenu">{{home.logoText}}</view>
-        <view class="mch-store__main" bindtap="onSwitchStore">
+        <view class="mch-store__main" bindtap="onOpenStore">
           <view class="mch-store__name-row">
             <text class="mch-store__name">{{home.storeName}}</text>
             <text class="mch-store__pill {{home.verified ? 'is-ok' : 'is-warn'}}">{{home.authLabel}}</text>

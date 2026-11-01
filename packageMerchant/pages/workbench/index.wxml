@@ -56,9 +56,12 @@
 
     <block wx:else>
       <view class="mch-top" style="padding-right: {{capsulePad}}px;">
-        <view>
+        <view class="mch-top__main">
           <text class="mch-kicker">服务相册 · 商家端</text>
-          <view class="mch-brand">{{profile.storeName}}</view>
+          <view class="mch-brand-row">
+            <view class="mch-brand">{{profile.storeName}}</view>
+            <text wx:if="{{showPricing}}" class="mch-pricing" catchtap="onSubscription">收费</text>
+          </view>
         </view>
         <view class="mch-bell" bindtap="onOpenMessage">消息</view>
       </view>

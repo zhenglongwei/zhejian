@@ -196,6 +196,45 @@ test('单据简要层用真实项目，未确认不盖存证章', () => {
   assert.equal(pending.canSend, false)
 })
 
+test('交车已发给车主时，详情底栏写待客户确认', () => {
+  const view = buildMerchantAlbumOverview(
+    { vehicle: { plate: '粤B12345', brand: '大众', series: '高尔夫' } },
+    [
+      node({ kind: 'intake', sortOrder: 0, status: 'completed' }),
+      node({ kind: 'inspection', sortOrder: 1, status: 'completed' }),
+      node({
+        kind: 'inspection_report',
+        sortOrder: 2,
+        status: 'completed',
+        document: { status: 'delivered' },
+      }),
+      node({
+        kind: 'quote_confirm',
+        sortOrder: 3,
+        status: 'completed',
+        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+      }),
+      node({
+        id: 'work',
+        kind: 'work',
+        sortOrder: 4,
+        status: 'completed',
+        photoDraft: { findings: [{ partName: '下摆臂胶套' }] },
+      }),
+      node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 5, status: 'completed' }),
+      node({
+        id: 'repair',
+        kind: 'repair_report',
+        sortOrder: 6,
+        status: 'in_progress',
+        document: { status: 'pending_confirm' },
+      }),
+    ],
+  )
+  assert.equal(view.action, '待客户确认')
+  assert.equal(view.pill.text, '交车中')
+})
+
 test('时间线只摘这一步自己的分析，交车不借用施工的补拍提示', () => {
   const view = buildMerchantAlbumOverview(
     { vehicle: { plate: '粤B12345', brand: '大众', series: '高尔夫' } },

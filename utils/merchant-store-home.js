@@ -55,8 +55,42 @@ function monthViewTotal(summary = {}) {
   return (Number(summary.storeViewCount) || 0) + (Number(summary.caseViewCount) || 0)
 }
 
+const PHOTO_GAP_KEYS = {
+  facade: true,
+  workshop: true,
+  reception: true,
+}
+
+function storeAuthStatus(profile = {}) {
+  const trust = profile.publisherTrust || {}
+  if (trust.authStatus === 'verified' || profile.authStatus === 'verified') return 'verified'
+  return String(trust.authStatus || profile.authStatus || 'none')
+}
+
+/**
+ * 本店商家查看详情、且认证尚未通过时，缺项短句。
+ * 已认证返回空，车主侧不要用这份结果。
+ */
+function buildOwnerStoreDetailGaps(profile) {
+  const empty = { active: false, notes: {}, photoNotes: [] }
+  if (!profile || storeAuthStatus(profile) === 'verified') return empty
+  const basic = scoreBasicProfile(profile)
+  const notes = {}
+  const photoNotes = []
+  ;(basic.gaps || []).forEach((item) => {
+    if (!item || !item.note) return
+    if (PHOTO_GAP_KEYS[item.key]) photoNotes.push(item.note)
+    else notes[item.key] = item.note
+  })
+  if (!serviceNames(profile).length) notes.services = '还没填擅长服务'
+  if (!certSummary(profile).done) notes.cert = '还没上传资质'
+  const active = photoNotes.length > 0 || Object.keys(notes).length > 0
+  return { active, notes, photoNotes }
+}
+
 module.exports = {
   buildStoreHomeModel,
+  buildOwnerStoreDetailGaps,
   countPublicAlbums,
   monthViewTotal,
   serviceNames,

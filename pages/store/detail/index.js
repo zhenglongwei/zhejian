@@ -4,7 +4,8 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
-const { isMerchantOwner } = require('../../../utils/auth')
+const { getSession, isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
+const { buildOwnerStoreDetailGaps } = require('../../../utils/merchant-store-home')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
 const {
   resolvePageShareContext,
@@ -130,6 +131,13 @@ Page({
     pendingFavoriteToggle: false,
     storeIsolated: false,
     heroImages: [],
+    ownerGaps: {},
+    ownerPhotoGaps: [],
+    showInfoPanel: false,
+    showSkillPanel: false,
+    showCertPanel: false,
+    showServiceGap: false,
+    showCertGap: false,
   },
 
   onLoad(options) {
@@ -236,12 +244,27 @@ Page({
     this.loadPage().finally(() => wx.stopPullDownRefresh())
   },
 
+  async loadOwnerGaps() {
+    const empty = { active: false, notes: {}, photoNotes: [] }
+    if (!isLoggedIn() || !this.storeId) return empty
+    const mine = getSession().merchant && getSession().merchant.storeId
+    if (!mine || String(mine) !== String(this.storeId)) return empty
+    try {
+      const profile = await fetchMerchantProfile()
+      if (!profile || String(profile.storeId || '') !== String(this.storeId)) return empty
+      return buildOwnerStoreDetailGaps(profile)
+    } catch (e) {
+      return empty
+    }
+  },
+
   async loadPage() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const [store, { list: services }] = await Promise.all([
+      const [store, { list: services }, ownerGapPack] = await Promise.all([
         fetchStoreDetail(this.storeId),
         fetchServiceList({ storeId: this.storeId }),
+        this.loadOwnerGaps(),
       ])
       const basicFields = buildStoreBasicFields(store)
       const pageTitle = store.name || DEEP_LINK_SHELL.store.subtitle
@@ -249,12 +272,39 @@ Page({
       const certNameTags = certWall.length
         ? []
         : (store.certifications || []).map((item) => item && item.label).filter(Boolean)
+      const notes = (ownerGapPack && ownerGapPack.active && ownerGapPack.notes) || {}
+      const photoNotes = (ownerGapPack && ownerGapPack.active && ownerGapPack.photoNotes) || []
+      const hasSkillChips = Boolean(
+        basicFields.serviceChips.length ||
+          basicFields.brandChips.length ||
+          basicFields.vehicleChips.length ||
+          basicFields.notAcceptingChips.length ||
+          basicFields.equipmentChips.length
+      )
       this.setData({
         store,
         shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
         certWall,
         certNameTags,
+        ownerGaps: notes,
+        ownerPhotoGaps: photoNotes,
+        showInfoPanel: Boolean(
+          basicFields.storeAddress ||
+            basicFields.storePhone ||
+            basicFields.storeBusinessHours ||
+            basicFields.storeIntro ||
+            notes.address ||
+            notes.phone ||
+            notes.hours ||
+            notes.intro
+        ),
+        showServiceGap: Boolean(notes.services && !hasSkillChips),
+        showCertGap: Boolean(notes.cert && !certWall.length && !certNameTags.length),
+        showSkillPanel: Boolean(hasSkillChips || (notes.services && !hasSkillChips)),
+        showCertPanel: Boolean(
+          certWall.length || certNameTags.length || (notes.cert && !certWall.length && !certNameTags.length)
+        ),
         staffPublic: (store.staffPublic || []).map((item) => ({
           ...item,
           years: formatTechnicianYearsDisplay(item.years),
@@ -473,6 +523,16 @@ Page({
 
   onEditStore() {
     wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index' })
+  },
+
+  onFillGap(e) {
+    if (!isMerchantOwner()) {
+      wx.showToast({ title: '仅主账号可编辑', icon: 'none' })
+      return
+    }
+    const section = (e.currentTarget.dataset && e.currentTarget.dataset.section) || 'basic'
+    const allowed = section === 'skill' || section === 'cert' ? section : 'basic'
+    wx.navigateTo({ url: `/packageMerchant/pages/store/edit/index?section=${allowed}` })
   },
 
   onPreviewCert(e) {

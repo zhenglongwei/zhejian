@@ -6,6 +6,7 @@ const {
   extractMessageContent,
   parseChatCompletionBody,
 } = require('../../lib/dashscope-chat')
+const { apiHost, callerFromStack, recordLlmCall, scrubNode } = require('../../lib/llm-call-record')
 
 const KIMI_WEB_SEARCH_TOOLS = [
   {
@@ -35,9 +36,13 @@ async function postJson(options) {
   const controller = new AbortController()
   const timeoutMs = Number(options.timeoutMs) || 120000
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const caller = callerFromStack()
+  const started = Date.now()
+  const apiUrl = String(options.apiUrl || '').trim()
+  const request = scrubNode(options.payload || {})
 
   try {
-    const res = await fetch(String(options.apiUrl).trim(), {
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,17 +53,61 @@ async function postJson(options) {
     })
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
+      recordLlmCall({
+        ok: false,
+        channel: 'web-search',
+        caller,
+        model: request.model || '',
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        status: res.status,
+        request,
+        response: scrubNode(body),
+      })
       const err = new Error(resolveApiError(body, res.status))
       err.status = res.status
       err.body = body
       throw err
     }
+    recordLlmCall({
+      ok: true,
+      channel: 'web-search',
+      caller,
+      model: request.model || '',
+      apiHost: apiHost(apiUrl),
+      elapsedMs: Date.now() - started,
+      status: res.status,
+      request,
+      response: scrubNode(body),
+    })
     return body
   } catch (error) {
     if (error.name === 'AbortError') {
+      recordLlmCall({
+        ok: false,
+        channel: 'web-search',
+        caller,
+        model: request.model || '',
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        error: 'llm_timeout',
+        request,
+      })
       const err = new Error('llm_timeout')
       err.code = 'LLM_TIMEOUT'
       throw err
+    }
+    if (!error.status && !error.body) {
+      recordLlmCall({
+        ok: false,
+        channel: 'web-search',
+        caller,
+        model: request.model || '',
+        apiHost: apiHost(apiUrl),
+        elapsedMs: Date.now() - started,
+        error: String(error.message || error).slice(0, 300),
+        request,
+      })
     }
     throw error
   } finally {

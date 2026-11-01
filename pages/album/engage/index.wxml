@@ -16,7 +16,7 @@
       <text class="album-engage__feedback-link text-link text-caption" bindtap="onOpenFeedback">问题反馈</text>
     </view>
 
-    <view class="page-content album-engage__body {{eligible && !hasReview ? 'album-engage__body--with-bar' : ''}}">
+    <view class="page-content album-engage__body {{(eligible && !hasReview) || hasReview ? 'album-engage__body--with-bar' : ''}}">
       <view class="album-engage__hero">
         <text class="album-engage__album-title text-body">{{albumTitle}}</text>
         <text wx:if="{{gateBanner}}" class="album-engage__gate-banner text-caption text-secondary">{{gateBanner}}</text>
@@ -179,6 +179,9 @@
         bind:btntap="onSubmit"
       >提交评价</ui-button>
     </ui-fixed-bottom-bar>
+    <ui-fixed-bottom-bar wx:elif="{{hasReview}}" safeArea="{{true}}">
+      <ui-button type="primary" block bind:btntap="onOpenSocialCard">下载图文</ui-button>
+    </ui-fixed-bottom-bar>
 
     <ui-bottom-sheet
       visible="{{authSheetVisible}}"
@@ -237,5 +240,34 @@
       bind:cancel="closeLoginSheet"
       bind:success="onLoginSuccess"
     />
+
+    <ui-bottom-sheet
+      visible="{{socialVisible}}"
+      title="发给朋友"
+      showActions="{{false}}"
+      scrollable="{{false}}"
+      bind:close="onCloseSocial"
+    >
+      <social-card
+        platforms="{{socialPlatforms}}"
+        active-id="{{socialPlatform}}"
+        images="{{socialImages}}"
+        text="{{socialText}}"
+        caption="{{socialCaption}}"
+        loading="{{socialLoading}}"
+        refreshing="{{socialRefreshing}}"
+        revision="{{socialRevision}}"
+        empty-text="照片还在处理"
+        show-actions="{{true}}"
+        save-disabled="{{socialSaveDisabled}}"
+        bind:platformchange="onSocialPlatform"
+        bind:imagetoggle="onSocialToggle"
+        bind:textinput="onSocialText"
+        bind:captioninput="onSocialCaption"
+        bind:refresh="onRefreshSocial"
+        bind:copy="onCopySocial"
+        bind:save="onSaveSocial"
+      />
+    </ui-bottom-sheet>
   </block>
 </view>

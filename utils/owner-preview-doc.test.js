@@ -65,6 +65,18 @@ test('交车报告带上全车和其他交车图', () => {
   )
 })
 
+test('施工记录转报告项只保留有名称的项', () => {
+  const { workItemsFromFindings } = require('./owner-preview-doc')
+  const items = workItemsFromFindings([
+    { partName: '右前门', caption: '补漆', images: [{ url: 'a.jpg' }] },
+    { caption: '没有名称的说明', images: [{ url: 'b.jpg' }] },
+  ])
+  assert.equal(items.length, 1)
+  assert.equal(items[0].name, '右前门')
+  assert.equal(items[0].note, '补漆')
+  assert.equal(items[0].images[0].url, 'a.jpg')
+})
+
 test('检测预览带上检查项，施工不走这张预览', () => {
   const preview = buildOwnerPreviewDoc({
     family: 'inspect',

@@ -200,6 +200,11 @@ async function exportMerchantCaseDraftCopy(albumId) {
   return get(`/merchant/service-albums/${albumId}/case-draft/export-copy`, withStore())
 }
 
+async function fetchMerchantSocialCards(albumId, options = {}) {
+  const params = options && options.refresh ? { refresh: '1' } : {}
+  return get(`/merchant/service-albums/${albumId}/social-cards`, withStore(params))
+}
+
 async function generateMerchantPublicCase(albumId, payload = {}) {
   return post(`/merchant/service-albums/${albumId}/generate-case`, withStore(payload), {
     timeout: 180000,
@@ -463,6 +468,7 @@ module.exports = {
   interpretMerchantAlbumVision,
   confirmAndCompleteMerchantCaseDraft,
   exportMerchantCaseDraftCopy,
+  fetchMerchantSocialCards,
   generateMerchantPublicCase,
   confirmMerchantPublicCasePublish,
   hostMerchantAlbum,

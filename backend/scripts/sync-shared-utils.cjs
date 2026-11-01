@@ -31,6 +31,7 @@ const FILES = [
   'utils/service-flow-docs.js',
   'utils/service-flow-placeholders.js',
   'utils/service-flow-quote-draft.js',
+  'utils/owner-preview-doc.js',
 ]
 
 function ensureDir(dir) {

@@ -7,38 +7,33 @@ const {
   shouldKeepExistingGeoDraft,
 } = require('./host-wizard-step')
 
-test('private hosted stays on archive and cannot skip ahead', () => {
-  const meta = { hosted: true, visibility: 'private', publicPublishStage: '' }
-  assert.equal(resolveWizardStep(meta, 'private'), 1)
-  assert.equal(resolveWizardMaxStep(meta, 'private'), 1)
-  assert.equal(canVisitWizardStep(1, 1), true)
+test('not hosted opens on choose-mode step', () => {
+  const meta = { hosted: false, visibility: 'private', publicPublishStage: '' }
+  assert.equal(resolveWizardStep(meta), 1)
+  assert.equal(resolveWizardMaxStep(meta), 1)
   assert.equal(canVisitWizardStep(2, 1), false)
 })
 
-test('privacy review lands on preview step; cannot skip beyond two', () => {
-  const meta = { hosted: true, visibility: 'private', publicPublishStage: 'awaiting_privacy' }
-  assert.equal(resolveWizardStep(meta, 'public'), 2)
-  assert.equal(resolveWizardMaxStep(meta, 'public'), 2)
-  assert.equal(canVisitWizardStep(1, 2), true)
+test('private hosted opens on preview', () => {
+  const meta = { hosted: true, visibility: 'private', publicPublishStage: '' }
+  assert.equal(resolveWizardStep(meta), 2)
+  assert.equal(resolveWizardMaxStep(meta), 2)
   assert.equal(canVisitWizardStep(2, 2), true)
-  assert.equal(canVisitWizardStep(3, 2), false)
 })
 
-test('legacy geo stages also land on preview; live public stays on archive', () => {
+test('live public and in-progress public both open on preview', () => {
   const drafting = {
     hosted: true,
     visibility: 'private',
-    publicPublishStage: 'awaiting_geo_confirm',
+    publicPublishStage: 'awaiting_privacy',
   }
-  assert.equal(resolveWizardStep(drafting, 'public'), 2)
-  assert.equal(resolveWizardMaxStep(drafting, 'public'), 2)
-  assert.equal(canVisitWizardStep(1, 2), true)
-  assert.equal(canVisitWizardStep(2, 2), true)
+  assert.equal(resolveWizardStep(drafting), 2)
+  assert.equal(resolveWizardMaxStep(drafting), 2)
 
   const live = { hosted: true, visibility: 'public', publicPublishStage: 'published' }
-  assert.equal(resolveWizardStep(live, 'public'), 1)
-  assert.equal(resolveWizardMaxStep(live, 'public'), 1)
-  assert.equal(canVisitWizardStep(2, 1), false)
+  assert.equal(resolveWizardStep(live), 2)
+  assert.equal(resolveWizardMaxStep(live), 2)
+  assert.equal(canVisitWizardStep(3, 2), false)
 })
 
 test('keep storefront copy when summary already filled', () => {

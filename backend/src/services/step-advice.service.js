@@ -10,6 +10,7 @@ const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
 const { normalizeOwnerFaqs, contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+const { noteForUrl, notesForAlbumImages } = require('./image-look-cache')
 
 const jobsInFlight = new Set()
 
@@ -691,9 +692,9 @@ function splitNewAndNotedUrls(urls = [], notesMap = {}) {
   const fresh = []
   const noted = []
   ;(Array.isArray(urls) ? urls : []).forEach((url) => {
-    const key = mediaBare(url)
-    if (!key) return
-    if (notesMap[key]) noted.push({ url, note: notesMap[key] })
+    const note = noteForUrl(url, notesMap)
+    if (!mediaBare(url)) return
+    if (note) noted.push({ url, note })
     else fresh.push(url)
   })
   return { fresh, noted }
@@ -783,7 +784,7 @@ function foldPartHintsIntoOrder(advice) {
   return order.slice(0, 6)
 }
 
-function contextOf(album) {
+function contextOf(album, extraNotes = {}) {
   const nodes = readFlowNodes(album)
   const { buildCaseFactPack } = require('../utils/case-geo-factpack')
   const factPack = buildCaseFactPack(nodes)
@@ -801,7 +802,7 @@ function contextOf(album) {
   const intakeAdvice = (intake && intake.intakeAdvice) || {}
   const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
   const workAdvice = (works.find((item) => item.workAdvice) || {}).workAdvice || {}
-  const imageNotesMap = collectImageNotesMap(nodes)
+  const imageNotesMap = { ...(extraNotes || {}), ...collectImageNotesMap(nodes) }
   const intakeUrls = intakePhotoUrls(intake)
   const inspectSlots = inspectPhotoSlots(inspection)
   const inspectUrls = inspectSlots.map((row) => row.url)
@@ -809,10 +810,10 @@ function contextOf(album) {
   const deliveryUrls = deliveryPhotoUrls(delivery)
   const intakeSplit = splitNewAndNotedUrls(intakeUrls, imageNotesMap)
   const inspectSplit = splitNewAndNotedUrls(inspectUrls, imageNotesMap)
-  const workFreshSlots = (workSlots || []).filter((row) => !imageNotesMap[mediaBare(row.url)])
+  const workFreshSlots = (workSlots || []).filter((row) => !noteForUrl(row.url, imageNotesMap))
   const workNoted = (workSlots || [])
-    .filter((row) => imageNotesMap[mediaBare(row.url)])
-    .map((row) => ({ slot: row.slot, partName: row.partName, note: imageNotesMap[mediaBare(row.url)] }))
+    .filter((row) => noteForUrl(row.url, imageNotesMap))
+    .map((row) => ({ slot: row.slot, partName: row.partName, note: noteForUrl(row.url, imageNotesMap) }))
   const deliverySplit = splitNewAndNotedUrls(deliveryUrls, imageNotesMap)
   return {
     complaint: text(contentOfFlowNode(intake).chiefComplaint),
@@ -959,52 +960,22 @@ async function writeMasksOntoNodes(albumId, pairs) {
   await persistMaskedPairsToAlbumFlow(id, list)
 }
 
-async function prepareMaskedAttachments(urls, slotByUrl, maskContext = {}) {
-  const { resolveDesensitizedUrlForAsset } = require('./media.service')
-  const { usableMaskedProductUrl } = require('../lib/media-storage')
+async function prepareVisionAttachments(urls, slotByUrl) {
   const attached = []
   const seen = new Set()
-  const writeback = []
   for (const raw of Array.isArray(urls) ? urls : []) {
     const originalUrl = String(raw || '').trim()
     if (!originalUrl || seen.has(originalUrl)) continue
     seen.add(originalUrl)
-    try {
-      const meta = slotByUrl ? slotByUrl.get(mediaBare(originalUrl)) : null
-      const slot = meta && meta.slot ? Number(meta.slot) : 0
-      const findingId = meta ? text(meta.findingId) : ''
-      const onNode = usableMaskedProductUrl(meta && meta.maskedUrl)
-      if (onNode) {
-        attached.push({
-          originalUrl,
-          safeUrl: onNode,
-          slot,
-          findingId,
-          fromNode: true,
-        })
-        continue
-      }
-      const masked = await resolveDesensitizedUrlForAsset(originalUrl, {
-        force: false,
-        albumId: maskContext.albumId || '',
-        nodeId: findingId,
-        idx: slot >= 1 ? slot : undefined,
-      })
-      const safeUrl = usableMaskedProductUrl(masked && masked.ok ? masked.maskedUrl : '')
-      if (!safeUrl) continue
-      writeback.push({ rawUrl: originalUrl, maskedUrl: safeUrl })
-      attached.push({
-        originalUrl,
-        safeUrl,
-        slot,
-        findingId,
-        fromNode: false,
-      })
-    } catch (_) {
-      /* 这张不送 */
-    }
+    const meta = slotByUrl ? slotByUrl.get(mediaBare(originalUrl)) : null
+    attached.push({
+      originalUrl,
+      safeUrl: originalUrl,
+      slot: meta && meta.slot ? Number(meta.slot) : 0,
+      findingId: meta ? text(meta.findingId) : '',
+      fromNode: false,
+    })
   }
-  if (writeback.length) await writeMasksOntoNodes(maskContext.albumId, writeback)
   return attached
 }
 
@@ -1015,9 +986,7 @@ async function runLlm(instruction, urls, label, options = {}) {
   const { responsesCompletion } = require('../lib/responses-chat')
   const tag = label || 'Photo'
   const slotByUrl = options.slotByUrl instanceof Map ? options.slotByUrl : null
-  const attached = await prepareMaskedAttachments(urls, slotByUrl, {
-    albumId: options.albumId || '',
-  })
+  const attached = await prepareVisionAttachments(urls, slotByUrl)
   const content = attached.length
     ? [{ type: 'text', text: instruction }].concat(
         attached.map((row, index) => {
@@ -1054,7 +1023,15 @@ async function runLlm(instruction, urls, label, options = {}) {
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 45000),
       })
       textOut = result && result.text
-      if (textOut) break
+      if (textOut) {
+        try {
+          const { queueApplyModelMasks } = require('./model-mask.service')
+          queueApplyModelMasks(attached.map((row) => row.originalUrl), textOut)
+        } catch (_) {
+          /* 打码失败不影响出意见 */
+        }
+        break
+      }
     } catch (_) {
       /* 换下一家 */
     }
@@ -1101,7 +1078,7 @@ function workInstruction(ctx) {
       photos: slots.map((row) => ({ slot: row.slot, on: row.partName })),
     })}`,
     'Also list photoPlan: which workmanship photos this step should take (old/new parts, critical process) — shop reminder only.',
-    'Return JSON only: {"gaps":[{"kind":"missing_quote_item|extra_work|missing_process_photo|missing_brand|missing_old_new","title":"","body":""}],"items":[{"id":"","body":"","canApply":true}],"groups":[{"slot":1,"partName":"","body":""}],"photoPlan":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}]}',
+    'Return JSON only: {"gaps":[{"kind":"missing_quote_item|extra_work|missing_process_photo|missing_brand|missing_old_new","title":"","body":""}],"items":[{"id":"","body":"","canApply":true}],"groups":[{"slot":1,"partName":"","body":""}],"photoPlan":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1146,6 +1123,26 @@ function inspectionInstruction(ctx, options = {}) {
   const material = {
     客户诉求: payload.complaint || '',
   }
+  if (!byFinding.size) {
+    return [
+      '你是修理厂的检测顾问，帮店员整理检测这一步的意见。',
+      '这次还没有检测照片。不要编照片，不要编检测项目，不要写拆分。',
+      '',
+      '1. 故障分析只根据接车时的客户诉求。',
+      '从专业汽修的角度，把这个症状所有可能的原因列出来，按可能性从高到低排。',
+      '每种可能占一段，用1、2、3、4分行。写入「故障分析」。',
+      '',
+      '2. 检测顺序写出接下来要查的项目，一段一项。没有照片，就不要从这份清单里删项。',
+      '',
+      '逐张看图、逐张归类、拆分建议都用空数组。',
+      '不要复述接车时车身四周有没有拍全。',
+      '',
+      `参考材料：${JSON.stringify(material)}`,
+      '',
+      '只返回 JSON，不要其它文字：',
+      '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[],"逐张归类":[],"拆分建议":[],"检测顺序":["接下来要查的一项"],"masks":[]}',
+    ].join('\n')
+  }
   return [
     '你是修理厂的检测顾问，帮店员整理检测这一步的意见。',
     '按下面五步思考，五步的结果都写进这一个 JSON。',
@@ -1182,7 +1179,8 @@ function inspectionInstruction(ctx, options = {}) {
     `参考材料：${JSON.stringify(material)}`,
     '',
     '只返回 JSON，不要其它文字。示例只说明有哪几个键，句子按这次的诉求和照片写，不要照抄示例里的占位话：',
-    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样","处理意见":"需处理"}],"检测顺序":["第1步里还没有照片覆盖的那一项"]}',
+    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样","处理意见":"需处理"}],"检测顺序":["第1步里还没有照片覆盖的那一项"],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
+    '另带 masks。框出车牌、车架号、人脸、手机号、姓名、证件。kind 只用 plate、vin、face、phone、name、document。imageSlot 用附图图号。regions 的 left、top、width、height 是相对整张图的 0 到 1。没有遮挡就给空数组。',
   ].join('\n')
 }
 
@@ -1229,7 +1227,7 @@ function deliveryInstruction(ctx) {
     '- Simplified Chinese only in natural-language values.',
     'Context JSON (PII already stripped):',
     JSON.stringify(safeFacts),
-    'Return JSON only: {"repairBrief":"","ownerFaqs":[{"question":"","answer":""}],"tips":[{"title":"","body":""}]}',
+    'Return JSON only: {"repairBrief":"","ownerFaqs":[{"question":"","answer":""}],"tips":[{"title":"","body":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1277,13 +1275,13 @@ async function runJob(albumId, kind, options = {}) {
     const { loadAlbum } = require('./service-album.service')
     const album = await loadAlbum(albumId)
     if (!album) return
-    const ctx = contextOf(album)
+    const ctx = contextOf(album, await notesForAlbumImages(album))
     const fingerprint = fingerprintFor(kind, ctx)
     const { field, nodeKind } = nodeField(kind)
-    // 检测：默认只送未识图；点刷新或本步已无新图可送时，附上全部检测图，便于按图拆项
+    // 检测：默认只送还没有观察摘要的图。点刷新才把本步检测图再送进去。
     const inspectFresh = ctx.inspectPhotoUrls || []
     const inspectAll = ctx.inspectPhotoUrlsAll || inspectFresh
-    const reVisionInspect = kind === 'inspect' && (force || !inspectFresh.length)
+    const reVisionInspect = kind === 'inspect' && force
     const urls =
       kind === 'work'
         ? (ctx.workPhotoSlots || []).map((row) => row.url)
@@ -1383,6 +1381,17 @@ async function runJob(albumId, kind, options = {}) {
       }
       return next
     })
+  } catch (err) {
+    const { field, nodeKind } = nodeField(kind)
+    await patchNode(albumId, nodeKind, (item) => ({
+      ...item,
+      [field]: {
+        ...((item && item[field]) || {}),
+        status: 'failed',
+        errorMessage: text(err && err.message).slice(0, 80) || '未能出意见',
+        updatedAt: new Date().toISOString(),
+      },
+    })).catch(() => {})
   } finally {
     jobsInFlight.delete(key)
   }
@@ -1392,14 +1401,14 @@ async function queueIfNeeded(album, kind, options = {}) {
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(album.merchantId)
   if (!capability || !capability.entitled || !capability.llmEnabled) return { queued: false, skipped: true }
-  const ctx = contextOf(album)
+  const ctx = contextOf(album, await notesForAlbumImages(album))
   if (kind === 'work' && !ctx.quoteLines.length && !ctx.workItems.length) {
     const err = new Error('先有报价或施工项')
     err.status = 400
     throw err
   }
-  if (kind === 'inspect' && !ctx.inspectItems.length) {
-    const err = new Error('先拍检查图或写检查项')
+  if (kind === 'inspect' && !text(ctx.complaint) && !ctx.inspectItems.length && !(ctx.inspectPhotoSlots || []).length) {
+    const err = new Error('先写车主诉求')
     err.status = 400
     throw err
   }

@@ -1,38 +1,13 @@
-/** 托管向导：1 存档 · 2 预览公开（打码后网页稿 → 协议 → 直公开） */
+/** 托管页落点：未托管停在选方式；已托管直接看预览。页内「下一步 / 上一步」不靠这里。 */
 
-function resolveWizardStep(hostMeta = {}, hostMode = 'private') {
-  if (!hostMeta.hosted) return 1
-  if (hostMeta.visibility === 'public') return 1
-  const stage = String(hostMeta.publicPublishStage || '')
-  if (!stage) return 1
-  if (stage === 'published') return 1
-  // 公开意图下统一进预览步（含旧 awaiting_geo*）
-  if (
-    stage === 'awaiting_privacy' ||
-    stage === 'awaiting_geo' ||
-    stage === 'awaiting_geo_confirm' ||
-    hostMode === 'public'
-  ) {
-    return 2
-  }
+function resolveWizardStep(hostMeta = {}) {
+  if (hostMeta && hostMeta.hosted) return 2
   return 1
 }
 
-/** 当前可点到的最远步；已上店页只留第 1 步管理 */
-function resolveWizardMaxStep(hostMeta = {}, hostMode = 'private') {
-  if (!hostMeta.hosted) return 1
-  if (hostMeta.visibility === 'public') return 1
-  const stage = String(hostMeta.publicPublishStage || '')
-  if (stage === 'published') return 1
-  if (
-    stage === 'awaiting_privacy' ||
-    stage === 'awaiting_geo' ||
-    stage === 'awaiting_geo_confirm' ||
-    hostMode === 'public' ||
-    stage
-  ) {
-    return 2
-  }
+/** 已托管可停在预览；未托管的预览是页内临时步，不从服务端放开 */
+function resolveWizardMaxStep(hostMeta = {}) {
+  if (hostMeta && hostMeta.hosted) return 2
   return 1
 }
 

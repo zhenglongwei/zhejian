@@ -1,9 +1,6 @@
 {
-  "navigationBarTitleText": "套餐与工具权益",
+  "navigationBarTitleText": "收费",
   "usingComponents": {
-    "ui-tool-page-shell": "/components/tool-page-shell/index",
-    "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
-    "ui-tag": "/components/tag/index"
+    "ui-tool-page-shell": "/components/tool-page-shell/index"
   }
 }

@@ -154,25 +154,22 @@ async function describeOneImage({ imageRow, maskedUrl, itemLabel, stageTitle, fo
   const promptVersion = vision.promptVersion
 
   if (!forceRefresh) {
-    const cached = await prisma.albumImageVisionCache.findUnique({
-      where: {
-        albumImageId_promptVersion: {
-          albumImageId: imageRow.id,
-          promptVersion,
-        },
-      },
+    const { reuseExistingLook, lookText } = require('./image-look-cache')
+    const rows = await prisma.albumImageVisionCache.findMany({
+      where: { albumImageId: imageRow.id },
     })
-    if (cached && cached.contentFingerprint === fingerprint) {
+    const decision = reuseExistingLook(rows, { version: promptVersion, fingerprint })
+    if (decision.reuse && decision.row) {
       await prisma.albumImageVisionCache.update({
-        where: { id: cached.id },
+        where: { id: decision.row.id },
         data: { hitCount: { increment: 1 }, lastHitAt: new Date() },
       })
       return {
         imageId: imageRow.id,
         cacheHit: true,
         fingerprint,
-        description: String((cached.resultJson && cached.resultJson.description) || ''),
-        model: cached.model || vision.model,
+        description: lookText(decision.row.resultJson),
+        model: decision.row.model || vision.model,
       }
     }
   }

@@ -1,25 +1,33 @@
-const { fetchServiceAlbum, recordAlbumShare } = require('../../../services/service-album')
-const { PRIVATE_SHARE_TIP } = require('../../../utils/publish-thank-you')
-const { initAlbumShareState } = require('../../../utils/album-share-state')
+const { fetchServiceAlbum, fetchAlbumSocialCards, recordAlbumShare } = require('../../../services/service-album')
 const {
   buildOwnerSharePayload,
   copyOwnerShareH5Link,
   SHARE_CHANNEL,
   SHARE_MODE,
 } = require('../../../utils/album-owner-share')
+const {
+  applySocialPayload,
+  rememberSocialText,
+  rememberSocialCaption,
+  switchSocialPlatform,
+  toggleSocialImage,
+} = require('../../../utils/social-card-session')
 
 Page({
   data: {
     status: 'loading',
     errorMessage: '',
+    cardError: '',
     albumId: '',
-    mode: 'private',
     detail: null,
-    officerTitle: '',
-    heroPitch: '把这份维修相册发给朋友。店有没有放到店页，都不影响你分享。',
-    heroTip: PRIVATE_SHARE_TIP,
     shareToken: '',
-    shareReady: false,
+    socialPlatforms: [],
+    socialPlatform: 'moments',
+    socialImages: [],
+    socialTexts: {},
+    socialText: '',
+    socialLoading: false,
+    socialSaveDisabled: true,
   },
 
   onLoad(options) {
@@ -32,39 +40,66 @@ Page({
     this.loadDetail()
   },
 
-  onShow() {
-    if (this.data.albumId && this.data.status === 'normal') {
-      this.loadDetail({ silent: true })
-    }
-  },
-
-  async loadDetail(options = {}) {
-    if (!options.silent) {
-      this.setData({ status: 'loading', errorMessage: '' })
-    }
+  async loadDetail() {
+    this.setData({ status: 'loading', errorMessage: '', cardError: '' })
     try {
       const detail = await fetchServiceAlbum(this.data.albumId)
-      const shareState = initAlbumShareState(detail)
-      const keepToken = this.data.shareToken || ''
+      let cards = null
+      let cardError = ''
+      try {
+        cards = await fetchAlbumSocialCards(this.data.albumId)
+      } catch (e) {
+        cardError = (e && e.message) || '暂时准备不好'
+      }
+      if (cards) applySocialPayload(this, cards, '照片还在处理')
       this.setData({
         status: 'normal',
         detail,
-        mode: 'private',
-        officerTitle: '',
-        heroPitch: '把这份维修相册发给朋友。店有没有放到店页，都不影响你分享。',
-        heroTip: PRIVATE_SHARE_TIP,
-        shareToken: keepToken,
-        shareReady: Boolean(keepToken),
+        cardError,
       })
-      if (shareState.showShareEntry && !keepToken) {
-        await this.refreshShareToken()
-      }
+      if (!cardError) this.refreshShareToken()
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
     }
+  },
+
+  async onRefreshSocial() {
+    if (!this.data.albumId || this._socialOpening) return
+    this._socialOpening = true
+    this.setData({ socialRefreshing: true })
+    try {
+      const cards = await fetchAlbumSocialCards(this.data.albumId, { refresh: true })
+      applySocialPayload(this, cards, '照片还在处理')
+    } catch (e) {
+      this.setData({ socialRefreshing: false })
+      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
+    } finally {
+      this._socialOpening = false
+    }
+  },
+
+  onSocialPlatform(e) {
+    switchSocialPlatform(this, e.detail && e.detail.id)
+  },
+
+  onSocialToggle(e) {
+    toggleSocialImage(this, e.detail && e.detail.id)
+  },
+
+  onSocialText(e) {
+    rememberSocialText(this, e.detail && e.detail.value)
+  },
+
+  onSocialCaption(e) {
+    rememberSocialCaption(this, e.detail && e.detail.value)
+  },
+
+  onDownloadPoster() {
+    const card = this.selectComponent('#socialPosterCard')
+    if (card && card.downloadPoster) card.downloadPoster()
   },
 
   async refreshShareToken() {
@@ -75,25 +110,10 @@ Page({
         mode: SHARE_MODE.DESENSITIZED,
         channel: SHARE_CHANNEL.WECHAT,
       })
-      this.setData({
-        shareToken: result.shareToken || '',
-        shareReady: Boolean(result.shareToken),
-      })
+      this.setData({ shareToken: result.shareToken || '' })
     } catch (e) {
-      this.setData({ shareReady: false })
+      this.setData({ shareToken: '' })
     }
-  },
-
-  onShareTimelineGuide() {
-    wx.showModal({
-      title: '分享到朋友圈',
-      content: '请点击右上角 ···，选择「分享到朋友圈」。',
-      showCancel: false,
-    })
-  },
-
-  onTimelineTap() {
-    this.onShareTimelineGuide()
   },
 
   async onCopyLinkTap() {
@@ -103,7 +123,7 @@ Page({
       token = this.data.shareToken
     }
     if (!token) {
-      wx.showToast({ title: '分享尚未就绪，请稍后再试', icon: 'none' })
+      wx.showToast({ title: '链接还没准备好', icon: 'none' })
       return
     }
     try {
@@ -127,5 +147,14 @@ Page({
         path: `/pages/album/detail/index?albumId=${this.data.albumId}`,
       }
     )
+  },
+
+  onShareTimeline() {
+    const detail = this.data.detail || {}
+    const payload = buildOwnerSharePayload(detail, { shareToken: this.data.shareToken })
+    if (!payload) {
+      return { title: detail.serviceName || '服务相册' }
+    }
+    return { title: payload.title, query: `albumId=${this.data.albumId}` }
   },
 })
