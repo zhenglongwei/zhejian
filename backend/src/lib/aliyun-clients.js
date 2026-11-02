@@ -41,8 +41,13 @@ function getCredential() {
 
 function ocrApiEndpoint() {
   if (config.aliyun.ocrApiEndpoint) return config.aliyun.ocrApiEndpoint
-  const region = config.aliyun.region || 'cn-shanghai'
-  return `ocr-api.${region}.aliyuncs.com`
+  // OCR API 2021-07-07 官方只公布杭州接入点；按 ALIYUN_REGION=cn-shanghai 拼出的
+  // ocr-api.cn-shanghai.aliyuncs.com 在阿里云权威 DNS 为 NXDOMAIN。
+  return 'ocr-api.cn-hangzhou.aliyuncs.com'
+}
+
+function ocrApiRegionId() {
+  return process.env.ALIYUN_OCR_API_REGION || 'cn-hangzhou'
 }
 
 function viapiOcrEndpoint() {
@@ -62,9 +67,13 @@ function getOcrClient() {
       new Config({
         credential: getCredential(),
         endpoint: ocrApiEndpoint(),
-        regionId: config.aliyun.region,
+        regionId: ocrApiRegionId(),
       })
     )
+    console.info('[aliyun-clients] ocr-api', {
+      endpoint: ocrApiEndpoint(),
+      regionId: ocrApiRegionId(),
+    })
   }
   return ocrClient
 }
@@ -117,5 +126,6 @@ module.exports = {
   openImageStream,
   openImageReadable,
   ocrApiEndpoint,
+  ocrApiRegionId,
   viapiOcrEndpoint,
 }

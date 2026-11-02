@@ -169,7 +169,7 @@ const config = {
   merchantOwnerPhoneTest: process.env.MERCHANT_OWNER_PHONE_TEST === 'true',
   aliyun: {
     region: process.env.ALIYUN_REGION || 'cn-shanghai',
-    /** 文字识别 OCR API（2021-07-07），默认 ocr-api.{region}.aliyuncs.com */
+    /** 文字识别 OCR API（2021-07-07），官方仅杭州；勿拼 ocr-api.cn-shanghai */
     ocrApiEndpoint: process.env.ALIYUN_OCR_API_ENDPOINT || '',
     /** VIAPI 车牌 OCR（ocr20191230），默认 ocr.{region}.aliyuncs.com */
     viapiOcrEndpoint: process.env.ALIYUN_VIAPI_OCR_ENDPOINT || '',
