@@ -27,7 +27,11 @@ const {
   scoreProfileCompleteness,
   evaluateAuthSubmission,
   buildPublisherTrustBadge,
+  normalizeCreditCode,
+  legalNamesMatch,
 } = require('../utils/merchant-trust')
+const { setupNextStep, isStorePublicReady } = require('../utils/store-public-readiness')
+const { recognizeBusinessLicense, recognizeIdCard } = require('./license-ocr.service')
 
 /** 商家端 <image> 无法带 Bearer，读侧须返回新鲜 signed URL */
 function resignBrandAuthItems(items) {
@@ -125,6 +129,7 @@ function formatOnboardingProfile(merchant, store) {
     creditCode: merchant.creditCode || '',
     licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
     legalIdPhotoUrl: resolveClientReadableMediaUrl(merchant.legalIdPhotoUrl || ''),
+    legalIdBackPhotoUrl: resolveClientReadableMediaUrl(merchant.legalIdBackPhotoUrl || ''),
     licenseEstablishedOn:
       merchant.licenseEstablishedOn instanceof Date
         ? merchant.licenseEstablishedOn.toISOString().slice(0, 10)
@@ -156,6 +161,46 @@ function formatOnboardingProfile(merchant, store) {
     profileCompleteness: trust.profileCompleteness,
     profileCompletenessLabel: trust.profileCompletenessLabel,
     publisherTrust: trust,
+    setupNext: setupNextStep(merchant, store),
+    publicReady: false,
+  }
+}
+
+async function loadCreditCodeOwnerMap(creditCodes = []) {
+  const wanted = new Set((creditCodes || []).map((item) => normalizeCreditCode(item)).filter(Boolean))
+  if (!wanted.size) return new Map()
+  const rows = await prisma.merchant.findMany({
+    where: {
+      status: { not: MERCHANT_STATUS.CLOSED },
+      NOT: { creditCode: '' },
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, creditCode: true },
+  })
+  const owners = new Map()
+  rows.forEach((row) => {
+    const code = normalizeCreditCode(row.creditCode)
+    if (!code || !wanted.has(code) || owners.has(code)) return
+    owners.set(code, row.id)
+  })
+  return owners
+}
+
+async function findCreditCodeOwnerMerchantId(creditCode) {
+  const code = normalizeCreditCode(creditCode)
+  if (!code) return ''
+  const owners = await loadCreditCodeOwnerMap([code])
+  return owners.get(code) || ''
+}
+
+async function attachPublicReady(profile, merchant, store) {
+  if (!profile || !merchant) return profile
+  const ownerId = await findCreditCodeOwnerMerchantId(merchant.creditCode)
+  const gate = { creditCodeOwnerMerchantId: ownerId }
+  return {
+    ...profile,
+    publicReady: isStorePublicReady(merchant, store, gate),
+    setupNext: setupNextStep(merchant, store, gate),
   }
 }
 
@@ -296,11 +341,15 @@ async function getOnboardingProfile(userId, options = {}) {
     prisma.album.count({ where: { storeId: countedStoreId } }).catch(() => 0),
     countStoreCaseStars(countedStoreId).catch(() => 0),
   ])
-  return {
-    ...profile,
-    albumCount,
-    caseStarCount,
-  }
+  return attachPublicReady(
+    {
+      ...profile,
+      albumCount,
+      caseStarCount,
+    },
+    found.merchant,
+    found.store,
+  )
 }
 
 async function listWorkbenchStoreEntries(userId) {
@@ -422,12 +471,7 @@ async function beginNewStoreRegistration(userId) {
       status: MERCHANT_STATUS.DRAFT,
       contactName: latestApproved?.contactName || '',
       contactPhone: latestApproved?.contactPhone || user.phone || '',
-      legalName: latestApproved?.legalName || '',
-      creditCode: latestApproved?.creditCode || '',
-      licensePhotoUrl: latestApproved?.licensePhotoUrl || '',
-      licenseEstablishedOn: latestApproved?.licenseEstablishedOn || null,
       contactEmail: latestApproved?.contactEmail || '',
-      qualificationJson: latestApproved?.qualificationJson || {},
       stores: {
         create: {
           id: storeId,
@@ -767,8 +811,192 @@ async function quickOpenMerchant(userId, { storeName = '' } = {}) {
   }
 }
 
+async function persistAuthResult(merchant, store, data) {
+  const updated = await prisma.merchant.update({
+    where: { id: merchant.id },
+    data: {
+      licensePhotoUrl: data.licensePhotoUrl,
+      legalIdPhotoUrl: data.legalIdPhotoUrl,
+      legalIdBackPhotoUrl: data.legalIdBackPhotoUrl,
+      legalName: data.legalName,
+      creditCode: data.creditCode,
+      authStatus: data.authStatus,
+      authVerifiedAt: data.authStatus === AUTH_STATUS.VERIFIED ? new Date() : null,
+      name: data.legalName || merchant.name,
+      profileCompleteness: scoreProfileCompleteness(
+        { ...merchant, ...data },
+        store,
+      ),
+    },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+  })
+  const profile = await attachPublicReady(
+    formatOnboardingProfile(updated, updated.stores[0]),
+    updated,
+    updated.stores[0],
+  )
+  return { updated, profile }
+}
+
+async function applyMerchantAuthDocuments(merchant, store, body = {}) {
+  const licensePhotoUrl = String(body.licensePhotoUrl || merchant.licensePhotoUrl || '').trim()
+  const legalIdPhotoUrl = String(body.legalIdPhotoUrl || merchant.legalIdPhotoUrl || '').trim()
+  const legalIdBackPhotoUrl = String(
+    body.legalIdBackPhotoUrl || merchant.legalIdBackPhotoUrl || '',
+  ).trim()
+  const materials = evaluateAuthSubmission({
+    licensePhotoUrl,
+    legalIdPhotoUrl,
+    legalIdBackPhotoUrl,
+  })
+  if (materials.authStatus === AUTH_STATUS.FAILED) {
+    return persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: String(body.legalName || merchant.legalName || '').trim(),
+      creditCode: normalizeCreditCode(body.creditCode || merchant.creditCode),
+      authStatus: AUTH_STATUS.FAILED,
+    }).then(({ profile }) => {
+      const err = new Error(materials.reason || '认证校验未通过')
+      err.status = 400
+      err.code = 'AUTH_FAILED'
+      err.profile = profile
+      throw err
+    })
+  }
+
+  let licenseOcr
+  let frontOcr
+  let backOcr
+  try {
+    licenseOcr = await recognizeBusinessLicense(licensePhotoUrl)
+  } catch (e) {
+    const { profile } = await persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: String(body.legalName || merchant.legalName || '').trim(),
+      creditCode: normalizeCreditCode(body.creditCode || merchant.creditCode),
+      authStatus: AUTH_STATUS.FAILED,
+    })
+    const err = new Error('请重拍营业执照')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    err.profile = profile
+    throw err
+  }
+  try {
+    frontOcr = await recognizeIdCard(legalIdPhotoUrl)
+  } catch (e) {
+    const { profile } = await persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: String(licenseOcr.legalName || body.legalName || merchant.legalName || '').trim(),
+      creditCode: normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode),
+      authStatus: AUTH_STATUS.FAILED,
+    })
+    const err = new Error('请重拍身份证人像面')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    err.profile = profile
+    throw err
+  }
+  try {
+    backOcr = await recognizeIdCard(legalIdBackPhotoUrl)
+  } catch (e) {
+    const { profile } = await persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: String(licenseOcr.legalName || body.legalName || merchant.legalName || '').trim(),
+      creditCode: normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode),
+      authStatus: AUTH_STATUS.FAILED,
+    })
+    const err = new Error('请重拍身份证国徽面')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    err.profile = profile
+    throw err
+  }
+
+  const licensePerson = String(licenseOcr.legalPerson || '').trim()
+  const idName = String(frontOcr.name || '').trim()
+  if (!licensePerson) {
+    const err = new Error('未识别到法人姓名，请重拍营业执照')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    throw err
+  }
+  if (!idName || frontOcr.side === 'back') {
+    const err = new Error('请重拍身份证人像面')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    throw err
+  }
+  if (backOcr.side === 'face' && !backOcr.validPeriod && !backOcr.issueAuthority) {
+    const err = new Error('请上传身份证国徽面')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    throw err
+  }
+  if (!legalNamesMatch(licensePerson, idName)) {
+    const { profile } = await persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: licenseOcr.legalName || licensePerson,
+      creditCode: normalizeCreditCode(licenseOcr.creditCode),
+      authStatus: AUTH_STATUS.FAILED,
+    })
+    const err = new Error('执照法人与身份证姓名不一致')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    err.profile = profile
+    throw err
+  }
+
+  const creditCode = normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode)
+  if (!creditCode) {
+    const err = new Error('未识别到信用代码，请重拍营业执照')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    throw err
+  }
+  const ownerId = await findCreditCodeOwnerMerchantId(creditCode)
+  if (ownerId && ownerId !== merchant.id) {
+    const { profile } = await persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: licenseOcr.legalName || licensePerson,
+      creditCode,
+      authStatus: AUTH_STATUS.FAILED,
+    })
+    const err = new Error('这张营业执照已注册过门店')
+    err.status = 409
+    err.code = 'AUTH_FAILED'
+    err.profile = profile
+    throw err
+  }
+
+  const { profile } = await persistAuthResult(merchant, store, {
+    licensePhotoUrl,
+    legalIdPhotoUrl,
+    legalIdBackPhotoUrl,
+    legalName: licenseOcr.legalName || licensePerson,
+    creditCode,
+    authStatus: AUTH_STATUS.VERIFIED,
+  })
+  return {
+    profile,
+    message: '认证已通过',
+  }
+}
+
 /**
- * 可选认证：上传执照 + 法人身份证，自动校验
+ * 可选认证：上传执照 + 法人身份证正反面，识别后校验
  */
 async function submitMerchantAuth(userId, body = {}) {
   const merchantId = String(body.merchantId || '').trim()
@@ -785,49 +1013,7 @@ async function submitMerchantAuth(userId, body = {}) {
     err.status = 404
     throw err
   }
-  const store = merchant.stores[0]
-  const licensePhotoUrl = String(body.licensePhotoUrl || merchant.licensePhotoUrl || '').trim()
-  const legalIdPhotoUrl = String(body.legalIdPhotoUrl || merchant.legalIdPhotoUrl || '').trim()
-  const legalName = String(body.legalName || merchant.legalName || '').trim()
-  const creditCode = String(body.creditCode || merchant.creditCode || '').trim()
-  const evalResult = evaluateAuthSubmission({
-    licensePhotoUrl,
-    legalIdPhotoUrl,
-    legalName,
-    creditCode,
-  })
-  const now = new Date()
-  const updated = await prisma.merchant.update({
-    where: { id: merchant.id },
-    data: {
-      licensePhotoUrl,
-      legalIdPhotoUrl,
-      legalName,
-      creditCode,
-      authStatus: evalResult.authStatus,
-      authVerifiedAt: evalResult.authStatus === AUTH_STATUS.VERIFIED ? now : null,
-      name: legalName || merchant.name,
-      profileCompleteness: scoreProfileCompleteness(
-        { ...merchant, legalName, creditCode, licensePhotoUrl, legalIdPhotoUrl },
-        store,
-      ),
-    },
-    include: { stores: { orderBy: { createdAt: 'asc' } } },
-  })
-  if (evalResult.authStatus === AUTH_STATUS.FAILED) {
-    const err = new Error(evalResult.reason || '认证校验未通过')
-    err.status = 400
-    err.code = 'AUTH_FAILED'
-    err.profile = formatOnboardingProfile(updated, updated.stores[0])
-    throw err
-  }
-  return {
-    profile: formatOnboardingProfile(updated, updated.stores[0]),
-    message:
-      evalResult.authStatus === AUTH_STATUS.VERIFIED
-        ? '认证已通过'
-        : evalResult.reason || '认证已提交',
-  }
+  return applyMerchantAuthDocuments(merchant, merchant.stores[0], body)
 }
 
 /**
@@ -866,6 +1052,10 @@ module.exports = {
   discardMerchantApplication,
   quickOpenMerchant,
   submitMerchantAuth,
+  applyMerchantAuthDocuments,
+  findCreditCodeOwnerMerchantId,
+  loadCreditCodeOwnerMap,
+  attachPublicReady,
   revokeMerchantAuth,
   refreshMerchantCompleteness,
 }

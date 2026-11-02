@@ -38,9 +38,9 @@ const MERCHANT_WORKBENCH_GATE_GUEST = {
 }
 
 const MERCHANT_AUTH_HINT = {
-  none: '补认证：上传执照与法人证',
+  none: '补认证：上传执照与身份证正反面',
   pending: '认证校验中，可继续完善资料',
-  failed: '认证未通过，请重传证件',
+  failed: '认证未通过，请重拍证件',
   verified: '',
 }
 

@@ -56,8 +56,10 @@ model Merchant {
   legalName         String          @default("") @map("legal_name")
   creditCode        String          @default("") @map("credit_code")
   licensePhotoUrl   String          @default("") @map("license_photo_url") @db.VarChar(512)
-  /// 法人/负责人身份证照片（认证用）
+  /// 法人身份证人像面（认证用）
   legalIdPhotoUrl   String          @default("") @map("legal_id_photo_url") @db.VarChar(512)
+  /// 法人身份证国徽面（认证用）
+  legalIdBackPhotoUrl String        @default("") @map("legal_id_back_photo_url") @db.VarChar(512)
   /// 营业执照成立日期（用于经营年限展示；可空）
   licenseEstablishedOn DateTime?    @map("license_established_on") @db.Date
   authVerifiedAt    DateTime?       @map("auth_verified_at")

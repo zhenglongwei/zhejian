@@ -367,6 +367,8 @@ async function quickOpenMerchant(options = {}) {
         tags: ['商家', '未认证', '资料基础'],
       },
       approvedAt: Date.now(),
+      setupNext: 'auth',
+      publicReady: false,
     }
     saveLocalProfile(profile)
     return { profile, session: null, alreadyOpen: false }
@@ -396,6 +398,9 @@ async function submitMerchantAuth(form = {}) {
       legalName: form.legalName || '演示主体',
       licensePhotoUrl: form.licensePhotoUrl || '',
       legalIdPhotoUrl: form.legalIdPhotoUrl || '',
+      legalIdBackPhotoUrl: form.legalIdBackPhotoUrl || '',
+      setupNext: 'profile',
+      publicReady: false,
       publisherTrust: {
         displayLine: '商家 · 已认证 · 资料基础',
         tags: ['商家', '已认证', '资料基础'],

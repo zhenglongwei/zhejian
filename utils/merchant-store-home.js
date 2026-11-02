@@ -61,19 +61,13 @@ const PHOTO_GAP_KEYS = {
   reception: true,
 }
 
-function storeAuthStatus(profile = {}) {
-  const trust = profile.publisherTrust || {}
-  if (trust.authStatus === 'verified' || profile.authStatus === 'verified') return 'verified'
-  return String(trust.authStatus || profile.authStatus || 'none')
-}
-
 /**
- * 本店商家查看详情、且认证尚未通过时，缺项短句。
- * 已认证返回空，车主侧不要用这份结果。
+ * 本店商家预览详情时的缺项短句。资料已达公开条件则不标。
+ * 车主侧不要用这份结果。擅长/资质仍是加分，不在这里催。
  */
 function buildOwnerStoreDetailGaps(profile) {
   const empty = { active: false, notes: {}, photoNotes: [] }
-  if (!profile || storeAuthStatus(profile) === 'verified') return empty
+  if (!profile || profile.publicReady) return empty
   const basic = scoreBasicProfile(profile)
   const notes = {}
   const photoNotes = []
@@ -82,8 +76,6 @@ function buildOwnerStoreDetailGaps(profile) {
     if (PHOTO_GAP_KEYS[item.key]) photoNotes.push(item.note)
     else notes[item.key] = item.note
   })
-  if (!serviceNames(profile).length) notes.services = '还没填擅长服务'
-  if (!certSummary(profile).done) notes.cert = '还没上传资质'
   const active = photoNotes.length > 0 || Object.keys(notes).length > 0
   return { active, notes, photoNotes }
 }

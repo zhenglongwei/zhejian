@@ -17,7 +17,7 @@ const { materializeMediaFile, objectKeyFromPublicUrl } = require('../lib/media-b
 const { safeParseData } = require('./desensitize-engine/parse-ocr')
 const { normalizeLicenseEstablishedOn } = require('../utils/license-established')
 
-const { RecognizeBusinessLicenseRequest } = Ocr
+const { RecognizeBusinessLicenseRequest, RecognizeIdcardRequest } = Ocr
 
 function runtimeOptions() {
   return new RuntimeOptions({
@@ -241,8 +241,77 @@ async function recognizeBusinessLicense(licensePhotoUrl) {
   }
 }
 
+function pickIdField(node, keys) {
+  if (!node || typeof node !== 'object') return ''
+  const data = node.data && typeof node.data === 'object' ? node.data : node
+  return pickField(data, keys)
+}
+
+function mapIdCardOcrResult(raw) {
+  const data = unwrapLicensePayload(raw) || {}
+  const faceNode = data.face || data.Face || data
+  const backNode = data.back || data.Back || data
+  const name = pickIdField(faceNode, ['name', 'Name', '姓名'])
+  const validPeriod = pickIdField(backNode, [
+    'validPeriod',
+    'ValidPeriod',
+    'validDate',
+    'ValidDate',
+    'endDate',
+    'EndDate',
+  ])
+  const issueAuthority = pickIdField(backNode, [
+    'issueAuthority',
+    'IssueAuthority',
+    'issue',
+    'Issue',
+    '签发机关',
+  ])
+  const hasBack = Boolean(validPeriod || issueAuthority)
+  return {
+    name,
+    validPeriod,
+    issueAuthority,
+    side: name ? 'face' : hasBack ? 'back' : '',
+  }
+}
+
+async function recognizeIdCard(photoUrl) {
+  const url = String(photoUrl || '').trim()
+  if (!url) {
+    const err = new Error('请上传法人身份证')
+    err.status = 400
+    throw err
+  }
+  const materialized = await resolveLicenseImageMaterialized(url)
+  if (!materialized || !materialized.filePath) {
+    const err = new Error('服务器未找到已上传的身份证，请重新上传后再识别')
+    err.status = 400
+    throw err
+  }
+  try {
+    const client = getOcrClient()
+    const runtime = runtimeOptions()
+    const request = new RecognizeIdcardRequest()
+    request.body = openImageReadable(materialized.filePath)
+    const resp = await client.recognizeIdcardWithOptions(request, runtime)
+    const body = resp?.body || {}
+    const code = body.code ?? body.Code
+    if (code != null && String(code) !== '200') {
+      const err = new Error(body.message || body.Message || '身份证识别失败')
+      err.status = 502
+      throw err
+    }
+    return mapIdCardOcrResult(body.data ?? body.Data)
+  } finally {
+    if (materialized.cleanup) await materialized.cleanup()
+  }
+}
+
 module.exports = {
   recognizeBusinessLicense,
+  recognizeIdCard,
   mapLicenseOcrResult,
+  mapIdCardOcrResult,
   resolveLicenseImageMaterialized,
 }

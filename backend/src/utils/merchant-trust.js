@@ -67,25 +67,41 @@ function scoreProfileCompleteness(merchant, store) {
   return COMPLETENESS.BASIC
 }
 
+function normalizeCreditCode(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+}
+
+function normalizePersonName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[·•．.。]/g, '')
+}
+
+function legalNamesMatch(licensePerson, idName) {
+  const left = normalizePersonName(licensePerson)
+  const right = normalizePersonName(idName)
+  return Boolean(left && right && left === right)
+}
+
 /**
- * 必要自动校验：执照图 + 法人证图 + 主体名或信用代码至少一项有值
+ * 材料是否交齐。是否通过以证件识别结果为准，本函数不标已认证。
  */
 function evaluateAuthSubmission({
   licensePhotoUrl = '',
   legalIdPhotoUrl = '',
-  legalName = '',
-  creditCode = '',
+  legalIdBackPhotoUrl = '',
 } = {}) {
   const hasLicense = Boolean(String(licensePhotoUrl || '').trim())
-  const hasId = Boolean(String(legalIdPhotoUrl || '').trim())
-  const hasIdentity = Boolean(String(legalName || '').trim() || String(creditCode || '').trim())
-  if (!hasLicense || !hasId) {
-    return { authStatus: AUTH_STATUS.FAILED, reason: '请上传营业执照与法人身份证照片' }
+  const hasFront = Boolean(String(legalIdPhotoUrl || '').trim())
+  const hasBack = Boolean(String(legalIdBackPhotoUrl || '').trim())
+  if (!hasLicense || !hasFront || !hasBack) {
+    return { authStatus: AUTH_STATUS.FAILED, reason: '请上传营业执照与法人身份证正反面' }
   }
-  if (!hasIdentity) {
-    return { authStatus: AUTH_STATUS.PENDING, reason: '证件已传，请补全主体名称或信用代码' }
-  }
-  return { authStatus: AUTH_STATUS.VERIFIED, reason: '' }
+  return { authStatus: AUTH_STATUS.PENDING, reason: '' }
 }
 
 function buildPublisherTrustBadge(merchant = {}, store = null) {
@@ -120,4 +136,7 @@ module.exports = {
   scoreProfileCompleteness,
   evaluateAuthSubmission,
   buildPublisherTrustBadge,
+  normalizeCreditCode,
+  normalizePersonName,
+  legalNamesMatch,
 }

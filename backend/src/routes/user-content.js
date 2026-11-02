@@ -1,6 +1,6 @@
 const express = require('express')
 const { ok } = require('../lib/response')
-const { requireAuth } = require('../middleware/auth')
+const { requireAuth, optionalAuth } = require('../middleware/auth')
 const {
   listCases,
   getCaseDetail,
@@ -60,9 +60,11 @@ router.get('/merchants', async (req, res, next) => {
   }
 })
 
-router.get('/merchants/:id', async (req, res, next) => {
+router.get('/merchants/:id', optionalAuth, async (req, res, next) => {
   try {
-    const data = await getMerchantDetail(req.params.id)
+    const data = await getMerchantDetail(req.params.id, {
+      allowStoreId: req.auth && req.auth.storeId,
+    })
     return ok(res, data)
   } catch (e) {
     return next(e)

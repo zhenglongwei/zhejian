@@ -107,6 +107,14 @@ async function createLead(userId, payload = {}, meta = {}) {
     throw err
   }
 
+  const { isStorePubliclyVisible } = require('./content.service')
+  const storeVisible = await isStorePubliclyVisible(payload.storeId)
+  if (!storeVisible) {
+    const err = new Error('门店暂未公开')
+    err.status = 404
+    throw err
+  }
+
   const id = newId('lead')
   const contact = payload.contact || {}
   const lead = await prisma.consultLead.create({

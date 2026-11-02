@@ -2,6 +2,7 @@ const { prisma } = require('../lib/prisma')
 const { newId, maskPhone } = require('../lib/ids')
 const { createLead } = require('./lead.service')
 const { publicCaseH5Where } = require('../utils/public-case-visibility')
+const { isStorePubliclyVisible } = require('./content.service')
 
 const H5_LEAD_RATE_LIMIT_MS = 24 * 60 * 60 * 1000
 
@@ -12,6 +13,12 @@ function normalizeMobilePhone(value) {
 }
 
 async function assertH5LeadTarget(storeId, caseId) {
+  const visible = await isStorePubliclyVisible(storeId)
+  if (!visible) {
+    const err = new Error('门店不存在或暂不可咨询')
+    err.status = 404
+    throw err
+  }
   const store = await prisma.store.findFirst({
     where: {
       id: storeId,

@@ -8,22 +8,31 @@ const {
   COMPLETENESS,
 } = require('./merchant-trust')
 
-test('evaluateAuthSubmission requires license + legal id', () => {
+const { legalNamesMatch, normalizeCreditCode } = require('./merchant-trust')
+
+test('evaluateAuthSubmission requires license and both id sides', () => {
   const fail = evaluateAuthSubmission({ legalName: 'A', creditCode: '1' })
   assert.equal(fail.authStatus, AUTH_STATUS.FAILED)
+
+  const missingBack = evaluateAuthSubmission({
+    licensePhotoUrl: 'https://x/a.jpg',
+    legalIdPhotoUrl: 'https://x/b.jpg',
+  })
+  assert.equal(missingBack.authStatus, AUTH_STATUS.FAILED)
 
   const pending = evaluateAuthSubmission({
     licensePhotoUrl: 'https://x/a.jpg',
     legalIdPhotoUrl: 'https://x/b.jpg',
+    legalIdBackPhotoUrl: 'https://x/c.jpg',
   })
   assert.equal(pending.authStatus, AUTH_STATUS.PENDING)
+})
 
-  const ok = evaluateAuthSubmission({
-    licensePhotoUrl: 'https://x/a.jpg',
-    legalIdPhotoUrl: 'https://x/b.jpg',
-    legalName: '杭州测试汽修',
-  })
-  assert.equal(ok.authStatus, AUTH_STATUS.VERIFIED)
+test('legal names match on OCR text, not typed labels', () => {
+  assert.equal(legalNamesMatch('张 三', '张三'), true)
+  assert.equal(legalNamesMatch('张·三', '张三'), true)
+  assert.equal(legalNamesMatch('张三', '李四'), false)
+  assert.equal(normalizeCreditCode(' 9133 0100x '), '91330100X')
 })
 
 test('scoreProfileCompleteness and public badge line', () => {

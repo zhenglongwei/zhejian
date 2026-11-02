@@ -364,6 +364,8 @@ function parseStoreDisplayForm(form = {}) {
       form.licensePhotoUrl == null ? null : String(form.licensePhotoUrl || '').trim(),
     legalIdPhotoUrl:
       form.legalIdPhotoUrl == null ? null : String(form.legalIdPhotoUrl || '').trim(),
+    legalIdBackPhotoUrl:
+      form.legalIdBackPhotoUrl == null ? null : String(form.legalIdBackPhotoUrl || '').trim(),
     licenseEstablishedOn:
       form.licenseEstablishedOn == null ? null : String(form.licenseEstablishedOn || '').trim(),
     contactEmail: form.contactEmail == null ? null : String(form.contactEmail || '').trim(),
@@ -416,6 +418,9 @@ function validateStoreDisplayPayload(payload) {
   }
   if (payload.legalIdPhotoUrl) {
     payload.legalIdPhotoUrl = assertPersistentOptional(payload.legalIdPhotoUrl)
+  }
+  if (payload.legalIdBackPhotoUrl) {
+    payload.legalIdBackPhotoUrl = assertPersistentOptional(payload.legalIdBackPhotoUrl)
   }
 
   return {

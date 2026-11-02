@@ -3,6 +3,7 @@
  */
 const { prisma } = require('../lib/prisma')
 const { publicCaseH5Where } = require('../utils/public-case-visibility')
+const { isStorePubliclyVisible } = require('./content.service')
 const {
   buildCasePagePath,
   buildLegacyCaseViewPath,
@@ -19,10 +20,16 @@ async function resolveCaseRedirectTarget(caseId) {
 
   const row = await prisma.publicCase.findFirst({
     where: publicCaseH5Where({ id }),
-    select: { id: true, slug: true },
+    select: { id: true, slug: true, storeId: true },
   })
 
   if (!row) {
+    const err = new Error('案例不存在或未公开')
+    err.status = 404
+    throw err
+  }
+  const storeVisible = await isStorePubliclyVisible(row.storeId)
+  if (!storeVisible) {
     const err = new Error('案例不存在或未公开')
     err.status = 404
     throw err

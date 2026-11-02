@@ -227,6 +227,7 @@ async function getAdminMerchantDetail(merchantId) {
     creditCode: merchant.creditCode || '',
     licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
     legalIdPhotoUrl: resolveClientReadableMediaUrl(merchant.legalIdPhotoUrl || ''),
+    legalIdBackPhotoUrl: resolveClientReadableMediaUrl(merchant.legalIdBackPhotoUrl || ''),
     licenseEstablishedOn:
       merchant.licenseEstablishedOn instanceof Date
         ? merchant.licenseEstablishedOn.toISOString().slice(0, 10)

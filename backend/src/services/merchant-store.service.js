@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { MERCHANT_STATUS, STORE_STATUS } = require('../constants/merchant')
-const { formatOnboardingProfile } = require('./merchant-onboarding.service')
+const { formatOnboardingProfile, attachPublicReady } = require('./merchant-onboarding.service')
 const {
   parseStoreDisplayForm,
   validateStoreDisplayPayload,
@@ -17,7 +17,6 @@ const {
   isCapabilityFieldError,
 } = require('../utils/store-capability-load')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
-const { evaluateAuthSubmission, AUTH_STATUS } = require('../utils/merchant-trust')
 
 const STAFF_ROLE_OWNER = 'owner'
 const STAFF_STATUS_ACTIVE = 'ACTIVE'
@@ -225,35 +224,32 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     where: { id: auth.merchantId },
   })
   if (payload.identityProvided && merchant) {
+    const licenseTouched = payload.licensePhotoUrl !== (merchant.licensePhotoUrl || '')
+    const idTouched =
+      payload.legalIdPhotoUrl !== (merchant.legalIdPhotoUrl || '') ||
+      payload.legalIdBackPhotoUrl !== (merchant.legalIdBackPhotoUrl || '')
+    if (licenseTouched || idTouched) {
+      const { applyMerchantAuthDocuments } = require('./merchant-onboarding.service')
+      const store = await prisma.store.findUnique({ where: { id: storeId } })
+      await applyMerchantAuthDocuments(merchant, store || updatedStore, {
+        licensePhotoUrl: payload.licensePhotoUrl || '',
+        legalIdPhotoUrl: payload.legalIdPhotoUrl || '',
+        legalIdBackPhotoUrl: payload.legalIdBackPhotoUrl || '',
+        legalName: payload.legalName || '',
+        creditCode: payload.creditCode || '',
+      })
+    }
     const merchantData = {
       name: payload.storeName,
       contactName: payload.contactName || '',
       contactPhone: payload.contactPhone || '',
-      legalName: payload.legalName || '',
-      creditCode: payload.creditCode || '',
-      licensePhotoUrl: payload.licensePhotoUrl || '',
-      legalIdPhotoUrl: payload.legalIdPhotoUrl || '',
       contactEmail: payload.contactEmail || '',
-      licenseEstablishedOn: payload.licenseEstablishedOn
-        ? new Date(`${payload.licenseEstablishedOn}T00:00:00.000Z`)
-        : null,
     }
     if (payload.qualification) {
       merchantData.qualificationJson = payload.qualification
     }
-    const licenseTouched = payload.licensePhotoUrl !== (merchant.licensePhotoUrl || '')
-    const idTouched = payload.legalIdPhotoUrl !== (merchant.legalIdPhotoUrl || '')
-    if (licenseTouched || idTouched) {
-      const evalResult = evaluateAuthSubmission({
-        licensePhotoUrl: merchantData.licensePhotoUrl,
-        legalIdPhotoUrl: merchantData.legalIdPhotoUrl,
-        legalName: merchantData.legalName,
-        creditCode: merchantData.creditCode,
-      })
-      merchantData.authStatus = evalResult.authStatus
-      if (evalResult.authStatus === AUTH_STATUS.VERIFIED) {
-        merchantData.authVerifiedAt = new Date()
-      }
+    if (payload.licenseEstablishedOn) {
+      merchantData.licenseEstablishedOn = new Date(`${payload.licenseEstablishedOn}T00:00:00.000Z`)
     }
     await prisma.merchant.update({
       where: { id: merchant.id },
@@ -270,7 +266,11 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
   const merchantFresh =
     (await prisma.merchant.findUnique({ where: { id: auth.merchantId } })) || merchant
 
-  const profile = formatOnboardingProfile(merchantFresh, updatedStore)
+  const profile = await attachPublicReady(
+    formatOnboardingProfile(merchantFresh, updatedStore),
+    merchantFresh,
+    updatedStore,
+  )
   return {
     ...attachCapabilityToProfile(profile, updatedStore, capability),
     brandAuthReviewSubmitted: false,

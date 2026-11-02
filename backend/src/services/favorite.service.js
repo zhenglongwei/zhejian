@@ -1,6 +1,11 @@
 const { prisma, assertPrismaDelegate } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
-const { mapStoreRow, mapPublicCaseRow, applyPublicDisplayRules } = require('./content.service')
+const {
+  mapStoreRow,
+  mapPublicCaseRow,
+  applyPublicDisplayRules,
+  isStorePubliclyVisible,
+} = require('./content.service')
 const { publicCaseH5Where } = require('../utils/public-case-visibility')
 const { formatPlanRecord } = require('./service-plan-format')
 const { PLAN_SALE_STATUS } = require('../constants/service-plan')
@@ -76,13 +81,8 @@ async function assertFavoriteTargetExists(targetType, targetId) {
 
 async function resolveStoreAvailability(storeId) {
   if (!storeId) return { available: false, unavailableReason: '暂不可查看' }
-  const store = await prisma.store.findUnique({
-    where: { id: storeId },
-    include: { merchant: { select: { status: true } } },
-  })
-  if (!store || store.status !== 'ACTIVE' || store.merchant?.status !== 'ACTIVE') {
-    return { available: false, unavailableReason: '已下架' }
-  }
+  const visible = await isStorePubliclyVisible(storeId)
+  if (!visible) return { available: false, unavailableReason: '暂不可查看' }
   return { available: true, unavailableReason: '' }
 }
 
@@ -91,10 +91,8 @@ async function resolveServiceAvailability(serviceId) {
   if (!row || row.saleStatus !== PLAN_SALE_STATUS.ONLINE) {
     return { available: false, unavailableReason: '已下架' }
   }
-  const store = await prisma.store.findUnique({ where: { id: row.storeId } })
-  if (!store || store.status !== 'ACTIVE') {
-    return { available: false, unavailableReason: '已下架' }
-  }
+  const visible = await isStorePubliclyVisible(row.storeId)
+  if (!visible) return { available: false, unavailableReason: '已下架' }
   return { available: true, unavailableReason: '' }
 }
 

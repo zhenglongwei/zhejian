@@ -38,6 +38,9 @@ const {
   isPlaceholderStoreName,
 } = require('../utils/store-public-display')
 const { cityLabelFromStore } = require('../utils/address-city')
+const { isStorePublicReady } = require('../utils/store-public-readiness')
+const { normalizeCreditCode } = require('../utils/merchant-trust')
+const { MERCHANT_STATUS } = require('../constants/merchant')
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const {
   resolvePublicCaseContentNodes,
@@ -145,15 +148,52 @@ async function resolveActivePublicStoreIds(storeIds) {
       status: 'ACTIVE',
       merchant: { status: 'ACTIVE' },
     },
-    select: { id: true },
+    include: { merchant: true },
   })
-  return new Set(stores.map((s) => s.id))
+  const codes = [
+    ...new Set(
+      stores
+        .map((row) => normalizeCreditCode(row.merchant && row.merchant.creditCode))
+        .filter(Boolean)
+    ),
+  ]
+  const owners = new Map()
+  if (codes.length) {
+    const wanted = new Set(codes)
+    const rows = await prisma.merchant.findMany({
+      where: {
+        status: { not: MERCHANT_STATUS.CLOSED },
+        NOT: { creditCode: '' },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, creditCode: true },
+    })
+    rows.forEach((row) => {
+      const code = normalizeCreditCode(row.creditCode)
+      if (code && wanted.has(code) && !owners.has(code)) owners.set(code, row.id)
+    })
+  }
+  return new Set(
+    stores
+      .filter((row) =>
+        isStorePublicReady(row.merchant, row, {
+          creditCodeOwnerMerchantId: owners.get(
+            normalizeCreditCode(row.merchant && row.merchant.creditCode)
+          ),
+        })
+      )
+      .map((row) => row.id)
+  )
 }
 
-async function isPublicCaseStoreVisible(storeId) {
+async function isStorePubliclyVisible(storeId) {
   if (!storeId) return false
   const active = await resolveActivePublicStoreIds([storeId])
   return active.has(storeId)
+}
+
+async function isPublicCaseStoreVisible(storeId) {
+  return isStorePubliclyVisible(storeId)
 }
 
 function shouldShowStorePublicly(tier) {
@@ -801,7 +841,7 @@ async function listActiveStores() {
   return prisma.store.findMany({
     where: { status: 'ACTIVE' },
     include: {
-      merchant: { select: { qualificationJson: true } },
+      merchant: true,
     },
     orderBy: { updatedAt: 'desc' },
   })
@@ -809,8 +849,10 @@ async function listActiveStores() {
 
 async function listMerchants(query = {}) {
   const stores = await listActiveStores()
+  const readyIds = await resolveActivePublicStoreIds(stores.map((row) => row.id))
+  const publicStores = stores.filter((row) => readyIds.has(row.id))
   const mapped = await Promise.all(
-    stores.map(async (store) => {
+    publicStores.map(async (store) => {
       const caseCount = await countCasesByStore(store.id)
       return mapStoreRow(store, caseCount)
     })
@@ -836,7 +878,7 @@ async function listMerchants(query = {}) {
   return { list, total }
 }
 
-async function getMerchantDetail(id) {
+async function getMerchantDetail(id, options = {}) {
   const store = await prisma.store.findUnique({
     where: { id },
     include: { merchant: true },
@@ -846,8 +888,16 @@ async function getMerchantDetail(id) {
     err.status = 404
     throw err
   }
+  const readyIds = await resolveActivePublicStoreIds([store.id])
+  const ownerPreview = options.allowStoreId && String(options.allowStoreId) === String(store.id)
+  if (!readyIds.has(store.id) && !ownerPreview) {
+    const err = new Error('门店暂未公开')
+    err.status = 404
+    throw err
+  }
 
   const mapped = mapStoreRow(store, await countCasesByStore(store.id))
+  mapped.publicReady = readyIds.has(store.id)
   const windowStats = await countStorefrontWindowStats(store.id)
   mapped.completedLast90Days = windowStats.completedLast90Days
   mapped.publishedLast90Days = windowStats.publishedLast90Days
@@ -931,9 +981,10 @@ async function loadPublishedPlansFromDb(query = {}) {
     where: { id: { in: storeIds }, status: 'ACTIVE' },
   })
   const storeMap = new Map(stores.map((s) => [s.id, s]))
+  const readyIds = await resolveActivePublicStoreIds([...storeMap.keys()])
 
   const list = rows
-    .filter((row) => storeMap.has(row.storeId))
+    .filter((row) => readyIds.has(row.storeId))
     .map((row) => {
       const formatted = formatPlanRecord(row, storeMap.get(row.storeId))
       return {
@@ -969,6 +1020,12 @@ async function getServiceDetail(id, opts = {}) {
       err.status = 404
       throw err
     }
+    const readyIds = await resolveActivePublicStoreIds([row.storeId])
+    if (!readyIds.has(row.storeId)) {
+      const err = new Error('该服务已下架，请查看其他服务')
+      err.status = 404
+      throw err
+    }
     return enrichServicePublicPage(
       await attachRelatedCasesToService(
         {
@@ -995,6 +1052,12 @@ async function getServiceDetail(id, opts = {}) {
 
   const store = await prisma.store.findUnique({ where: { id: record.storeId } })
   if (!store || store.status !== 'ACTIVE') {
+    const err = new Error('该服务已下架，请查看其他服务')
+    err.status = 404
+    throw err
+  }
+  const seedReadyIds = await resolveActivePublicStoreIds([record.storeId])
+  if (!seedReadyIds.has(record.storeId)) {
     const err = new Error('该服务已下架，请查看其他服务')
     err.status = 404
     throw err
@@ -1166,4 +1229,6 @@ module.exports = {
   mapStoreRow,
   mapPublicCaseRow,
   applyPublicDisplayRules,
+  isStorePubliclyVisible,
+  isPublicCaseStoreVisible,
 }

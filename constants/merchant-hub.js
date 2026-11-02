@@ -56,20 +56,28 @@ function buildMerchantTodoSummary(todos = {}) {
 
 /** 未认证、资料未完善：并进待处理，不单独占扉页 */
 function buildMerchantSetupTodos(profile) {
-  if (!profile) return []
+  if (!profile || profile.publicReady) return []
+  const next = String(profile.setupNext || '')
   const trust = profile.publisherTrust || {}
   const auth = String(trust.authStatus || profile.authStatus || 'none')
-  const completeness = String(
-    trust.profileCompleteness || profile.profileCompleteness || 'basic'
-  )
   const items = []
-  const authLabel = MERCHANT_AUTH_HINT[auth] || ''
-  if (authLabel) {
-    items.push({ key: 'auth', label: authLabel, action: 'auth' })
+  if (next === 'licenseTaken') {
+    items.push({
+      key: 'auth',
+      label: '这张执照已注册过其他门店',
+      action: 'auth',
+    })
+    return items
   }
-  if (completeness !== 'complete') {
+  if (next === 'profile') {
     items.push({ key: 'storeProfile', label: '补门店资料', action: 'storeProfile' })
+    return items
   }
+  items.push({
+    key: 'auth',
+    label: MERCHANT_AUTH_HINT[auth] || MERCHANT_AUTH_HINT.none,
+    action: 'auth',
+  })
   return items
 }
 

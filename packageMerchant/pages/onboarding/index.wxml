@@ -35,10 +35,17 @@
       <text wx:if="{{licenseOcrHint}}" class="text-caption merchant-onboard__ocr-hint">{{licenseOcrHint}}</text>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">法人身份证照片</text>
+      <text class="merchant-form__label">法人身份证 · 人像面</text>
       <view class="merchant-onboard__photo-slot" bindtap="onPickLegalId">
         <image wx:if="{{form.legalIdPhotoUrl}}" class="merchant-onboard__photo" src="{{form.legalIdPhotoUrl}}" mode="aspectFill" />
-        <text wx:else class="text-caption">上传身份证</text>
+        <text wx:else class="text-caption">人像面</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">法人身份证 · 国徽面</text>
+      <view class="merchant-onboard__photo-slot" bindtap="onPickLegalIdBack">
+        <image wx:if="{{form.legalIdBackPhotoUrl}}" class="merchant-onboard__photo" src="{{form.legalIdBackPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">国徽面</text>
       </view>
     </view>
     <view class="merchant-form__section">

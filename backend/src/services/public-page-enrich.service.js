@@ -462,7 +462,10 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
 
   const placeholderName = isPlaceholderStoreName(mapped.name || storeRow.name)
   const publicIndex =
-    (await merchantHasPublicIndex(storeRow.merchantId)) && !mapped.isDemo && !placeholderName
+    (await merchantHasPublicIndex(storeRow.merchantId)) &&
+    !mapped.isDemo &&
+    !placeholderName &&
+    mapped.publicReady !== false
   const operatingYearsMeta = publishLicense
     ? buildOperatingYearsMeta(merchantRow?.licenseEstablishedOn)
     : null

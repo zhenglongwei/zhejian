@@ -41,6 +41,7 @@ const EMPTY_FORM = {
   creditCode: '',
   licensePhotoUrl: '',
   legalIdPhotoUrl: '',
+  legalIdBackPhotoUrl: '',
   licenseEstablishedOn: '',
   contactEmail: '',
   qualificationType: 'class_3',
@@ -144,6 +145,7 @@ Page({
         creditCode: profile.creditCode || '',
         licensePhotoUrl: profile.licensePhotoUrl || '',
         legalIdPhotoUrl: profile.legalIdPhotoUrl || '',
+        legalIdBackPhotoUrl: profile.legalIdBackPhotoUrl || '',
         licenseEstablishedOn: normalizeDateValue(profile.licenseEstablishedOn),
         contactEmail: profile.contactEmail || '',
         qualificationType: baseType,
@@ -444,6 +446,10 @@ Page({
     this.pickSingleImage('legalIdPhotoUrl')
   },
 
+  onPickLegalIdBack() {
+    this.pickSingleImage('legalIdBackPhotoUrl')
+  },
+
   onPickFacade() {
     this.pickSingleImage('facadePhotoUrl')
   },
@@ -597,8 +603,8 @@ Page({
   async onSubmitAuth() {
     if (this.data.submitting) return
     const { form, merchantId } = this.data
-    if (!form.licensePhotoUrl || !form.legalIdPhotoUrl) {
-      wx.showToast({ title: '请上传执照与法人证', icon: 'none' })
+    if (!form.licensePhotoUrl || !form.legalIdPhotoUrl || !form.legalIdBackPhotoUrl) {
+      wx.showToast({ title: '请上传执照与身份证正反面', icon: 'none' })
       return
     }
     this.setData({ submitting: true })
@@ -607,11 +613,17 @@ Page({
         merchantId,
         licensePhotoUrl: form.licensePhotoUrl,
         legalIdPhotoUrl: form.legalIdPhotoUrl,
+        legalIdBackPhotoUrl: form.legalIdBackPhotoUrl,
         legalName: form.legalName,
         creditCode: form.creditCode,
       })
       wx.showToast({ title: (result && result.message) || '已提交', icon: 'success' })
+      const next = result && result.profile && result.profile.setupNext
       setTimeout(() => {
+        if (next === 'profile') {
+          wx.redirectTo({ url: '/packageMerchant/pages/store/edit/index?section=basic' })
+          return
+        }
         wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
       }, 600)
     } catch (e) {

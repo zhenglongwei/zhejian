@@ -302,6 +302,29 @@ Page({
       planTag,
       showPricing: canManageStaff,
     })
+    this.promptSetupIfNeeded(profile)
+  },
+
+  promptSetupIfNeeded(profile) {
+    if (!profile || profile.publicReady || !isMerchantOwner()) return
+    if (this._setupPrompted) return
+    this._setupPrompted = true
+    const next = profile.setupNext === 'profile' ? 'profile' : 'auth'
+    const content =
+      profile.setupNext === 'licenseTaken'
+        ? '这张执照已注册过其他门店'
+        : '补齐后才会出现在网站上'
+    wx.showModal({
+      title: '资料还没齐',
+      content,
+      confirmText: '去补',
+      cancelText: '先去干活',
+      success: (res) => {
+        if (!res.confirm) return
+        if (next === 'profile') this.onGoStoreEdit()
+        else this.onGoAuth()
+      },
+    })
   },
 
   async onQuickOpen() {
@@ -314,7 +337,7 @@ Page({
         redirectToWechatArchive()
         return
       }
-      await this.loadProfile()
+      wx.redirectTo({ url: '/packageMerchant/pages/onboarding/index?mode=auth' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '开通失败', icon: 'none' })
     } finally {
@@ -369,7 +392,7 @@ Page({
   },
 
   onGoStoreEdit() {
-    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index' })
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index?section=basic' })
   },
 
   onRefreshAudit() {
