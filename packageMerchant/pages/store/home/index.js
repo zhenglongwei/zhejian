@@ -1,4 +1,4 @@
-const { fetchMerchantProfile, fetchMerchantWorkbenchEntries, MERCHANT_STATUS } = require('../../../../services/merchant')
+const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../../services/merchant')
 const { fetchMerchantStats } = require('../../../../services/merchant-stats')
 const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
 const { isLoggedIn, isMerchantOwner } = require('../../../../utils/auth')
@@ -15,8 +15,6 @@ Page({
     statusBarHeight: 20,
     capsulePad: 16,
     canManageStaff: false,
-    canSwitchStore: false,
-    storeCount: 0,
     storeId: '',
     home: null,
   },
@@ -53,17 +51,6 @@ Page({
       return
     }
     const canManageStaff = isMerchantOwner()
-    let canSwitchStore = false
-    let storeCount = 0
-    if (canManageStaff) {
-      try {
-        const entries = await fetchMerchantWorkbenchEntries()
-        storeCount = (entries.list || []).length
-        canSwitchStore = storeCount > 0
-      } catch (e) {
-        canSwitchStore = true
-      }
-    }
     const [stats, albums] = await Promise.all([
       fetchMerchantStats({ storeId: profile.storeId, period: 'month' }).catch(() => null),
       fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
@@ -75,16 +62,13 @@ Page({
     this.setData({
       status: 'normal',
       canManageStaff,
-      canSwitchStore,
-      storeCount,
       storeId: profile.storeId || '',
       home,
     })
   },
 
   onLogoMenu() {
-    const itemList =
-      this.data.storeCount > 1 ? ['切换门店', '切换为车主'] : ['切换为车主']
+    const itemList = this.data.canManageStaff ? ['切换门店', '切换为车主'] : ['切换为车主']
     wx.showActionSheet({
       itemList,
       success: (res) => {
@@ -125,7 +109,7 @@ Page({
   },
 
   onSwitchStore() {
-    if (!this.data.canSwitchStore) return
+    if (!this.data.canManageStaff) return
     wx.navigateTo({ url: '/packageMerchant/pages/store-picker/index' })
   },
 
