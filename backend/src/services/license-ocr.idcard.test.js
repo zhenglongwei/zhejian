@@ -14,4 +14,10 @@ test('id card ocr maps face name and back period', () => {
     data: { issueAuthority: '某分局' },
   })
   assert.equal(backOnly.side, 'back')
+
+  const viapiBack = mapIdCardOcrResult({
+    data: { issue: '某分局', startDate: '20100101', endDate: '20300101' },
+  })
+  assert.equal(viapiBack.side, 'back')
+  assert.equal(viapiBack.issueAuthority, '某分局')
 })

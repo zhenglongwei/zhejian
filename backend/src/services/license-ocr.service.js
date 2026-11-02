@@ -166,6 +166,63 @@ function assertMappedLicense(mapped, provider) {
   return { ...mapped, provider }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function ocrErrorText(err) {
+  return `${err && err.code ? err.code : ''} ${err && err.message ? err.message : ''}`
+}
+
+function isOcrApiUnreachableError(err) {
+  const text = ocrErrorText(err).toLowerCase()
+  return (
+    String(err && err.code || '').toUpperCase() === 'ENOTFOUND' ||
+    text.includes('enotfound') ||
+    text.includes('getaddrinfo')
+  )
+}
+
+function isRetryableOcrError(err) {
+  const text = ocrErrorText(err)
+  return /ServiceUnavailable|Throttling|503|ECONNRESET|ETIMEDOUT|timeout|限流/i.test(text)
+}
+
+function toUserOcrError(err, fallback) {
+  const text = ocrErrorText(err)
+  if (/未识别到营业执照关键信息/.test(String(err && err.message || ''))) {
+    return err
+  }
+  if (/InvalidImage|NoOcrResult|未识别|无识别/i.test(text)) {
+    const mapped = new Error('未识别到营业执照关键信息，请手动填写')
+    mapped.status = 422
+    return mapped
+  }
+  const mapped = new Error(fallback)
+  mapped.status = 502
+  return mapped
+}
+
+let ocrApiUnreachable = false
+
+async function withOcrRetries(fn, times = 3) {
+  let lastError
+  for (let attempt = 0; attempt < times; attempt += 1) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastError = err
+      if (!isRetryableOcrError(err) || attempt === times - 1) throw err
+      console.warn('[license-ocr] retry', {
+        attempt: attempt + 1,
+        message: String(err && err.message || '').slice(0, 120),
+      })
+      await sleep(400 * (attempt + 1))
+    }
+  }
+  throw lastError
+}
+
 async function recognizeWithOcrApiBody(imagePath) {
   const client = getOcrClient()
   const runtime = runtimeOptions()
@@ -223,18 +280,28 @@ async function recognizeBusinessLicense(licensePhotoUrl) {
 
   try {
     try {
-      return await recognizeWithOcrApiBody(imagePath)
-    } catch (ocrApiError) {
-      console.warn('[license-ocr] ocr-api body failed', ocrApiError && ocrApiError.message)
-      try {
-        return await recognizeWithViapiBody(imagePath)
-      } catch (viapiError) {
-        const err = new Error(
-          viapiError.message || ocrApiError.message || '营业执照识别失败，请手动填写'
-        )
-        err.status = viapiError.status || ocrApiError.status || 502
-        throw err
+      const mapped = await withOcrRetries(() => recognizeWithViapiBody(imagePath))
+      console.info('[license-ocr] viapi ok')
+      return mapped
+    } catch (viapiError) {
+      console.warn('[license-ocr] viapi failed', String(viapiError && viapiError.message || '').slice(0, 160))
+      if (!ocrApiUnreachable) {
+        try {
+          const mapped = await recognizeWithOcrApiBody(imagePath)
+          console.info('[license-ocr] ocr-api ok')
+          return mapped
+        } catch (ocrApiError) {
+          if (isOcrApiUnreachableError(ocrApiError)) ocrApiUnreachable = true
+          console.warn(
+            '[license-ocr] ocr-api body failed',
+            String(ocrApiError && ocrApiError.message || '').slice(0, 160)
+          )
+        }
       }
+      throw toUserOcrError(
+        viapiError,
+        '执照识别暂时不可用，请稍后重试，或先手填主体名称和信用代码'
+      )
     }
   } finally {
     if (materialized.cleanup) await materialized.cleanup()
@@ -259,6 +326,8 @@ function mapIdCardOcrResult(raw) {
     'ValidDate',
     'endDate',
     'EndDate',
+    'startDate',
+    'StartDate',
   ])
   const issueAuthority = pickIdField(backNode, [
     'issueAuthority',
@@ -276,7 +345,40 @@ function mapIdCardOcrResult(raw) {
   }
 }
 
-async function recognizeIdCard(photoUrl) {
+async function recognizeIdCardWithOcrApi(imagePath) {
+  const client = getOcrClient()
+  const runtime = runtimeOptions()
+  const request = new RecognizeIdcardRequest()
+  request.body = openImageReadable(imagePath)
+  const resp = await client.recognizeIdcardWithOptions(request, runtime)
+  const body = resp?.body || {}
+  const code = body.code ?? body.Code
+  if (code != null && String(code) !== '200') {
+    const err = new Error(body.message || body.Message || '身份证识别失败')
+    err.status = 502
+    throw err
+  }
+  return mapIdCardOcrResult(body.data ?? body.Data)
+}
+
+async function recognizeIdCardWithViapi(imagePath, side = '') {
+  const client = getViapiOcrClient()
+  const runtime = runtimeOptions()
+  const AdvanceRequest = ViapiOcr.RecognizeIdentityCardAdvanceRequest
+  if (!AdvanceRequest || typeof client.recognizeIdentityCardAdvance !== 'function') {
+    const err = new Error('VIAPI 身份证识别不可用')
+    err.status = 503
+    throw err
+  }
+  const request = new AdvanceRequest()
+  request.imageURLObject = openImageReadable(imagePath)
+  if (side) request.side = side
+  const resp = await client.recognizeIdentityCardAdvance(request, runtime)
+  const body = resp?.body || {}
+  return mapIdCardOcrResult(body.data ?? body.Data)
+}
+
+async function recognizeIdCard(photoUrl, options = {}) {
   const url = String(photoUrl || '').trim()
   if (!url) {
     const err = new Error('请上传法人身份证')
@@ -289,20 +391,34 @@ async function recognizeIdCard(photoUrl) {
     err.status = 400
     throw err
   }
+  const side = String(options.side || '').trim()
   try {
-    const client = getOcrClient()
-    const runtime = runtimeOptions()
-    const request = new RecognizeIdcardRequest()
-    request.body = openImageReadable(materialized.filePath)
-    const resp = await client.recognizeIdcardWithOptions(request, runtime)
-    const body = resp?.body || {}
-    const code = body.code ?? body.Code
-    if (code != null && String(code) !== '200') {
-      const err = new Error(body.message || body.Message || '身份证识别失败')
-      err.status = 502
-      throw err
+    try {
+      const mapped = await withOcrRetries(() =>
+        recognizeIdCardWithViapi(materialized.filePath, side)
+      )
+      console.info('[license-ocr] idcard viapi ok', { side: mapped.side || side })
+      return mapped
+    } catch (viapiError) {
+      console.warn(
+        '[license-ocr] idcard viapi failed',
+        String(viapiError && viapiError.message || '').slice(0, 160)
+      )
+      if (!ocrApiUnreachable) {
+        try {
+          const mapped = await recognizeIdCardWithOcrApi(materialized.filePath)
+          console.info('[license-ocr] idcard ocr-api ok')
+          return mapped
+        } catch (ocrApiError) {
+          if (isOcrApiUnreachableError(ocrApiError)) ocrApiUnreachable = true
+          console.warn(
+            '[license-ocr] idcard ocr-api failed',
+            String(ocrApiError && ocrApiError.message || '').slice(0, 160)
+          )
+        }
+      }
+      throw toUserOcrError(viapiError, '身份证识别暂时不可用，请稍后重试')
     }
-    return mapIdCardOcrResult(body.data ?? body.Data)
   } finally {
     if (materialized.cleanup) await materialized.cleanup()
   }

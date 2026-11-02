@@ -887,7 +887,7 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
     throw err
   }
   try {
-    frontOcr = await recognizeIdCard(legalIdPhotoUrl)
+    frontOcr = await recognizeIdCard(legalIdPhotoUrl, { side: 'face' })
   } catch (e) {
     const { profile } = await persistAuthResult(merchant, store, {
       licensePhotoUrl,
@@ -904,7 +904,7 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
     throw err
   }
   try {
-    backOcr = await recognizeIdCard(legalIdBackPhotoUrl)
+    backOcr = await recognizeIdCard(legalIdBackPhotoUrl, { side: 'back' })
   } catch (e) {
     const { profile } = await persistAuthResult(merchant, store, {
       licensePhotoUrl,
