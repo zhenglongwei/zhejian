@@ -95,6 +95,93 @@ async function loadHostMaskOutcomeIndex(albumId) {
       /* optional */
     }
   }
+  // 节点图对象 + 媒体表：success 且无脱敏产物 = ok_no_privacy（可展示原图）
+  try {
+    const album = await prisma.album.findUnique({
+      where: { id: albumId },
+      select: { contentPackageJson: true },
+    })
+    const urls = new Set()
+    const collect = (slot) => {
+      if (!slot) return
+      if (typeof slot === 'string') {
+        if (slot.trim()) urls.add(slot.trim())
+        return
+      }
+      if (typeof slot !== 'object') return
+      const raw = String(slot.url || slot.src || slot.rawUrl || '').trim()
+      if (raw) urls.add(raw)
+      const outcome = String(slot.maskOutcome || '').trim()
+      if (outcome === 'ok_no_privacy' && raw) {
+        put(raw, {
+          status: '',
+          desensitizeStatus: 'success',
+          riskTags: [],
+          maskedUrl: '',
+          preMaskedUrl: '',
+          maskOutcome: 'ok_no_privacy',
+        })
+      } else if (raw && String(slot.maskedUrl || '').trim()) {
+        put(raw, {
+          status: 'masked_ready',
+          riskTags: Array.isArray(slot.maskRegions) && slot.maskRegions.length ? ['privacy'] : [],
+          maskedUrl: String(slot.maskedUrl || ''),
+          preMaskedUrl: String(slot.preMaskedUrl || slot.maskedUrl || ''),
+          maskOutcome: outcome || 'ok_masked',
+        })
+      }
+    }
+    const walkBag = (bag) => {
+      if (!bag || typeof bag !== 'object') return
+      ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
+        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(collect)
+      })
+      ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
+        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
+          if (!row || typeof row !== 'object') return
+          collect(row)
+          ;(Array.isArray(row.images) ? row.images : []).forEach(collect)
+          if (row.evidenceUrl) collect({ url: row.evidenceUrl, maskedUrl: row.evidenceMaskedUrl })
+        })
+      })
+      if (bag.deliveryExteriorUrl) {
+        collect({
+          url: bag.deliveryExteriorUrl,
+          maskedUrl: bag.deliveryExteriorMaskedUrl,
+          maskOutcome: bag.deliveryExteriorMaskOutcome,
+        })
+      }
+    }
+    const pkg =
+      album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+        ? album.contentPackageJson
+        : {}
+    ;(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
+      if (!node) return
+      if (node.content) walkBag(node.content)
+      if (node.photoDraft) walkBag(node.photoDraft)
+      if (node.document && node.document.payload) walkBag(node.document.payload)
+    })
+    const list = [...urls].slice(0, 120)
+    if (list.length) {
+      const mediaRows = await prisma.mediaAsset.findMany({
+        where: { url: { in: list } },
+        take: 120,
+      })
+      mediaRows.forEach((media) => {
+        if (!media || !media.url) return
+        put(media.url, {
+          status: '',
+          desensitizeStatus: media.desensitizeStatus || '',
+          riskTags: media.riskTags || [],
+          maskedUrl: media.desensitizedUrl || '',
+          preMaskedUrl: media.desensitizedUrl || '',
+        })
+      })
+    }
+  } catch (_) {
+    /* node/media optional */
+  }
   return index
 }
 

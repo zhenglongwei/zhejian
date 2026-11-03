@@ -495,7 +495,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     'photo：how 写拍哪、怎么拍（距离、要入镜的读数、避码）；不要 suggestedText。',
     'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName / quoteLineNote 之一；suggestedText 必须是可直接填进该字段的整句。',
     '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。附图是原图。',
-    'JSON 另带 masks。框出车牌、车架号、人脸，以及手机号、姓名、证件。kind 只用 plate、vin、face、phone、name、document。imageSlot 从 1 起，按附图顺序。regions 的 left、top、width、height 是相对整张图的 0 到 1。没有就给空数组。',
+    require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
     'priorFacts 是前面各步已经识过或写过的文字，不要再看那些图，不要改已经确认的检测和报价。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,

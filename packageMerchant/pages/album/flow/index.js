@@ -7587,7 +7587,7 @@ Page({
     this.setData(patch)
   },
 
-  failAdviceWait(message) {
+  failAdviceWait(message, options = {}) {
     const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
     const prev = this.currentAdviceBundle() || {}
     const next = {
@@ -7597,10 +7597,20 @@ Page({
       waitHint: '',
       errorMessage: message || '未能出意见',
     }
+    const code = String((options && options.code) || '')
+    const text = String(message || '')
+    const quotaBlocked =
+      code === 'AI_QUOTA_EXCEEDED' ||
+      code === 'SUBSCRIPTION_EXPIRED' ||
+      /额度已满|套餐已到期|升级套餐后再/.test(text)
+    const closePanel = Boolean(options.closePanel) || quotaBlocked
     const patch = {
       advicePaintWaiting: false,
       adviceWaitHint: '',
-      adviceCanRefresh: !this.data.readOnly,
+      adviceCanRefresh: !this.data.readOnly && !quotaBlocked,
+    }
+    if (closePanel) {
+      patch.adviceOpen = false
     }
     if (family === 'intake') patch.intakeAdvice = next
     else if (family === 'inspect') patch.inspectionAdvice = next
@@ -7609,6 +7619,16 @@ Page({
     else if (family === 'finish') patch.deliveryAdvice = next
     else patch.inspectionAdvice = next
     this.setData(patch, () => this.syncAdviceChrome())
+  },
+
+  /** 启动 AI 失败：清等待；额度/到期类再关弹层，避免一直「正在出意见」 */
+  abortAdviceStart(error, fallbackMessage) {
+    const message = (error && error.message) || fallbackMessage || '未能出意见'
+    this.failAdviceWait(message, {
+      code: error && error.code,
+      closePanel: true,
+    })
+    wx.showToast({ title: message, icon: 'none' })
   },
 
   settleAdvicePaintWaiting() {
@@ -7718,7 +7738,7 @@ Page({
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
       this.resumeQuoteAssistPoll()
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
+      this.abortAdviceStart(e, '未能出意见')
     } finally {
       this.setData({ confirming: false })
     }
@@ -7734,7 +7754,7 @@ Page({
     try {
       await this.flushDocDraftSave()
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '请先保存当前修改', icon: 'none' })
+      this.abortAdviceStart(e, '请先保存当前修改')
       this.setData({ confirming: false })
       return
     }
@@ -7752,7 +7772,7 @@ Page({
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
       this.resumeQuoteAssistPoll()
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
+      this.abortAdviceStart(e, '未能出意见')
     } finally {
       this.setData({ confirming: false })
     }
@@ -8094,9 +8114,7 @@ Page({
       this.setData({ adviceOpen: true }, () => this.syncAdviceChrome())
       this.resumeQuoteAssistPoll()
     } catch (e) {
-      const message = (e && e.message) || '未能出意见'
-      this.failAdviceWait(message)
-      wx.showToast({ title: message, icon: 'none' })
+      this.abortAdviceStart(e, '未能出意见')
     }
   },
 
@@ -8127,7 +8145,7 @@ Page({
         wx.showToast({ title: '暂不可用', icon: 'none' })
       }
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || emptyTitle, icon: 'none' })
+      this.abortAdviceStart(e, emptyTitle)
     } finally {
       this.setData({ confirming: false })
     }
@@ -8152,7 +8170,7 @@ Page({
         return
       }
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '未能出意见', icon: 'none' })
+      this.abortAdviceStart(e, '未能出意见')
     } finally {
       this.setData({ confirming: false, aiReviewBusy: false })
     }

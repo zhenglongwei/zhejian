@@ -73,6 +73,28 @@ test('ok_no_privacy counts as mask success even without privacy hits', () => {
   assert.equal(row.needsRemask, false)
 })
 
+test('media success with empty product is ok_no_privacy (show original)', () => {
+  const row = classifyHostMaskOutcome({
+    desensitizeStatus: 'success',
+    maskedUrl: '',
+    riskTags: [],
+  })
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.OK_NO_PRIVACY)
+  assert.equal(row.publishSafe, true)
+  assert.equal(row.maskSucceeded, true)
+  assert.equal(row.needsRemask, false)
+})
+
+test('explicit node maskOutcome ok_no_privacy wins without product url', () => {
+  const row = classifyHostMaskOutcome({
+    maskOutcome: 'ok_no_privacy',
+    maskedUrl: '',
+    riskTags: [],
+  })
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.OK_NO_PRIVACY)
+  assert.equal(row.publishSafe, true)
+})
+
 test('no marker means not success', () => {
   const row = classifyHostMaskOutcome({})
   assert.equal(row.maskSucceeded, false)

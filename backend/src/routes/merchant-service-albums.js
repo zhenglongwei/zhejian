@@ -811,9 +811,13 @@ router.get(
     try {
       const storeId = resolveStoreId(req)
       const { getHostPublicFacePreview } = require('../services/case-hosting.service')
+      const requireMasked =
+        String(req.query.requireMasked || req.query.masked || '') === '1' ||
+        String(req.query.requireMasked || '').toLowerCase() === 'true'
       const data = await getHostPublicFacePreview(req.params.albumId, {
         storeId,
         merchantId: req.auth.merchantId,
+        requireMasked,
       })
       return ok(res, data)
     } catch (e) {

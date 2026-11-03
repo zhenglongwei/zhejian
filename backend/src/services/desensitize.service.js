@@ -36,12 +36,62 @@ const { writeMaskedPairsIntoFlowNodes } = require('../utils/flow-photo-mask-writ
 
 const MASK_JOB_LIMIT = 1
 
+function isNoPrivacyMaskResult(masked = {}) {
+  return Boolean(
+    masked.noSensitive ||
+      String(masked.maskOutcome || '').trim() === 'ok_no_privacy' ||
+      (masked.ok &&
+        !String(masked.maskedUrl || '').trim() &&
+        !(Array.isArray(masked.riskTags) && masked.riskTags.length)),
+  )
+}
+
+function assetStatusFromMaskResult(masked = {}) {
+  if (String(masked.maskedUrl || '').trim()) return ASSET_STATUS.MASKED_READY
+  if (isNoPrivacyMaskResult(masked)) return ASSET_STATUS.MASKED_READY
+  return ASSET_STATUS.MASK_FAILED
+}
+
+function writebackPairFromMaskResult(rawUrl, masked = {}) {
+  const url = String(rawUrl || '').trim()
+  if (!url) return null
+  const product = String(masked.maskedUrl || '').trim()
+  if (product) {
+    return { rawUrl: url, maskedUrl: product, maskOutcome: 'ok_masked' }
+  }
+  if (isNoPrivacyMaskResult(masked)) {
+    return {
+      rawUrl: url,
+      maskedUrl: '',
+      maskOutcome: 'ok_no_privacy',
+      maskRegions: [],
+    }
+  }
+  return null
+}
+
+function assetMaskSettled(row) {
+  if (!row) return false
+  const product = String(row.maskedUrl || row.preMaskedUrl || '').trim()
+  const ready = [
+    ASSET_STATUS.MASKED_READY,
+    ASSET_STATUS.MANUAL_MASKED,
+    ASSET_STATUS.CONFIRMED,
+  ].includes(String(row.status || ''))
+  if (product && ready) return true
+  const tags = Array.isArray(row.riskTags) ? row.riskTags : []
+  // 无敏感已结算：ready 且无产物、无风险标签
+  return ready && !product && !tags.length
+}
+
 /** 打码成功后写回节点图对象（展示真源）；失败只记日志不挡主流程 */
 async function persistMaskedPairsToAlbumFlow(albumId, pairs = []) {
   const id = String(albumId || '').trim()
-  const list = (Array.isArray(pairs) ? pairs : []).filter(
-    (p) => p && String(p.rawUrl || '').trim() && String(p.maskedUrl || '').trim(),
-  )
+  const list = (Array.isArray(pairs) ? pairs : []).filter((p) => {
+    if (!p || !String(p.rawUrl || '').trim()) return false
+    // 有打码图，或明确结论（含 ok_no_privacy）都要写回节点
+    return Boolean(String(p.maskedUrl || '').trim() || String(p.maskOutcome || '').trim())
+  })
   if (!id || !list.length) return { changed: false }
   try {
     const album = await prisma.album.findUnique({
@@ -64,7 +114,9 @@ async function persistMaskedPairsToAlbumFlow(albumId, pairs = []) {
     }
     const { rememberMaskedOnMedia } = require('./media.service')
     for (const pair of list) {
-      await rememberMaskedOnMedia(pair.rawUrl, pair.maskedUrl)
+      if (String(pair.maskedUrl || '').trim()) {
+        await rememberMaskedOnMedia(pair.rawUrl, pair.maskedUrl)
+      }
     }
     return { changed }
   } catch (e) {
@@ -656,13 +708,16 @@ async function resolveMaskedOutcomeForRaw(rawUrl, lookup = { byRawUrl: new Map()
     ''
   if (hit) return { settled: true, masked: hit }
   const media = await ensureMediaRecordFromUrl(raw)
-  if (
-    media &&
-    media.desensitizeStatus === 'success' &&
-    media.desensitizedUrl &&
-    !isCollapsedMaskKey(media.desensitizedKey)
-  ) {
-    return { settled: true, masked: String(media.desensitizedUrl).trim() }
+  if (media && media.desensitizeStatus === 'success') {
+    const product = String(media.desensitizedUrl || '').trim()
+    if (product && !isCollapsedMaskKey(media.desensitizedKey)) {
+      return { settled: true, masked: product }
+    }
+    // success 且无产物 = 已跑过且无敏感，不必再打；展示用原图
+    const tags = Array.isArray(media.riskTags) ? media.riskTags : []
+    if (!tags.length) {
+      return { settled: true, masked: '', noPrivacy: true }
+    }
   }
   if (
     media &&
@@ -1071,16 +1126,23 @@ async function runAutoMask(taskId, options = {}) {
         idx: asset.idx,
         retryFailed: hostPublicRetry,
       })
-      const maskedUrl = masked.ok ? masked.maskedUrl : ''
+      const maskedUrl = masked.ok ? String(masked.maskedUrl || '').trim() : ''
+      const status = assetStatusFromMaskResult(masked)
+      const noPrivacy = isNoPrivacyMaskResult(masked)
       return prisma.desensitizeAsset.update({
         where: { taskId_assetId: { taskId, assetId: asset.assetId } },
         data: {
           mediaId: masked.mediaId || asset.mediaId || '',
           maskedUrl,
           preMaskedUrl: maskedUrl,
-          status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
-          riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : maskedUrl ? [] : [],
-          riskLevel: masked.riskLevel || (maskedUrl ? 'low' : ''),
+          status,
+          riskTags:
+            masked.riskTags && masked.riskTags.length
+              ? masked.riskTags
+              : maskedUrl || noPrivacy
+                ? []
+                : [],
+          riskLevel: masked.riskLevel || (maskedUrl || noPrivacy ? 'low' : ''),
         },
       })
     })
@@ -1097,9 +1159,16 @@ async function runAutoMask(taskId, options = {}) {
       const writebackPairs = []
       for (const asset of refreshed.assets || []) {
         const bare = stripUrlQuery(asset.rawUrl || '')
-        const maskedUrl = asset.maskedUrl || asset.preMaskedUrl || ''
-        if (!bare || !maskedUrl) continue
-        writebackPairs.push({ rawUrl: asset.rawUrl, maskedUrl })
+        if (!bare) continue
+        const pair = writebackPairFromMaskResult(asset.rawUrl, {
+          maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
+          ok: assetMaskSettled(asset),
+          noSensitive: assetMaskSettled(asset) && !String(asset.maskedUrl || asset.preMaskedUrl || '').trim(),
+          riskTags: asset.riskTags || [],
+        })
+        if (!pair) continue
+        writebackPairs.push(pair)
+        const maskedUrl = pair.maskedUrl || ''
         const siblings = await prisma.desensitizeAsset.findMany({
           where: { task: { bizId: albumId } },
           select: { taskId: true, assetId: true, rawUrl: true },
@@ -1116,6 +1185,8 @@ async function runAutoMask(taskId, options = {}) {
                   maskedUrl,
                   preMaskedUrl: maskedUrl,
                   status: asset.status,
+                  riskTags: asset.riskTags || [],
+                  riskLevel: asset.riskLevel || '',
                 },
               }),
             ),
@@ -1169,22 +1240,28 @@ async function retryAsset(taskId, assetId, options = {}) {
     idx: asset.idx,
     force: Boolean(options.force),
   })
-  const maskedUrl = masked.ok ? masked.maskedUrl : ''
+  const maskedUrl = masked.ok ? String(masked.maskedUrl || '').trim() : ''
+  const status = assetStatusFromMaskResult(masked)
+  const noPrivacy = isNoPrivacyMaskResult(masked)
   await prisma.desensitizeAsset.update({
     where: { taskId_assetId: { taskId, assetId } },
     data: {
       mediaId: masked.mediaId || asset.mediaId || '',
       maskedUrl,
       preMaskedUrl: maskedUrl,
-      status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
-      riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : maskedUrl ? [] : [],
-      riskLevel: masked.riskLevel || (maskedUrl ? 'low' : ''),
+      status,
+      riskTags:
+        masked.riskTags && masked.riskTags.length
+          ? masked.riskTags
+          : maskedUrl || noPrivacy
+            ? []
+            : [],
+      riskLevel: masked.riskLevel || (maskedUrl || noPrivacy ? 'low' : ''),
     },
   })
-  if (maskedUrl) {
-    await persistMaskedPairsToAlbumFlow(asset.task.bizId, [
-      { rawUrl: asset.rawUrl, maskedUrl },
-    ])
+  const pair = writebackPairFromMaskResult(asset.rawUrl, masked)
+  if (pair) {
+    await persistMaskedPairsToAlbumFlow(asset.task.bizId, [pair])
   }
   await refreshPreMaskStatusForTask(taskId)
   return getTaskById(taskId, options)
@@ -1781,13 +1858,9 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
   })
   const missingFlow = flowUrls.filter((url) => !assetCoversUrl(existing && existing.assets, url))
   // 任务行无成功产物（无 maskedUrl）也视为未齐，避免早退漏打交车图
-  const incompleteAssets = ((existing && existing.assets) || []).filter((row) => {
-    const product = String((row && (row.maskedUrl || row.preMaskedUrl)) || '').trim()
-    const ready = [ASSET_STATUS.MASKED_READY, ASSET_STATUS.MANUAL_MASKED, ASSET_STATUS.CONFIRMED].includes(
-      String((row && row.status) || ''),
-    )
-    return !product || !ready
-  })
+  const incompleteAssets = ((existing && existing.assets) || []).filter(
+    (row) => !assetMaskSettled(row),
+  )
   const sameVersion =
     existing &&
     String(existing.preMaskTaskId || '') === String(preMaskTaskId) &&
@@ -1800,11 +1873,17 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     await persistMaskedPairsToAlbumFlow(
       albumId,
       (existing.assets || [])
-        .filter((row) => row && row.rawUrl && (row.maskedUrl || row.preMaskedUrl))
-        .map((row) => ({
-          rawUrl: row.rawUrl,
-          maskedUrl: row.maskedUrl || row.preMaskedUrl,
-        })),
+        .map((row) =>
+          writebackPairFromMaskResult(row && row.rawUrl, {
+            maskedUrl: row && (row.maskedUrl || row.preMaskedUrl),
+            ok: assetMaskSettled(row),
+            noSensitive:
+              assetMaskSettled(row) &&
+              !String((row && (row.maskedUrl || row.preMaskedUrl)) || '').trim(),
+            riskTags: (row && row.riskTags) || [],
+          }),
+        )
+        .filter(Boolean),
     )
     const task = await getTaskById(taskId)
     return {
@@ -1853,8 +1932,19 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
   await persistMaskedPairsToAlbumFlow(
     albumId,
     assetInputs
-      .filter((row) => row && row.rawUrl && row.maskedUrl)
-      .map((row) => ({ rawUrl: row.rawUrl, maskedUrl: row.maskedUrl })),
+      .map((row) =>
+        writebackPairFromMaskResult(row && row.rawUrl, {
+          maskedUrl: row && row.maskedUrl,
+          ok: Boolean(row && (row.maskedUrl || row.status === ASSET_STATUS.MASKED_READY)),
+          noSensitive:
+            row &&
+            row.status === ASSET_STATUS.MASKED_READY &&
+            !String(row.maskedUrl || '').trim() &&
+            !(Array.isArray(row.riskTags) && row.riskTags.length),
+          riskTags: (row && row.riskTags) || [],
+        }),
+      )
+      .filter(Boolean),
   )
 
   const task = await getTaskById(taskId)

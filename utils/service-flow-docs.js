@@ -79,12 +79,11 @@ function formatMileageText(value) {
 function mapPhotoRows(images = []) {
   return (images || [])
     .map((img) => {
-      const url = typeof img === 'string' ? img : img.url || ''
-      if (!url) return null
-      const caption = String((typeof img === 'object' && img.caption) || '').trim()
+      const base = normalizeWorkImage(img)
+      if (!base) return null
+      const caption = String((typeof img === 'object' && img && img.caption) || '').trim()
       return {
-        imageId: (typeof img === 'object' && (img.id || img.imageId)) || '',
-        url,
+        ...base,
         caption,
         captionEmpty: !caption,
       }
@@ -168,6 +167,31 @@ function inspectionRemindFromLook(row = {}, suggestedResult = '', suggestedPart 
   return kept
 }
 
+function pickMaskFields(raw = {}, first = null) {
+  const maskedUrl = String(
+    (raw && (raw.maskedUrl || raw.preMaskedUrl)) ||
+      (first && (first.maskedUrl || first.preMaskedUrl)) ||
+      '',
+  ).trim()
+  const maskOutcome = String(
+    (raw && raw.maskOutcome) || (first && first.maskOutcome) || '',
+  ).trim()
+  const regionsFrom =
+    (raw && Array.isArray(raw.maskRegions) && raw.maskRegions) ||
+    (first && Array.isArray(first.maskRegions) && first.maskRegions) ||
+    null
+  const out = {}
+  if (maskedUrl) {
+    out.maskedUrl = maskedUrl
+    out.preMaskedUrl = String(
+      (raw && raw.preMaskedUrl) || (first && first.preMaskedUrl) || maskedUrl,
+    ).trim() || maskedUrl
+  }
+  if (maskOutcome) out.maskOutcome = maskOutcome
+  if (regionsFrom) out.maskRegions = regionsFrom
+  return out
+}
+
 function normalizeFinding(raw = {}, index = -1) {
   const caption = String(raw.caption || '').trim()
   const result = normalizeFindingResult(raw.result)
@@ -191,6 +215,7 @@ function normalizeFinding(raw = {}, index = -1) {
     advice,
     ...keepInspectionRemind({ ...raw, partName: String(raw.partName || caption || '').trim(), result }),
     aiApply: raw.aiApply && raw.aiApply.id ? raw.aiApply : null,
+    ...pickMaskFields(raw, first),
   }
 }
 
@@ -219,6 +244,7 @@ function normalizeItemFinding(raw = {}, index = -1) {
     advice,
     ...keepInspectionRemind({ ...raw, partName: String(raw.partName || '').trim(), result }),
     aiApply: raw.aiApply && raw.aiApply.id ? raw.aiApply : null,
+    ...pickMaskFields(raw, first),
   }
 }
 
@@ -286,19 +312,19 @@ function capImages(list = [], max = 0) {
 function normalizeWorkImage(raw = {}) {
   const url = String(typeof raw === 'string' ? raw : (raw && raw.url) || '').trim()
   if (!url) return null
-  const maskedUrl = String(
-    (typeof raw === 'object' && raw && (raw.maskedUrl || raw.preMaskedUrl)) || '',
-  ).trim()
-  const imageId = String(
-    (typeof raw === 'object' && raw && (raw.imageId || raw.id)) || '',
-  ).trim()
-  if (!maskedUrl) return { url, imageId }
-  return {
-    url,
-    imageId,
-    maskedUrl,
-    preMaskedUrl: String((raw && raw.preMaskedUrl) || maskedUrl).trim() || maskedUrl,
+  const obj = typeof raw === 'object' && raw ? raw : null
+  const maskedUrl = String((obj && (obj.maskedUrl || obj.preMaskedUrl)) || '').trim()
+  const imageId = String((obj && (obj.imageId || obj.id)) || '').trim()
+  const maskOutcome = String((obj && obj.maskOutcome) || '').trim()
+  const maskRegions = Array.isArray(obj && obj.maskRegions) ? obj.maskRegions : null
+  const next = { url, imageId }
+  if (maskedUrl) {
+    next.maskedUrl = maskedUrl
+    next.preMaskedUrl = String((obj && obj.preMaskedUrl) || maskedUrl).trim() || maskedUrl
   }
+  if (maskOutcome) next.maskOutcome = maskOutcome
+  if (maskRegions) next.maskRegions = maskRegions
+  return next
 }
 
 /** 施工项：部位 + 整项说明 + 多图（最多 6） */
@@ -339,6 +365,7 @@ function normalizeWorkFinding(raw = {}, index = -1) {
     advice: '',
     images,
     photoCount: images.length,
+    ...pickMaskFields(raw, first),
   }
 }
 

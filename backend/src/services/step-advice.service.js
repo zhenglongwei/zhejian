@@ -1118,7 +1118,9 @@ async function runLlm(instruction, urls, label, options = {}) {
       if (textOut) {
         try {
           const { queueApplyModelMasks } = require('./model-mask.service')
-          queueApplyModelMasks(attached.map((row) => row.originalUrl), textOut)
+          queueApplyModelMasks(attached.map((row) => row.originalUrl), textOut, {
+            albumId: options.albumId || '',
+          })
         } catch (_) {
           /* 打码失败不影响出意见 */
         }
@@ -1170,7 +1172,8 @@ function workInstruction(ctx) {
       workItems: ctx.workItems,
       photos: slots.map((row) => ({ 图: `图${row.slot}`, 现在挂在: row.partName })),
     })}`,
-    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[{"检测项目":"已有施工项名称","图片":["图1"],"描述":"这张更像这一项。","处理意见":""}],"填写建议":[{"项目":"已有施工项名称","描述":"更换了开裂的下摆臂胶套。"}],"简述":"","问答":[],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没有照片。"}],"masks":[]}',
+    require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
+    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[{"检测项目":"已有施工项名称","图片":["图1"],"描述":"这张更像这一项。","处理意见":""}],"填写建议":[{"项目":"已有施工项名称","描述":"更换了开裂的下摆臂胶套。"}],"简述":"","问答":[],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没有照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1272,7 +1275,7 @@ function inspectionInstruction(ctx, options = {}) {
     '',
     '只返回 JSON，不要其它文字。示例只说明有哪几个键，句子按这次的诉求和照片写，不要照抄示例里的占位话：',
     '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样","处理意见":"需处理"}],"检测顺序":["第1步里还没有照片覆盖的那一项"],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
-    '另带 masks。框出车牌、车架号、人脸、手机号、姓名、证件。kind 只用 plate、vin、face、phone、name、document。imageSlot 用附图图号。regions 的 left、top、width、height 是相对整张图的 0 到 1。没有遮挡就给空数组。',
+    require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
   ].join('\n')
 }
 
@@ -1315,7 +1318,8 @@ function deliveryInstruction(ctx) {
     '问答：1到5条。有需要持续注意的必须写成问答；没有就写和本案相关的常见问。',
     '提醒：只写本步还缺的，比如交车照、质保期限空。其它键留空。店员点应用才写入。',
     `参考材料：${JSON.stringify(safeFacts)}`,
-    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"新胶套要注意什么？","答":"近期少过剧烈颠簸，磨合几天。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[]}',
+    require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
+    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"新胶套要注意什么？","答":"近期少过剧烈颠簸，磨合几天。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 

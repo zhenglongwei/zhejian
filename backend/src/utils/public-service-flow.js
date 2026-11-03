@@ -49,9 +49,13 @@ function publicizeUrl(url, lookup) {
   if (lookup.has(key)) return lookup.get(key)
   const stripped = urlKey(key.split('?')[0])
   if (stripped && lookup.has(stripped)) return lookup.get(stripped)
-  const pub = resolvePublicCaseMediaUrl(key) || resolveStoreProcessedPublicUrl(key) || ''
+  // 公开预览 / 公域：只出脱敏产物。禁止把原图 uploads 当成「可公开面」回退。
+  const desensitized = resolvePublicCaseMediaUrl(key) || ''
+  if (desensitized) return desensitized
+  if (lookup && lookup._requireDesensitized) return ''
+  const pub = resolveStoreProcessedPublicUrl(key) || ''
   if (pub) return pub
-  // 托管核对：尚未公开的原图也要能预览/点图打码
+  // 仅私密托管核对：尚未打码的原图可预览/点图改码
   if (lookup && lookup._allowPrivateFallback) return key
   return ''
 }
@@ -166,14 +170,26 @@ function buildPublicUrlLookup({ album, contentNodes, publicView, maskLookup, flo
 
 function resolvePhotoDisplayUrl(item, lookup) {
   if (item && typeof item === 'object') {
+    const outcome = text(item.maskOutcome || item.privacyMaskStatus)
     const onNode = text(item.maskedUrl || item.desensitizedUrl || item.preMaskedUrl)
     if (onNode) {
-      return (
-        resolvePublicCaseMediaUrl(onNode) ||
-        resolveStoreProcessedPublicUrl(onNode) ||
-        (lookup && lookup._allowPrivateFallback ? onNode : '') ||
-        ''
-      )
+      const asTool = resolvePublicCaseMediaUrl(onNode)
+      if (asTool) return asTool
+      // 节点已写回的贴码产物
+      const asProduct = resolveStoreProcessedPublicUrl(onNode)
+      if (asProduct) return asProduct
+      if (lookup && lookup._requireDesensitized) return ''
+      if (lookup && lookup._allowPrivateFallback) return onNode
+      return ''
+    }
+    // 已跑过且无敏感：公开可展示原图（禁止复制原图冒充 maskedUrl）
+    if (outcome === 'ok_no_privacy') {
+      const raw = text(item.url || item.src || item.rawUrl)
+      if (!raw) return ''
+      if (lookup && lookup._requireDesensitized) {
+        return resolveStoreProcessedPublicUrl(raw) || raw
+      }
+      return publicizeUrl(raw, lookup) || raw
     }
   }
   const raw = typeof item === 'string' ? item : item && (item.url || item.src || item.rawUrl)
@@ -199,15 +215,33 @@ function stripLine(row, lookup) {
 
 function mapFinding(row, lookup) {
   if (!row || typeof row !== 'object') return null
-  const url = resolvePhotoDisplayUrl(row, lookup)
   const partName = text(row.partName)
   let advice = cleanPublicNote(row.advice || row.caption)
   if (partName && advice.startsWith(partName)) {
     const rest = advice.slice(partName.length).replace(/^[：:·\s]+/, '')
     if (rest) advice = rest
   }
+  const slots = []
+  if (Array.isArray(row.images) && row.images.length) {
+    row.images.forEach((img) => slots.push(img))
+  } else if (row.url || row.maskedUrl || row.maskOutcome) {
+    slots.push(row)
+  }
+  const images = []
+  const seen = new Set()
+  slots.forEach((slot) => {
+    const rawSrc =
+      typeof slot === 'string' ? slot : slot && (slot.url || slot.src || slot.rawUrl)
+    const rawKey = urlKey(rawSrc)
+    if (rawKey && seen.has(rawKey)) return
+    const pub = resolvePhotoDisplayUrl(slot, lookup)
+    if (!pub) return
+    if (rawKey) seen.add(rawKey)
+    images.push({ url: pub })
+  })
+  const url = images[0] ? images[0].url : ''
   if (!url && !partName && !advice) return null
-  return { url, partName, advice }
+  return { url, partName, advice, images }
 }
 
 function collectWorkPhotos(node, lookup) {
@@ -390,7 +424,10 @@ function buildPublicServiceFlow(input = {}) {
   const flowNodes = sortFlowNodes(input.flowNodes || [])
   if (!flowNodes.length) return { chapters: [] }
   const lookup = buildPublicUrlLookup({ ...input, flowNodes })
-  if (input.allowPrivateFallback) lookup._allowPrivateFallback = true
+  if (input.requireDesensitized) lookup._requireDesensitized = true
+  if (input.allowPrivateFallback && !input.requireDesensitized) {
+    lookup._allowPrivateFallback = true
+  }
   const chapters = []
   flowNodes.forEach((node) => {
     if (!node) return
@@ -420,4 +457,5 @@ function buildPublicServiceFlow(input = {}) {
 module.exports = {
   buildPublicServiceFlow,
   buildPublicUrlLookup,
+  resolvePhotoDisplayUrl,
 }

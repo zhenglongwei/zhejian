@@ -141,6 +141,7 @@ async function runGenerateLlm(urls) {
     '某一侧车身能看清就算拍到，斜拍也可以，不必正对全景。',
     '看不清、完全没拍到、或只拍了内饰零件的一侧，写一条提醒。标题只用：缺车头、缺车尾、缺左侧、缺右侧。',
     '四周都拍到了，提醒用空数组。其它键留空。',
+    require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
     '只返回 JSON：',
     '{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"","问答":[],"提醒":[{"类型":"","标题":"缺车尾","正文":"再拍一张能看清车尾的照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')

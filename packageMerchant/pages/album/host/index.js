@@ -571,16 +571,29 @@ Page({
 
   async loadPublicFace(options = {}) {
     try {
-      const face = await fetchHostPublicFace(this.albumId)
+      const face = await fetchHostPublicFace(this.albumId, {
+        // 公开托管预览禁止回落原图；仅私密可看原图以便改码
+        requireMasked: this.data.hostMode === 'public',
+      })
       const stamp = Date.now()
       const bust = (u) => (u ? withCacheBust(u, stamp) : u)
       const flowChapters = normalizeArchiveChapters(
         (face.serviceFlow && face.serviceFlow.chapters) || [],
       ).map((ch) => ({
         ...ch,
-        findings: (ch.findings || []).map((row) =>
-          row && row.url ? { ...row, url: bust(row.url) } : row,
-        ),
+        findings: (ch.findings || []).map((row) => {
+          if (!row) return row
+          const images = Array.isArray(row.images)
+            ? row.images.map((img) =>
+                img && img.url ? { ...img, url: bust(img.url) } : img,
+              )
+            : row.images
+          return {
+            ...row,
+            url: row.url ? bust(row.url) : row.url,
+            images,
+          }
+        }),
         photos: (ch.photos || []).map((photo) => {
           if (typeof photo === 'string') return { url: bust(photo), caption: '' }
           if (photo && photo.url) return { ...photo, url: bust(photo.url) }

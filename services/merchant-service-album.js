@@ -241,8 +241,10 @@ async function cancelPublicHostIntent(albumId) {
   return post(`/merchant/service-albums/${albumId}/host/cancel-public`, withStore())
 }
 
-async function fetchHostPublicFace(albumId) {
-  return get(`/merchant/service-albums/${albumId}/host/public-face`, withStore())
+async function fetchHostPublicFace(albumId, options = {}) {
+  const requireMasked = Boolean(options.requireMasked)
+  const qs = requireMasked ? '?requireMasked=1' : ''
+  return get(`/merchant/service-albums/${albumId}/host/public-face${qs}`, withStore())
 }
 
 async function ensureHostDesensitizeTask(albumId, payload = {}) {

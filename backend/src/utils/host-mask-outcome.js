@@ -31,6 +31,7 @@ function classifyHostMaskOutcome(row = {}) {
   const hasMaskedUrl = Boolean(String(row.maskedUrl || row.preMaskedUrl || '').trim())
   const assetStatus = String(row.status || '').trim()
   const mediaStatus = String(row.desensitizeStatus || '').trim()
+  const explicit = String(row.maskOutcome || '').trim()
   const needManual = Boolean(row.needManual) || mediaStatus === 'need_manual'
 
   if (needManual) {
@@ -43,13 +44,48 @@ function classifyHostMaskOutcome(row = {}) {
     }
   }
 
-  // 打码成功：调用成功即可（含未检出隐私）
-  if (mediaStatus === 'success' || (READY_ASSET_STATUSES.has(assetStatus) && hasMaskedUrl)) {
-    const outcome = tags.length
-      ? HOST_MASK_OUTCOME.OK_MASKED
-      : HOST_MASK_OUTCOME.OK_NO_PRIVACY
+  // 节点已写明结论时优先（无敏感可展示原图，不必再有脱敏产物）
+  if (explicit === HOST_MASK_OUTCOME.OK_NO_PRIVACY) {
     return {
-      outcome,
+      outcome: HOST_MASK_OUTCOME.OK_NO_PRIVACY,
+      needsManual: false,
+      publishSafe: true,
+      maskSucceeded: true,
+      needsRemask: false,
+    }
+  }
+  if (explicit === HOST_MASK_OUTCOME.OK_MASKED && hasMaskedUrl) {
+    return {
+      outcome: HOST_MASK_OUTCOME.OK_MASKED,
+      needsManual: false,
+      publishSafe: true,
+      maskSucceeded: true,
+      needsRemask: false,
+    }
+  }
+
+  // 已跑通：有产物 = 贴码成功；无产物且无风险标签 = 未检测到敏感（可展示原图，不必再跑）
+  if (mediaStatus === 'success') {
+    if (hasMaskedUrl || tags.length) {
+      return {
+        outcome: hasMaskedUrl ? HOST_MASK_OUTCOME.OK_MASKED : HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED,
+        needsManual: !hasMaskedUrl,
+        publishSafe: Boolean(hasMaskedUrl),
+        maskSucceeded: Boolean(hasMaskedUrl),
+        needsRemask: !hasMaskedUrl,
+      }
+    }
+    return {
+      outcome: HOST_MASK_OUTCOME.OK_NO_PRIVACY,
+      needsManual: false,
+      publishSafe: true,
+      maskSucceeded: true,
+      needsRemask: false,
+    }
+  }
+  if (READY_ASSET_STATUSES.has(assetStatus) && hasMaskedUrl) {
+    return {
+      outcome: tags.length ? HOST_MASK_OUTCOME.OK_MASKED : HOST_MASK_OUTCOME.OK_NO_PRIVACY,
       needsManual: false,
       publishSafe: true,
       maskSucceeded: true,

@@ -14,7 +14,8 @@ function filterBogusFaceBoxes(boxes, imageWidth, imageHeight) {
   return boxes.filter((box) => {
     if (box.type !== 'face') return true
     const ratio = (box.width * box.height) / imageArea
-    if (ratio >= 0.85) {
+    // 人脸框占画面过大多半是误检（整图当脸），丢掉以免整张糊掉或漏真脸
+    if (ratio >= 0.55) {
       console.warn('[desensitize-engine] drop bogus full-frame face box', { ratio })
       return false
     }
@@ -115,18 +116,20 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
       })
     }
 
-    try {
-      await writeMaskedImage(oriented.workingPath, destPath, mergedBoxes)
-    } catch (e) {
-      maskError = true
-      if (riskTags.length) needManual = true
-      throw e
-    }
-
     const noSensitiveContent = !mergedBoxes.length && !riskTags.length
 
+    if (mergedBoxes.length) {
+      try {
+        await writeMaskedImage(oriented.workingPath, destPath, mergedBoxes)
+      } catch (e) {
+        maskError = true
+        if (riskTags.length) needManual = true
+        throw e
+      }
+    }
+    // 无敏感：不写 destPath 产物；上层记 ok_no_privacy，禁止复制原图冒充打码图
+
     if (noSensitiveContent) {
-      // 无车牌/人脸/VIN/单据等区域：原图 copy 即脱敏产物，不因 OCR 鉴权或网络失败强制人工
       if (detection.ocrAuthFailed || detection.ocrNetworkFailed) {
         console.info('[desensitize-engine] clean pass-through despite ocr issues', {
           ocrAuthFailed: detection.ocrAuthFailed,
@@ -235,27 +238,51 @@ async function processImage(sourcePath, destPath, options = {}) {
       .map((box) => asRatioBox(box, width, height))
       .filter(Boolean)
     let plateBoxes = []
+    let faceBoxes = []
     let plateMiss = false
     let authFailed = false
-    if (!declared.some((box) => box.type === 'plate')) {
+    const needPlate = !declared.some((box) => box.type === 'plate')
+    const needFace = !declared.some((box) => box.type === 'face')
+    if (needPlate || needFace) {
       const jpeg = await writePrivacyDetectJpeg(oriented.workingPath)
       try {
-        const viapi = await detectPlateViaViapi(jpeg.path, jpeg.width, jpeg.height)
-        plateBoxes = scaleBoxes(viapi.boxes || [], jpeg.width, jpeg.height, width, height)
-        plateMiss = Boolean(viapi.plateTextFound && !plateBoxes.length)
-      } catch (err) {
-        plateMiss = true
-        authFailed = plateAuthFailed(err)
-        console.warn(
-          '[desensitize-engine] plate fallback failed',
-          String((err && err.message) || err || '').slice(0, 160),
-        )
+        if (needPlate) {
+          try {
+            const viapi = await detectPlateViaViapi(jpeg.path, jpeg.width, jpeg.height)
+            plateBoxes = scaleBoxes(viapi.boxes || [], jpeg.width, jpeg.height, width, height)
+            plateMiss = Boolean(viapi.plateTextFound && !plateBoxes.length)
+          } catch (err) {
+            plateMiss = true
+            authFailed = plateAuthFailed(err)
+            console.warn(
+              '[desensitize-engine] plate fallback failed',
+              String((err && err.message) || err || '').slice(0, 160),
+            )
+          }
+        }
+        // 与车牌一样：模型没给脸框时再认一次，避免工单图空 masks 误标无敏感出原图
+        if (needFace) {
+          try {
+            const { detectFaces } = require('./detectors/aliyun')
+            const faces = await detectFaces(jpeg.path)
+            faceBoxes = filterBogusFaceBoxes(
+              scaleBoxes(faces || [], jpeg.width, jpeg.height, width, height),
+              width,
+              height,
+            )
+          } catch (err) {
+            console.warn(
+              '[desensitize-engine] face fallback failed',
+              String((err && err.message) || err || '').slice(0, 160),
+            )
+          }
+        }
       } finally {
         jpeg.cleanup()
       }
     }
 
-    const merged = mergeBoxes(declared.concat(plateBoxes), width, height)
+    const merged = mergeBoxes(declared.concat(plateBoxes).concat(faceBoxes), width, height)
     const hasPlate = merged.some((box) => box.type === 'plate' || box.type === 'mixed')
     if ((plateMiss || authFailed) && !hasPlate) {
       return {

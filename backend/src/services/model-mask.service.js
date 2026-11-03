@@ -1,7 +1,6 @@
 /**
- * 看图结果里的遮挡区域打在这张图上。
- * 车架号、人脸、手机号、姓名、证件有区域才打。
- * 车牌没有框时，打码这一步会再认一次。
+ * 看图结果里的遮挡区域打在这张图上，并写回节点 + 媒体表。
+ * 大模型跑通：敏感区空 → ok_no_privacy（不复制原图）；有区 → 贴码写 maskedUrl。
  */
 
 function slotOf(row, index) {
@@ -11,34 +10,64 @@ function slotOf(row, index) {
   return index + 1
 }
 
+/**
+ * @returns {null|array} null=模型没判这张（勿记 ok_no_privacy）；[]=模型看过且无敏感区
+ */
 function regionsFor(masks, row, index) {
   const list = Array.isArray(masks) ? masks : []
+  if (!list.length) return null
   const slot = slotOf(row, index)
   const hit = list.find((item) => Number(item && item.imageSlot) === slot)
-  const regions = hit && (hit.regions || hit.boxes)
+  if (!hit) return null
+  const regions = hit.regions || hit.boxes
   return Array.isArray(regions) ? regions : []
 }
 
-async function applyModelMasks(rows, masks) {
+async function applyModelMasks(rows, masks, options = {}) {
   const list = Array.isArray(rows) ? rows : []
-  if (!list.length) return
+  if (!list.length) return []
+  const albumId = String((options && options.albumId) || '').trim()
   const { ensureMediaRecordFromUrl, runMediaDesensitize } = require('./media.service')
+  const pairs = []
   for (let index = 0; index < list.length; index += 1) {
     const row = list[index]
     const regions = regionsFor(masks, row, index)
     const rawUrl = String((row && (row.rawUrl || row.url)) || '').trim()
     if (!rawUrl) continue
+    // 模型没写这张的 masks → 跳过，留给托管引擎/下次分析，禁止空 masks[] 误标无敏感
+    if (regions == null) continue
     try {
       const media = await ensureMediaRecordFromUrl(rawUrl)
       if (!media || !media.id) continue
-      await runMediaDesensitize(media.id, {
+      const result = await runMediaDesensitize(media.id, {
         force: regions.length > 0,
         boxes: regions,
+        albumId,
+        modelPrivacyJudged: true,
+      })
+      const maskedUrl = String((result && (result.desensitizedUrl || result.maskedUrl)) || '').trim()
+      const maskOutcome =
+        String((result && result.maskOutcome) || '') ||
+        (maskedUrl ? 'ok_masked' : 'ok_no_privacy')
+      pairs.push({
+        rawUrl,
+        maskedUrl,
+        maskOutcome,
+        maskRegions: regions,
       })
     } catch (_) {
-      /* 这一张打不上不影响归组 */
+      /* 这一张打不上不影响意见正文 */
     }
   }
+  if (albumId && pairs.length) {
+    try {
+      const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
+      await persistMaskedPairsToAlbumFlow(albumId, pairs)
+    } catch (_) {
+      /* 写回失败不挡意见 */
+    }
+  }
+  return pairs
 }
 
 function rowsFromUrls(urls) {
@@ -68,12 +97,13 @@ function masksFromModelRaw(raw) {
 }
 
 /** 分析返回后再打码，不挡「正在分析」和出意见。 */
-function queueApplyModelMasks(urls, raw) {
+function queueApplyModelMasks(urls, raw, options = {}) {
   const masks = masksFromModelRaw(raw)
   const rows = rowsFromUrls(urls)
   if (!rows.length) return
+  const albumId = String((options && options.albumId) || '').trim()
   setImmediate(() => {
-    applyModelMasks(rows, masks).catch(() => {})
+    applyModelMasks(rows, masks, { albumId }).catch(() => {})
   })
 }
 

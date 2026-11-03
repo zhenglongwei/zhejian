@@ -96,5 +96,26 @@ test('收集节点上的原图和打码图', () => {
       },
     },
   ])
-  assert.deepEqual(refs, [{ url: RAW, maskedUrl: MASK }])
+  assert.deepEqual(refs, [{ url: RAW, maskedUrl: MASK, maskOutcome: '' }])
+})
+
+test('ok_no_privacy 清空冒充产物的 maskedUrl 并写结论', () => {
+  const { writeMaskedPairsIntoFlowNodes } = require('./flow-photo-mask-writeback')
+  const { nodes, changed } = writeMaskedPairsIntoFlowNodes(
+    [
+      {
+        kind: 'repair_report',
+        content: {
+          deliveryPhotos: [{ url: RAW, maskedUrl: RAW, preMaskedUrl: RAW }],
+        },
+      },
+    ],
+    [{ rawUrl: RAW, maskedUrl: '', maskOutcome: 'ok_no_privacy', maskRegions: [] }],
+  )
+  assert.equal(changed, true)
+  const slot = nodes[0].content.deliveryPhotos[0]
+  assert.equal(slot.url, RAW)
+  assert.equal(slot.maskedUrl, '')
+  assert.equal(slot.preMaskedUrl, '')
+  assert.equal(slot.maskOutcome, 'ok_no_privacy')
 })

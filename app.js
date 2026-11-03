@@ -1,6 +1,7 @@
 const { ENV } = require('./services/config')
 const { syncAppSession } = require('./utils/auth')
 const { recordAppLaunchEntry } = require('./utils/tool-entry-context')
+const { beginSetupPromptSession } = require('./utils/merchant-setup-prompt')
 
 const PRIVACY_FALLBACK_PAGE = '/pages/privacy-authorize/index'
 /** 启动确认里用户同意后，短时间内到达的授权请求视为已同意 */
@@ -11,6 +12,7 @@ App({
     console.info('[app] launch', ENV.mode)
     try {
       syncAppSession()
+      beginSetupPromptSession()
       this.globalData.toolEntryContext = recordAppLaunchEntry(options || {})
       this.bindPrivacyAuthorization()
     } catch (err) {

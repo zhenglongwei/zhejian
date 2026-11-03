@@ -528,6 +528,7 @@ async function detectSensitiveRegions(imagePath, options = {}) {
 
 module.exports = {
   detectSensitiveRegions,
+  detectFaces,
   resolvePublicImageUrl,
   plateResultFromViapi,
 }

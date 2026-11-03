@@ -23,15 +23,30 @@
           wx:key="fi"
           class="host-archive-preview__finding"
         >
-          <image
-            wx:if="{{f.url}}"
-            class="host-archive-preview__finding-img image-placeholder"
-            src="{{f.url}}"
-            mode="aspectFill"
-            data-url="{{f.url}}"
-            bindtap="onImageTap"
-          />
-          <view wx:else class="host-archive-preview__finding-img is-empty" />
+          <view class="host-archive-preview__finding-media">
+            <block wx:if="{{f.images && f.images.length}}">
+              <image
+                wx:for="{{f.images}}"
+                wx:for-item="img"
+                wx:for-index="ii"
+                wx:key="ii"
+                class="host-archive-preview__finding-img image-placeholder"
+                src="{{img.url}}"
+                mode="aspectFill"
+                data-url="{{img.url}}"
+                bindtap="onImageTap"
+              />
+            </block>
+            <image
+              wx:elif="{{f.url}}"
+              class="host-archive-preview__finding-img image-placeholder"
+              src="{{f.url}}"
+              mode="aspectFill"
+              data-url="{{f.url}}"
+              bindtap="onImageTap"
+            />
+            <view wx:else class="host-archive-preview__finding-img is-empty" />
+          </view>
           <view class="host-archive-preview__finding-text">
             <text class="host-archive-preview__item-name">{{f.partName}}</text>
             <text wx:if="{{f.advice}}" class="host-archive-preview__note">{{f.advice}}</text>

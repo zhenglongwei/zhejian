@@ -397,3 +397,84 @@ test('工单说明去掉方括号占位，检测建议不重复部位名', () =>
   assert.equal(work.items[0].note, '已更换全新机油及原厂机滤')
   assert.equal(work.photos[0].caption, '更换机油机滤 · 已更换全新机油及原厂机滤')
 })
+
+test('requireDesensitized 时无映射不得回落原图', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW, caption: '交车外观' }],
+          },
+        },
+      },
+    ],
+    requireDesensitized: true,
+    allowPrivateFallback: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.ok(done)
+  assert.equal((done.photos || []).length, 0)
+})
+
+test('requireDesensitized 时有映射只出打码图', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW }],
+          },
+        },
+      },
+    ],
+    maskLookup: { byRawUrl: new Map([[RAW, MASK]]) },
+    requireDesensitized: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.ok(done)
+  assert.equal(done.photos[0].url, MASK)
+})
+
+test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', () => {
+  const { resolvePhotoDisplayUrl } = require('./public-service-flow')
+  const lookup = new Map()
+  lookup._requireDesensitized = true
+  const url = resolvePhotoDisplayUrl(
+    { url: RAW, maskOutcome: 'ok_no_privacy', maskedUrl: '' },
+    lookup,
+  )
+  assert.equal(url, RAW)
+
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        document: {
+          status: 'confirmed',
+          payload: {
+            warrantyPeriod: '12 个月',
+            deliveryPhotos: [{ url: RAW, maskOutcome: 'ok_no_privacy' }],
+          },
+        },
+      },
+    ],
+    requireDesensitized: true,
+  })
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.ok(done)
+  assert.equal(done.photos[0].url, RAW)
+})
+

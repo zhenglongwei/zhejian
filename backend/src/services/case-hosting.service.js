@@ -738,7 +738,7 @@ function collectMaskImagesFromChapters(chapters, outcomeIndex) {
 }
 
 /** 将公开的图文预览（供核对页展示；脱敏图优先） */
-async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
+async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireMasked = false } = {}) {
   const {
     assertMerchantAlbum,
     loadAlbum,
@@ -780,7 +780,35 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     /* 无预脱敏也可预览原图（门店自认） */
   }
 
+  // 公开托管预览：优先打码图；ok_no_privacy 可展示原图；仅私密核对才回落未处理原图。
+  const mustMask = Boolean(requireMasked)
+  const { classifyHostMaskOutcome, isMaskCallSuccess } = require('../utils/host-mask-outcome')
+  const { lookupHostMaskOutcomeRow } = require('./hosted-public-mask.service')
   const resolveImageUrl = (rawInput) => {
+    const raw = String(rawInput || '').trim()
+    if (!raw) return ''
+    if (lookup.byRawUrl) {
+      const hit =
+        lookup.byRawUrl.get(raw) ||
+        lookup.byRawUrl.get(rewriteMediaUrlForCurrentBase(raw))
+      if (hit) return hit
+    }
+    if (mustMask) {
+      const row = lookupHostMaskOutcomeRow(outcomeIndex, raw)
+      if (row && isMaskCallSuccess(classifyHostMaskOutcome(row).outcome)) {
+        const masked = String(row.maskedUrl || row.preMaskedUrl || '').trim()
+        return masked || raw
+      }
+      return ''
+    }
+    return raw
+  }
+
+  const albumNodes = mapNodesForView(album)
+  // 质量检查仍用单据链；界面预览改为公开档案章节
+  const reviewDocs = buildHostContentReviewDocs(album, albumNodes, { resolveImageUrl })
+  // 打码清单要留得住「还没打上的原图」，否则公开预览藏原图后店员没法点图改码
+  const resolveImageUrlForMaskList = (rawInput) => {
     const raw = String(rawInput || '').trim()
     if (!raw) return ''
     if (lookup.byRawUrl) {
@@ -791,10 +819,11 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     }
     return raw
   }
-
-  const albumNodes = mapNodesForView(album)
-  // 质量检查仍用单据链；界面预览改为公开档案章节
-  const reviewDocs = buildHostContentReviewDocs(album, albumNodes, { resolveImageUrl })
+  const reviewDocsForMaskList = mustMask
+    ? buildHostContentReviewDocs(album, albumNodes, {
+        resolveImageUrl: resolveImageUrlForMaskList,
+      })
+    : reviewDocs
   const pkg =
     album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
@@ -804,12 +833,14 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     album,
     contentNodes: view.nodes || [],
     maskLookup: lookup,
-    allowPrivateFallback: true,
+    requireDesensitized: mustMask,
+    allowPrivateFallback: !mustMask,
   })
   const maskImages = (() => {
+    const fromList = collectReviewMaskImages(reviewDocsForMaskList, outcomeIndex)
+    if (fromList.length) return fromList
     const fromChapters = collectMaskImagesFromChapters(serviceFlow.chapters, outcomeIndex)
-    if (fromChapters.length) return fromChapters
-    return collectReviewMaskImages(reviewDocs, outcomeIndex)
+    return fromChapters
   })()
   const needsManualCount = maskImages.filter((row) => row.needsManual).length
   const pendingMaskCount = maskImages.filter((row) => row.pending).length
@@ -832,7 +863,8 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     ;(node.images || []).forEach((img, idx) => {
       const raw = String(img.url || img.rawUrl || '').trim()
       if (!raw) return
-      const display = resolveImageUrl(raw) || raw
+      const display = resolveImageUrl(raw) || (mustMask ? '' : raw)
+      if (!display) return
       const annotated = annotateMaskImageRow(display, outcomeIndex)
       images.push({
         nodeId: node.id,

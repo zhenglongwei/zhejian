@@ -6,18 +6,22 @@ function loadSharpModule() {
   return loadSharp()
 }
 
+/**
+ * 马赛克必须先落地小图再放大。sharp 链式 resize(小).resize(大) 会被 libvips 优化掉，等于没打。
+ */
 async function buildMosaicRegion(sharp, sourcePath, left, top, w, h) {
-  const mosaicW = Math.max(6, Math.floor(w / 6))
-  const mosaicH = Math.max(6, Math.floor(h / 6))
-  return sharp(sourcePath)
+  const mosaicW = Math.max(6, Math.floor(w / 12))
+  const mosaicH = Math.max(6, Math.floor(h / 12))
+  const small = await sharp(sourcePath)
     .extract({ left, top, width: w, height: h })
     .resize(mosaicW, mosaicH, { kernel: 'nearest' })
-    .resize(w, h, { kernel: 'nearest' })
+    .png()
     .toBuffer()
+  return sharp(small).resize(w, h, { kernel: 'nearest' }).png().toBuffer()
 }
 
-/** 车牌用实心灰块，避免细粒度马赛克肉眼仍可读 */
-async function buildPlateFill(sharp, w, h) {
+/** 隐私区用实心灰块（车牌/人脸等）；细马赛克肉眼仍可辨、且旧链式实现会空打 */
+async function buildSolidFill(sharp, w, h) {
   return sharp({
     create: {
       width: w,
@@ -26,7 +30,7 @@ async function buildPlateFill(sharp, w, h) {
       background: { r: 72, g: 72, b: 72 },
     },
   })
-    .jpeg({ quality: 85, mozjpeg: true })
+    .png()
     .toBuffer()
 }
 
@@ -35,12 +39,16 @@ async function buildBlurRegion(sharp, sourcePath, left, top, w, h) {
   return sharp(sourcePath)
     .extract({ left, top, width: w, height: h })
     .blur(sigma)
+    .png()
     .toBuffer()
 }
 
+const SOLID_PRIVACY_TYPES = new Set(['plate', 'face', 'vin', 'phone', 'name', 'document', 'mixed'])
+
 function resolveBoxEffect(box, globalMode = 'mosaic') {
-  if (box.type === 'plate') return 'plate'
-  if (box.type === 'blur' || box.type === 'mosaic') return box.type
+  const type = String((box && box.type) || '').toLowerCase()
+  if (SOLID_PRIVACY_TYPES.has(type)) return 'solid'
+  if (type === 'blur' || type === 'mosaic') return type
   return globalMode === 'blur' ? 'blur' : 'mosaic'
 }
 
@@ -80,8 +88,8 @@ async function applyMosaicToImage(sourcePath, boxes, globalMode = 'mosaic') {
     const h = Math.max(1, Math.min(Math.floor(box.height), height - top))
     const effect = resolveBoxEffect(box, globalMode)
     let region
-    if (effect === 'plate') {
-      region = await buildPlateFill(sharp, w, h)
+    if (effect === 'solid') {
+      region = await buildSolidFill(sharp, w, h)
     } else if (effect === 'blur') {
       region = await buildBlurRegion(sharp, sourcePath, left, top, w, h)
     } else {
@@ -106,4 +114,6 @@ async function writeMaskedImage(sourcePath, destPath, boxes, globalMode = 'mosai
 module.exports = {
   applyMosaicToImage,
   writeMaskedImage,
+  resolveBoxEffect,
+  SOLID_PRIVACY_TYPES,
 }

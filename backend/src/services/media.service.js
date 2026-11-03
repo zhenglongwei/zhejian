@@ -181,13 +181,22 @@ function shouldUseCachedDesensitize(media, context = {}) {
   return true
 }
 
+/** 大模型跑通且无敏感区：success 且无脱敏产物 → 已跑过，不必再跑，公开可展示原图 */
+function isOkNoPrivacySettled(media = {}) {
+  if (String(media.desensitizeStatus || '') !== DESENSITIZE_STATUS.SUCCESS) return false
+  if (String(media.desensitizedUrl || '').trim()) return false
+  const tags = Array.isArray(media.riskTags) ? media.riskTags : []
+  return tags.length === 0
+}
+
 /**
- * 默认：成功产物复用；失败/需人工不再自动重跑（避免节点侧反复烧 OCR）。
+ * 默认：成功产物复用；无敏感已记账也可跳过；失败/需人工不再自动重跑。
  * 公开托管补跑传 retryFailed:true → 仅成功复用，失败/需人工必须重打。
  */
 function shouldSkipRerunDesensitize(media, context = {}) {
   if (!media || context.force) return false
   if (shouldUseCachedDesensitize(media, context)) return true
+  if (isOkNoPrivacySettled(media)) return true
   if (context.retryFailed) return false
   return (
     media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL ||
@@ -207,17 +216,26 @@ async function persistEnginePrivacyOutcome(media, {
   desensitizedKey,
   desensitizedUrl,
   caseId,
+  clearProduct = false,
 }) {
   const repo = mediaAssetRepo()
   if (repo) {
+    const nextUrl = clearProduct
+      ? ''
+      : desensitizedUrl !== undefined && desensitizedUrl !== null
+        ? String(desensitizedUrl)
+        : media.desensitizedUrl || ''
+    const nextKey =
+      desensitizeStatus === DESENSITIZE_STATUS.SUCCESS
+        ? clearProduct
+          ? ''
+          : desensitizedKey || ''
+        : media.desensitizedKey
     await repo.update({
       where: { id: media.id },
       data: {
-        desensitizedKey:
-          desensitizeStatus === DESENSITIZE_STATUS.SUCCESS
-            ? desensitizedKey
-            : media.desensitizedKey,
-        desensitizedUrl: desensitizedUrl || media.desensitizedUrl || '',
+        desensitizedKey: nextKey,
+        desensitizedUrl: nextUrl,
         desensitizeStatus,
         privacyRiskLevel: engineResult.riskLevel || '',
         riskTags: engineResult.riskTags || [],
@@ -276,6 +294,19 @@ async function runMediaDesensitize(mediaId, context = {}) {
       engineVersion: summary.engineVersion || ENGINE_VERSION,
     }
   }
+  if (!context.force && isOkNoPrivacySettled(media)) {
+    return {
+      mediaId: media.id,
+      taskStatus: 'SUCCESS',
+      resultUrl: '',
+      desensitizedUrl: '',
+      riskLevel: media.privacyRiskLevel || 'low',
+      riskTags: [],
+      engineVersion: media.engineVersion || ENGINE_VERSION,
+      maskOutcome: 'ok_no_privacy',
+      noSensitive: true,
+    }
+  }
   if (shouldSkipRerunDesensitize(media, context)) {
     const err = new Error(
       media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL ? '脱敏需人工处理' : '脱敏失败',
@@ -321,25 +352,52 @@ async function runMediaDesensitize(mediaId, context = {}) {
     const engineResult = await processImage(sourcePath, destTmp, {
       boxes: Array.isArray(context.boxes) ? context.boxes : [],
     })
-    if (fs.existsSync(destTmp)) {
-      const outBuf = await fs.promises.readFile(destTmp)
-      await writeMediaBuffer(desensitizedKey, outBuf, {
-        contentType: contentTypeForKey(desensitizedKey),
-      })
-    }
     const desensitizeStatus = mapEngineResultToStatus(engineResult)
-    const desensitizedUrl =
-      desensitizeStatus === DESENSITIZE_STATUS.SUCCESS
-        ? buildPublicMediaUrl(desensitizedKey)
-        : media.desensitizedUrl || ''
+    const detections = Array.isArray(engineResult.detections) ? engineResult.detections : []
+    const riskTags = Array.isArray(engineResult.riskTags) ? engineResult.riskTags : []
+    const cleanScan =
+      desensitizeStatus === DESENSITIZE_STATUS.SUCCESS && !detections.length && !riskTags.length
+    // 仅模型明确看过且无区，才记 ok_no_privacy；托管仅车牌兜底扫空 ≠ 无敏感
+    const noSensitive = Boolean(cleanScan && context.modelPrivacyJudged)
+
+    let desensitizedUrl = media.desensitizedUrl || ''
+    let nextKey = media.desensitizedKey || ''
+    if (desensitizeStatus === DESENSITIZE_STATUS.SUCCESS && !cleanScan) {
+      if (fs.existsSync(destTmp)) {
+        const outBuf = await fs.promises.readFile(destTmp)
+        await writeMediaBuffer(desensitizedKey, outBuf, {
+          contentType: contentTypeForKey(desensitizedKey),
+        })
+      }
+      desensitizedUrl = buildPublicMediaUrl(desensitizedKey)
+      nextKey = desensitizedKey
+    } else if (noSensitive) {
+      // 模型判定无敏感：记已跑过，不复制原图当脱敏产物
+      desensitizedUrl = ''
+      nextKey = ''
+    } else if (cleanScan && !context.modelPrivacyJudged) {
+      // 引擎未检出但模型未背书：不落 success 空产物，避免工单图误标可公开原图
+      return {
+        mediaId: media.id,
+        taskStatus: 'SUCCESS',
+        resultUrl: '',
+        desensitizedUrl: '',
+        riskLevel: engineResult.riskLevel || 'low',
+        riskTags: [],
+        detections: [],
+        engineVersion: engineResult.engineVersion || ENGINE_VERSION,
+        maskOutcome: 'pending',
+        noSensitive: false,
+      }
+    }
 
     await persistEnginePrivacyOutcome(media, {
       engineResult,
       desensitizeStatus,
-      desensitizedKey:
-        desensitizeStatus === DESENSITIZE_STATUS.SUCCESS ? desensitizedKey : media.desensitizedKey,
+      desensitizedKey: nextKey,
       desensitizedUrl,
       caseId,
+      clearProduct: Boolean(noSensitive),
     })
 
     if (desensitizeStatus !== DESENSITIZE_STATUS.SUCCESS) {
@@ -355,7 +413,11 @@ async function runMediaDesensitize(mediaId, context = {}) {
       throw err
     }
 
-    return buildRunResultFromEngine(media, engineResult, desensitizedUrl)
+    return {
+      ...buildRunResultFromEngine(media, engineResult, desensitizedUrl),
+      maskOutcome: noSensitive ? 'ok_no_privacy' : 'ok_masked',
+      noSensitive,
+    }
   } catch (e) {
     if (e.riskLevel && media.id) {
       try {
@@ -403,41 +465,73 @@ function hasMaskBoxes(context = {}) {
   return Array.isArray(context.boxes) && context.boxes.length > 0
 }
 
+function packResolvedMaskResult(media, extra = {}) {
+  const maskedUrl = String(extra.maskedUrl || '').trim()
+  const noSensitive = Boolean(extra.noSensitive || extra.maskOutcome === 'ok_no_privacy')
+  const maskOutcome =
+    String(extra.maskOutcome || '').trim() ||
+    (maskedUrl ? 'ok_masked' : noSensitive ? 'ok_no_privacy' : '')
+  const ok = Boolean(maskedUrl) || noSensitive || maskOutcome === 'ok_no_privacy'
+  return {
+    mediaId: media && media.id ? media.id : '',
+    maskedUrl,
+    ok,
+    settled: true,
+    noSensitive: noSensitive || maskOutcome === 'ok_no_privacy',
+    maskOutcome,
+    riskTags: Array.isArray(extra.riskTags) ? extra.riskTags : [],
+    riskLevel: extra.riskLevel || '',
+    needManual: Boolean(extra.needManual),
+  }
+}
+
 async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
   const media = await ensureMediaRecordFromUrl(rawUrl)
   if (!media) {
-    return { mediaId: '', maskedUrl: '', ok: false, settled: true, riskTags: [], riskLevel: '' }
+    return {
+      mediaId: '',
+      maskedUrl: '',
+      ok: false,
+      settled: true,
+      riskTags: [],
+      riskLevel: '',
+      maskOutcome: '',
+      noSensitive: false,
+    }
   }
   if (!context.force && shouldUseCachedDesensitize(media, context)) {
-    return {
-      mediaId: media.id,
+    return packResolvedMaskResult(media, {
       maskedUrl: media.desensitizedUrl,
-      ok: true,
-      settled: true,
+      maskOutcome: 'ok_masked',
       riskTags: media.riskTags || [],
       riskLevel: media.privacyRiskLevel || '',
-    }
+    })
+  }
+  if (!context.force && isOkNoPrivacySettled(media)) {
+    return packResolvedMaskResult(media, {
+      maskedUrl: '',
+      maskOutcome: 'ok_no_privacy',
+      noSensitive: true,
+      riskTags: [],
+      riskLevel: media.privacyRiskLevel || 'low',
+    })
   }
   if (!context.force && shouldSkipRerunDesensitize(media, context)) {
-    return {
-      mediaId: media.id,
+    return packResolvedMaskResult(media, {
       maskedUrl: '',
-      ok: false,
-      settled: true,
+      maskOutcome: '',
+      riskTags: media.riskTags || [],
+      riskLevel: media.privacyRiskLevel || '',
       needManual: media.desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL,
-      riskTags: media.riskTags || [],
-      riskLevel: media.privacyRiskLevel || '',
-    }
+    })
   }
-  if (!hasMaskBoxes(context) && !isUnpaintedModelMask(media)) {
-    return {
-      mediaId: media.id,
+  // 托管公开轮等：无模型框也要跑引擎检测；仅「强制只要贴给定框」时才拦截
+  if (context.requireBoxes && !hasMaskBoxes(context) && !isUnpaintedModelMask(media)) {
+    return packResolvedMaskResult(media, {
       maskedUrl: '',
-      ok: false,
-      settled: true,
       riskTags: media.riskTags || [],
       riskLevel: media.privacyRiskLevel || '',
-    }
+    })
   }
   const run = async () => {
     try {
@@ -445,14 +539,13 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
         ...context,
         engineVersion: ENGINE_VERSION,
       })
-      return {
-        mediaId: media.id,
+      return packResolvedMaskResult(media, {
         maskedUrl: result.desensitizedUrl,
-        ok: Boolean(result.desensitizedUrl),
-        settled: true,
+        maskOutcome: result.maskOutcome,
+        noSensitive: result.noSensitive,
         riskTags: result.riskTags || [],
         riskLevel: result.riskLevel || '',
-      }
+      })
     } catch (e) {
       console.warn('[desensitize] asset failed', {
         mediaId: media.id,
@@ -460,15 +553,12 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
         status: e.status || '',
         message: String(e.message || '').slice(0, 160),
       })
-      return {
-        mediaId: media.id,
+      return packResolvedMaskResult(media, {
         maskedUrl: '',
-        ok: false,
-        settled: true,
         riskTags: e.riskTags || [],
         riskLevel: e.riskLevel || '',
         needManual: e.taskStatus === 'NEED_MANUAL',
-      }
+      })
     }
   }
   if (!context.force) {

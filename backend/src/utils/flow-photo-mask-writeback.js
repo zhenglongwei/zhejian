@@ -1,6 +1,10 @@
 /**
  * 打码产物写回流程节点上的图对象（展示真源）。
  * 口径：docs/01_项目总览与业务架构/15_案例档案与托管状态机.md §6.1
+ *
+ * - 有敏感 → 写 maskedUrl
+ * - 无敏感 → 写 maskOutcome=ok_no_privacy，不写/清空冒充产物的 maskedUrl
+ * - 必须写 node.content（真源）；兼容旧 photoDraft / document.payload
  */
 
 const { rawUrlLookupKeys } = require('../services/desensitize.constants')
@@ -17,72 +21,135 @@ function urlsMatch(a, bKeys) {
   return rawUrlLookupKeys(a).some((k) => bKeys.has(k))
 }
 
+function normalizeRegions(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const kind = text(row.kind || row.type)
+      const left = Number(row.left)
+      const top = Number(row.top)
+      const width = Number(row.width)
+      const height = Number(row.height)
+      if (!kind) return null
+      return {
+        kind,
+        left: Number.isFinite(left) ? left : 0,
+        top: Number.isFinite(top) ? top : 0,
+        width: Number.isFinite(width) ? width : 0,
+        height: Number.isFinite(height) ? height : 0,
+      }
+    })
+    .filter(Boolean)
+}
+
 /**
- * 将槽位写成带 maskedUrl 的对象；字符串升为 { url, maskedUrl }。
- * @returns {{ next: any, changed: boolean }}
+ * @param {{ maskedUrl?: string, maskOutcome?: string, maskRegions?: array }} meta
  */
-function applyMaskedToSlot(slot, rawKeys, maskedUrl) {
-  const product = text(maskedUrl)
-  if (!product) return { next: slot, changed: false }
+function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
+  const product = text(meta.maskedUrl)
+  const outcome = text(meta.maskOutcome)
+  const regions = meta.maskRegions !== undefined ? normalizeRegions(meta.maskRegions) : null
+  if (!product && !outcome && regions == null) return { next: slot, changed: false }
 
   if (typeof slot === 'string') {
     if (!urlsMatch(slot, rawKeys)) return { next: slot, changed: false }
-    return { next: { url: slot, maskedUrl: product }, changed: true }
+    const next = { url: slot }
+    if (product) next.maskedUrl = product
+    if (outcome) next.maskOutcome = outcome
+    if (regions) next.maskRegions = regions
+    return { next, changed: true }
   }
   if (!slot || typeof slot !== 'object') return { next: slot, changed: false }
 
   const raw = text(slot.url || slot.src || slot.rawUrl)
   if (!raw || !urlsMatch(raw, rawKeys)) return { next: slot, changed: false }
-  if (text(slot.maskedUrl) === product || text(slot.preMaskedUrl) === product) {
-    if (text(slot.maskedUrl) === product) return { next: slot, changed: false }
-    return {
-      next: { ...slot, maskedUrl: product, preMaskedUrl: text(slot.preMaskedUrl) || product },
-      changed: true,
+
+  let next = { ...slot }
+  let changed = false
+  if (product) {
+    if (text(next.maskedUrl) !== product) {
+      next.maskedUrl = product
+      next.preMaskedUrl = text(next.preMaskedUrl) || product
+      changed = true
+    }
+  } else if (outcome === 'ok_no_privacy') {
+    // 无敏感：禁止留着复制原图当 maskedUrl
+    if (text(next.maskedUrl) || text(next.preMaskedUrl)) {
+      next = { ...next, maskedUrl: '', preMaskedUrl: '' }
+      changed = true
+    }
+  } else if (outcome === 'pending' || outcome === 'mask_failed' || outcome === 'call_failed') {
+    // 清掉误标的 ok_no_privacy / 坏产物，避免公开预览继续出原图
+    if (
+      text(next.maskedUrl) ||
+      text(next.preMaskedUrl) ||
+      text(next.maskOutcome) === 'ok_no_privacy' ||
+      text(next.maskOutcome) !== outcome
+    ) {
+      next = {
+        ...next,
+        maskedUrl: '',
+        preMaskedUrl: '',
+        maskOutcome: outcome,
+        maskRegions: [],
+      }
+      changed = true
     }
   }
-  return {
-    next: { ...slot, maskedUrl: product, preMaskedUrl: text(slot.preMaskedUrl) || product },
-    changed: true,
+  if (outcome && text(next.maskOutcome) !== outcome) {
+    next.maskOutcome = outcome
+    changed = true
   }
+  if (regions) {
+    const prev = JSON.stringify(Array.isArray(next.maskRegions) ? next.maskRegions : [])
+    const now = JSON.stringify(regions)
+    if (prev !== now) {
+      next.maskRegions = regions
+      changed = true
+    }
+  }
+  return { next, changed }
 }
 
-function patchUrlList(list, rawKeys, maskedUrl) {
+/** @deprecated 兼容旧调用：只写 maskedUrl */
+function applyMaskedToSlot(slot, rawKeys, maskedUrl) {
+  return applyMaskResultToSlot(slot, rawKeys, { maskedUrl })
+}
+
+function patchUrlList(list, rawKeys, meta) {
   if (!Array.isArray(list)) return { next: list, changed: false }
   let changed = false
   const next = list.map((slot) => {
-    const r = applyMaskedToSlot(slot, rawKeys, maskedUrl)
+    const r = applyMaskResultToSlot(slot, rawKeys, meta)
     if (r.changed) changed = true
     return r.next
   })
   return { next, changed }
 }
 
-function patchFindingLike(row, rawKeys, maskedUrl) {
+function patchFindingLike(row, rawKeys, meta) {
   if (!row || typeof row !== 'object') return { next: row, changed: false }
   let changed = false
   let next = row
 
-  const images = patchUrlList(row.images, rawKeys, maskedUrl)
+  const images = patchUrlList(row.images, rawKeys, meta)
   if (images.changed) {
     next = { ...next, images: images.next }
     changed = true
   }
 
   if (text(row.url) && urlsMatch(row.url, rawKeys)) {
-    if (text(row.maskedUrl) !== text(maskedUrl)) {
-      next = {
-        ...next,
-        url: row.url,
-        maskedUrl: text(maskedUrl),
-        preMaskedUrl: text(row.preMaskedUrl) || text(maskedUrl),
-      }
+    const r = applyMaskResultToSlot(row, rawKeys, meta)
+    if (r.changed) {
+      next = r.next
       changed = true
     }
   }
 
   if (text(row.evidenceUrl) && urlsMatch(row.evidenceUrl, rawKeys)) {
-    if (text(row.evidenceMaskedUrl) !== text(maskedUrl)) {
-      next = { ...next, evidenceMaskedUrl: text(maskedUrl) }
+    const product = text(meta.maskedUrl)
+    if (product && text(row.evidenceMaskedUrl) !== product) {
+      next = { ...next, evidenceMaskedUrl: product }
       changed = true
     }
   }
@@ -90,26 +157,28 @@ function patchFindingLike(row, rawKeys, maskedUrl) {
   return { next, changed }
 }
 
-function patchPayloadOrDraft(bag, rawKeys, maskedUrl) {
+function patchPayloadOrDraft(bag, rawKeys, meta) {
   if (!bag || typeof bag !== 'object') return { next: bag, changed: false }
   let changed = false
   let next = bag
 
   const patchArr = (key) => {
-    const r = patchUrlList(next[key], rawKeys, maskedUrl)
+    const r = patchUrlList(next[key], rawKeys, meta)
     if (r.changed) {
       next = { ...next, [key]: r.next }
       changed = true
     }
   }
 
-  // 只改「图对象」槽位；selectedDeliveryUrls 是字符串引用列表，禁止升成对象（否则规范化会变成 [object Object] 串图）
   ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach(patchArr)
 
   if (text(next.deliveryExteriorUrl) && urlsMatch(next.deliveryExteriorUrl, rawKeys)) {
-    // 草稿单字段：升到并列 masked，避免丢原址
-    if (text(next.deliveryExteriorMaskedUrl) !== text(maskedUrl)) {
-      next = { ...next, deliveryExteriorMaskedUrl: text(maskedUrl) }
+    const product = text(meta.maskedUrl)
+    if (product && text(next.deliveryExteriorMaskedUrl) !== product) {
+      next = { ...next, deliveryExteriorMaskedUrl: product }
+      changed = true
+    } else if (text(meta.maskOutcome) === 'ok_no_privacy' && text(next.deliveryExteriorMaskedUrl)) {
+      next = { ...next, deliveryExteriorMaskedUrl: '' }
       changed = true
     }
   }
@@ -118,7 +187,7 @@ function patchPayloadOrDraft(bag, rawKeys, maskedUrl) {
     if (!Array.isArray(next[key])) return
     let rowChanged = false
     const rows = next[key].map((row) => {
-      const r = patchFindingLike(row, rawKeys, maskedUrl)
+      const r = patchFindingLike(row, rawKeys, meta)
       if (r.changed) rowChanged = true
       return r.next
     })
@@ -131,14 +200,14 @@ function patchPayloadOrDraft(bag, rawKeys, maskedUrl) {
   return { next, changed }
 }
 
-/**
- * 在 flowNodes 上按原图地址写回 maskedUrl。
- * @returns {{ nodes: array, changed: boolean }}
- */
-function writeMaskedUrlIntoFlowNodes(flowNodes, rawUrl, maskedUrl) {
-  const product = text(maskedUrl)
+function writeMaskResultIntoFlowNodes(flowNodes, rawUrl, meta = {}) {
   const rawKeys = keySetFor(rawUrl)
-  if (!product || !rawKeys.size || !Array.isArray(flowNodes)) {
+  const outcome = text(meta.maskOutcome)
+  const product = text(meta.maskedUrl)
+  if (!rawKeys.size || !Array.isArray(flowNodes)) {
+    return { nodes: flowNodes, changed: false }
+  }
+  if (!product && !outcome && meta.maskRegions === undefined) {
     return { nodes: flowNodes, changed: false }
   }
 
@@ -148,8 +217,17 @@ function writeMaskedUrlIntoFlowNodes(flowNodes, rawUrl, maskedUrl) {
     let nextNode = node
     let nodeChanged = false
 
+    // 真源：content
+    if (node.content && typeof node.content === 'object') {
+      const r = patchPayloadOrDraft(node.content, rawKeys, meta)
+      if (r.changed) {
+        nextNode = { ...nextNode, content: r.next }
+        nodeChanged = true
+      }
+    }
+
     if (node.photoDraft && typeof node.photoDraft === 'object') {
-      const r = patchPayloadOrDraft(node.photoDraft, rawKeys, product)
+      const r = patchPayloadOrDraft(node.photoDraft, rawKeys, meta)
       if (r.changed) {
         nextNode = { ...nextNode, photoDraft: r.next }
         nodeChanged = true
@@ -158,10 +236,9 @@ function writeMaskedUrlIntoFlowNodes(flowNodes, rawUrl, maskedUrl) {
 
     if (node.document && typeof node.document === 'object') {
       const doc = node.document
-      const payload =
-        doc.payload && typeof doc.payload === 'object' ? doc.payload : null
+      const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : null
       if (payload) {
-        const r = patchPayloadOrDraft(payload, rawKeys, product)
+        const r = patchPayloadOrDraft(payload, rawKeys, meta)
         if (r.changed) {
           nextNode = {
             ...nextNode,
@@ -179,15 +256,21 @@ function writeMaskedUrlIntoFlowNodes(flowNodes, rawUrl, maskedUrl) {
   return { nodes, changed }
 }
 
-/**
- * 批量写回多对 raw→masked。
- */
+/** @deprecated 兼容：只写 maskedUrl */
+function writeMaskedUrlIntoFlowNodes(flowNodes, rawUrl, maskedUrl) {
+  return writeMaskResultIntoFlowNodes(flowNodes, rawUrl, { maskedUrl })
+}
+
 function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
   let nodes = flowNodes
   let changed = false
   ;(pairs || []).forEach((pair) => {
     if (!pair) return
-    const r = writeMaskedUrlIntoFlowNodes(nodes, pair.rawUrl, pair.maskedUrl)
+    const r = writeMaskResultIntoFlowNodes(nodes, pair.rawUrl, {
+      maskedUrl: pair.maskedUrl,
+      maskOutcome: pair.maskOutcome,
+      maskRegions: pair.maskRegions,
+    })
     nodes = r.nodes
     if (r.changed) changed = true
   })
@@ -197,14 +280,26 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
 function pushImageRef(list, raw) {
   if (typeof raw === 'string') {
     const url = text(raw)
-    if (url) list.push({ url, maskedUrl: '' })
+    if (url) list.push({ url, maskedUrl: '', maskOutcome: '' })
     return
   }
   if (!raw || typeof raw !== 'object') return
   const url = text(raw.url || raw.rawUrl || raw.src)
-  if (url) list.push({ url, maskedUrl: text(raw.maskedUrl || raw.preMaskedUrl) })
+  if (url) {
+    list.push({
+      url,
+      maskedUrl: text(raw.maskedUrl || raw.preMaskedUrl),
+      maskOutcome: text(raw.maskOutcome),
+    })
+  }
   const evidenceUrl = text(raw.evidenceUrl)
-  if (evidenceUrl) list.push({ url: evidenceUrl, maskedUrl: text(raw.evidenceMaskedUrl) })
+  if (evidenceUrl) {
+    list.push({
+      url: evidenceUrl,
+      maskedUrl: text(raw.evidenceMaskedUrl),
+      maskOutcome: '',
+    })
+  }
 }
 
 function collectBagImageRefs(bag, list) {
@@ -216,32 +311,35 @@ function collectBagImageRefs(bag, list) {
     list.push({
       url: text(bag.deliveryExteriorUrl),
       maskedUrl: text(bag.deliveryExteriorMaskedUrl),
+      maskOutcome: '',
     })
   }
   ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
     ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
+      if (!row) return
       pushImageRef(list, row)
-      collectBagImageRefs(row, list)
+      ;(Array.isArray(row.images) ? row.images : []).forEach((img) => pushImageRef(list, img))
     })
   })
 }
 
-/** 流程节点上现有的原图 / 打码图地址 */
 function collectFlowImageRefs(flowNodes) {
   const list = []
   ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
     if (!node || typeof node !== 'object') return
+    collectBagImageRefs(node.content, list)
     collectBagImageRefs(node.photoDraft, list)
     const payload = node.document && node.document.payload
     collectBagImageRefs(payload, list)
-    collectBagImageRefs(node.content, list)
   })
   return list
 }
 
 module.exports = {
   applyMaskedToSlot,
+  applyMaskResultToSlot,
   writeMaskedUrlIntoFlowNodes,
+  writeMaskResultIntoFlowNodes,
   writeMaskedPairsIntoFlowNodes,
   collectFlowImageRefs,
 }
