@@ -1,7 +1,7 @@
 /**
  * 施工、检测、交车的 AI 分析。
  * 真源：docs/04_维修过程相册/29_节点AI分析_单据结构与状态流转梳理.md
- * 当前节点全文 + 前序分析要点/图摘要；图每张一生只送模型一次；英文提示词、中文 JSON。
+ * 当前节点全文 + 前序分析要点/图摘要；图每张一生只送模型一次；先想后 JSON（不强制 response_format）。
  */
 const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
@@ -1079,8 +1079,14 @@ async function runLlm(instruction, urls, label, options = {}) {
   const tag = label || 'Photo'
   const slotByUrl = options.slotByUrl instanceof Map ? options.slotByUrl : null
   const attached = await prepareVisionAttachments(urls, slotByUrl)
+  // 先想后 JSON；不强制 response_format，避免 masks 嵌套时通义中途掐断
+  const fullInstruction = [
+    '步骤：先把附图和业务要点看完（含敏感区），想清楚后再输出。',
+    '最终只输出一个 JSON 对象，前后不要解释、不要 markdown 代码块。',
+    instruction,
+  ].join('\n')
   const content = attached.length
-    ? [{ type: 'text', text: instruction }].concat(
+    ? [{ type: 'text', text: fullInstruction }].concat(
         attached.map((row, index) => {
           // 必须标真实 photoSlots.slot，禁止用附图数组下标冒充槽位号
           const caption = row.slot
@@ -1092,8 +1098,13 @@ async function runLlm(instruction, urls, label, options = {}) {
           ]
         }).flat(),
       )
-    : instruction
+    : fullInstruction
   let textOut = null
+  console.info('[step-advice] llm start', {
+    label: tag,
+    urlCount: attached.length,
+    engines: engines.map((e) => `${e.vendor}/${e.model}`),
+  })
   for (const engine of engines) {
     try {
       const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
@@ -1105,20 +1116,26 @@ async function runLlm(instruction, urls, label, options = {}) {
           {
             role: 'system',
             content:
-              'You are an assistant for a Chinese auto repair shop. Reply with JSON only. All natural-language string values MUST be Simplified Chinese. Never say there is no advice merely because forms look filled.',
+              '你是修理厂助手。先想清楚再回答。最终只输出一个 JSON；自然语言字段必须用简体中文。不要因为表单看起来填过了就说没有意见。',
           },
           { role: 'user', content },
         ],
         temperature: 0.2,
-        responseFormat: engine.vendor === 'dashscope' ? { type: 'json_object' } : undefined,
+        responseFormat: undefined,
         enableThinking: engine.vendor === 'dashscope' ? false : undefined,
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 45000),
       })
       textOut = result && result.text
       if (textOut) {
+        console.info('[step-advice] llm ok', {
+          label: tag,
+          vendor: engine.vendor,
+          model: engine.model,
+          rawLen: String(textOut).length,
+        })
         try {
-          const { queueApplyModelMasks } = require('./model-mask.service')
-          queueApplyModelMasks(attached.map((row) => row.originalUrl), textOut, {
+          const { voidApplyModelMasks } = require('./model-mask.service')
+          voidApplyModelMasks(attached.map((row) => row.originalUrl), textOut, {
             albumId: options.albumId || '',
           })
         } catch (_) {
@@ -1126,8 +1143,13 @@ async function runLlm(instruction, urls, label, options = {}) {
         }
         break
       }
-    } catch (_) {
-      /* 换下一家 */
+    } catch (err) {
+      console.warn('[step-advice] llm fail', {
+        label: tag,
+        vendor: engine.vendor,
+        model: engine.model,
+        error: String((err && err.message) || err || '').slice(0, 220),
+      })
     }
   }
   if (typeof options.onResult === 'function') {

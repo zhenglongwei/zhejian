@@ -496,6 +496,8 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName / quoteLineNote 之一；suggestedText 必须是可直接填进该字段的整句。',
     '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。附图是原图。',
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
+    '步骤：先把附图和草稿看完（含敏感区），想清楚后再输出。',
+    '最终只输出一个 JSON，前后不要解释、不要 markdown 代码块。',
     'priorFacts 是前面各步已经识过或写过的文字，不要再看那些图，不要改已经确认的检测和报价。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,
@@ -521,6 +523,11 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
   // 按序换模型：单个模型不可用就换下一个，全部不可用才回退规则建议
   const failures = []
   let called = false
+  console.info('[node-ai-review] llm start', {
+    step: ctx.rubric && ctx.rubric.step,
+    imageCount: labeled.length,
+    engines: engines.map((e) => `${e.vendor}/${e.model}`),
+  })
   for (const engine of engines) {
     try {
       // 豆包走 Responses API（input/input_image），通义走 chat/completions（messages/image_url）
@@ -530,18 +537,28 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
         apiKey: engine.apiKey,
         model: engine.model,
         messages: [
-          { role: 'system', content: '只输出 JSON。建议必须可执行，不要空话。' },
+          {
+            role: 'system',
+            content: '先想清楚再回答。最终只输出一个 JSON。建议必须可执行，不要空话。',
+          },
           { role: 'user', content: buildUserContent() },
         ],
         temperature: 0.2,
-        // response_format / enable_thinking 是通义专有参数，其它厂商不认，别乱传
-        responseFormat: engine.vendor === 'dashscope' ? { type: 'json_object' } : undefined,
+        // 不强制 response_format：带 masks 时通义 json_object 易中途掐断
+        responseFormat: undefined,
         enableThinking: engine.vendor === 'dashscope' ? false : undefined,
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
       })
       called = true
       const parsed = parseReviewModelJson(result && result.text)
-      if (!parsed) continue
+      if (!parsed) {
+        console.warn('[node-ai-review] empty parse', {
+          vendor: engine.vendor,
+          model: engine.model,
+          rawLen: String((result && result.text) || '').length,
+        })
+        continue
+      }
       const suggestions = keepCompletenessSuggestions(parseModelSuggestions(parsed, []), ctx)
       const merchantBrief = parseMerchantBrief(parsed, ctx)
       try {
@@ -550,8 +567,18 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
       } catch (_) {
         /* 遮挡打不上不影响意见 */
       }
+      console.info('[node-ai-review] llm ok', {
+        vendor: engine.vendor,
+        model: engine.model,
+        suggestions: Array.isArray(suggestions) ? suggestions.length : 0,
+      })
       return { suggestions, merchantBrief, source: 'llm', engine: engine.id }
     } catch (error) {
+      console.warn('[node-ai-review] llm fail', {
+        vendor: engine.vendor,
+        model: engine.model,
+        error: text(error && error.message).slice(0, 220),
+      })
       failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
     }
   }
