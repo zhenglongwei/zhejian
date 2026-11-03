@@ -663,6 +663,13 @@ async function activateMerchant(merchantId, userId, storeId) {
       },
     }),
   ])
+  // 开通即写入 30 天尝鲜试用（幂等：已有到期日则不重复赠送）
+  try {
+    const { getOrCreateSubscription } = require('./merchant-subscription.service')
+    await getOrCreateSubscription(merchantId)
+  } catch (e) {
+    console.warn('[onboarding] grant taste trial', e && e.message)
+  }
 }
 
 async function saveOnboardingDraft(userId, form) {

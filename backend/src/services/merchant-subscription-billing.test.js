@@ -112,7 +112,7 @@ test('到期后开通任意档为 purchase', async () => {
   assert.equal(micro.switchMode, 'purchase')
 })
 
-test('店名旁文案：到期优先，其次额满', () => {
+test('店名旁文案：到期优先，其次额满，试用显示剩余天数', () => {
   const expired = buildPricingCue({
     effectivePlan: null,
     effectivePlanLabel: '已到期',
@@ -134,6 +134,7 @@ test('店名旁文案：到期优先，其次额满', () => {
     publicHostQuotaLimit: 3,
     daysLeft: 2,
     entitlementActive: true,
+    isTasteTrial: true,
   })
   assert.equal(aiFull.kind, 'ai_quota_full')
 
@@ -146,8 +147,37 @@ test('店名旁文案：到期优先，其次额满', () => {
     publicHostQuotaLimit: 3,
     daysLeft: 2,
     entitlementActive: true,
+    isTasteTrial: true,
   })
   assert.equal(hostFull.kind, 'host_quota_full')
+
+  const trial = buildPricingCue({
+    effectivePlan: 'taste',
+    effectivePlanLabel: '尝鲜版',
+    usedAiQuota: 0,
+    aiQuotaLimit: 3,
+    usedPublicHostQuota: 0,
+    publicHostQuotaLimit: 3,
+    daysLeft: 28,
+    entitlementActive: true,
+    isTasteTrial: true,
+  })
+  assert.equal(trial.kind, 'trial')
+  assert.equal(trial.text, '尝鲜试用 · 还剩 28 天')
+
+  const trialNearEnd = buildPricingCue({
+    effectivePlan: 'taste',
+    effectivePlanLabel: '尝鲜版',
+    usedAiQuota: 0,
+    aiQuotaLimit: 3,
+    usedPublicHostQuota: 0,
+    publicHostQuotaLimit: 3,
+    daysLeft: 2,
+    entitlementActive: true,
+    isTasteTrial: true,
+  })
+  assert.equal(trialNearEnd.kind, 'expiring')
+  assert.equal(trialNearEnd.text, '尝鲜试用 · 还剩 2 天')
 
   const expiring = buildPricingCue({
     effectivePlan: 'micro',

@@ -586,10 +586,10 @@ Page({
       })
       const profile = result.profile || result
       if (profile.status === MERCHANT_STATUS.APPROVED) {
-        wx.showToast({ title: '资料已保存', icon: 'success' })
+        wx.showToast({ title: '已开通尝鲜试用 30 天', icon: 'success', duration: 2500 })
         setTimeout(() => {
           redirectAfterMerchantApproved(profile.merchantId, 'submit')
-        }, 600)
+        }, 800)
         return
       }
       wx.showToast({ title: '提交成功', icon: 'success' })
@@ -642,10 +642,10 @@ Page({
         merchantId: this.data.profile?.merchantId || this.data.merchantId,
       })
       if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
-        wx.showToast({ title: '已开通', icon: 'success' })
+        wx.showToast({ title: '已开通尝鲜试用 30 天', icon: 'success', duration: 2500 })
         setTimeout(() => {
           redirectAfterMerchantApproved(profile.merchantId, 'audit')
-        }, 600)
+        }, 800)
         return
       }
       this.setData({

@@ -800,6 +800,26 @@ async function enrichPlanCatalogWithQuotes(subscriptionRow, plans) {
   return enriched
 }
 
+async function merchantHasPaidSubscriptionOrder(merchantId) {
+  const id = String(merchantId || '').trim()
+  if (!id) return false
+  const paid = await prisma.merchantPaymentOrder.findFirst({
+    where: {
+      merchantId: id,
+      status: MERCHANT_PAYMENT_STATUS.PAID,
+    },
+    select: { id: true },
+  })
+  return Boolean(paid)
+}
+
+/** 赠送尝鲜试用：有效档为尝鲜，且从未付过套餐费 */
+async function isTasteTrialSubscription(subscriptionRow) {
+  if (!subscriptionRow || !isSubscriptionActive(subscriptionRow)) return false
+  if (resolveEffectivePlan(subscriptionRow) !== MERCHANT_PLAN.TASTE) return false
+  return !(await merchantHasPaidSubscriptionOrder(subscriptionRow.merchantId))
+}
+
 function buildPricingCue({
   effectivePlan,
   effectivePlanLabel,
@@ -811,6 +831,7 @@ function buildPricingCue({
   quotaLimit,
   daysLeft,
   entitlementActive,
+  isTasteTrial,
 }) {
   const hasEntitlement =
     entitlementActive != null ? Boolean(entitlementActive) : Boolean(effectivePlan)
@@ -836,6 +857,21 @@ function buildPricingCue({
     hostUsed >= hostLimit
   ) {
     return { text: '托管额度已满，去升级', kind: 'host_quota_full' }
+  }
+  if (
+    isTasteTrial &&
+    daysLeft !== null &&
+    daysLeft !== undefined &&
+    daysLeft >= 0
+  ) {
+    return {
+      text:
+        daysLeft <= 0
+          ? '尝鲜试用 · 今日到期'
+          : `尝鲜试用 · 还剩 ${daysLeft} 天`,
+      kind: daysLeft <= RENEWAL_NOTICE_DAYS ? 'expiring' : 'trial',
+      daysLeft,
+    }
   }
   if (
     daysLeft !== null &&
@@ -872,6 +908,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
     : row.expiresAt
       ? 0
       : null
+  const tasteTrial = await isTasteTrialSubscription(row)
   subscription.usedAiQuota = quotaSnap.usedAiQuota
   subscription.aiQuotaLimit = quotaSnap.aiQuotaLimit
   subscription.usedPublicHostQuota = quotaSnap.usedPublicHostQuota
@@ -879,10 +916,17 @@ async function fetchMerchantSubscriptionPanel(auth) {
   subscription.usedQuota = quotaSnap.usedAiQuota
   subscription.quotaLimit = quotaSnap.aiQuotaLimit
   subscription.daysLeft = daysLeft
+  subscription.isTasteTrial = tasteTrial
   subscription.standardTrialEligible = false
   subscription.planTag = {
     tier: MERCHANT_PLAN_TAG_TIERS[effectivePlan] || 'basic',
-    text: subscription.effectivePlanLabel,
+    text: tasteTrial
+      ? daysLeft != null && daysLeft >= 0
+        ? daysLeft <= 0
+          ? '尝鲜试用 · 今日到期'
+          : `尝鲜试用 · 还剩 ${daysLeft} 天`
+        : '尝鲜试用'
+      : subscription.effectivePlanLabel,
     canUpgrade:
       !entitlementActive ||
       quotaSnap.usedAiQuota >= quotaSnap.aiQuotaLimit ||
@@ -897,6 +941,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
     publicHostQuotaLimit: quotaSnap.publicHostQuotaLimit,
     daysLeft,
     entitlementActive,
+    isTasteTrial: tasteTrial,
   })
   const plans = await listPlanCatalog(row, { storeId: auth.storeId || '' })
   const plansWithQuotes = await enrichPlanCatalogWithQuotes(row, plans)
@@ -989,4 +1034,6 @@ module.exports = {
   canGrantTasteTrial,
   backfillTasteTrials,
   isTasteQuotaFullForMerchant,
+  isTasteTrialSubscription,
+  merchantHasPaidSubscriptionOrder,
 }
