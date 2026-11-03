@@ -130,9 +130,32 @@ async function patchIntakeNode(albumId, mutator) {
   return nodes[index]
 }
 
+function isJsonResponseFormatAbort(err) {
+  const msg = `${(err && err.message) || ''} ${err && err.body ? JSON.stringify(err.body) : ''}`
+  return /response_format|InvalidParameter|abnormal while generating a JSON|incomplete or invalid JSON/i.test(
+    msg,
+  )
+}
+
+function summarizeEngineError(err) {
+  if (!err) return 'unknown'
+  const status = err.status || err.statusCode || ''
+  const code =
+    (err.body && err.body.error && (err.body.error.code || err.body.error.type)) ||
+    err.code ||
+    ''
+  const message = String(err.message || '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 220)
+  return [status, code, message].filter(Boolean).join(' ')
+}
+
 async function runGenerateLlm(urls) {
   const engines = resolveConfiguredNodeAiReviewEngines()
-  if (!engines.length) return null
+  if (!engines.length) {
+    console.warn('[intake-advice] no llm engines configured')
+    return null
+  }
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
@@ -142,7 +165,9 @@ async function runGenerateLlm(urls) {
     '看不清、完全没拍到、或只拍了内饰零件的一侧，写一条提醒。标题只用：缺车头、缺车尾、缺左侧、缺右侧。',
     '四周都拍到了，提醒用空数组。其它键留空。',
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：',
+    '步骤：先把每张图看完——哪一侧拍到了、哪里有车牌/人脸等敏感区；想清楚后再输出。',
+    '最终只输出一个 JSON 对象，前后不要解释、不要 markdown 代码块。',
+    'JSON 形状：',
     '{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"","问答":[],"提醒":[{"类型":"","标题":"缺车尾","正文":"再拍一张能看清车尾的照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
   const content = [{ type: 'text', text: instruction }].concat(
@@ -151,39 +176,78 @@ async function runGenerateLlm(urls) {
       { type: 'image_url', image_url: { url } },
     ]),
   )
+  const messages = [
+    {
+      role: 'system',
+      content: '先想清楚再回答。最终只输出一个 JSON，键名和句子用简体中文。',
+    },
+    { role: 'user', content },
+  ]
+
+  console.info('[intake-advice] llm start', {
+    urlCount: (urls || []).length,
+    engines: engines.map((e) => `${e.vendor}/${e.model}`),
+  })
 
   for (const engine of engines) {
-    try {
-      const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
-      const result = await callModel({
-        apiUrl: engine.apiUrl,
-        apiKey: engine.apiKey,
-        model: engine.model,
-        messages: [
-          {
-            role: 'system',
-            content: '只返回 JSON。键名和句子都用简体中文。',
-          },
-          { role: 'user', content: content },
-        ],
-        temperature: 0.2,
-        responseFormat: engine.vendor === 'dashscope' ? { type: 'json_object' } : undefined,
-        enableThinking: engine.vendor === 'dashscope' ? false : undefined,
-        timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 45000),
-      })
-      const parsed = parseIntakeAdvicePayload(result && result.text)
-      if (!intakeAdviceHasContent(parsed)) continue
+    const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
+    const baseOpts = {
+      apiUrl: engine.apiUrl,
+      apiKey: engine.apiKey,
+      model: engine.model,
+      messages,
+      temperature: 0.2,
+      // 接车：提示词要求先想后 JSON；不绑 response_format，避免 masks 嵌套时通义中途掐断
+      // 不开 enable_thinking：该模式易拖过超时；「先想」写在提示词里即可
+      enableThinking: engine.vendor === 'dashscope' ? false : undefined,
+      timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 45000),
+    }
+    const attempts = [{ ...baseOpts, responseFormat: undefined, label: 'plain' }]
+
+    for (const attempt of attempts) {
       try {
-        const { queueApplyModelMasks } = require('./model-mask.service')
-        queueApplyModelMasks(urls, result && result.text)
-      } catch (_) {
-        /* 打码失败不影响出意见 */
+        const { label, ...callOpts } = attempt
+        const result = await callModel(callOpts)
+        const parsed = parseIntakeAdvicePayload(result && result.text)
+        if (!intakeAdviceHasContent(parsed)) {
+          console.warn('[intake-advice] empty parse', {
+            vendor: engine.vendor,
+            model: engine.model,
+            label,
+            rawLen: String((result && result.text) || '').length,
+            rawHead: String((result && result.text) || '').slice(0, 180),
+          })
+          continue
+        }
+        console.info('[intake-advice] llm ok', {
+          vendor: engine.vendor,
+          model: engine.model,
+          label,
+          covered: parsed.covered,
+          risks: Array.isArray(parsed.risks) ? parsed.risks.length : 0,
+        })
+        try {
+          const { voidApplyModelMasks } = require('./model-mask.service')
+          voidApplyModelMasks(urls, result && result.text)
+        } catch (_) {
+          /* 打码失败不影响出意见 */
+        }
+        return parsed
+      } catch (err) {
+        console.warn('[intake-advice] llm fail', {
+          vendor: engine.vendor,
+          model: engine.model,
+          label: attempt.label,
+          error: summarizeEngineError(err),
+        })
+        if (isJsonResponseFormatAbort(err)) {
+          continue
+        }
+        continue
       }
-      return parsed
-    } catch (_) {
-      /* 换下一家 */
     }
   }
+  console.warn('[intake-advice] all engines failed', { urlCount: (urls || []).length })
   return null
 }
 
@@ -269,6 +333,10 @@ async function runIntakeAdviceJob(albumId) {
       }
     }
   } catch (err) {
+    console.warn('[intake-advice] job error', {
+      albumId,
+      error: summarizeEngineError(err),
+    })
     await patchIntakeNode(albumId, (item) => ({
       ...item,
       intakeAdvice: {
@@ -284,7 +352,7 @@ async function runIntakeAdviceJob(albumId) {
   }
 }
 
-async function queueIntakeAdviceIfNeeded(album, merchantId, options = {}) {
+async function voidIntakeAdviceIfNeeded(album, merchantId, options = {}) {
   const force = Boolean(options && options.force)
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(merchantId || album.merchantId)
@@ -340,7 +408,7 @@ async function queueIntakeAdviceIfNeeded(album, merchantId, options = {}) {
 }
 
 module.exports = {
-  queueIntakeAdviceIfNeeded,
+  voidIntakeAdviceIfNeeded,
   sanitizeIntakeAdviceForView,
   runIntakeAdviceJob,
   buildFingerprint,

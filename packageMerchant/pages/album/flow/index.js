@@ -6986,12 +6986,84 @@ Page({
     const tick = async () => {
       this._quoteAssistTimer = null
       try {
-        await this.loadFlow({ silent: true })
+        // 只刷意见状态，不整页 loadFlow，避免节点图片跟着闪
+        await this.refreshAdviceOnly()
       } catch (_) {
         this._quoteAssistTimer = setTimeout(tick, 2000)
       }
     }
     this._quoteAssistTimer = setTimeout(tick, 1600)
+  },
+
+  /**
+   * 意见轮询：只拉流程节点上的意见字段并更新弹层，不重绑接车/检测/施工图。
+   */
+  async refreshAdviceOnly() {
+    const flow = await fetchMerchantAlbumFlow(this.albumId)
+    const flowNodes = (flow && flow.flowNodes) || []
+    if (!flowNodes.length) return
+    // 缓存节点意见，避免下次整页加载读到旧意见
+    const prev = Array.isArray(this._flowNodes) ? this._flowNodes : []
+    const byId = new Map(flowNodes.filter((n) => n && n.id).map((n) => [n.id, n]))
+    this._flowNodes = prev.map((node) => {
+      if (!node || !node.id || !byId.has(node.id)) return node
+      const fresh = byId.get(node.id)
+      return {
+        ...node,
+        intakeAdvice: fresh.intakeAdvice !== undefined ? fresh.intakeAdvice : node.intakeAdvice,
+        inspectionAdvice:
+          fresh.inspectionAdvice !== undefined ? fresh.inspectionAdvice : node.inspectionAdvice,
+        workAdvice: fresh.workAdvice !== undefined ? fresh.workAdvice : node.workAdvice,
+        deliveryAdvice:
+          fresh.deliveryAdvice !== undefined ? fresh.deliveryAdvice : node.deliveryAdvice,
+        quoteAssist: fresh.quoteAssist !== undefined ? fresh.quoteAssist : node.quoteAssist,
+      }
+    })
+    // 本地还没有的新节点也并入（少见）
+    flowNodes.forEach((fresh) => {
+      if (!fresh || !fresh.id) return
+      if (!this._flowNodes.some((n) => n && n.id === fresh.id)) this._flowNodes.push(fresh)
+    })
+
+    const nodes = this._flowNodes
+    const sections = this.data.sections || []
+    const quoteLines = this.data.quoteLines || []
+    const quoteAssistRaw =
+      (nodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {}).quoteAssist ||
+      null
+    this._pendingQuoteAssist = quoteAssistRaw
+
+    const intakeAdvice = this.decorateIntakeAdvice(
+      (nodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
+        .intakeAdvice,
+    )
+    const workAdvice = this.decorateWorkAdvice(
+      (nodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
+      sections,
+    )
+    const deliveryAdvice = this.decorateDeliveryAdvice(
+      (nodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice,
+    )
+    const inspectionAdvice = this.decorateInspectionAdvice(
+      (nodes.find((n) => n && n.kind === 'inspection') || {}).inspectionAdvice,
+      sections,
+    )
+    const quoteAssist = this.decorateQuoteAssist(quoteAssistRaw, quoteLines)
+
+    this.setData(
+      {
+        intakeAdvice,
+        workAdvice,
+        deliveryAdvice,
+        inspectionAdvice,
+        quoteAssist,
+      },
+      () => {
+        this.syncAdviceChrome()
+        this.settleAdvicePaintWaiting()
+        this.resumeQuoteAssistPoll()
+      },
+    )
   },
 
   applyInspectionProposal(id) {
