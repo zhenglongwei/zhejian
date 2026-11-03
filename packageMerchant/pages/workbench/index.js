@@ -41,6 +41,10 @@ const {
   hasWechatArchiveIntent,
   redirectToWechatArchive,
 } = require('../../../utils/wechat-archive-intent')
+const {
+  hasSeenSetupPrompt,
+  markSetupPromptSeen,
+} = require('../../../utils/merchant-setup-prompt')
 
 function quietMerchantHubAlbumTags(item = {}) {
   const status = item.status || ''
@@ -264,11 +268,9 @@ Page({
         .filter(Boolean)
       geoOpportunity = filterMerchantGeoOpportunity(geoOpp, storeServiceNames)
 
+      // 优先用接口 pricingCue；失败时不要伪造「尝鲜版」，避免盖住试用剩余天
       const cue = canManageStaff
-        ? buildMerchantPricingCue(
-            subPanel || { subscription: { effectivePlan: 'taste', usedQuota: 0, quotaLimit: 3 } },
-            true,
-          )
+        ? buildMerchantPricingCue(subPanel || {}, true)
         : null
       planTag = cue
       pricingCue = cue ? cue.text : ''
@@ -315,8 +317,10 @@ Page({
 
   promptSetupIfNeeded(profile) {
     if (!profile || profile.publicReady || !isMerchantOwner()) return
-    if (this._setupPrompted) return
+    const merchantId = profile.merchantId || ''
+    if (hasSeenSetupPrompt(merchantId) || this._setupPrompted) return
     this._setupPrompted = true
+    markSetupPromptSeen(merchantId)
     const gate = profile.publicGate || {}
     const next =
       gate.action === 'profile' || profile.setupNext === 'profile' ? 'profile' : 'auth'

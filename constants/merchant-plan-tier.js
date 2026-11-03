@@ -43,7 +43,7 @@ function resolveMerchantPlanTier(plan) {
 }
 
 /**
- * 店名旁文案：额度满 > 到期前3天 > 套餐名
+ * 店名旁文案：优先用接口 pricingCue；否则额度满 > 试用剩余天 > 到期前3天 > 套餐名
  */
 function buildMerchantPricingCue(panel = {}, isOwner = false) {
   if (!isOwner) return null
@@ -56,6 +56,11 @@ function buildMerchantPricingCue(panel = {}, isOwner = false) {
     }
   }
   const sub = (panel && panel.subscription) || panel || {}
+  const entitlementActive =
+    sub.effectivePlan != null && String(sub.effectivePlan) !== ''
+  if (sub.status === 'expired' || (sub.expiresAt && !entitlementActive)) {
+    return { text: '已到期，去开通', kind: 'expired' }
+  }
   const usedAi =
     Number(
       sub.usedAiQuota != null
@@ -75,8 +80,8 @@ function buildMerchantPricingCue(panel = {}, isOwner = false) {
           : sub.quotaLimit != null
             ? sub.quotaLimit
             : panel.quotaLimit,
-    ) || 3
-  if (usedAi >= aiLimit) {
+    ) || 0
+  if (aiLimit > 0 && usedAi >= aiLimit) {
     return { text: 'AI额度已满，去升级', kind: 'ai_quota_full' }
   }
   const usedHost =
@@ -90,8 +95,8 @@ function buildMerchantPricingCue(panel = {}, isOwner = false) {
       sub.publicHostQuotaLimit != null
         ? sub.publicHostQuotaLimit
         : panel.publicHostQuotaLimit,
-    ) || 3
-  if (usedHost >= hostLimit) {
+    ) || 0
+  if (hostLimit > 0 && usedHost >= hostLimit) {
     return { text: '托管额度已满，去升级', kind: 'host_quota_full' }
   }
   const daysLeft =
@@ -100,6 +105,25 @@ function buildMerchantPricingCue(panel = {}, isOwner = false) {
       : panel.planStatus && panel.planStatus.daysLeft != null
         ? Number(panel.planStatus.daysLeft)
         : null
+  const isTasteTrial = Boolean(
+    sub.isTasteTrial ||
+      (panel.subscription && panel.subscription.isTasteTrial),
+  )
+  if (
+    isTasteTrial &&
+    daysLeft !== null &&
+    !Number.isNaN(daysLeft) &&
+    daysLeft >= 0
+  ) {
+    return {
+      text:
+        daysLeft <= 0
+          ? '尝鲜试用 · 今日到期'
+          : `尝鲜试用 · 还剩 ${daysLeft} 天`,
+      kind: daysLeft <= 3 ? 'expiring' : 'trial',
+      daysLeft,
+    }
+  }
   if (daysLeft !== null && !Number.isNaN(daysLeft) && daysLeft >= 0 && daysLeft <= 3) {
     return {
       text: daysLeft <= 0 ? '今日到期，去续费' : `还剩 ${daysLeft} 天到期，去续费`,
@@ -107,7 +131,9 @@ function buildMerchantPricingCue(panel = {}, isOwner = false) {
       daysLeft,
     }
   }
+  if (!entitlementActive && !sub.plan) return null
   const label =
+    (sub.planTag && sub.planTag.text) ||
     sub.effectivePlanLabel ||
     MERCHANT_PLAN_LABELS[sub.effectivePlan] ||
     MERCHANT_PLAN_LABELS[sub.plan] ||
