@@ -60,7 +60,7 @@
           <text class="mch-kicker">服务相册 · 商家端</text>
           <view class="mch-brand-row">
             <view class="mch-brand">{{profile.storeName}}</view>
-            <text wx:if="{{showPricing && pricingCue}}" class="mch-pricing {{pricingCueKind === 'ai_quota_full' || pricingCueKind === 'host_quota_full' || pricingCueKind === 'quota_full' || pricingCueKind === 'expiring' ? 'is-alert' : ''}}" catchtap="onSubscription">{{pricingCue}}</text>
+            <text wx:if="{{showPricing && pricingCue}}" class="mch-pricing {{pricingCueKind === 'ai_quota_full' || pricingCueKind === 'host_quota_full' || pricingCueKind === 'quota_full' || pricingCueKind === 'expiring' || pricingCueKind === 'expired' ? 'is-alert' : ''}}" catchtap="onSubscription">{{pricingCue}}</text>
           </view>
         </view>
         <view class="mch-bell" bindtap="onOpenMessage">消息</view>

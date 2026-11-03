@@ -54,43 +54,76 @@ function assertSubscriptionPrismaReady() {
   assertPrismaDelegate('merchantSubscription', 'merchant_subscriptions')
 }
 
+/** 有未来到期日即视为有效周期（含赠送尝鲜） */
 function isSubscriptionActive(row) {
-  if (!row) return false
-  if (row.status !== MERCHANT_SUBSCRIPTION_STATUS.ACTIVE) return false
-  if (!isPaidPlan(row.plan)) return true
-  if (!row.expiresAt) return false
-  return row.expiresAt.getTime() > Date.now()
+  if (!row || !row.expiresAt) return false
+  const expiresAt =
+    row.expiresAt instanceof Date ? row.expiresAt : new Date(row.expiresAt)
+  if (Number.isNaN(expiresAt.getTime())) return false
+  return expiresAt.getTime() > Date.now()
 }
 
-/** 有效权益档：付费未过期用所购档，否则尝鲜版 */
-function resolveEffectivePlan(row) {
-  if (row && isPaidPlan(row.plan) && isSubscriptionActive(row)) {
-    return row.plan
+function resolvePlanCodeForActiveRow(row) {
+  const plan = row && row.plan
+  if (isPaidPlan(plan)) return plan
+  if (
+    plan === MERCHANT_PLAN.FREE ||
+    plan === MERCHANT_PLAN.INDEX_99 ||
+    plan === MERCHANT_PLAN.OPTIMIZE_299
+  ) {
+    return MERCHANT_PLAN.TASTE
   }
-  return MERCHANT_PLAN.TASTE
+  return plan || MERCHANT_PLAN.TASTE
+}
+
+/** 有效权益档：未到期用当前档；已到期/无周期 → null（无白嫖额度） */
+function resolveEffectivePlan(row) {
+  if (!row || !isSubscriptionActive(row)) return null
+  return resolvePlanCodeForActiveRow(row)
 }
 
 function hasPublicIndexEntitlement(row) {
-  // 未付/过期也按尝鲜权益，仍可基础收录
-  return Boolean(row)
+  return Boolean(resolveEffectivePlan(row))
+}
+
+function buildTasteTrialPayload(now = new Date()) {
+  const startedAt = now
+  const expiresAt = new Date(now)
+  expiresAt.setDate(expiresAt.getDate() + SUBSCRIPTION_TERM_DAYS)
+  return {
+    plan: MERCHANT_PLAN.TASTE,
+    status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
+    startedAt,
+    expiresAt,
+    pendingPlan: null,
+  }
+}
+
+/** 从未有过到期日的行，才可写入一次性尝鲜试用 */
+function canGrantTasteTrial(row) {
+  if (!row) return true
+  if (isSubscriptionActive(row)) return false
+  if (row.expiresAt) return false
+  return true
 }
 
 function formatSubscriptionRow(row) {
   if (!row) {
     return {
       plan: MERCHANT_PLAN.FREE,
-      effectivePlan: MERCHANT_PLAN.TASTE,
+      effectivePlan: null,
       planLabel: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.TASTE],
-      effectivePlanLabel: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.TASTE],
-      status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
-      publicIndex: true,
+      effectivePlanLabel: '已到期',
+      status: MERCHANT_SUBSCRIPTION_STATUS.EXPIRED,
+      publicIndex: false,
       expiresAt: null,
+      startedAt: null,
       founderFlag: false,
       founderRenewDiscount: null,
       indexingSlaDeadline: null,
       indexingSlaMet: false,
       standardTrialUsed: false,
-      quotaLimit: caseQuotaForPlan(MERCHANT_PLAN.TASTE),
+      quotaLimit: 0,
     }
   }
   const active = isSubscriptionActive(row)
@@ -101,12 +134,12 @@ function formatSubscriptionRow(row) {
     effectivePlan,
     planLabel:
       MERCHANT_PLAN_LABELS[row.plan] || MERCHANT_PLAN_LABELS[MERCHANT_PLAN.TASTE],
-    effectivePlanLabel: MERCHANT_PLAN_LABELS[effectivePlan],
+    effectivePlanLabel: effectivePlan
+      ? MERCHANT_PLAN_LABELS[effectivePlan]
+      : '已到期',
     status: active
-      ? row.status
-      : isPaidPlan(row.plan)
-        ? MERCHANT_SUBSCRIPTION_STATUS.EXPIRED
-        : MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
+      ? MERCHANT_SUBSCRIPTION_STATUS.ACTIVE
+      : MERCHANT_SUBSCRIPTION_STATUS.EXPIRED,
     publicIndex,
     startedAt: row.startedAt ? row.startedAt.toISOString() : null,
     expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
@@ -161,16 +194,74 @@ async function getOrCreateSubscription(merchantId) {
     where: { merchantId },
   })
   if (!row) {
+    const trial = buildTasteTrialPayload()
     row = await repo.create({
       data: {
         id: newId('msub'),
         merchantId,
-        plan: MERCHANT_PLAN.FREE,
-        status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
+        ...trial,
       },
+    })
+  } else if (canGrantTasteTrial(row)) {
+    // 存量：从未写过到期日的，在首次读取时补一次尝鲜（与批处理同口径，幂等）
+    const trial = buildTasteTrialPayload()
+    row = await repo.update({
+      where: { merchantId },
+      data: trial,
     })
   }
   return applyPendingPlanIfExpired(row)
+}
+
+/**
+ * 批处理：给所有「无有效周期且从未有过到期日」的商家送 30 天尝鲜。
+ * 已有 expiresAt（含已过期）的不重复赠送。
+ */
+async function backfillTasteTrials() {
+  assertSubscriptionPrismaReady()
+  const repo = subscriptionRepo()
+  const rows = await repo.findMany({
+    select: {
+      id: true,
+      merchantId: true,
+      plan: true,
+      status: true,
+      expiresAt: true,
+      startedAt: true,
+    },
+  })
+  let granted = 0
+  let skipped = 0
+  for (const row of rows) {
+    if (!canGrantTasteTrial(row)) {
+      skipped += 1
+      continue
+    }
+    const trial = buildTasteTrialPayload()
+    await repo.update({
+      where: { id: row.id },
+      data: trial,
+    })
+    granted += 1
+  }
+  const merchants = await prisma.merchant.findMany({
+    select: { id: true },
+  })
+  let created = 0
+  for (const m of merchants) {
+    const existing = await repo.findUnique({ where: { merchantId: m.id } })
+    if (existing) continue
+    const trial = buildTasteTrialPayload()
+    await repo.create({
+      data: {
+        id: newId('msub'),
+        merchantId: m.id,
+        ...trial,
+      },
+    })
+    created += 1
+  }
+  return { granted, skipped, created, totalSubs: rows.length }
 }
 
 async function getMerchantSubscription(merchantId) {
@@ -237,8 +328,7 @@ async function resolveMerchantIdsWithPublicIndex() {
   const rows = await repo.findMany({
     where: {
       plan: { in: [...PUBLIC_INDEX_PLANS] },
-      status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      expiresAt: { gt: now },
     },
     select: { merchantId: true },
   })
@@ -344,13 +434,23 @@ function isWithinRenewalWindow(subscriptionRow) {
   return daysLeft !== null && daysLeft >= 0 && daysLeft <= RENEWAL_NOTICE_DAYS
 }
 
-/** 同档续费：当前付费档未过期即可续；过期后同档视为重新开通 */
+/** 同档续费：有效期内且目标档=当前有效档；过期后同档视为重新开通 */
 function canRenewSamePlan(subscriptionRow, plan) {
   if (!subscriptionRow || subscriptionRow.pendingPlan) return false
   if (!isSellablePlanCode(plan)) return false
-  if (subscriptionRow.plan !== plan) return false
-  if (!isPaidPlan(subscriptionRow.plan)) return false
-  return isSubscriptionActive(subscriptionRow)
+  if (!isSubscriptionActive(subscriptionRow)) return false
+  return resolveEffectivePlan(subscriptionRow) === plan
+}
+
+async function isTasteQuotaFullForMerchant(merchantId, subscriptionRow) {
+  const effective = resolveEffectivePlan(subscriptionRow)
+  if (effective !== MERCHANT_PLAN.TASTE) return false
+  const { getMerchantQuotaSnapshot } = require('./merchant-plan-quota.service')
+  const snap = await getMerchantQuotaSnapshot(merchantId, MERCHANT_PLAN.TASTE)
+  return (
+    snap.usedAiQuota >= snap.aiQuotaLimit ||
+    snap.usedPublicHostQuota >= snap.publicHostQuotaLimit
+  )
 }
 
 function daysUntilSubscriptionExpiry(subscriptionRow) {
@@ -367,14 +467,14 @@ function resolveNextPeriodLabel(subscriptionRow) {
     )
   }
   const effective = resolveEffectivePlan(subscriptionRow)
-  if (isPaidPlan(subscriptionRow?.plan) && subscriptionRow?.expiresAt) {
+  if (effective && subscriptionRow?.expiresAt) {
     return `${MERCHANT_PLAN_LABELS[effective]}（到期需手动续费）`
   }
-  return MERCHANT_PLAN_LABELS[MERCHANT_PLAN.TASTE]
+  return '已到期，请开通套餐'
 }
 
 function buildRenewalNotice(subscriptionRow) {
-  if (!subscriptionRow || !isPaidPlan(subscriptionRow.plan)) {
+  if (!subscriptionRow) {
     return { show: false }
   }
   if (!isSubscriptionActive(subscriptionRow) && subscriptionRow.expiresAt) {
@@ -382,7 +482,16 @@ function buildRenewalNotice(subscriptionRow) {
       show: true,
       daysLeft: 0,
       level: 'urgent',
-      message: '套餐已到期，请续费',
+      message: '套餐已到期，请开通',
+      canPay: !subscriptionRow.pendingPlan,
+    }
+  }
+  if (!isSubscriptionActive(subscriptionRow)) {
+    return {
+      show: true,
+      daysLeft: 0,
+      level: 'urgent',
+      message: '套餐已到期，请开通',
       canPay: !subscriptionRow.pendingPlan,
     }
   }
@@ -419,27 +528,24 @@ function emptyMoneyQuote(extra = {}) {
   }
 }
 
-function buildPlanSwitchQuote(
+async function buildPlanSwitchQuote(
   subscriptionRow,
   targetPlan,
   listPriceCents,
   chargePriceCents = listPriceCents,
 ) {
   if (!isSellablePlanCode(targetPlan)) {
-    return Promise.resolve(
-      emptyMoneyQuote({
-        switchMode: 'invalid',
-        isCurrentPlan: false,
-        isPendingPlan: false,
-        listPriceCents: 0,
-        summary: '无效套餐',
-      }),
-    )
+    return emptyMoneyQuote({
+      switchMode: 'invalid',
+      isCurrentPlan: false,
+      isPendingPlan: false,
+      listPriceCents: 0,
+      summary: '无效套餐',
+    })
   }
 
-  const currentPlan = subscriptionRow?.plan || MERCHANT_PLAN.FREE
-  const activePaid =
-    isPaidPlan(currentPlan) && isSubscriptionActive(subscriptionRow)
+  const currentPlan = resolveEffectivePlan(subscriptionRow)
+  const activePaid = Boolean(currentPlan) && isSubscriptionActive(subscriptionRow)
   const payCents = chargePriceCents
   const payYuan = (payCents / 100).toFixed(2)
   const listPayYuan = (listPriceCents / 100).toFixed(2)
@@ -450,29 +556,38 @@ function buildPlanSwitchQuote(
 
   if (activePaid && currentPlan === targetPlan) {
     if (canRenewSamePlan(subscriptionRow, targetPlan)) {
-      return Promise.resolve(
-        emptyMoneyQuote({
-          switchMode: 'renew',
+      if (
+        targetPlan === MERCHANT_PLAN.TASTE &&
+        subscriptionRow.merchantId &&
+        (await isTasteQuotaFullForMerchant(subscriptionRow.merchantId, subscriptionRow))
+      ) {
+        return emptyMoneyQuote({
+          switchMode: 'blocked_quota_upgrade_only',
           isCurrentPlan: false,
           isPendingPlan: false,
-          payCents,
-          amountCents: payCents,
           listPriceCents,
-          amountYuan: payYuan,
-          payYuan,
-          summary: `续费一个月 ¥${listPayYuan}`,
-        }),
-      )
-    }
-    return Promise.resolve(
-      emptyMoneyQuote({
-        switchMode: 'current',
-        isCurrentPlan: true,
+          summary: '额度已满，请升级套餐',
+        })
+      }
+      return emptyMoneyQuote({
+        switchMode: 'renew',
+        isCurrentPlan: false,
         isPendingPlan: false,
+        payCents,
+        amountCents: payCents,
         listPriceCents,
-        summary: '当前套餐',
-      }),
-    )
+        amountYuan: payYuan,
+        payYuan,
+        summary: `续费一个月 ¥${listPayYuan}`,
+      })
+    }
+    return emptyMoneyQuote({
+      switchMode: 'current',
+      isCurrentPlan: true,
+      isPendingPlan: false,
+      listPriceCents,
+      summary: '当前套餐',
+    })
   }
 
   if (activePaid && isPlanDowngrade(currentPlan, targetPlan)) {
@@ -482,46 +597,60 @@ function buildPlanSwitchQuote(
     const effectiveAt = subscriptionRow.expiresAt
       ? subscriptionRow.expiresAt.toISOString()
       : null
-    return Promise.resolve(
-      emptyMoneyQuote({
-        switchMode: 'downgrade_scheduled',
-        isCurrentPlan: false,
-        isPendingPlan: isPending,
-        listPriceCents: 0,
-        effectiveAt,
-        summary: isPending
-          ? `已预约：到期后切换为${targetLabel}`
-          : `到期后切换为${targetLabel}，本期不退费`,
-      }),
-    )
+    return emptyMoneyQuote({
+      switchMode: 'downgrade_scheduled',
+      isCurrentPlan: false,
+      isPendingPlan: isPending,
+      listPriceCents: 0,
+      effectiveAt,
+      summary: isPending
+        ? `已预约：到期后切换为${targetLabel}`
+        : `到期后切换为${targetLabel}，本期不退费`,
+    })
+  }
+
+  // 尝鲜额满：禁止「开通尝鲜」（含误走 purchase）；只允许更高档
+  if (
+    activePaid &&
+    currentPlan === MERCHANT_PLAN.TASTE &&
+    targetPlan === MERCHANT_PLAN.TASTE &&
+    subscriptionRow.merchantId &&
+    (await isTasteQuotaFullForMerchant(subscriptionRow.merchantId, subscriptionRow))
+  ) {
+    return emptyMoneyQuote({
+      switchMode: 'blocked_quota_upgrade_only',
+      isCurrentPlan: false,
+      isPendingPlan: false,
+      listPriceCents,
+      summary: '额度已满，请升级套餐',
+    })
   }
 
   const switchMode =
     activePaid && isPlanUpgrade(currentPlan, targetPlan) ? 'upgrade' : 'purchase'
-  return Promise.resolve(
-    emptyMoneyQuote({
-      switchMode,
-      isCurrentPlan: false,
-      isPendingPlan: false,
-      payCents,
-      amountCents: payCents,
-      listPriceCents,
-      amountYuan: payYuan,
-      payYuan,
-      summary,
-    }),
-  )
+  return emptyMoneyQuote({
+    switchMode,
+    isCurrentPlan: false,
+    isPendingPlan: false,
+    payCents,
+    amountCents: payCents,
+    listPriceCents,
+    amountYuan: payYuan,
+    payYuan,
+    summary,
+  })
 }
 
 async function schedulePlanDowngrade(merchantId, targetPlan) {
   assertSubscriptionPrismaReady()
   const row = await getOrCreateSubscription(merchantId)
-  if (!isPaidPlan(row.plan) || !isSubscriptionActive(row)) {
+  const current = resolveEffectivePlan(row)
+  if (!current || !isSubscriptionActive(row)) {
     const err = new Error('当前套餐无需预约降级')
     err.status = 409
     throw err
   }
-  if (!isSellablePlanCode(targetPlan) || !isPlanDowngrade(row.plan, targetPlan)) {
+  if (!isSellablePlanCode(targetPlan) || !isPlanDowngrade(current, targetPlan)) {
     const err = new Error('仅支持降级至更低档位')
     err.status = 400
     throw err
@@ -570,9 +699,9 @@ async function activateMerchantPlan(merchantId, plan, options = {}) {
 
   const existing = await getOrCreateSubscription(merchantId)
   const now = new Date()
+  const currentEffective = resolveEffectivePlan(existing)
   const isRenewal =
-    existing.plan === plan &&
-    isPaidPlan(existing.plan) &&
+    currentEffective === plan &&
     isSubscriptionActive(existing) &&
     existing.expiresAt &&
     !options.forceNewTerm
@@ -681,15 +810,31 @@ function buildPricingCue({
   usedQuota,
   quotaLimit,
   daysLeft,
+  entitlementActive,
 }) {
+  const hasEntitlement =
+    entitlementActive != null ? Boolean(entitlementActive) : Boolean(effectivePlan)
+  if (!hasEntitlement) {
+    return { text: '已到期，去开通', kind: 'expired' }
+  }
   const aiUsed = usedAiQuota != null ? Number(usedAiQuota) : Number(usedQuota)
   const aiLimit = aiQuotaLimit != null ? Number(aiQuotaLimit) : Number(quotaLimit)
-  if (Number.isFinite(aiUsed) && Number.isFinite(aiLimit) && aiUsed >= aiLimit) {
+  if (
+    Number.isFinite(aiUsed) &&
+    Number.isFinite(aiLimit) &&
+    aiLimit > 0 &&
+    aiUsed >= aiLimit
+  ) {
     return { text: 'AI额度已满，去升级', kind: 'ai_quota_full' }
   }
   const hostUsed = Number(usedPublicHostQuota)
   const hostLimit = Number(publicHostQuotaLimit)
-  if (Number.isFinite(hostUsed) && Number.isFinite(hostLimit) && hostUsed >= hostLimit) {
+  if (
+    Number.isFinite(hostUsed) &&
+    Number.isFinite(hostLimit) &&
+    hostLimit > 0 &&
+    hostUsed >= hostLimit
+  ) {
     return { text: '托管额度已满，去升级', kind: 'host_quota_full' }
   }
   if (
@@ -716,14 +861,17 @@ async function fetchMerchantSubscriptionPanel(auth) {
   const row = await getOrCreateSubscription(merchantId)
   await syncMerchantCasesPublicIndex(merchantId).catch(() => {})
   const subscription = formatSubscriptionRow(row)
-  const effectivePlan = subscription.effectivePlan || MERCHANT_PLAN.TASTE
+  const effectivePlan = subscription.effectivePlan
+  const entitlementActive = Boolean(effectivePlan)
   const {
     getMerchantQuotaSnapshot,
   } = require('./merchant-plan-quota.service')
   const quotaSnap = await getMerchantQuotaSnapshot(merchantId, effectivePlan)
-  const daysLeft = isPaidPlan(row.plan) && isSubscriptionActive(row)
+  const daysLeft = isSubscriptionActive(row)
     ? daysUntilSubscriptionExpiry(row)
-    : null
+    : row.expiresAt
+      ? 0
+      : null
   subscription.usedAiQuota = quotaSnap.usedAiQuota
   subscription.aiQuotaLimit = quotaSnap.aiQuotaLimit
   subscription.usedPublicHostQuota = quotaSnap.usedPublicHostQuota
@@ -736,6 +884,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
     tier: MERCHANT_PLAN_TAG_TIERS[effectivePlan] || 'basic',
     text: subscription.effectivePlanLabel,
     canUpgrade:
+      !entitlementActive ||
       quotaSnap.usedAiQuota >= quotaSnap.aiQuotaLimit ||
       quotaSnap.usedPublicHostQuota >= quotaSnap.publicHostQuotaLimit,
   }
@@ -747,6 +896,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
     usedPublicHostQuota: quotaSnap.usedPublicHostQuota,
     publicHostQuotaLimit: quotaSnap.publicHostQuotaLimit,
     daysLeft,
+    entitlementActive,
   })
   const plans = await listPlanCatalog(row, { storeId: auth.storeId || '' })
   const plansWithQuotes = await enrichPlanCatalogWithQuotes(row, plans)
@@ -786,7 +936,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
       hasPendingChange: Boolean(subscription.pendingPlan),
       pendingPlanLabel: subscription.pendingPlanLabel || '',
       canCancelPending: Boolean(subscription.pendingPlan),
-      canScheduleChange: isPaidPlan(row.plan) && isSubscriptionActive(row),
+      canScheduleChange: Boolean(effectivePlan) && isSubscriptionActive(row),
       manualRenewOnly: true,
       usedAiQuota: quotaSnap.usedAiQuota,
       aiQuotaLimit: quotaSnap.aiQuotaLimit,
@@ -835,4 +985,8 @@ module.exports = {
   caseQuotaForPlan,
   isPaidPlan,
   isSellablePlanCode,
+  buildTasteTrialPayload,
+  canGrantTasteTrial,
+  backfillTasteTrials,
+  isTasteQuotaFullForMerchant,
 }

@@ -24,6 +24,13 @@ function actionForColumn(col, quotesByPlan, effectivePlan) {
   if (quote.switchMode === 'renew') {
     return { actionLabel: '续费', actionDisabled: false, switchMode: 'renew' }
   }
+  if (quote.switchMode === 'blocked_quota_upgrade_only') {
+    return {
+      actionLabel: '请升级',
+      actionDisabled: true,
+      switchMode: 'blocked_quota_upgrade_only',
+    }
+  }
   if (quote.switchMode === 'downgrade_scheduled') {
     return {
       actionLabel: quote.isPendingPlan ? '已预约' : '到期切换',

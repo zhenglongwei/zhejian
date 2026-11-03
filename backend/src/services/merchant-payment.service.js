@@ -246,6 +246,13 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
     chargePrice,
   )
 
+  if (quote.switchMode === 'blocked_quota_upgrade_only') {
+    const err = new Error(quote.summary || '额度已满，请升级套餐')
+    err.status = 409
+    err.code = 'TASTE_QUOTA_FULL_UPGRADE_ONLY'
+    throw err
+  }
+
   if (quote.switchMode === 'downgrade_scheduled') {
     if (quote.isPendingPlan) {
       const err = new Error('已预约该方案，到期后自动切换')

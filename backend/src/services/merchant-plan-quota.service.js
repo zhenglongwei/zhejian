@@ -1,5 +1,5 @@
 /**
- * 商家双额度：AI 分析（一本相册成功用过即占 1）/ 公开托管（首次上店页占 1）
+ * 商家双额度（按计费周期）：AI 分析 / 公开托管
  * 真源：docs/03_商家端/05_商家套餐与权益.md
  */
 const { prisma } = require('../lib/prisma')
@@ -12,29 +12,63 @@ function readPkg(album) {
   return pkg && typeof pkg === 'object' ? pkg : {}
 }
 
-function albumConsumesAiQuota(album) {
-  const pkg = readPkg(album)
-  if (pkg.quotaMeta && pkg.quotaMeta.aiAnalysisConsumedAt) return true
-  const nodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
-  return nodes.some((node) => {
-    if (!node || typeof node !== 'object') return false
-    if (node.intakeAdvice && node.intakeAdvice.status === 'ready') return true
-    if (node.stepAdvice && node.stepAdvice.status === 'ready') return true
-    if (node.deliveryAdvice && node.deliveryAdvice.status === 'ready') return true
-    if (node.workAdvice && node.workAdvice.status === 'ready') return true
-    if (node.aiReview && node.aiReview.status === 'ready') return true
-    return false
-  })
+function toDate(value) {
+  if (!value) return null
+  if (value instanceof Date) return value
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
+function isTimestampInPeriod(isoOrDate, startedAt, expiresAt) {
+  const t = toDate(isoOrDate)
+  const start = toDate(startedAt)
+  const end = toDate(expiresAt)
+  if (!t || !start || !end) return false
+  const ms = t.getTime()
+  return ms >= start.getTime() && ms <= end.getTime()
+}
+
+/** 仅认本周期内写下的占用时刻；上周期/无时刻的老痕迹不占本周期 */
+function albumConsumesAiQuotaInPeriod(album, period) {
+  if (!period || !period.startedAt || !period.expiresAt) return false
+  const pkg = readPkg(album)
+  const at = pkg.quotaMeta && pkg.quotaMeta.aiAnalysisConsumedAt
+  return isTimestampInPeriod(at, period.startedAt, period.expiresAt)
+}
+
+function albumConsumesPublicHostQuotaInPeriod(album, period) {
+  if (!period || !period.startedAt || !period.expiresAt) return false
+  const pkg = readPkg(album)
+  const at = pkg.quotaMeta && pkg.quotaMeta.publicHostConsumedAt
+  return isTimestampInPeriod(at, period.startedAt, period.expiresAt)
+}
+
+/** @deprecated 终身累计语义已废止；无周期时返回 false */
+function albumConsumesAiQuota(album) {
+  const pkg = readPkg(album)
+  return Boolean(pkg.quotaMeta && pkg.quotaMeta.aiAnalysisConsumedAt)
+}
+
+/** @deprecated 终身累计语义已废止；无周期时返回 false */
 function albumConsumesPublicHostQuota(album) {
   const pkg = readPkg(album)
-  if (pkg.quotaMeta && pkg.quotaMeta.publicHostConsumedAt) return true
-  const hm = pkg.hostMeta && typeof pkg.hostMeta === 'object' ? pkg.hostMeta : {}
-  if (hm.visibility === 'public') return true
-  if (hm.publicPublishStage === 'published') return true
-  if (hm.onPublicWeb) return true
-  return false
+  return Boolean(pkg.quotaMeta && pkg.quotaMeta.publicHostConsumedAt)
+}
+
+async function resolveBillingPeriod(merchantId) {
+  const {
+    getOrCreateSubscription,
+    isSubscriptionActive,
+  } = require('./merchant-subscription.service')
+  const row = await getOrCreateSubscription(merchantId)
+  if (!isSubscriptionActive(row) || !row.startedAt || !row.expiresAt) {
+    return null
+  }
+  return {
+    startedAt: row.startedAt,
+    expiresAt: row.expiresAt,
+    plan: row.plan,
+  }
 }
 
 async function listMerchantAlbumsForQuota(merchantId) {
@@ -46,14 +80,18 @@ async function listMerchantAlbumsForQuota(merchantId) {
   })
 }
 
-async function countAiAnalysisOccupied(merchantId) {
+async function countAiAnalysisOccupied(merchantId, period) {
+  const billing = period || (await resolveBillingPeriod(merchantId))
+  if (!billing) return 0
   const albums = await listMerchantAlbumsForQuota(merchantId)
-  return albums.filter(albumConsumesAiQuota).length
+  return albums.filter((a) => albumConsumesAiQuotaInPeriod(a, billing)).length
 }
 
-async function countPublicHostOccupied(merchantId) {
+async function countPublicHostOccupied(merchantId, period) {
+  const billing = period || (await resolveBillingPeriod(merchantId))
+  if (!billing) return 0
   const albums = await listMerchantAlbumsForQuota(merchantId)
-  return albums.filter(albumConsumesPublicHostQuota).length
+  return albums.filter((a) => albumConsumesPublicHostQuotaInPeriod(a, billing)).length
 }
 
 /** @deprecated 旧单额度；改为 AI+公开托管分开 */
@@ -80,29 +118,32 @@ async function patchAlbumQuotaMeta(albumId, patch) {
   return quotaMeta
 }
 
-async function markAlbumAiAnalysisConsumed(albumId) {
+async function markAlbumAiAnalysisConsumed(albumId, merchantId = '') {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
-    select: { id: true, contentPackageJson: true },
+    select: { id: true, merchantId: true, contentPackageJson: true },
   })
   if (!album) return false
-  if (albumConsumesAiQuota(album) && readPkg(album).quotaMeta?.aiAnalysisConsumedAt) {
-    return false
-  }
-  if (readPkg(album).quotaMeta?.aiAnalysisConsumedAt) return false
+  const mid = merchantId || album.merchantId
+  const period = mid ? await resolveBillingPeriod(mid) : null
+  if (!period) return false
+  if (albumConsumesAiQuotaInPeriod(album, period)) return false
   await patchAlbumQuotaMeta(albumId, {
     aiAnalysisConsumedAt: new Date().toISOString(),
   })
   return true
 }
 
-async function markAlbumPublicHostConsumed(albumId) {
+async function markAlbumPublicHostConsumed(albumId, merchantId = '') {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
-    select: { id: true, contentPackageJson: true },
+    select: { id: true, merchantId: true, contentPackageJson: true },
   })
   if (!album) return false
-  if (readPkg(album).quotaMeta?.publicHostConsumedAt) return false
+  const mid = merchantId || album.merchantId
+  const period = mid ? await resolveBillingPeriod(mid) : null
+  if (!period) return false
+  if (albumConsumesPublicHostQuotaInPeriod(album, period)) return false
   await patchAlbumQuotaMeta(albumId, {
     publicHostConsumedAt: new Date().toISOString(),
   })
@@ -119,18 +160,31 @@ async function resolveEffectivePlanForMerchant(merchantId) {
 }
 
 async function assertAiAnalysisQuotaAvailable(merchantId, albumId = '') {
+  const period = await resolveBillingPeriod(merchantId)
+  if (!period) {
+    const err = new Error('套餐已到期，请开通后再分析')
+    err.status = 402
+    err.code = 'SUBSCRIPTION_EXPIRED'
+    throw err
+  }
   const album =
     albumId &&
     (await prisma.album.findUnique({
       where: { id: albumId },
       select: { id: true, contentPackageJson: true },
     }))
-  if (album && albumConsumesAiQuota(album)) {
+  if (album && albumConsumesAiQuotaInPeriod(album, period)) {
     return { ok: true, alreadyConsumed: true }
   }
   const effectivePlan = await resolveEffectivePlanForMerchant(merchantId)
   const limit = caseQuotaForPlan(effectivePlan)
-  const used = await countAiAnalysisOccupied(merchantId)
+  if (limit <= 0) {
+    const err = new Error('套餐已到期，请开通后再分析')
+    err.status = 402
+    err.code = 'SUBSCRIPTION_EXPIRED'
+    throw err
+  }
+  const used = await countAiAnalysisOccupied(merchantId, period)
   if (used >= limit) {
     const err = new Error('AI额度已满，请升级套餐后再分析')
     err.status = 409
@@ -142,18 +196,31 @@ async function assertAiAnalysisQuotaAvailable(merchantId, albumId = '') {
 }
 
 async function assertPublicHostQuotaAvailable(merchantId, albumId = '') {
+  const period = await resolveBillingPeriod(merchantId)
+  if (!period) {
+    const err = new Error('套餐已到期，请开通后再公开')
+    err.status = 402
+    err.code = 'SUBSCRIPTION_EXPIRED'
+    throw err
+  }
   const album =
     albumId &&
     (await prisma.album.findUnique({
       where: { id: albumId },
       select: { id: true, contentPackageJson: true },
     }))
-  if (album && albumConsumesPublicHostQuota(album)) {
+  if (album && albumConsumesPublicHostQuotaInPeriod(album, period)) {
     return { ok: true, alreadyConsumed: true }
   }
   const effectivePlan = await resolveEffectivePlanForMerchant(merchantId)
   const limit = caseQuotaForPlan(effectivePlan)
-  const used = await countPublicHostOccupied(merchantId)
+  if (limit <= 0) {
+    const err = new Error('套餐已到期，请开通后再公开')
+    err.status = 402
+    err.code = 'SUBSCRIPTION_EXPIRED'
+    throw err
+  }
+  const used = await countPublicHostOccupied(merchantId, period)
   if (used >= limit) {
     const err = new Error('托管额度已满，请升级套餐后再公开')
     err.status = 409
@@ -174,11 +241,26 @@ async function assertPublicHostQuotaAvailable(merchantId, albumId = '') {
 }
 
 async function getMerchantQuotaSnapshot(merchantId, effectivePlan) {
-  const plan = effectivePlan || (await resolveEffectivePlanForMerchant(merchantId))
+  const plan =
+    effectivePlan === undefined
+      ? await resolveEffectivePlanForMerchant(merchantId)
+      : effectivePlan
   const limit = caseQuotaForPlan(plan)
+  const period = await resolveBillingPeriod(merchantId)
+  if (!period || limit <= 0) {
+    return {
+      effectivePlan: plan,
+      usedAiQuota: 0,
+      aiQuotaLimit: limit,
+      usedPublicHostQuota: 0,
+      publicHostQuotaLimit: limit,
+      usedQuota: 0,
+      quotaLimit: limit,
+    }
+  }
   const [usedAiQuota, usedPublicHostQuota] = await Promise.all([
-    countAiAnalysisOccupied(merchantId),
-    countPublicHostOccupied(merchantId),
+    countAiAnalysisOccupied(merchantId, period),
+    countPublicHostOccupied(merchantId, period),
   ])
   return {
     effectivePlan: plan,
@@ -195,6 +277,10 @@ async function getMerchantQuotaSnapshot(merchantId, effectivePlan) {
 module.exports = {
   albumConsumesAiQuota,
   albumConsumesPublicHostQuota,
+  albumConsumesAiQuotaInPeriod,
+  albumConsumesPublicHostQuotaInPeriod,
+  isTimestampInPeriod,
+  resolveBillingPeriod,
   countAiAnalysisOccupied,
   countPublicHostOccupied,
   countOccupiedCases,

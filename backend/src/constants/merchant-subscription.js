@@ -78,7 +78,7 @@ const SELLABLE_PLANS = new Set(MERCHANT_PLAN_ORDER)
 /** 付费四档（有到期日） */
 const PAID_PLANS = new Set(MERCHANT_PLAN_ORDER)
 
-/** 公域基础收录：有效订阅均可（含未付尝鲜权益） */
+/** 公域基础收录：须有未到期的有效周期 */
 const PUBLIC_INDEX_PLANS = new Set([
   ...MERCHANT_PLAN_ORDER,
   MERCHANT_PLAN.FREE,
@@ -116,9 +116,17 @@ const PLAN_CATALOG = MERCHANT_PLAN_ORDER.map((code) => {
 })
 
 function caseQuotaForPlan(planCode) {
-  const code = String(planCode || '')
+  if (planCode == null || planCode === '') return 0
+  const code = String(planCode)
   if (DEFAULT_PLAN_CATALOG[code]) return DEFAULT_PLAN_CATALOG[code].caseQuota
-  return DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.TASTE].caseQuota
+  if (
+    code === MERCHANT_PLAN.FREE ||
+    code === MERCHANT_PLAN.INDEX_99 ||
+    code === MERCHANT_PLAN.OPTIMIZE_299
+  ) {
+    return DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.TASTE].caseQuota
+  }
+  return 0
 }
 
 module.exports = {
