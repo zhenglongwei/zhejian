@@ -367,16 +367,22 @@ async function syncMerchantCasesPublicIndex(merchantId) {
     },
     include: {
       album: {
-        include: {
-          images: true,
+        select: {
+          id: true,
+          imageCount: true,
+          contentPackageJson: true,
         },
       },
     },
   })
 
   let updated = 0
+  const { countPublicizableFlowPhotos } = require('../utils/flow-public-media')
   for (const row of cases) {
-    const imageCount = (row.album?.images || []).length
+    // album_images 已废止：优先相册 imageCount，否则数流程节点可公示图
+    const imageCount =
+      Number((row.album && row.album.imageCount) || 0) ||
+      countPublicizableFlowPhotos(row.album || {})
     const resolved = await resolveCaseSeoNoindexForStore(row.storeId, {
       city: row.city,
       serviceName: row.serviceName,

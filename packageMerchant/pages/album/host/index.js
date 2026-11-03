@@ -65,7 +65,7 @@ function withCacheBust(url, token) {
   return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`
 }
 
-/** 后端状态树：仅 call_failed / ok_detect_mask_failed 需手工；未检出不算失败 */
+/** 状态机：未跑大模型/模型失败可重跑；贴码失败重贴；成功跳过；失败仍可原图上网 */
 function normalizeMaskImageRow(row) {
   const url = String((row && row.url) || '').trim()
   if (!url) return null
@@ -73,18 +73,24 @@ function normalizeMaskImageRow(row) {
   const needsManual =
     row && typeof row.needsManual === 'boolean'
       ? Boolean(row.needsManual)
-      : outcome === 'call_failed' || outcome === 'ok_detect_mask_failed'
+      : outcome === 'call_failed' ||
+        outcome === 'llm_failed' ||
+        outcome === 'ok_detect_mask_failed' ||
+        outcome === 'mask_failed'
   const pending =
     row && typeof row.pending === 'boolean'
       ? Boolean(row.pending)
-      : outcome === 'pending' || (!outcome && !needsManual && row.masked !== true)
+      : outcome === 'pending' ||
+        outcome === 'not_analyzed' ||
+        (!outcome && !needsManual && row.masked !== true)
+  const settledOk = outcome === 'ok_no_privacy' || outcome === 'ok_masked'
   const publishSafe =
-    row && typeof row.masked === 'boolean'
-      ? Boolean(row.masked)
-      : outcome === 'ok_no_privacy' || outcome === 'ok_masked'
+    row && typeof row.masked === 'boolean' ? Boolean(row.masked) : settledOk
   return {
     url,
-    outcome: outcome || (needsManual ? 'call_failed' : pending ? 'pending' : 'ok_no_privacy'),
+    outcome:
+      outcome ||
+      (needsManual ? 'llm_failed' : pending ? 'not_analyzed' : 'ok_no_privacy'),
     needsManual,
     pending,
     masked: publishSafe,
@@ -516,6 +522,7 @@ Page({
   onSelectMode(e) {
     const mode = e.currentTarget.dataset.mode
     if (!mode || this.data.hosted) return
+    if (this.data.preparingPublicPreview || this.data.maskAutoRunning) return
     if (mode === 'public' && promptPublicPathBlocked(this.data.publicGate)) return
     this.setData({ hostMode: mode })
   },
@@ -572,7 +579,8 @@ Page({
   async loadPublicFace(options = {}) {
     try {
       const face = await fetchHostPublicFace(this.albumId, {
-        // 公开托管预览禁止回落原图；仅私密可看原图以便改码
+        // 公开托管：有码用码；无须打码/重试失败允许原图（责任在商家）
+        // 公开托管：有码用码；无须打码/重试失败允许原图（责任在商家）
         requireMasked: this.data.hostMode === 'public',
       })
       const stamp = Date.now()
@@ -728,6 +736,7 @@ Page({
     }
   },
 
+  /** @param {{ force?: boolean }} options force=对账补漏图，不是整本重打 */
   async ensureMaskTask(options = {}) {
     const res = await ensureHostDesensitizeTask(this.albumId, {
       force: Boolean(options.force),
@@ -742,8 +751,9 @@ Page({
   },
 
   countUnresolvedMaskImages(maskImages = []) {
+    // 仅未登记才算未结清；已登记失败可点图改，但不触发再跑大模型
     return (Array.isArray(maskImages) ? maskImages : []).filter(
-      (row) => row && (row.pending || row.needsRemask || row.needsManual),
+      (row) => row && (row.pending || row.needsRemask),
     ).length
   },
 
@@ -853,8 +863,8 @@ Page({
   },
 
   /**
-   * 进入公开预览：整案必调一轮自动打码。
-   * 有成功落痕复用；无落痕/仍原图路径 → 对账补进任务后再打一轮。
+   * 进入公开预览：整案对账一轮自动打码（按张复用，禁止整本重打）。
+   * 已成功/无敏感跳过；仅未跑过或失败的单张补处理。
    */
   async ensureAutoMaskOnReview() {
     if (this._autoMaskTried || this.data.maskAutoRunning) return
@@ -870,7 +880,8 @@ Page({
       this.applyAutoMaskTaskResult(task)
       await this.loadPublicFace({ silent: true })
 
-      // 仍有无落痕原图：force 对账交车等 flow 图，再打一轮
+      // 仍有未结清：只对账补漏进任务（交车等 flow 图），再只打未结清的单张
+      // force = 后端「resync 资产列表」，不是整本 albumForce 重打
       if (this.countUnresolvedMaskImages(this.data.maskImages) > 0) {
         this.setData({
           ...buildMaskStatusCopy(this.data.maskImages, { autoRunning: true }),

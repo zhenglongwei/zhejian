@@ -1,6 +1,7 @@
 /**
- * 看图结果里的遮挡区域打在这张图上，并写回节点 + 媒体表。
+ * 看图结果里的遮挡区域打在这张图上，并写回节点。
  * 大模型跑通：敏感区空 → ok_no_privacy（不复制原图）；有区 → 贴码写 maskedUrl。
+ * 贴码失败 → mask_failed；调用异常 → llm_failed（真源：node-mask-state-machine）。
  */
 
 function slotOf(row, index) {
@@ -31,16 +32,29 @@ async function applyModelMasks(rows, masks, options = {}) {
   const pairs = []
   for (let index = 0; index < list.length; index += 1) {
     const row = list[index]
-    const regions = regionsFor(masks, row, index)
+    let regions = regionsFor(masks, row, index)
     const rawUrl = String((row && (row.rawUrl || row.url)) || '').trim()
     if (!rawUrl) continue
-    // 模型没写这张的 masks → 跳过，留给托管引擎/下次分析，禁止空 masks[] 误标无敏感
-    if (regions == null) continue
+    // 整份 masks 为空/未解析 → 跳过，禁止空 masks[] 把整批误标无敏感
+    // 同批已有其它图的 masks 条目、唯独这张没写 → 视为看过且无区
+    if (regions == null) {
+      if (!list.length) continue
+      regions = []
+    }
     try {
       const media = await ensureMediaRecordFromUrl(rawUrl)
-      if (!media || !media.id) continue
+      if (!media || !media.id) {
+        pairs.push({
+          rawUrl,
+          maskedUrl: '',
+          maskOutcome: 'llm_failed',
+          maskRegions: regions,
+        })
+        continue
+      }
       const result = await runMediaDesensitize(media.id, {
-        force: regions.length > 0,
+        // 模型已判这张：空区也要落 ok_no_privacy，冲掉托管引擎留下的失败态
+        force: true,
         boxes: regions,
         albumId,
         modelPrivacyJudged: true,
@@ -56,7 +70,12 @@ async function applyModelMasks(rows, masks, options = {}) {
         maskRegions: regions,
       })
     } catch (_) {
-      /* 这一张打不上不影响意见正文 */
+      pairs.push({
+        rawUrl,
+        maskedUrl: '',
+        maskOutcome: regions && regions.length ? 'mask_failed' : 'llm_failed',
+        maskRegions: regions || [],
+      })
     }
   }
   if (albumId && pairs.length) {

@@ -35,6 +35,32 @@ function imagesOf(node) {
     .filter((img) => img.url)
 }
 
+/** 节点正文袋：content 真源；兼容旧 photoDraft / document.payload */
+function nodeBag(node) {
+  if (!node || typeof node !== 'object') return {}
+  if (node.content && typeof node.content === 'object') return node.content
+  if (node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
+  const payload = node.document && node.document.payload
+  if (payload && typeof payload === 'object') return payload
+  return {}
+}
+
+function ownerFaqRows(raw) {
+  return (Array.isArray(raw) ? raw : [])
+    .map((row, index) => {
+      const question = String((row && (row.question || row.q)) || '').trim()
+      const answer = String((row && (row.answer || row.a)) || '').trim()
+      if (!question) return null
+      return {
+        id: String((row && row.id) || `faq_${index + 1}`),
+        question,
+        answer,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+}
+
 function adviceOf(node) {
   const suggestions = node && node.aiReview && node.aiReview.suggestions
   if (!Array.isArray(suggestions)) return ''
@@ -48,10 +74,11 @@ function adviceOf(node) {
 }
 
 function findingsOf(node) {
+  const bag = nodeBag(node)
+  if (Array.isArray(bag.findings) && bag.findings.length) return bag.findings
   const payload = node && node.document && node.document.payload
   const fromDoc = payload && Array.isArray(payload.findings) ? payload.findings : null
-  const draft = node && node.photoDraft && Array.isArray(node.photoDraft.findings) ? node.photoDraft.findings : []
-  return fromDoc && fromDoc.length ? fromDoc : draft
+  return fromDoc && fromDoc.length ? fromDoc : []
 }
 
 function docStatus(node) {
@@ -303,37 +330,44 @@ function workRecord(nodes, addonNodes) {
 function finishRecord(nodes, intakeImages) {
   const report = firstNode(nodes, ['repair_report'])
   const photos = firstNode(nodes, ['delivery_photos'])
-  const payload = (report && report.document && report.document.payload) || {}
+  const reportBag = nodeBag(report)
+  const photoBag = nodeBag(photos)
   const status = docStatus(report)
   const confirmed = status === 'confirmed' || status === 'delivered'
   const waiting = status === 'pending_confirm'
   const after = imagesOf(photos)
   const before = intakeImages.slice(0, 1)
-  const warranty = String(payload.warrantyPeriod || '').trim()
+  const repairBrief = String(reportBag.repairBrief || photoBag.repairBrief || '').trim()
+  const ownerFaqs = (() => {
+    const fromReport = ownerFaqRows(reportBag.ownerFaqs)
+    if (fromReport.length) return fromReport
+    return ownerFaqRows(photoBag.ownerFaqs)
+  })()
+  const warranty = String(
+    reportBag.warrantyPeriod || photoBag.warrantyPeriod || '',
+  ).trim()
   const sent = confirmed || waiting
   return {
     headline: confirmed ? '车主已确认交车' : waiting ? '等待车主确认' : '还没有交车报告',
-    sub: String(payload.conclusion || '').trim(),
+    // 交车报告没有 conclusion；副文用维修简述
+    sub: repairBrief,
+    repairBrief,
+    ownerFaqs,
+    hasOwnerFaqs: ownerFaqs.length > 0,
     before: before[0] ? { url: before[0].url, caption: before[0].caption || '维修前' } : null,
     after: after[0] ? { url: after[0].url, caption: after[0].caption || '维修后' } : null,
     warranty,
     delivererName: String(
-      (payload.delivererName) ||
-        (photos && photos.photoDraft && photos.photoDraft.delivererName) ||
-        '',
+      reportBag.delivererName || photoBag.delivererName || '',
     ).trim(),
-    finishedAt: String(
-      (payload.finishedAt) ||
-        (photos && photos.photoDraft && photos.photoDraft.finishedAt) ||
-        '',
-    ).trim(),
+    finishedAt: String(reportBag.finishedAt || photoBag.finishedAt || '').trim(),
     steps: [
       { no: '1', title: '商家提交交车报告', sub: sent ? '已提交' : '还没提交', done: sent, muted: false },
       { no: '2', title: '等待车主确认', sub: confirmed ? '已确认' : '确认后本单完成', done: confirmed, muted: !sent },
       { no: '3', title: '邀请公开案例', sub: '公开前会先脱敏', done: false, muted: !confirmed },
     ],
     previewNodeId: (report && report.id) || (photos && photos.id) || '',
-    empty: !sent && !after.length && !warranty,
+    empty: !sent && !after.length && !warranty && !repairBrief && !ownerFaqs.length,
   }
 }
 

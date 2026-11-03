@@ -142,7 +142,6 @@ async function assertOwnerAlbumAccess(albumId, userId) {
     where: { id: albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
   if (!album) {

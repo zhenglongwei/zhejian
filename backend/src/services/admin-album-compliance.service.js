@@ -45,7 +45,6 @@ async function listAdminAlbumCompliance(query = {}) {
       take: pageSize,
       include: {
         nodes: { orderBy: { sortOrder: 'asc' } },
-        images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       },
     }),
   ])

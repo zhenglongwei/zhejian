@@ -28,7 +28,8 @@
       <text class="merchant-flow-page__quote-brief-sec-title">建议补充</text>
       <view wx:for="{{brief.omissions}}" wx:key="index" class="merchant-flow-page__quote-brief-card">
         <view class="merchant-flow-page__quote-brief-item-title-row">
-          <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__quote-brief-item-title">{{item.title}}</text>
+          <text class="merchant-flow-page__quote-brief-item-title">{{item.name}}</text>
+          <text wx:if="{{item.optional}}" class="text-caption merchant-flow-page__quote-optional">可由车主选择</text>
           <text
             wx:if="{{item.canApply}}"
             class="merchant-flow-page__advice-apply"
@@ -38,7 +39,13 @@
           >应用</text>
           <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已应用</text>
         </view>
-        <text wx:if="{{item.hasBody}}" class="merchant-flow-page__quote-brief-item-body">{{item.body}}</text>
+        <view wx:if="{{item.hasChips}}" class="merchant-flow-page__plan-bands">
+          <view wx:for="{{item.bandChips}}" wx:for-item="chip" wx:key="key" class="merchant-flow-page__plan-band">
+            <text class="merchant-flow-page__plan-band-k">{{chip.k}}</text>
+            <text class="merchant-flow-page__plan-band-v">{{chip.v}}</text>
+          </view>
+        </view>
+        <text wx:if="{{item.reason}}" class="merchant-flow-page__quote-brief-item-body">{{item.reason}}</text>
       </view>
     </view>
   </view>
@@ -658,6 +665,23 @@
               <text class="st-kicker st-kicker--light">READY FOR DELIVERY</text>
               <text class="st-hero__title">{{stageBoard.finish.headline}}</text>
               <text wx:if="{{stageBoard.finish.sub}}" class="st-hero__sub">{{stageBoard.finish.sub}}</text>
+            </view>
+            <view wx:if="{{stageBoard.finish.repairBrief || stageBoard.finish.hasOwnerFaqs}}" class="st-card">
+              <view wx:if="{{stageBoard.finish.repairBrief}}" class="merchant-flow-page__finish-copy">
+                <text class="text-body merchant-flow-page__label">本次维修简述</text>
+                <text class="st-quote">{{stageBoard.finish.repairBrief}}</text>
+              </view>
+              <view wx:if="{{stageBoard.finish.hasOwnerFaqs}}" class="merchant-flow-page__finish-copy">
+                <text class="text-body merchant-flow-page__label">车主关心的问题</text>
+                <view
+                  wx:for="{{stageBoard.finish.ownerFaqs}}"
+                  wx:key="id"
+                  class="merchant-flow-page__owner-faq merchant-flow-page__owner-faq--readonly"
+                >
+                  <text class="merchant-flow-page__owner-faq-q">{{item.question}}</text>
+                  <text wx:if="{{item.answer}}" class="st-quote">{{item.answer}}</text>
+                </view>
+              </view>
             </view>
             <view class="st-card">
               <text class="text-body merchant-flow-page__label">交付人</text>
@@ -1708,6 +1732,19 @@
               <text class="text-body merchant-flow-page__label">交车报告</text>
               <text wx:if="{{ownerRejectReason && !confirmAwaitingOwner}}" class="text-caption text-secondary">车主未同意。{{ownerRejectReason}}</text>
               <view class="merchant-flow-page__doc-block">
+                <view wx:if="{{repairBrief || ownerFaqs.length}}" class="merchant-flow-page__key-fill merchant-flow-page__key-fill--report">
+                  <view wx:if="{{repairBrief}}" class="merchant-flow-page__key-fill-field">
+                    <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">本次维修简述</text>
+                    <text class="st-quote">{{repairBrief}}</text>
+                  </view>
+                  <view wx:if="{{ownerFaqs.length}}" class="merchant-flow-page__key-fill-field">
+                    <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">车主关心的问题</text>
+                    <view wx:for="{{ownerFaqs}}" wx:key="id" class="merchant-flow-page__owner-faq merchant-flow-page__owner-faq--readonly">
+                      <text class="merchant-flow-page__owner-faq-q">{{item.question}}</text>
+                      <text wx:if="{{item.answer}}" class="st-quote">{{item.answer}}</text>
+                    </view>
+                  </view>
+                </view>
                 <text class="text-caption text-secondary">已施工项目</text>
                 <view wx:for="{{docPayload.workItems}}" wx:key="name" class="merchant-flow-page__work-item">
                   <text class="text-body">{{item.name}}</text>
@@ -1913,7 +1950,7 @@
               <text wx:else class="merchant-flow-page__advice-ask-body">{{inspectionAdvice.faultAnalysis}}</text>
             </view>
             <view wx:if="{{inspectionAdvice.hasOrder}}" class="merchant-flow-page__advice-sec">
-              <text class="merchant-flow-page__advice-sec-title">检测顺序</text>
+              <text class="merchant-flow-page__advice-sec-title">建议补充检测</text>
               <view wx:for="{{inspectionAdvice.inspectOrder}}" wx:key="*this" class="merchant-flow-page__advice-ask">
                 <text class="merchant-flow-page__advice-ask-body">{{index + 1}}. {{item}}</text>
               </view>

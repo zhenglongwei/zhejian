@@ -210,7 +210,13 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.deepEqual(workItemNames(afterSecond), ['更换机油', '下摆臂胶套', '制动盘', '换新制动盘'])
 
   const delivery = afterSecond.find((n) => n.kind === 'delivery_photos')
-  delivery.photoDraft = { warrantyPeriod: '6个月或1万公里', deliveryExteriorUrl: 'out.jpg' }
+  delivery.photoDraft = {
+    repairBrief: '更换下摆臂胶套并更换机油',
+    ownerFaqs: [{ id: 'faq1', question: '多久复查？', answer: '建议 500 公里后再看底盘异响。' }],
+    warrantyPeriod: '6个月或1万公里',
+    delivererName: '李店长',
+    deliveryExteriorUrl: 'out.jpg',
+  }
   assert.equal(collectDeliveryPhotoDraftGaps(delivery.photoDraft).length, 0)
   completePhoto(afterSecond, 'delivery_photos')
   const repair = afterSecond.find((n) => n.kind === 'repair_report')

@@ -8,7 +8,6 @@ async function getUserOrderAlbum(orderId, userId) {
       album: {
         include: {
           nodes: { orderBy: { sortOrder: 'asc' } },
-          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
           authorization: true,
         },
       },

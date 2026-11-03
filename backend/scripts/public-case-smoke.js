@@ -111,7 +111,7 @@ async function cleanup({ albumId, caseId }) {
       where: { task: { bizId: albumId } },
     }).catch(() => {})
     await prisma.desensitizeTask.deleteMany({ where: { bizId: albumId } }).catch(() => {})
-    await prisma.albumImage.deleteMany({ where: { albumId } }).catch(() => {})
+    /* album_images dropped */
     await prisma.albumNode.deleteMany({ where: { albumId } }).catch(() => {})
     await prisma.albumAuthorization.deleteMany({ where: { albumId } }).catch(() => {})
     await prisma.album.deleteMany({ where: { id: albumId } }).catch(() => {})

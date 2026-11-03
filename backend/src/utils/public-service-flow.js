@@ -1,6 +1,8 @@
 /**
  * 公开档案页服务流转（只读、脱敏、无金额）
  * 口径：15_ §7.9 / 设计体系 §10.8.2
+ * 完工章：简述 + 车主关心问答 + 交车图 + 质保（禁止再列方案/工单项目）
+ * 施工图：只读工单节点 content 挂图（禁止 stage_* / 标题兜底拼章）
  */
 
 const {
@@ -182,10 +184,18 @@ function resolvePhotoDisplayUrl(item, lookup) {
       if (lookup && lookup._allowPrivateFallback) return onNode
       return ''
     }
-    // 已跑过且无敏感：公开可展示原图（禁止复制原图冒充 maskedUrl）
-    if (outcome === 'ok_no_privacy') {
-      const raw = text(item.url || item.src || item.rawUrl)
-      if (!raw) return ''
+    const raw = text(item.url || item.src || item.rawUrl)
+    if (!raw) return ''
+    // 无须打码，或托管重试后仍失败：允许原图上网（责任在商家）
+    const allowOriginal =
+      outcome === 'ok_no_privacy' ||
+      outcome === 'not_analyzed' ||
+      outcome === 'pending' ||
+      outcome === 'llm_failed' ||
+      outcome === 'call_failed' ||
+      outcome === 'mask_failed' ||
+      outcome === 'ok_detect_mask_failed'
+    if (allowOriginal) {
       if (lookup && lookup._requireDesensitized) {
         return resolveStoreProcessedPublicUrl(raw) || raw
       }
@@ -277,31 +287,6 @@ function collectWorkPhotos(node, lookup) {
   return photos
 }
 
-function photosFromPublicNodes(contentNodes, titleHints) {
-  const photos = []
-  const seen = new Set()
-  const hints = titleHints || []
-  ;(contentNodes || []).forEach((node) => {
-    const title = text(node && node.title)
-    if (hints.length && !hints.some((hint) => title.indexOf(hint) >= 0)) return
-    const urls = []
-    ;(node.imagesDesensitized || []).forEach((img) => {
-      urls.push(typeof img === 'string' ? img : img && (img.maskedUrl || img.url))
-    })
-    ;(node.images || []).forEach((img) => {
-      if (typeof img === 'string') urls.push(img)
-      else if (img) urls.push(img.maskedUrl || img.preMaskedUrl || img.url)
-    })
-    urls.forEach((u) => {
-      const pub = resolvePublicCaseMediaUrl(u) || resolveStoreProcessedPublicUrl(u) || ''
-      if (!pub || seen.has(pub)) return
-      seen.add(pub)
-      photos.push({ url: pub, caption: cleanPublicNote(node.note) })
-    })
-  })
-  return photos
-}
-
 /** 工单条目（公网版，去金额）：项目 + 用料/品牌/数量 + 说明 */
 function collectWorkSheetPublicItems(node) {
   const draft = contentOfFlowNode(node)
@@ -336,6 +321,19 @@ function collectDeliveryPhotos(payload, lookup) {
   return photos
 }
 
+function mapOwnerFaqs(payload) {
+  const rows = Array.isArray(payload && payload.ownerFaqs) ? payload.ownerFaqs : []
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const question = text(row.question || row.q)
+      const answer = text(row.answer || row.a)
+      if (!question || !answer) return null
+      return { question, answer }
+    })
+    .filter(Boolean)
+}
+
 function chapterHasContent(chapter) {
   if (!chapter) return false
   if (text(chapter.chiefComplaint)) return true
@@ -345,6 +343,7 @@ function chapterHasContent(chapter) {
   if (Array.isArray(chapter.findings) && chapter.findings.length) return true
   if (Array.isArray(chapter.items) && chapter.items.length) return true
   if (Array.isArray(chapter.photos) && chapter.photos.length) return true
+  if (Array.isArray(chapter.ownerFaqs) && chapter.ownerFaqs.length) return true
   return false
 }
 
@@ -363,18 +362,15 @@ function publicTitle(node) {
 
 function mapRepairChapter(node, lookup) {
   const payload = contentOfFlowNode(node)
-  const itemsSource = Array.isArray(payload.workItems) && payload.workItems.length
-    ? payload.workItems
-    : Array.isArray(payload.items)
-      ? payload.items
-      : []
   return {
     id: node.id || '',
     kind: 'repair_report',
     title: publicTitle(node),
-    items: itemsSource.map((row) => stripLine(row, lookup)).filter(Boolean),
+    // 公网完工不重列方案/工单项目；项目只在上游章
+    items: [],
     photos: collectDeliveryPhotos({ deliveryPhotos: payload.deliveryPhotos }, lookup),
     repairBrief: text(payload.repairBrief),
+    ownerFaqs: mapOwnerFaqs(payload),
     warrantyPeriod: text(payload.warrantyPeriod),
     warrantyNotes: publicWarrantyNotes({
       warrantyNotes: payload.warrantyNotes,
@@ -434,10 +430,7 @@ function buildPublicServiceFlow(input = {}) {
     const kind = text(node.kind)
     if (SKIP_PHOTO_KINDS[kind]) return
     if (kind === 'work') {
-      let photos = collectWorkPhotos(node, lookup)
-      if (!photos.length) {
-        photos = photosFromPublicNodes(input.contentNodes, ['施工', '工单'])
-      }
+      const photos = collectWorkPhotos(node, lookup)
       const chapter = {
         id: node.id || '',
         kind: 'work',

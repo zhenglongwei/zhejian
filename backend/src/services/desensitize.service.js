@@ -56,10 +56,16 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
   const url = String(rawUrl || '').trim()
   if (!url) return null
   const product = String(masked.maskedUrl || '').trim()
+  const outcome = String(masked.maskOutcome || '').trim()
   if (product) {
-    return { rawUrl: url, maskedUrl: product, maskOutcome: 'ok_masked' }
+    return {
+      rawUrl: url,
+      maskedUrl: product,
+      maskOutcome: outcome || 'ok_masked',
+      maskRegions: Array.isArray(masked.maskRegions) ? masked.maskRegions : undefined,
+    }
   }
-  if (isNoPrivacyMaskResult(masked)) {
+  if (isNoPrivacyMaskResult(masked) || outcome === 'ok_no_privacy') {
     return {
       rawUrl: url,
       maskedUrl: '',
@@ -67,11 +73,22 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
       maskRegions: [],
     }
   }
+  if (outcome) {
+    return {
+      rawUrl: url,
+      maskedUrl: '',
+      maskOutcome: outcome,
+      maskRegions: Array.isArray(masked.maskRegions) ? masked.maskRegions : [],
+    }
+  }
   return null
 }
 
 function assetMaskSettled(row) {
   if (!row) return false
+  const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
+  const classified = classifyHostMaskOutcome(row)
+  if (classified.maskSucceeded && !classified.needsRemask) return true
   const product = String(row.maskedUrl || row.preMaskedUrl || '').trim()
   const ready = [
     ASSET_STATUS.MASKED_READY,
@@ -187,15 +204,16 @@ async function shouldIncludeReviewInAuthorizePreview(albumId) {
   return ['private', 'user_rejected'].includes(status)
 }
 
+/**
+ * 托管打码收图：与预览/可公示硬拦同一真源——流程节点挂图。
+ * 禁止只扫 document.payload（DOC-FLOW 图住在节点 content；定稿后 payload 常无图 → 误报暂无可脱敏）。
+ */
 function collectFlowReviewImageUrls(album) {
-  const pkg = album && album.contentPackageJson
-  const nodes = pkg && Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const { collectPublicizableFlowPhotos } = require('../utils/flow-public-media')
   const urls = []
   const seen = new Set()
-  const push = (raw) => {
-    const stored = String(
-      typeof raw === 'object' && raw ? raw.url || raw.src || raw.rawUrl || '' : raw || '',
-    ).trim()
+  collectPublicizableFlowPhotos(album).forEach((row) => {
+    const stored = String((row && row.url) || '').trim()
     if (!stored) return
     let readable = stored
     try {
@@ -207,53 +225,6 @@ function collectFlowReviewImageUrls(album) {
     if (!key || seen.has(key)) return
     seen.add(key)
     urls.push(readable)
-  }
-  nodes.forEach((node) => {
-    if (!node) return
-    const draft = node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}
-    const payload =
-      node.document && node.document.payload && typeof node.document.payload === 'object'
-        ? node.document.payload
-        : {}
-    const docStatus = String((node.document && node.document.status) || '')
-    const reportSealed =
-      docStatus === 'delivered' ||
-      docStatus === 'confirmed' ||
-      docStatus === 'pending_confirm' ||
-      docStatus === 'completed'
-    // 定稿后优先报告属性；未定稿才扫草稿，避免托管/脱敏再从散图拼一套
-    if (reportSealed) {
-      ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
-      ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
-        if (!row) return
-        if (row.url) push(row.url)
-        ;(Array.isArray(row.images) ? row.images : []).forEach(push)
-      })
-      ;(Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []).forEach(push)
-      ;(Array.isArray(payload.workItems) ? payload.workItems : []).forEach((row) => {
-        ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
-        if (row && row.url) push(row.url)
-      })
-      return
-    }
-    ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
-    ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
-    ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
-      if (!row) return
-      if (row.url) push(row.url)
-      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
-    })
-    ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
-      if (!row) return
-      if (row.url) push(row.url)
-      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
-    })
-    ;(Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []).forEach(push)
-    if (draft.deliveryExteriorUrl) push(draft.deliveryExteriorUrl)
-    ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
-    ;(Array.isArray(payload.workItems) ? payload.workItems : []).forEach((row) => {
-      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
-    })
   })
   return urls
 }
@@ -297,6 +268,20 @@ async function buildAuthorizeAssetInputs(albumId, preMaskTask) {
 }
 
 function isPublicAuthorizeAsset(album, asset) {
+  const {
+    albumUsesFlowNodes,
+    collectPublicizableFlowPhotos,
+  } = require('../utils/flow-public-media')
+  if (albumUsesFlowNodes(album)) {
+    const raw = String((asset && (asset.rawUrl || asset.url)) || '').trim()
+    if (!raw) return false
+    const { stripUrlQuery } = require('../lib/media-signed-url')
+    const key = stripUrlQuery(raw)
+    return collectPublicizableFlowPhotos(album).some((row) => {
+      const u = stripUrlQuery(String((row && row.url) || ''))
+      return u && (u === key || u === raw || String(row.url) === raw)
+    })
+  }
   const row = (album.images || []).find(
     (img) =>
       String(img.nodeId) === String(asset.nodeId) &&
@@ -312,7 +297,6 @@ async function loadAlbumWithRelations(albumId) {
     include: {
       order: true,
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
 }
@@ -410,7 +394,6 @@ async function enrichTaskWithPublicViewPreview(mapped, taskRecord) {
     where: { id: taskRecord.bizId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
   if (!album) return mapped
@@ -810,7 +793,9 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   const fingerprint = nodesFingerprint(nodeViews)
   const versionedFingerprint = `${fingerprint}@${config.desensitize.cacheVersion}`
   const existing = await findPreMaskTask(albumId, preMaskBizType)
+  // force = 整本重打；resync = 只对账资产列表，已成功打码的继续复用（托管预览二次补漏用）
   let albumForce = Boolean(options.force)
+  const resync = Boolean(options.resync)
   const stubKeys = await collectStubRawUrlKeys(existing)
 
   if (
@@ -818,6 +803,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     existing.fingerprint === versionedFingerprint &&
     [PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(existing.preMaskStatus) &&
     !albumForce &&
+    !resync &&
     !stubKeys.size
   ) {
     return mapTaskRecord(existing)
@@ -1092,6 +1078,25 @@ function buildAuthorizePreviewPayload(album, task, preMaskTask) {
   }
 }
 
+async function loadStoredMaskBoxes(mediaId) {
+  const id = String(mediaId || '').trim()
+  if (!id) return []
+  try {
+    const rows = await listPrivacyDetectionsByImageId(id, { includeResultJson: true })
+    const boxes = []
+    ;(rows || []).forEach((row) => {
+      const list =
+        row && row.resultJson && Array.isArray(row.resultJson.boxes) ? row.resultJson.boxes : []
+      list.forEach((box) => {
+        if (box && typeof box === 'object') boxes.push(box)
+      })
+    })
+    return boxes
+  } catch (_) {
+    return []
+  }
+}
+
 async function runAutoMask(taskId, options = {}) {
   const task = await prisma.desensitizeTask.findUnique({
     where: { taskId },
@@ -1113,18 +1118,146 @@ async function runAutoMask(taskId, options = {}) {
     err.status = 400
     throw err
   }
-  // 托管公开任务：整案必跑一轮；仅媒体 success+产物可复用；无落痕/失败强制打
-  const hostPublicRetry =
+  // 托管公开：整案对账、按张处理。已成功跳过；未跑大模型/模型失败重跑模型；贴码失败只重贴。
+  const hostPublic =
     String(task.taskId || '').startsWith('task_host_mask_') ||
     task.bizType === BIZ_TYPE.MERCHANT_HISTORY
-  const updates = await Promise.all(
-    (task.assets || []).map(async (asset) => {
-      // retryFailed：仅 media success+产物复用；失败/无落痕必打（不看任务行误标）
+  const {
+    classifyHostMaskOutcome,
+    hostMaskAction,
+  } = require('../utils/host-mask-outcome')
+  const { lookupHostMaskOutcomeRow, loadHostMaskOutcomeIndex } = require('./hosted-public-mask.service')
+
+  let nodeOutcomeIndex = new Map()
+  if (hostPublic) {
+    try {
+      nodeOutcomeIndex = await loadHostMaskOutcomeIndex(task.bizId)
+    } catch (_) {
+      nodeOutcomeIndex = new Map()
+    }
+  }
+
+  const classifyAsset = (asset) => {
+    const nodeRow = hostPublic
+      ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
+      : null
+    return classifyHostMaskOutcome({
+      status: asset.status,
+      desensitizeStatus: nodeRow && nodeRow.desensitizeStatus,
+      riskTags: (nodeRow && nodeRow.riskTags) || asset.riskTags || [],
+      maskedUrl: asset.maskedUrl || asset.preMaskedUrl || (nodeRow && nodeRow.maskedUrl) || '',
+      preMaskedUrl: asset.preMaskedUrl || (nodeRow && nodeRow.preMaskedUrl) || '',
+      maskOutcome: (nodeRow && nodeRow.maskOutcome) || '',
+      maskRegions: (nodeRow && nodeRow.maskRegions) || [],
+      needManual: Boolean(asset.needManual),
+    })
+  }
+
+  if (hostPublic) {
+    const llmUrls = []
+    ;(task.assets || []).forEach((asset) => {
+      if (!asset || assetMaskSettled(asset)) return
+      const classified = classifyAsset(asset)
+      if (hostMaskAction(classified.outcome) === 'rerun_llm') {
+        const url = String(asset.rawUrl || '').trim()
+        if (url) llmUrls.push(url)
+      }
+    })
+    console.info('[runAutoMask] host privacy llm queue', {
+      albumId: task.bizId,
+      totalAssets: (task.assets || []).length,
+      needLlm: llmUrls.length,
+    })
+    if (llmUrls.length) {
+      try {
+        const { rerunHostPrivacyLlmForUrls } = require('./host-privacy-llm.service')
+        await rerunHostPrivacyLlmForUrls(llmUrls, { albumId: task.bizId })
+      } catch (error) {
+        console.warn('[runAutoMask] host privacy llm batch failed', error && error.message)
+      }
+      try {
+        nodeOutcomeIndex = await loadHostMaskOutcomeIndex(task.bizId)
+      } catch (_) {
+        /* keep previous */
+      }
+    }
+  }
+
+  await mapLimit(task.assets || [], MASK_JOB_LIMIT, async (asset) => {
+      if (!asset) return null
+      const nodeRow = hostPublic
+        ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
+        : null
+      const syncSettledFromNode = (classified) => {
+        const product = String(
+          (nodeRow && (nodeRow.maskedUrl || nodeRow.preMaskedUrl)) ||
+            asset.maskedUrl ||
+            asset.preMaskedUrl ||
+            '',
+        ).trim()
+        const noPrivacy = classified.outcome === 'ok_no_privacy'
+        return prisma.desensitizeAsset.update({
+          where: { taskId_assetId: { taskId, assetId: asset.assetId } },
+          data: {
+            mediaId: asset.mediaId || (nodeRow && nodeRow.mediaId) || '',
+            maskedUrl: product,
+            preMaskedUrl: product,
+            status: ASSET_STATUS.MASKED_READY,
+            riskTags: noPrivacy ? [] : asset.riskTags || [],
+            riskLevel: noPrivacy ? 'low' : asset.riskLevel || '',
+          },
+        })
+      }
+      if (assetMaskSettled(asset)) return null
+      const classified = classifyAsset(asset)
+      const action = hostMaskAction(classified.outcome)
+      if (action === 'skip') {
+        // 已登记成功：任务行可能仍是 raw → 同步结算态
+        if (hostPublic && classified.maskSucceeded && !assetMaskSettled(asset)) {
+          return syncSettledFromNode(classified)
+        }
+        // 已登记失败：二次托管不再跑模型，任务行记失败即可
+        if (hostPublic && classified.allowsOriginalPublish && !classified.maskSucceeded) {
+          return prisma.desensitizeAsset.update({
+            where: { taskId_assetId: { taskId, assetId: asset.assetId } },
+            data: {
+              mediaId: asset.mediaId || '',
+              maskedUrl: '',
+              preMaskedUrl: '',
+              status: ASSET_STATUS.MASK_FAILED,
+              riskTags: [],
+              riskLevel: '',
+            },
+          })
+        }
+        return null
+      }
+
+      // 托管：仅 not_analyzed 会进 rerun_llm；上面已批量跑过模型，此处只同步任务行
+      if (hostPublic && action === 'rerun_llm') {
+        const after = classifyAsset(asset)
+        if (after.maskSucceeded) {
+          return syncSettledFromNode(after)
+        }
+        return prisma.desensitizeAsset.update({
+          where: { taskId_assetId: { taskId, assetId: asset.assetId } },
+          data: {
+            mediaId: asset.mediaId || '',
+            maskedUrl: '',
+            preMaskedUrl: '',
+            status: ASSET_STATUS.MASK_FAILED,
+            riskTags: [],
+            riskLevel: '',
+          },
+        })
+      }
+
+      // 非托管任务：仍走引擎补打
       const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
         albumId: task.bizId,
         nodeId: asset.nodeId,
         idx: asset.idx,
-        retryFailed: hostPublicRetry,
+        retryFailed: false,
       })
       const maskedUrl = masked.ok ? String(masked.maskedUrl || '').trim() : ''
       const status = assetStatusFromMaskResult(masked)
@@ -1146,12 +1279,17 @@ async function runAutoMask(taskId, options = {}) {
         },
       })
     })
-  )
-  await Promise.all(updates)
-  // 一键脱敏后同步到同相册 pre_mask 等任务，托管预览可读到最新脱敏图
+  // 同步任务行 + 把结论登记回节点（成功/失败都要有 maskOutcome）
   try {
     const albumId = String(task.bizId || '').trim()
     if (albumId) {
+      if (hostPublic) {
+        try {
+          nodeOutcomeIndex = await loadHostMaskOutcomeIndex(albumId)
+        } catch (_) {
+          /* keep */
+        }
+      }
       const refreshed = await prisma.desensitizeTask.findUnique({
         where: { taskId },
         include: { assets: true },
@@ -1160,12 +1298,42 @@ async function runAutoMask(taskId, options = {}) {
       for (const asset of refreshed.assets || []) {
         const bare = stripUrlQuery(asset.rawUrl || '')
         if (!bare) continue
-        const pair = writebackPairFromMaskResult(asset.rawUrl, {
+        const nodeRow = hostPublic
+          ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
+          : null
+        const classified = classifyHostMaskOutcome({
+          status: asset.status,
+          riskTags: asset.riskTags || [],
+          maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
+          preMaskedUrl: asset.preMaskedUrl || '',
+          maskOutcome: (nodeRow && nodeRow.maskOutcome) || '',
+          maskRegions: (nodeRow && nodeRow.maskRegions) || [],
+        })
+        let pair = writebackPairFromMaskResult(asset.rawUrl, {
           maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
           ok: assetMaskSettled(asset),
-          noSensitive: assetMaskSettled(asset) && !String(asset.maskedUrl || asset.preMaskedUrl || '').trim(),
+          noSensitive:
+            assetMaskSettled(asset) &&
+            !String(asset.maskedUrl || asset.preMaskedUrl || '').trim(),
           riskTags: asset.riskTags || [],
+          maskOutcome: classified.outcome,
+          maskRegions: (nodeRow && nodeRow.maskRegions) || [],
         })
+        // 托管：失败态也必须登记，避免再次托管又当未分析
+        if (
+          !pair &&
+          hostPublic &&
+          classified.outcome &&
+          classified.outcome !== 'not_analyzed' &&
+          classified.outcome !== 'pending'
+        ) {
+          pair = {
+            rawUrl: asset.rawUrl,
+            maskedUrl: '',
+            maskOutcome: classified.outcome,
+            maskRegions: (nodeRow && nodeRow.maskRegions) || [],
+          }
+        }
         if (!pair) continue
         writebackPairs.push(pair)
         const maskedUrl = pair.maskedUrl || ''
@@ -1365,7 +1533,11 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
           ),
       )
       await persistMaskedPairsToAlbumFlow(albumId, [
-        { rawUrl: asset.rawUrl, maskedUrl: result.maskedUrl },
+        {
+          rawUrl: asset.rawUrl,
+          maskedUrl: result.maskedUrl,
+          maskOutcome: 'ok_masked',
+        },
       ])
     }
   } catch (e) {
@@ -1390,10 +1562,9 @@ async function markAssetPreviewed(taskId, assetId, options = {}) {
 
 /**
  * PKG-COACH：车主从公开配图包移除（可删不可加）
- * 将对应 album_images 标为仅留档，并删除授权任务资产，避免重建任务时再次进入。
+ * 只删授权任务资产；不再回写已废止的 album_images 闸。
  */
 async function excludeAuthorizeAsset(taskId, assetId, options = {}) {
-  const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
   const row = await prisma.desensitizeAsset.findUnique({
     where: { taskId_assetId: { taskId, assetId } },
     include: { task: true },
@@ -1416,21 +1587,6 @@ async function excludeAuthorizeAsset(taskId, assetId, options = {}) {
     err.status = 400
     throw err
   }
-
-  const albumId = row.task.bizId
-  await prisma.albumImage.updateMany({
-    where: {
-      albumId,
-      nodeId: row.nodeId,
-      idx: row.idx,
-    },
-    data: {
-      visibility: VISIBILITY.PRIVATE,
-      publicGateStatus: PUBLIC_GATE_STATUS.REJECTED,
-      publicGateReason: 'user_excluded',
-      publicGateCheckedAt: new Date(),
-    },
-  })
 
   await prisma.desensitizeAsset.delete({
     where: { taskId_assetId: { taskId, assetId } },
@@ -1814,8 +1970,10 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     Boolean(options.force)
 
   if (needsRefresh || !preMaskTask) {
+    // 托管预览的 force 只对账补漏，禁止整本重打（否则 12 张图并发 OCR 易顶穿内存被 PM2 杀掉 → 502）
     await ensureOrderPreMaskTask(albumId, {
-      force: Boolean(options.force),
+      force: false,
+      resync: Boolean(options.force),
       auth: auth || { roles: [ROLES.SYSTEM] },
     })
     preMaskTask = await findPreMaskTask(albumId)
@@ -1830,9 +1988,52 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     throw err
   }
 
-  const assetInputs = ((preMaskTask && preMaskTask.assets) || []).map(mapPreMaskAssetToAuthorizeInput)
+  const taskId = buildHostMaskTaskId(albumId)
+  const preMaskTaskId = (preMaskTask && preMaskTask.taskId) || ''
+  const preMaskVersion = (preMaskTask && preMaskTask.preMaskVersion) || 0
+
+  const existing = await prisma.desensitizeTask.findUnique({
+    where: { taskId },
+    include: { assets: true },
+  })
+  const existingIndex = indexAssetsByRawUrl(existing && existing.assets)
+  // 重建任务时：已结算托管行优先保留，禁止预脱敏空行把成功结论冲掉
+  const assetInputs = ((preMaskTask && preMaskTask.assets) || []).map((row) => {
+    const mapped = mapPreMaskAssetToAuthorizeInput(row)
+    const prev = lookupAssetByRawUrl(existingIndex, mapped.rawUrl)
+    if (prev && assetMaskSettled(prev) && !assetMaskSettled(mapped)) {
+      return {
+        ...mapped,
+        mediaId: prev.mediaId || mapped.mediaId || '',
+        maskedUrl: prev.maskedUrl || prev.preMaskedUrl || '',
+        preMaskedUrl: prev.preMaskedUrl || prev.maskedUrl || '',
+        status: prev.status,
+        riskTags: prev.riskTags || [],
+        riskLevel: prev.riskLevel || '',
+      }
+    }
+    return mapped
+  })
   flowUrls.forEach((url) => {
     if (assetCoversUrl(assetInputs, url)) return
+    const prev = lookupAssetByRawUrl(existingIndex, url)
+    if (prev && assetMaskSettled(prev)) {
+      assetInputs.push({
+        assetId: prev.assetId || flowAssetId(url),
+        mediaId: prev.mediaId || '',
+        nodeId: prev.nodeId || 'flow',
+        nodeTitle: prev.nodeTitle || '单据',
+        idx: assetInputs.length,
+        rawUrl: url,
+        maskedUrl: prev.maskedUrl || prev.preMaskedUrl || '',
+        preMaskedUrl: prev.preMaskedUrl || prev.maskedUrl || '',
+        status: prev.status,
+        previewed: false,
+        riskTags: prev.riskTags || [],
+        riskLevel: prev.riskLevel || '',
+      })
+      return
+    }
     assetInputs.push({
       assetId: flowAssetId(url),
       mediaId: '',
@@ -1848,14 +2049,6 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
       riskLevel: '',
     })
   })
-  const taskId = buildHostMaskTaskId(albumId)
-  const preMaskTaskId = (preMaskTask && preMaskTask.taskId) || ''
-  const preMaskVersion = (preMaskTask && preMaskTask.preMaskVersion) || 0
-
-  const existing = await prisma.desensitizeTask.findUnique({
-    where: { taskId },
-    include: { assets: true },
-  })
   const missingFlow = flowUrls.filter((url) => !assetCoversUrl(existing && existing.assets, url))
   // 任务行无成功产物（无 maskedUrl）也视为未齐，避免早退漏打交车图
   const incompleteAssets = ((existing && existing.assets) || []).filter(
@@ -1868,8 +2061,8 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
     !existing.maskingConfirmed &&
     (existing.assets || []).length > 0
 
-  // 仅当 flow 齐套且行上都有成功产物时才早退；否则重建/补齐资产后由 auto-mask 落痕
-  if (sameVersion && !options.force && !missingFlow.length && !incompleteAssets.length) {
+  // flow 齐套且行上都已结算 → 早退。force 只对账预脱敏，不得因 force 整本重建托管任务
+  if (sameVersion && !missingFlow.length && !incompleteAssets.length) {
     await persistMaskedPairsToAlbumFlow(
       albumId,
       (existing.assets || [])

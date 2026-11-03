@@ -458,7 +458,7 @@ function zhOnly(value, max = 120) {
     .slice(0, max)
 }
 
-/** 检测顺序：模型常写成一整段或 {title,body}，一律收成中文短句数组 */
+/** 建议补充检测（旧键检测顺序）：模型常写成一整段或 {title,body}，一律收成中文短句数组 */
 function normalizeInspectOrder(raw) {
   const rows = []
   const push = (value) => {
@@ -706,7 +706,7 @@ function inspectStepsFromRaw(raw) {
     步骤2_逐张看图: null,
     步骤3_逐张归类: null,
     步骤4_拆分建议: null,
-    步骤5_检测顺序: null,
+    步骤5_建议补充检测: null,
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return empty
   const pick = (...keys) => {
@@ -720,7 +720,7 @@ function inspectStepsFromRaw(raw) {
     步骤2_逐张看图: pick('逐张看图'),
     步骤3_逐张归类: pick('逐张归类'),
     步骤4_拆分建议: pick('拆分建议'),
-    步骤5_检测顺序: pick('检测顺序'),
+    步骤5_建议补充检测: pick('建议补充检测', '检测顺序'),
   }
 }
 
@@ -734,7 +734,12 @@ function parseInspectionAdvice(raw, _items, _photoUrls, photoSlots) {
         : parsed.faultAnalysis
   const faultRaw = zhInspectProse(faultSource, 800)
   const faultAnalysis = isIntakeCoverageEcho(faultRaw) ? '' : faultRaw
-  const orderSource = parsed['检测顺序'] != null ? parsed['检测顺序'] : parsed.inspectOrder
+  const orderSource =
+    parsed['建议补充检测'] != null
+      ? parsed['建议补充检测']
+      : parsed['检测顺序'] != null
+        ? parsed['检测顺序']
+        : parsed.inspectOrder
   const inspectOrder = normalizeInspectOrder(orderSource)
     .map((line) => dropRankWords(line))
     .filter((line) => line && !isIntakeCoverageEcho(line))
@@ -864,7 +869,7 @@ function deliveryPhotoUrls(delivery) {
   return urls
 }
 
-/** 旧意见里的部件参考并进检测顺序，下游不再单看一块 */
+/** 旧意见里的部件参考并进建议补充检测，下游不再单看一块 */
 function foldPartHintsIntoOrder(advice) {
   const order = (Array.isArray(advice && advice.inspectOrder) ? advice.inspectOrder : [])
     .map((row) => text(row))
@@ -1046,7 +1051,13 @@ function writeInspectAdviceDebug(albumId, payload) {
  */
 async function writeMasksOntoNodes(albumId, pairs) {
   const id = text(albumId)
-  const list = (Array.isArray(pairs) ? pairs : []).filter((row) => row && text(row.rawUrl) && text(row.maskedUrl))
+  // 有打码图或明确结论（含 ok_no_privacy）都要写回；禁止只收下带 maskedUrl 的
+  const list = (Array.isArray(pairs) ? pairs : []).filter(
+    (row) =>
+      row &&
+      text(row.rawUrl) &&
+      (text(row.maskedUrl) || text(row.maskOutcome)),
+  )
   if (!id || !list.length) return
   const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
   await persistMaskedPairsToAlbumFlow(id, list)
@@ -1195,7 +1206,7 @@ function workInstruction(ctx) {
       photos: slots.map((row) => ({ 图: `图${row.slot}`, 现在挂在: row.partName })),
     })}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[{"检测项目":"已有施工项名称","图片":["图1"],"描述":"这张更像这一项。","处理意见":""}],"填写建议":[{"项目":"已有施工项名称","描述":"更换了开裂的下摆臂胶套。"}],"简述":"","问答":[],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没有照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"故障分析":"","建议补充检测":[],"拆分建议":[{"检测项目":"已有施工项名称","图片":["图1"],"描述":"这张更像这一项。","处理意见":""}],"填写建议":[{"项目":"已有施工项名称","描述":"更换了开裂的下摆臂胶套。"}],"简述":"","问答":[],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没有照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1249,7 +1260,7 @@ function inspectionInstruction(ctx, options = {}) {
       '从专业汽修的角度，把这个症状所有可能的原因列出来，按可能性从高到低排。',
       '每种可能占一段，用1、2、3、4分行。写入「故障分析」。',
       '',
-      '2. 检测顺序写出接下来要查的项目，一段一项。没有照片，就不要从这份清单里删项。',
+      '2. 「建议补充检测」写出接下来要查的项目，一段一项。没有照片，就不要从这份清单里删项。',
       '',
       '逐张看图、逐张归类、拆分建议都用空数组。',
       '不要复述接车时车身四周有没有拍全。',
@@ -1257,7 +1268,7 @@ function inspectionInstruction(ctx, options = {}) {
       `参考材料：${JSON.stringify(material)}`,
       '',
       '只返回 JSON，不要其它文字：',
-      '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[],"逐张归类":[],"拆分建议":[],"检测顺序":["接下来要查的一项"],"masks":[]}',
+      '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[],"逐张归类":[],"拆分建议":[],"建议补充检测":["接下来要查的一项"],"masks":[]}',
     ].join('\n')
   }
   return [
@@ -1284,8 +1295,9 @@ function inspectionInstruction(ctx, options = {}) {
     '已经分在不同条里的照片不要并到一起。写入「拆分建议」。',
     '',
     '5. 用第4步得到的检测项目，对照第1步那份清单。',
-    '已经有照片覆盖的项目，从清单里去掉。剩下的写入「检测顺序」，仍然一段一项。',
-    '如果照片已经把第1步的可能都覆盖了，检测顺序用空数组。',
+    '只有照片里真正拍到、能对上的项，才可从「建议补充检测」去掉。',
+    '照片没盖住的项必须保留，一段一项；保养、底盘、制动、电气等各类目同理。',
+    '禁止因为「大致做过了」就整表清空。仅当第1步每一条都有对应实拍证据时，才可用空数组。',
     '',
     '不要复述接车时车身四周有没有拍全。',
     '参考材料只给第1步用。给照片归类时不要用它。',
@@ -1296,7 +1308,7 @@ function inspectionInstruction(ctx, options = {}) {
     `参考材料：${JSON.stringify(material)}`,
     '',
     '只返回 JSON，不要其它文字。示例只说明有哪几个键，句子按这次的诉求和照片写，不要照抄示例里的占位话：',
-    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样","处理意见":"需处理"}],"检测顺序":["第1步里还没有照片覆盖的那一项"],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
+    '{"故障分析":"1. 第一种可能。\\n2. 第二种可能。","逐张看图":[{"图":"图1","内容":"只写这一张里看见的"},{"图":"图2","内容":"只写这一张里看见的，不要复述图1"}],"逐张归类":[{"图":"图1","检测项目":"按图1内容起的项目名"},{"图":"图2","检测项目":"按图2内容起的项目名"}],"拆分建议":[{"检测项目":"与第3步同一名称","图片":["图1"],"描述":"这一组说明了什么，要不要马上处理，不处理会怎样","处理意见":"需处理"}],"建议补充检测":["第1步里还没有照片覆盖的那一项"],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
   ].join('\n')
 }
@@ -1341,7 +1353,7 @@ function deliveryInstruction(ctx) {
     '提醒：只写本步还缺的，比如交车照、质保期限空。其它键留空。店员点应用才写入。',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"新胶套要注意什么？","答":"近期少过剧烈颠簸，磨合几天。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"新胶套要注意什么？","答":"近期少过剧烈颠簸，磨合几天。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1495,6 +1507,15 @@ async function runJob(albumId, kind, options = {}) {
       }
       return next
     })
+    // 与接车一致：看图返回的 masks 落到本批附图；只打一次，不挡意见正文
+    if (ok && urls.length) {
+      try {
+        const { voidApplyModelMasks } = require('./model-mask.service')
+        voidApplyModelMasks(urls, raw, { albumId })
+      } catch (_) {
+        /* 打码失败不影响出意见 */
+      }
+    }
     if (ok) {
       try {
         const { markAlbumAiAnalysisConsumed } = require('./merchant-plan-quota.service')

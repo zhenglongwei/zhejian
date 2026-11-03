@@ -641,35 +641,30 @@ function annotateMaskImageRow(url, outcomeIndex) {
   if (hit) {
     classified = classifyHostMaskOutcome(hit)
   } else if (isDesensitizedMediaUrl(url)) {
-    // 已是脱敏产物但任务索引未命中：视为识别成功可公开，勿当成需补打
     classified = classifyHostMaskOutcome({
       maskedUrl: url,
+      maskOutcome: 'ok_masked',
       riskTags: [],
     })
   } else {
-    // 预览仍是原图路径且无任务落痕 → 未成功，不得标可公开
-    classified = classifyHostMaskOutcome({})
+    // 无落痕 → 未跑大模型（对账时重跑模型；展示允许原图）
+    classified = classifyHostMaskOutcome({ maskOutcome: 'not_analyzed' })
   }
-  // 展示仍为原图、且无成功落痕时，强制 pending（防止回落原图被当成已处理）
   const showingRaw = Boolean(url) && !isDesensitizedMediaUrl(url)
-  const noSuccessMarker = !classified.maskSucceeded
-  if (showingRaw && noSuccessMarker) {
-    classified = {
-      outcome: HOST_MASK_OUTCOME.PENDING,
-      needsManual: false,
-      publishSafe: false,
-      maskSucceeded: false,
-      needsRemask: true,
-    }
+  if (showingRaw && !classified.maskSucceeded && !hit) {
+    classified = classifyHostMaskOutcome({ maskOutcome: HOST_MASK_OUTCOME.NOT_ANALYZED })
   }
   return {
     url,
     outcome: classified.outcome,
-    needsManual: classified.needsManual,
+    needsManual: Boolean(classified.needsManual),
     needsRemask: Boolean(classified.needsRemask),
-    // 兼容旧字段：publishSafe 才算「处理完」；勿再用「是否脱敏目录 URL」
-    masked: classified.publishSafe,
-    pending: classified.outcome === HOST_MASK_OUTCOME.PENDING || Boolean(classified.needsRemask),
+    // masked=已成功处理；失败态仍 publishSafe，预览可出原图
+    masked: Boolean(classified.maskSucceeded),
+    pending:
+      classified.outcome === HOST_MASK_OUTCOME.NOT_ANALYZED ||
+      classified.outcome === HOST_MASK_OUTCOME.PENDING ||
+      Boolean(classified.needsRemask),
   }
 }
 
@@ -780,9 +775,9 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     /* 无预脱敏也可预览原图（门店自认） */
   }
 
-  // 公开托管预览：优先打码图；ok_no_privacy 可展示原图；仅私密核对才回落未处理原图。
+  // 公开托管预览：有码用码；无须打码或重试失败用原图（责任在商家）。
   const mustMask = Boolean(requireMasked)
-  const { classifyHostMaskOutcome, isMaskCallSuccess } = require('../utils/host-mask-outcome')
+  const { resolveHostDisplayUrl } = require('../utils/host-mask-outcome')
   const { lookupHostMaskOutcomeRow } = require('./hosted-public-mask.service')
   const resolveImageUrl = (rawInput) => {
     const raw = String(rawInput || '').trim()
@@ -794,12 +789,8 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
       if (hit) return hit
     }
     if (mustMask) {
-      const row = lookupHostMaskOutcomeRow(outcomeIndex, raw)
-      if (row && isMaskCallSuccess(classifyHostMaskOutcome(row).outcome)) {
-        const masked = String(row.maskedUrl || row.preMaskedUrl || '').trim()
-        return masked || raw
-      }
-      return ''
+      const row = lookupHostMaskOutcomeRow(outcomeIndex, raw) || {}
+      return resolveHostDisplayUrl({ ...row, url: raw }, raw)
     }
     return raw
   }
@@ -833,8 +824,9 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     album,
     contentNodes: view.nodes || [],
     maskLookup: lookup,
-    requireDesensitized: mustMask,
-    allowPrivateFallback: !mustMask,
+    // 公开托管：有码用码；失败/无须打码允许原图（见 resolvePhotoDisplayUrl）
+    requireDesensitized: false,
+    allowPrivateFallback: true,
   })
   const maskImages = (() => {
     const fromList = collectReviewMaskImages(reviewDocsForMaskList, outcomeIndex)
@@ -906,7 +898,10 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
   }
 }
 
-/** 确保托管可编辑脱敏任务（支持一键 AI / 手工打码） */
+/**
+ * 确保托管可编辑脱敏任务（支持一键 AI / 手工打码）。
+ * force：只对账补漏进任务，禁止整本重打已成功图。
+ */
 async function ensureHostDesensitizeTask(albumId, { storeId, merchantId, force = false } = {}) {
   const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
   const { ensureHostMerchantMaskTask } = require('./desensitize.service')
@@ -1302,11 +1297,12 @@ async function exportAlbumArchive(albumId, { storeId, merchantId }) {
   }
   assertMerchantAlbum(album, storeId, merchantId)
   const meta = readHostMeta(album)
-  const images = (album.images || []).map((img) => ({
-    id: img.id,
-    url: img.url || '',
-    desensitizedUrl: img.desensitizedUrl || '',
-    nodeId: img.nodeId || '',
+  const { collectPublicizableFlowPhotos } = require('../utils/flow-public-media')
+  const images = collectPublicizableFlowPhotos(album).map((row, idx) => ({
+    id: `flow_${row.nodeId}_${idx}`,
+    url: row.url || '',
+    desensitizedUrl: row.maskedUrl || '',
+    nodeId: row.nodeId || '',
   }))
   return {
     exportedAt: new Date().toISOString(),

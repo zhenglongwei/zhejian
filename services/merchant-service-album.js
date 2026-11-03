@@ -318,20 +318,47 @@ async function fetchMerchantAlbumFlow(albumId) {
   if (ENV.mode === 'mock') {
     const album = await mockFetchMerchantServiceAlbum(albumId)
     const { buildStandardFlowNodes } = require('../constants/service-flow-nodes')
+    const { contentOfFlowNode } = require('../utils/service-flow-docs')
+    const previewFromContent = (node) => {
+      const draft = contentOfFlowNode(node)
+      const out = []
+      const push = (raw) => {
+        const url =
+          typeof raw === 'string'
+            ? raw
+            : raw && typeof raw === 'object'
+              ? raw.url || raw.rawUrl || ''
+              : ''
+        const clean = String(url || '').trim()
+        if (!clean) return
+        out.push({
+          url: clean,
+          caption: typeof raw === 'object' && raw ? String(raw.caption || '').trim() : '',
+        })
+      }
+      ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach(push)
+      ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((item) => {
+        const shots =
+          Array.isArray(item && item.images) && item.images.length
+            ? item.images
+            : item && item.url
+              ? [item]
+              : []
+        shots.forEach(push)
+      })
+      if (String(draft.deliveryExteriorUrl || '').trim()) push(draft.deliveryExteriorUrl)
+      ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
+      return out
+    }
     const flowNodes = (album.flowNodes && album.flowNodes.length
       ? album.flowNodes
       : buildStandardFlowNodes()
     ).map((node) => {
-      const stageId = node.legacyStageId
-      const stage = (album.nodes || []).find((n) => n.id === stageId)
-      const images = (stage && stage.images) || []
+      const images = previewFromContent(node)
       return {
         ...node,
         photoCount: images.length,
-        previewImages: images.map((img) => ({
-          url: typeof img === 'string' ? img : img.url,
-          caption: typeof img === 'object' ? img.caption || '' : '',
-        })),
+        previewImages: images,
         document: node.document
           ? {
               ...node.document,

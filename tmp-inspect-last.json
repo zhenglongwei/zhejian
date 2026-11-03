@@ -1,0 +1,292 @@
+{
+  "at": "2026-11-03T10:38:34.618Z",
+  "ok": true,
+  "multiPhotoFindingIds": [
+    "fid_new_1793702277886"
+  ],
+  "photoSlots": [
+    {
+      "slot": 1,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3a5772d462cee5f3acddab04bffb1689.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793702277886",
+      "partName": ""
+    },
+    {
+      "slot": 2,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b2b0df477ab33170f8ff6b5d48b31c68.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793702277886",
+      "partName": ""
+    },
+    {
+      "slot": 3,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3b41912ba5d439e6ae93c008212b6d5a.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793702277886",
+      "partName": ""
+    },
+    {
+      "slot": 4,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/42cf8df81457345349c87723fc711ba5.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793702277886",
+      "partName": ""
+    },
+    {
+      "slot": 5,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/269509cd1d66ec44f8868625a7d5f3d1.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793702277886",
+      "partName": ""
+    },
+    {
+      "slot": 6,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b90850a5ca80213c2ea8ec42fa4d471d.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793702277886",
+      "partName": ""
+    }
+  ],
+  "urlsRequested": [
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3a5772d462cee5f3acddab04bffb1689.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b2b0df477ab33170f8ff6b5d48b31c68.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3b41912ba5d439e6ae93c008212b6d5a.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/42cf8df81457345349c87723fc711ba5.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/269509cd1d66ec44f8868625a7d5f3d1.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b90850a5ca80213c2ea8ec42fa4d471d.jpg"
+  ],
+  "attachedUrlKeys": [
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3a5772d462cee5f3acddab04bffb1689.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b2b0df477ab33170f8ff6b5d48b31c68.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3b41912ba5d439e6ae93c008212b6d5a.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/42cf8df81457345349c87723fc711ba5.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/269509cd1d66ec44f8868625a7d5f3d1.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b90850a5ca80213c2ea8ec42fa4d471d.jpg"
+  ],
+  "traces": [
+    {
+      "label": "Inspect",
+      "requestedUrlCount": 6,
+      "safeUrlCount": 6,
+      "safeUrlsIdentical": false,
+      "attachedSlots": [
+        {
+          "slot": 1,
+          "findingId": "fid_new_1793702277886",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3a5772d462cee5f3acddab04bffb1689.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3a5772d462cee5f3acddab04bffb1689.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 2,
+          "findingId": "fid_new_1793702277886",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b2b0df477ab33170f8ff6b5d48b31c68.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b2b0df477ab33170f8ff6b5d48b31c68.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 3,
+          "findingId": "fid_new_1793702277886",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3b41912ba5d439e6ae93c008212b6d5a.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3b41912ba5d439e6ae93c008212b6d5a.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 4,
+          "findingId": "fid_new_1793702277886",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/42cf8df81457345349c87723fc711ba5.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/42cf8df81457345349c87723fc711ba5.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 5,
+          "findingId": "fid_new_1793702277886",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/269509cd1d66ec44f8868625a7d5f3d1.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/269509cd1d66ec44f8868625a7d5f3d1.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 6,
+          "findingId": "fid_new_1793702277886",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b90850a5ca80213c2ea8ec42fa4d471d.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b90850a5ca80213c2ea8ec42fa4d471d.jpg",
+          "fromNode": false
+        }
+      ],
+      "raw": "{\n  \"故障分析\": \"1. 底盘橡胶件（如衬套、摆臂胶套）老化、开裂或变形，导致车辆行驶中出现异响或操控松散。\\n2. 悬挂系统金属部件（如摆臂、连杆）发生弯曲变形或球头磨损松旷，影响车轮定位及行驶稳定性。\\n3. 制动系统部件（如刹车盘、刹车片）磨损不均或达到极限，可能引起制动抖动或制动力下降。\\n4. 发动机舱内部件（如机脚胶、皮带轮系）存在潜在隐患，需结合大保养进行常规检查。\",\n  \"逐张看图\": [\n    {\n      \"图\": \"图1\",\n      \"内容\": \"维修车间工作台场景，台面上放置有锤子、棘轮扳手等维修工具，左下角蓝色零件盒内装有若干拆卸下来的生锈螺栓。\"\n    },\n    {\n      \"图\": \"图2\",\n      \"内容\": \"发动机舱内部视角，可见黄色的冷却液膨胀壶，一名戴手套的技师正使用长杆工具在发动机深处进行操作。\"\n    },\n    {\n      \"图\": \"图3\",\n      \"内容\": \"车辆被举升机抬起后的车轮部位特写，展示了裸露的金属制动盘和轮毂轴承中心，前景有一名男子背影正在观察或拍摄该部位。\"\n    },\n    {\n      \"图\": \"图4\",\n      \"内容\": \"手持一个拆卸下来的圆柱形汽车底盘衬套（旧件），该部件中心的橡胶部分已出现明显的撕裂和破损缺口。\"\n    },\n    {\n      \"图\": \"图5\",\n      \"内容\": \"地面上放置着拆卸下来的铝合金下摆臂，技师双手持握其中一个摆臂，旁边放有一把电动冲击扳手和一个轮胎。\"\n    },\n    {\n      \"图\": \"图6\",\n      \"内容\": \"技师蹲在地面上，面前摆放着三个拆卸下来的铝合金下摆臂，技师正使用电动工具对摆臂上的部件进行作业。\"\n    }\n  ],\n  \"逐张归类\": [\n    {\n      \"图\": \"图1\",\n      \"检测项目\": \"维修过程记录\"\n    },\n    {\n      \"图\": \"图2\",\n      \"检测项目\": \"发动机舱检查\"\n    },\n    {\n      \"图\": \"图3\",\n      \"检测项目\": \"制动盘检查\"\n    },\n    {\n      \"图\": \"图4\",\n      \"检测项目\": \"底盘悬挂检查\"\n    },\n    {\n      \"图\": \"图5\",\n      \"检测项目\": \"底盘悬挂检查\"\n    },\n    {\n      \"图\": \"图6\",\n      \"检测项目\": \"底盘悬挂检查\"\n    }\n  ],\n  \"拆分建议\": [\n    {\n      \"检测项目\": \"维修过程记录\",\n      \"图片\": [\n        \"图1\"\n      ],\n      \"描述\": \"记录了维修工具和拆下的螺栓，属于施工过程中的场景留档，未直接展示车辆部件的具体技术状态。\",\n      \"处理意见\": \"仅记录\"\n    },\n    {\n      \"检测项目\": \"发动机舱检查\",\n      \"图片\": [\n        \"图2\"\n      ],\n      \"描述\": \"展示了发动机舱内的作业场景，确认了技师正在进行相关部位的维护操作，未见明显泄漏或破损异常。\",\n      \"处理意见\": \"状态良好\"\n    },\n    {\n      \"检测项目\": \"制动盘检查\",\n      \"图片\": [\n        \"图3\"\n      ],\n      \"描述\": \"展示了制动盘表面，盘面呈现金属光泽，未见明显的深沟槽或严重锈蚀，处于可用状态。\",\n      \"处理意见\": \"状态良好\"\n    },\n    {\n      \"检测项目\": \"底盘悬挂检查\",\n      \"图片\": [\n        \"图4\",\n        \"图5\",\n        \"图6\"\n      ],\n      \"描述\": \"图4显示底盘衬套橡胶层已严重开裂破损，失去缓冲作用；图5和图6显示多个下摆臂已被拆卸并在地面进行维修或更换作业，说明底盘悬挂部件存在实质性损坏。\",\n      \"处理意见\": \"需处理\"\n    }\n  ],\n  \"检测顺序\": [],\n  \"masks\": [\n    {\n      \"imageSlot\": 2,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.08,\n          \"top\": 0.76,\n          \"width\": 0.06,\n          \"height\": 0.06\n        }\n      ]\n    },\n    {\n      \"imageSlot\": 3,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.0,\n          \"top\": 0.38,\n          \"width\": 0.45,\n          \"height\": 0.45\n        }\n      ]\n    },\n    {\n      \"imageSlot\": 4,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.08,\n          \"top\": 0.76,\n          \"width\": 0.06,\n          \"height\": 0.06\n        }\n      ]\n    },\n    {\n      \"imageSlot\": 6,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.55,\n          \"top\": 0.12,\n          \"width\": 0.18,\n          \"height\": 0.18\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "steps": {
+    "步骤1_故障分析": "1. 底盘橡胶件（如衬套、摆臂胶套）老化、开裂或变形，导致车辆行驶中出现异响或操控松散。\n2. 悬挂系统金属部件（如摆臂、连杆）发生弯曲变形或球头磨损松旷，影响车轮定位及行驶稳定性。\n3. 制动系统部件（如刹车盘、刹车片）磨损不均或达到极限，可能引起制动抖动或制动力下降。\n4. 发动机舱内部件（如机脚胶、皮带轮系）存在潜在隐患，需结合大保养进行常规检查。",
+    "步骤2_逐张看图": [
+      {
+        "图": "图1",
+        "内容": "维修车间工作台场景，台面上放置有锤子、棘轮扳手等维修工具，左下角蓝色零件盒内装有若干拆卸下来的生锈螺栓。"
+      },
+      {
+        "图": "图2",
+        "内容": "发动机舱内部视角，可见黄色的冷却液膨胀壶，一名戴手套的技师正使用长杆工具在发动机深处进行操作。"
+      },
+      {
+        "图": "图3",
+        "内容": "车辆被举升机抬起后的车轮部位特写，展示了裸露的金属制动盘和轮毂轴承中心，前景有一名男子背影正在观察或拍摄该部位。"
+      },
+      {
+        "图": "图4",
+        "内容": "手持一个拆卸下来的圆柱形汽车底盘衬套（旧件），该部件中心的橡胶部分已出现明显的撕裂和破损缺口。"
+      },
+      {
+        "图": "图5",
+        "内容": "地面上放置着拆卸下来的铝合金下摆臂，技师双手持握其中一个摆臂，旁边放有一把电动冲击扳手和一个轮胎。"
+      },
+      {
+        "图": "图6",
+        "内容": "技师蹲在地面上，面前摆放着三个拆卸下来的铝合金下摆臂，技师正使用电动工具对摆臂上的部件进行作业。"
+      }
+    ],
+    "步骤3_逐张归类": [
+      {
+        "图": "图1",
+        "检测项目": "维修过程记录"
+      },
+      {
+        "图": "图2",
+        "检测项目": "发动机舱检查"
+      },
+      {
+        "图": "图3",
+        "检测项目": "制动盘检查"
+      },
+      {
+        "图": "图4",
+        "检测项目": "底盘悬挂检查"
+      },
+      {
+        "图": "图5",
+        "检测项目": "底盘悬挂检查"
+      },
+      {
+        "图": "图6",
+        "检测项目": "底盘悬挂检查"
+      }
+    ],
+    "步骤4_拆分建议": [
+      {
+        "检测项目": "维修过程记录",
+        "图片": [
+          "图1"
+        ],
+        "描述": "记录了维修工具和拆下的螺栓，属于施工过程中的场景留档，未直接展示车辆部件的具体技术状态。",
+        "处理意见": "仅记录"
+      },
+      {
+        "检测项目": "发动机舱检查",
+        "图片": [
+          "图2"
+        ],
+        "描述": "展示了发动机舱内的作业场景，确认了技师正在进行相关部位的维护操作，未见明显泄漏或破损异常。",
+        "处理意见": "状态良好"
+      },
+      {
+        "检测项目": "制动盘检查",
+        "图片": [
+          "图3"
+        ],
+        "描述": "展示了制动盘表面，盘面呈现金属光泽，未见明显的深沟槽或严重锈蚀，处于可用状态。",
+        "处理意见": "状态良好"
+      },
+      {
+        "检测项目": "底盘悬挂检查",
+        "图片": [
+          "图4",
+          "图5",
+          "图6"
+        ],
+        "描述": "图4显示底盘衬套橡胶层已严重开裂破损，失去缓冲作用；图5和图6显示多个下摆臂已被拆卸并在地面进行维修或更换作业，说明底盘悬挂部件存在实质性损坏。",
+        "处理意见": "需处理"
+      }
+    ],
+    "步骤5_检测顺序": []
+  },
+  "finalEdits": [
+    {
+      "id": "edit_item_fid_new_1793702277886",
+      "kind": "item",
+      "findingId": "fid_new_1793702277886",
+      "partName": "",
+      "advice": "",
+      "body": "拆成「维修过程记录」「发动机舱检查」「制动盘检查」「底盘悬挂检查」并写上检查发现",
+      "groups": [
+        {
+          "partName": "维修过程记录",
+          "advice": "记录了维修工具和拆下的螺栓，属于施工过程中的场景留档，未直接展示车辆部件的具体技术状态。",
+          "result": "仅记录",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3a5772d462cee5f3acddab04bffb1689.jpg"
+            }
+          ],
+          "imageSlots": [
+            1
+          ],
+          "imageLabel": "图1"
+        },
+        {
+          "partName": "发动机舱检查",
+          "advice": "展示了发动机舱内的作业场景，确认了技师正在进行相关部位的维护操作，未见明显泄漏或破损异常。",
+          "result": "状态良好",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b2b0df477ab33170f8ff6b5d48b31c68.jpg"
+            }
+          ],
+          "imageSlots": [
+            2
+          ],
+          "imageLabel": "图2"
+        },
+        {
+          "partName": "制动盘检查",
+          "advice": "展示了制动盘表面，盘面呈现金属光泽，未见明显的深沟槽或严重锈蚀，处于可用状态。",
+          "result": "状态良好",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/3b41912ba5d439e6ae93c008212b6d5a.jpg"
+            }
+          ],
+          "imageSlots": [
+            3
+          ],
+          "imageLabel": "图3"
+        },
+        {
+          "partName": "底盘悬挂检查",
+          "advice": "图4显示底盘衬套橡胶层已严重开裂破损，失去缓冲作用；图5和图6显示多个下摆臂已被拆卸并在地面进行维修或更换作业，说明底盘悬挂部件存在实质性损坏。",
+          "result": "需处理",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/42cf8df81457345349c87723fc711ba5.jpg"
+            },
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/269509cd1d66ec44f8868625a7d5f3d1.jpg"
+            },
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/b90850a5ca80213c2ea8ec42fa4d471d.jpg"
+            }
+          ],
+          "imageSlots": [
+            4,
+            5,
+            6
+          ],
+          "imageLabel": "图4、图5、图6"
+        }
+      ],
+      "canApply": true
+    }
+  ],
+  "faultAnalysis": "1. 底盘橡胶件（如衬套、摆臂胶套）老化、开裂或变形，导致车辆行驶中出现异响或操控松散。\n2. 悬挂系统金属部件（如摆臂、连杆）发生弯曲变形或球头磨损松旷，影响车轮定位及行驶稳定性。\n3. 制动系统部件（如刹车盘、刹车片）磨损不均或达到极限，可能引起制动抖动或制动力下降。\n4. 发动机舱内部件（如机脚胶、皮带轮系）存在潜在隐患，需结合大保养进行常规检查。",
+  "inspectOrder": [],
+  "inspectOrderLen": 0
+}

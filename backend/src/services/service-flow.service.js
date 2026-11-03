@@ -8,7 +8,6 @@ const {
   buildStandardFlowNodes,
   getFlowKindMeta,
   isPhotoFlowNode,
-  resolveLegacyStageIdsForFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
   QUOTE_CONFIRM_COPY,
@@ -48,7 +47,6 @@ const {
   workItemsFromFindings,
   formatClerkAtForDoc,
 } = resolveShared('utils/owner-preview-doc.js')
-const { planAllPhotoFolds } = resolveShared('utils/flow-node-photos.js')
 const { quoteFace } = resolveShared('utils/service-flow-quote-draft.js')
 const { applyAddonInsert, reopenWorkBesideOpenAddon } = resolveShared('utils/service-flow-addon-insert.js')
 
@@ -337,13 +335,27 @@ function healFinishReportPackage(pkg = {}, album = {}) {
   const repair = list[repairIdx]
   const draft = contentOfFlowNode(delivery)
   const reportBody = contentOfFlowNode(repair)
-  if (
-    String(delivery.status || '') === 'completed' &&
-    !frozenDeliveryHasBody(draft) &&
-    finishReportHasDeliveryFields(reportBody)
-  ) {
-    list[deliveryIdx] = writeNodeContent(delivery, { content: deliveryFieldsFromReport(reportBody) })
-    changed = true
+  // 定稿后交车节点不得空着：整袋空，或只丢了简述/问答，都从交车报告收回
+  if (String(delivery.status || '') === 'completed' && finishReportHasDeliveryFields(reportBody)) {
+    const fromReport = deliveryFieldsFromReport(reportBody)
+    const needFull = !frozenDeliveryHasBody(draft)
+    const needBrief = !textHasValue(draft.repairBrief) && textHasValue(fromReport.repairBrief)
+    const needFaqs =
+      !(Array.isArray(draft.ownerFaqs) && draft.ownerFaqs.length) &&
+      Array.isArray(fromReport.ownerFaqs) &&
+      fromReport.ownerFaqs.length
+    if (needFull) {
+      list[deliveryIdx] = writeNodeContent(delivery, { content: fromReport })
+      changed = true
+    } else if (needBrief || needFaqs) {
+      list[deliveryIdx] = writeNodeContent(delivery, {
+        content: {
+          ...(needBrief ? { repairBrief: fromReport.repairBrief } : {}),
+          ...(needFaqs ? { ownerFaqs: fromReport.ownerFaqs } : {}),
+        },
+      })
+      changed = true
+    }
   }
   const frozen = contentOfFlowNode(list[deliveryIdx])
   if (
@@ -490,7 +502,7 @@ function collectNodePhotoList(node, albumNodes = []) {
     })
   }
   const draft = contentOfFlowNode(node)
-  // 接车留证唯一真源：pendingImages（旧袋打开时已并入一次）
+  // 接车留证唯一真源：pendingImages
   if (node && node.kind === 'intake') {
     ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => push(img))
     return out
@@ -505,28 +517,25 @@ function collectNodePhotoList(node, albumNodes = []) {
           : []
     shots.forEach((img) => push(img, item && item.partName))
   })
-  // 接车 / 检测 / 工单只认节点草稿。旧阶段的图在打开进度时并入一次。
-  // 交车仍从工单图勾选，缺的补拍落在交车阶段。
+  // 交车：只认节点 content 里的交车照字段，不读 album.nodes stage_*
   if (node && node.kind === 'delivery_photos') {
-    resolveLegacyStageIdsForFlowNode(node).forEach((stageId) => {
-      const stage = (albumNodes || []).find((n) => n && n.id === stageId)
-      ;(stage && Array.isArray(stage.images) ? stage.images : []).forEach((img) => push(img))
+    const exterior = String(draft.deliveryExteriorUrl || '').trim()
+    if (exterior) push({ url: exterior, caption: '整车外观' })
+    ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach((row) => {
+      const url =
+        typeof row === 'string'
+          ? row
+          : row && typeof row === 'object'
+            ? row.url || row.rawUrl || ''
+            : ''
+      push(typeof row === 'object' && row ? row : { url })
     })
   }
   return out
 }
 
-async function absorbLegacyStagePhotos(albumId, album, albumNodes) {
-  const raw = sortFlowNodes(readFlowNodesRaw(album))
-  const folded = planAllPhotoFolds(raw, albumNodes)
-  if (!folded) return album
-  await writeFlowPackage(albumId, (pkg) => ({ ...pkg, flowNodes: folded }))
-  const { loadAlbum } = require('./service-album.service')
-  return loadAlbum(albumId)
-}
-
 function countPhotosForFlowNode(node, albumNodes = []) {
-  // 完工照：整车外观/交车图以引用为主，不强制 stage_6 再存实体图
+  // 完工照：整车外观/交车图以 content 字段为准
   if (node && node.kind === 'delivery_photos') {
     const draft = contentOfFlowNode(node)
     if (String(draft.deliveryExteriorUrl || '').trim()) return 1
@@ -606,7 +615,6 @@ function resignPhotoDraftForView(draft) {
 function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
   const meta = getFlowKindMeta(node.kind) || {}
   const photo = isPhotoFlowNode(node)
-  const legacyStageIds = resolveLegacyStageIdsForFlowNode(node)
   const needConfirm = requiresOwnerConfirm(node)
   const fps = adviceFingerprints || {}
   const quoteContentFp = String(fps.quote || '')
@@ -628,8 +636,6 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
     content: resignPhotoDraftForView(normalizeNodeContent(contentOfFlowNode(node))),
     // 兼容旧前端：photoDraft / payload 只是 content 别名，不是第二真源
     photoDraft: resignPhotoDraftForView(normalizeNodeContent(contentOfFlowNode(node))),
-    legacyStageId: legacyStageIds[0] || '',
-    legacyStageIds,
     photoTips: meta.photoTips || '',
     captionPlaceholder: meta.captionPlaceholder || '',
     description: meta.description || '',
@@ -1020,13 +1026,11 @@ function buildFlowView(album, albumNodes = []) {
   const active = progress.activeNode
     ? {
         ...progress.activeNode,
-        ctaText:
-          progress.activeNode.nodeCategory === 'photo' ||
-          (progress.activeNode.legacyStageIds && progress.activeNode.legacyStageIds.length)
-            ? '上传照片并确认'
-            : progress.activeNode.kind === 'inspection_report'
-              ? '通知车主'
-              : progress.activeNode.document?.requiresConfirm
+        ctaText: isPhotoFlowNode(progress.activeNode)
+          ? '上传照片并确认'
+          : progress.activeNode.kind === 'inspection_report'
+            ? '通知车主'
+            : progress.activeNode.document?.requiresConfirm
               ? '填写并发送车主确认'
               : '查看并填写',
       }
@@ -1222,7 +1226,6 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   } catch (_) {
     /* ignore */
   }
-  album = await absorbLegacyStagePhotos(albumId, album, nodes)
   await healOpenAddonBesideWork(albumId)
   await healIntakeSentUnlock(albumId)
   nodes = mapNodesForView(album)
@@ -1518,10 +1521,9 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
           ['delivered', 'pending_confirm', 'confirmed'].indexOf(
             String((prev.document && prev.document.status) || ''),
           ) >= 0)
-      const deliveryLocked =
-        prev.kind === 'delivery_photos' && String(prev.status || '') === 'completed'
       const workLocked = prev.kind === 'work' && String(prev.status || '') === 'completed'
-      if (intakeLocked || deliveryLocked) {
+      // 交车：任意时刻空简述/问答不得盖掉已有（定稿前后同一漏口）
+      if (intakeLocked || prev.kind === 'delivery_photos') {
         incoming = keepFilledDeliveryPatch(contentOfFlowNode(prev), incoming)
       }
       if (workLocked) {
@@ -1613,8 +1615,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   let album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   assertAlbumContentEditable(album)
-  album = await absorbLegacyStagePhotos(albumId, album, mapNodesForView(album))
-
   const id = String(nodeId || '').trim()
   const nodes = mapNodesForView(album)
   const rawNodes = sortFlowNodes(readFlowNodesRaw(album))
@@ -1649,7 +1649,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   }
 
   const vehicle = album.vehicleJson || {}
-  const incomingDraft = mergeNodeContent(contentOfFlowNode(node), {
+  let incomingDraft = mergeNodeContent(contentOfFlowNode(node), {
     ...((payload.content || payload.photoDraft || {})),
     ...(payload.chiefComplaint != null ? { chiefComplaint: payload.chiefComplaint } : {}),
     ...(payload.findings != null ? { findings: payload.findings } : {}),
@@ -1667,7 +1667,13 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     ...(payload.selectedDeliveryUrls != null
       ? { selectedDeliveryUrls: payload.selectedDeliveryUrls }
       : {}),
+    ...(payload.repairBrief != null ? { repairBrief: payload.repairBrief } : {}),
+    ...(payload.ownerFaqs != null ? { ownerFaqs: payload.ownerFaqs } : {}),
   })
+  // 交车：空简述/问答不得盖掉节点里已有内容（定稿前后都适用）
+  if (node.kind === 'delivery_photos') {
+    incomingDraft = keepFilledDeliveryPatch(contentOfFlowNode(node), incomingDraft)
+  }
 
   const photoCount = countPhotosForFlowNode(
     { ...node, content: incomingDraft },
@@ -1724,7 +1730,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   if (node.kind === 'delivery_photos') {
     const gaps = collectDeliveryPhotoDraftGaps(incomingDraft)
     if (gaps.length) {
-      const err = new Error(gaps[0] || '请先补全质保信息')
+      const err = new Error(gaps[0] || '请先补全交车信息')
       err.status = 400
       throw err
     }

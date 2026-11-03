@@ -40,7 +40,9 @@
 
 ### 2.3 单上传 + 阶段自动分流（非双区 UI）
 
-商家每个阶段仍 **一个「添加照片」**；系统按 **阶段策略 + publicGate 检测** 写入 `album_images.visibility`：
+> **2026-11-03 废止**：不再写入 / 读取 `album_images.visibility` + `publicGate*` 作可公示真源。DOC-FLOW 下过程图与可公示硬拦只认**流程节点**挂图（见 `15_` §公开前打码 · skill `node-mask-state-machine`）。下表仅作历史阶段策略备忘。
+
+商家每个阶段仍 **一个「添加照片」**；**旧实现**曾按阶段策略 + publicGate 写入 `album_images.visibility`（已废止）：
 
 | 阶段 | 商家提示（一行） | 图默认策略 |
 | --- | --- | --- |
@@ -72,9 +74,12 @@
 
 ## 3. PublicView 数据模型
 
-### 3.1 album_images 扩展
+### 3.1 album_images（2026-11-03 废止）
+
+`album_images` 及下列闸字段**不再**作过程图 / 可公示真源；停写；物理删表随迁移。可公示计数改为流程节点（检测/施工/交车等）挂图。
 
 ```text
+（历史字段，勿再读作硬拦）
 visibility          private | public
 publicGateStatus    pending | passed | rejected | skipped
 publicGateReason    plate_detected | document | stage_private_only | ...

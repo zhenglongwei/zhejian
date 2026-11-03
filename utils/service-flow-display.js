@@ -21,7 +21,14 @@ function resolveFlowNodeStatusVariant(node = {}) {
 }
 
 function resolveFlowNodeSummary(node = {}) {
-  if (node.nodeCategory === NODE_CATEGORY.PHOTO || node.legacyStageId) {
+  if (
+    node.nodeCategory === NODE_CATEGORY.PHOTO ||
+    node.kind === 'intake' ||
+    node.kind === 'inspection' ||
+    node.kind === 'intake_inspection' ||
+    node.kind === 'work' ||
+    node.kind === 'delivery_photos'
+  ) {
     const count = Number(node.photoCount || 0)
     return count > 0 ? `已拍 ${count} 张` : '待上传照片'
   }
@@ -36,8 +43,11 @@ function buildFlowNodeDetailPath(albumId, node = {}) {
   const nodeId = encodeURIComponent(String(node.id || ''))
   const isPhoto =
     node.nodeCategory === NODE_CATEGORY.PHOTO ||
-    node.legacyStageId ||
-    (node.legacyStageIds && node.legacyStageIds.length)
+    node.kind === 'intake' ||
+    node.kind === 'inspection' ||
+    node.kind === 'intake_inspection' ||
+    node.kind === 'work' ||
+    node.kind === 'delivery_photos'
   if (isPhoto) {
     // 拍照节点已并入服务进度页（flow/index）内编辑，不再单独开页；旧的 photo-node 页已删除
     return `/packageMerchant/pages/album/flow/index?albumId=${id}`

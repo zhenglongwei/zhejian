@@ -78,8 +78,17 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
       next = { ...next, maskedUrl: '', preMaskedUrl: '' }
       changed = true
     }
-  } else if (outcome === 'pending' || outcome === 'mask_failed' || outcome === 'call_failed') {
-    // 清掉误标的 ok_no_privacy / 坏产物，避免公开预览继续出原图
+  } else if (
+    outcome === 'pending' ||
+    outcome === 'not_analyzed' ||
+    outcome === 'mask_failed' ||
+    outcome === 'ok_detect_mask_failed' ||
+    outcome === 'call_failed' ||
+    outcome === 'llm_failed'
+  ) {
+    // 失败/未分析：清掉冒充产物；贴码失败保留 regions 供重贴
+    const keepRegions =
+      outcome === 'mask_failed' || outcome === 'ok_detect_mask_failed'
     if (
       text(next.maskedUrl) ||
       text(next.preMaskedUrl) ||
@@ -91,8 +100,8 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
         maskedUrl: '',
         preMaskedUrl: '',
         maskOutcome: outcome,
-        maskRegions: [],
       }
+      if (!keepRegions) next.maskRegions = Array.isArray(regions) ? regions : []
       changed = true
     }
   }
@@ -342,4 +351,5 @@ module.exports = {
   writeMaskResultIntoFlowNodes,
   writeMaskedPairsIntoFlowNodes,
   collectFlowImageRefs,
+  collectBagImageRefs,
 }

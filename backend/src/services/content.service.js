@@ -584,7 +584,6 @@ async function getCaseDetail(idOrSlug, opts = {}) {
           where: { id: row.albumId },
           include: {
             nodes: { orderBy: { sortOrder: 'asc' } },
-            images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
           },
         })
       : null

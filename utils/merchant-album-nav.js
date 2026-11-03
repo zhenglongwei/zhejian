@@ -1,6 +1,6 @@
-const MERCHANT_ALBUM_EDIT_PAGE = '/packageMerchant/pages/album/edit/index'
 const MERCHANT_ALBUM_FLOW_PAGE = '/packageMerchant/pages/album/flow/index'
 const MERCHANT_ALBUM_INVITE_PAGE = '/packageMerchant/pages/album/invite/index'
+
 function resolveAlbumHasOwner(album = {}) {
   if (album.hasOwner === true) return true
   return (
@@ -9,6 +9,7 @@ function resolveAlbumHasOwner(album = {}) {
   )
 }
 
+/** 商家进相册作业：只进 DOC-FLOW 进度页（旧四阶段 edit 已废止） */
 function resolveMerchantAlbumEditPage() {
   return MERCHANT_ALBUM_FLOW_PAGE
 }
@@ -26,7 +27,6 @@ function buildMerchantAlbumEntryPath(albumId, album = {}, options = {}) {
 }
 
 module.exports = {
-  MERCHANT_ALBUM_EDIT_PAGE,
   MERCHANT_ALBUM_FLOW_PAGE,
   MERCHANT_ALBUM_INVITE_PAGE,
   resolveAlbumHasOwner,

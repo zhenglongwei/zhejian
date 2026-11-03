@@ -75,6 +75,20 @@
         <text class="host-archive-preview__p">{{ch.repairBrief}}</text>
       </block>
 
+      <block wx:if="{{ch.ownerFaqs && ch.ownerFaqs.length}}">
+        <text class="host-archive-preview__k">车主关心的问题</text>
+        <view
+          wx:for="{{ch.ownerFaqs}}"
+          wx:for-item="faq"
+          wx:for-index="fi"
+          wx:key="fi"
+          class="host-archive-preview__faq"
+        >
+          <text class="host-archive-preview__item-name">{{faq.question}}</text>
+          <text class="host-archive-preview__note">{{faq.answer}}</text>
+        </view>
+      </block>
+
       <view wx:if="{{ch.photos.length}}" class="host-archive-preview__photos">
         <view
           wx:for="{{ch.photos}}"

@@ -109,6 +109,13 @@
   gap: 4rpx;
 }
 
+.host-archive-preview__faq {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  margin-top: var(--space-xs);
+}
+
 .host-archive-preview__item-name {
   display: block;
   font-size: var(--font-body);

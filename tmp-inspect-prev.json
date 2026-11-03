@@ -1,0 +1,313 @@
+{
+  "at": "2026-11-03T08:12:39.231Z",
+  "ok": true,
+  "multiPhotoFindingIds": [
+    "fid_new_1793693517371"
+  ],
+  "photoSlots": [
+    {
+      "slot": 1,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/78df314df695db87b29e21317f469cf8.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793693517371",
+      "partName": ""
+    },
+    {
+      "slot": 2,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f217566fe4b4efa5635f4881973ceb4f.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793693517371",
+      "partName": ""
+    },
+    {
+      "slot": 3,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f3935661f9713eec6ee608029ee28cb7.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793693517371",
+      "partName": ""
+    },
+    {
+      "slot": 4,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/33891898e149b8a31e23704a53eb42ca.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793693517371",
+      "partName": ""
+    },
+    {
+      "slot": 5,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/6ef9a46e537edd432518b69f12d92a35.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793693517371",
+      "partName": ""
+    },
+    {
+      "slot": 6,
+      "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/4914901ff9445d19e17aa979e6f104fb.jpg",
+      "maskedUrl": "",
+      "findingId": "fid_new_1793693517371",
+      "partName": ""
+    }
+  ],
+  "urlsRequested": [
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/78df314df695db87b29e21317f469cf8.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f217566fe4b4efa5635f4881973ceb4f.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f3935661f9713eec6ee608029ee28cb7.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/33891898e149b8a31e23704a53eb42ca.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/6ef9a46e537edd432518b69f12d92a35.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/4914901ff9445d19e17aa979e6f104fb.jpg"
+  ],
+  "attachedUrlKeys": [
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/78df314df695db87b29e21317f469cf8.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f217566fe4b4efa5635f4881973ceb4f.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f3935661f9713eec6ee608029ee28cb7.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/33891898e149b8a31e23704a53eb42ca.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/6ef9a46e537edd432518b69f12d92a35.jpg",
+    "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/4914901ff9445d19e17aa979e6f104fb.jpg"
+  ],
+  "traces": [
+    {
+      "label": "Inspect",
+      "requestedUrlCount": 6,
+      "safeUrlCount": 6,
+      "safeUrlsIdentical": false,
+      "attachedSlots": [
+        {
+          "slot": 1,
+          "findingId": "fid_new_1793693517371",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/78df314df695db87b29e21317f469cf8.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/78df314df695db87b29e21317f469cf8.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 2,
+          "findingId": "fid_new_1793693517371",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f217566fe4b4efa5635f4881973ceb4f.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f217566fe4b4efa5635f4881973ceb4f.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 3,
+          "findingId": "fid_new_1793693517371",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f3935661f9713eec6ee608029ee28cb7.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f3935661f9713eec6ee608029ee28cb7.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 4,
+          "findingId": "fid_new_1793693517371",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/33891898e149b8a31e23704a53eb42ca.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/33891898e149b8a31e23704a53eb42ca.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 5,
+          "findingId": "fid_new_1793693517371",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/6ef9a46e537edd432518b69f12d92a35.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/6ef9a46e537edd432518b69f12d92a35.jpg",
+          "fromNode": false
+        },
+        {
+          "slot": 6,
+          "findingId": "fid_new_1793693517371",
+          "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/4914901ff9445d19e17aa979e6f104fb.jpg",
+          "safeUrl": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/4914901ff9445d19e17aa979e6f104fb.jpg",
+          "fromNode": false
+        }
+      ],
+      "raw": "{\n  \"故障分析\": \"1. 机油、机滤等常规保养耗材达到更换周期，需进行例行更换。\\n2. 空气滤芯或空调滤芯脏堵，影响进气效率或车内空气质量。\\n3. 刹车片磨损接近极限或刹车油含水量超标，存在制动安全隐患。\\n4. 底盘橡胶件（如衬套、球头）老化开裂或悬挂部件松动，导致行驶异响或操控偏差。\",\n  \"逐张看图\": [\n    {\n      \"图\": \"图1\",\n      \"内容\": \"维修车间工作台场景，台面上摆放着锤子、棘轮扳手、套筒等维修工具，左下角蓝色零件盒内装有若干拆卸下来的螺栓，背景有一台工业风扇。\"\n    },\n    {\n      \"图\": \"图2\",\n      \"内容\": \"发动机舱内部视角，技师戴着手套使用长杆工具在发动机深处进行操作，右侧可见黄色的冷却液膨胀壶及橙色机油尺手柄。\"\n    },\n    {\n      \"图\": \"图3\",\n      \"内容\": \"车辆被举升机抬起后的底盘视角，展示了拆卸轮胎后的轮毂轴承座及刹车盘，一名男子正手持手机对该部位进行拍摄记录。\"\n    },\n    {\n      \"图\": \"图4\",\n      \"内容\": \"技师手持一个拆卸下来的圆柱形汽车底盘衬套（ bushing），特写显示该衬套中心的橡胶部分已出现严重的撕裂和破损缺口。\"\n    },\n    {\n      \"图\": \"图5\",\n      \"内容\": \"地面视角，技师双手拿着一个铝合金材质的下摆臂（控制臂），旁边地面上还放置着另一个拆下的摆臂部件，背景有一条轮胎。\"\n    },\n    {\n      \"图\": \"图6\",\n      \"内容\": \"技师蹲在地面上，使用电动冲击扳手对放置在地板上的三个铝合金下摆臂组件进行拆解或组装作业，旁边立着一条轮胎。\"\n    }\n  ],\n  \"逐张归类\": [\n    {\n      \"图\": \"图1\",\n      \"检测项目\": \"维修工具与辅料准备\"\n    },\n    {\n      \"图\": \"图2\",\n      \"检测项目\": \"发动机舱检修\"\n    },\n    {\n      \"图\": \"图3\",\n      \"检测项目\": \"制动系统检查\"\n    },\n    {\n      \"图\": \"图4\",\n      \"检测项目\": \"底盘悬挂衬套检查\"\n    },\n    {\n      \"图\": \"图5\",\n      \"检测项目\": \"底盘悬挂摆臂检查\"\n    },\n    {\n      \"图\": \"图6\",\n      \"检测项目\": \"底盘悬挂摆臂检查\"\n    }\n  ],\n  \"拆分建议\": [\n    {\n      \"检测项目\": \"维修工具与辅料准备\",\n      \"图片\": [\n        \"图1\"\n      ],\n      \"描述\": \"图片展示了维修所需的通用工具及拆卸螺栓的收纳情况，属于施工前的准备工作展示，未体现具体车辆部件的技术状态。\",\n      \"处理意见\": \"仅记录\"\n    },\n    {\n      \"检测项目\": \"发动机舱检修\",\n      \"图片\": [\n        \"图2\"\n      ],\n      \"描述\": \"技师正在对发动机舱内部部件进行操作，结合小保养诉求，推测为机油滤芯更换或相关管路检查，目前无法直接判断是否存在泄漏或损坏。\",\n      \"处理意见\": \"状态良好\"\n    },\n    {\n      \"检测项目\": \"制动系统检查\",\n      \"图片\": [\n        \"图3\"\n      ],\n      \"描述\": \"展示了拆胎后的刹车盘外观，盘面看起来较为平整，未见明显的深沟槽或异常锈蚀，但无法通过此图判断刹车片剩余厚度。\",\n      \"处理意见\": \"状态良好\"\n    },\n    {\n      \"检测项目\": \"底盘悬挂衬套检查\",\n      \"图片\": [\n        \"图4\"\n      ],\n      \"描述\": \"拆下的底盘衬套橡胶体出现明显的物理断裂和缺损，这种损伤会导致车辆在行驶中出现松散感、过坎异响以及定位参数失准。\",\n      \"处理意见\": \"需处理\"\n    },\n    {\n      \"检测项目\": \"底盘悬挂摆臂检查\",\n      \"图片\": [\n        \"图5\",\n        \"图6\"\n      ],\n      \"描述\": \"展示了多个拆卸下来的铝合金下摆臂，技师正在进行分解作业。结合图4的衬套损坏情况，说明底盘悬挂系统的橡胶连接件已老化失效，需要更换整套摆臂或重新压入衬套以恢复底盘紧致度。\",\n      \"处理意见\": \"需处理\"\n    }\n  ],\n  \"检测顺序\": [\n    \"空气滤芯或空调滤芯脏堵，影响进气效率或车内空气质量。\"\n  ],\n  \"masks\": [\n    {\n      \"imageSlot\": 2,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.08,\n          \"top\": 0.73,\n          \"width\": 0.06,\n          \"height\": 0.06\n        }\n      ]\n    },\n    {\n      \"imageSlot\": 3,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.05,\n          \"top\": 0.38,\n          \"width\": 0.25,\n          \"height\": 0.35\n        }\n      ]\n    },\n    {\n      \"imageSlot\": 4,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.08,\n          \"top\": 0.73,\n          \"width\": 0.06,\n          \"height\": 0.06\n        }\n      ]\n    },\n    {\n      \"imageSlot\": 6,\n      \"regions\": [\n        {\n          \"kind\": \"face\",\n          \"left\": 0.55,\n          \"top\": 0.12,\n          \"width\": 0.18,\n          \"height\": 0.18\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "steps": {
+    "步骤1_故障分析": "1. 机油、机滤等常规保养耗材达到更换周期，需进行例行更换。\n2. 空气滤芯或空调滤芯脏堵，影响进气效率或车内空气质量。\n3. 刹车片磨损接近极限或刹车油含水量超标，存在制动安全隐患。\n4. 底盘橡胶件（如衬套、球头）老化开裂或悬挂部件松动，导致行驶异响或操控偏差。",
+    "步骤2_逐张看图": [
+      {
+        "图": "图1",
+        "内容": "维修车间工作台场景，台面上摆放着锤子、棘轮扳手、套筒等维修工具，左下角蓝色零件盒内装有若干拆卸下来的螺栓，背景有一台工业风扇。"
+      },
+      {
+        "图": "图2",
+        "内容": "发动机舱内部视角，技师戴着手套使用长杆工具在发动机深处进行操作，右侧可见黄色的冷却液膨胀壶及橙色机油尺手柄。"
+      },
+      {
+        "图": "图3",
+        "内容": "车辆被举升机抬起后的底盘视角，展示了拆卸轮胎后的轮毂轴承座及刹车盘，一名男子正手持手机对该部位进行拍摄记录。"
+      },
+      {
+        "图": "图4",
+        "内容": "技师手持一个拆卸下来的圆柱形汽车底盘衬套（ bushing），特写显示该衬套中心的橡胶部分已出现严重的撕裂和破损缺口。"
+      },
+      {
+        "图": "图5",
+        "内容": "地面视角，技师双手拿着一个铝合金材质的下摆臂（控制臂），旁边地面上还放置着另一个拆下的摆臂部件，背景有一条轮胎。"
+      },
+      {
+        "图": "图6",
+        "内容": "技师蹲在地面上，使用电动冲击扳手对放置在地板上的三个铝合金下摆臂组件进行拆解或组装作业，旁边立着一条轮胎。"
+      }
+    ],
+    "步骤3_逐张归类": [
+      {
+        "图": "图1",
+        "检测项目": "维修工具与辅料准备"
+      },
+      {
+        "图": "图2",
+        "检测项目": "发动机舱检修"
+      },
+      {
+        "图": "图3",
+        "检测项目": "制动系统检查"
+      },
+      {
+        "图": "图4",
+        "检测项目": "底盘悬挂衬套检查"
+      },
+      {
+        "图": "图5",
+        "检测项目": "底盘悬挂摆臂检查"
+      },
+      {
+        "图": "图6",
+        "检测项目": "底盘悬挂摆臂检查"
+      }
+    ],
+    "步骤4_拆分建议": [
+      {
+        "检测项目": "维修工具与辅料准备",
+        "图片": [
+          "图1"
+        ],
+        "描述": "图片展示了维修所需的通用工具及拆卸螺栓的收纳情况，属于施工前的准备工作展示，未体现具体车辆部件的技术状态。",
+        "处理意见": "仅记录"
+      },
+      {
+        "检测项目": "发动机舱检修",
+        "图片": [
+          "图2"
+        ],
+        "描述": "技师正在对发动机舱内部部件进行操作，结合小保养诉求，推测为机油滤芯更换或相关管路检查，目前无法直接判断是否存在泄漏或损坏。",
+        "处理意见": "状态良好"
+      },
+      {
+        "检测项目": "制动系统检查",
+        "图片": [
+          "图3"
+        ],
+        "描述": "展示了拆胎后的刹车盘外观，盘面看起来较为平整，未见明显的深沟槽或异常锈蚀，但无法通过此图判断刹车片剩余厚度。",
+        "处理意见": "状态良好"
+      },
+      {
+        "检测项目": "底盘悬挂衬套检查",
+        "图片": [
+          "图4"
+        ],
+        "描述": "拆下的底盘衬套橡胶体出现明显的物理断裂和缺损，这种损伤会导致车辆在行驶中出现松散感、过坎异响以及定位参数失准。",
+        "处理意见": "需处理"
+      },
+      {
+        "检测项目": "底盘悬挂摆臂检查",
+        "图片": [
+          "图5",
+          "图6"
+        ],
+        "描述": "展示了多个拆卸下来的铝合金下摆臂，技师正在进行分解作业。结合图4的衬套损坏情况，说明底盘悬挂系统的橡胶连接件已老化失效，需要更换整套摆臂或重新压入衬套以恢复底盘紧致度。",
+        "处理意见": "需处理"
+      }
+    ],
+    "步骤5_检测顺序": [
+      "空气滤芯或空调滤芯脏堵，影响进气效率或车内空气质量。"
+    ]
+  },
+  "finalEdits": [
+    {
+      "id": "edit_item_fid_new_1793693517371",
+      "kind": "item",
+      "findingId": "fid_new_1793693517371",
+      "partName": "",
+      "advice": "",
+      "body": "拆成「维修工具与辅料准备」「发动机舱检修」「制动系统检查」「底盘悬挂衬套检查」「底盘悬挂摆臂检查」并写上检查发现",
+      "groups": [
+        {
+          "partName": "维修工具与辅料准备",
+          "advice": "图片展示了维修所需的通用工具及拆卸螺栓的收纳情况，属于施工前的准备工作展示，未体现具体车辆部件的技术状态。",
+          "result": "仅记录",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/78df314df695db87b29e21317f469cf8.jpg"
+            }
+          ],
+          "imageSlots": [
+            1
+          ],
+          "imageLabel": "图1"
+        },
+        {
+          "partName": "发动机舱检修",
+          "advice": "技师正在对发动机舱内部部件进行操作，结合小保养诉求，推测为机油滤芯更换或相关管路检查，目前无法直接判断是否存在泄漏或损坏。",
+          "result": "状态良好",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f217566fe4b4efa5635f4881973ceb4f.jpg"
+            }
+          ],
+          "imageSlots": [
+            2
+          ],
+          "imageLabel": "图2"
+        },
+        {
+          "partName": "制动系统检查",
+          "advice": "展示了拆胎后的刹车盘外观，盘面看起来较为平整，未见明显的深沟槽或异常锈蚀，但无法通过此图判断刹车片剩余厚度。",
+          "result": "状态良好",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/f3935661f9713eec6ee608029ee28cb7.jpg"
+            }
+          ],
+          "imageSlots": [
+            3
+          ],
+          "imageLabel": "图3"
+        },
+        {
+          "partName": "底盘悬挂衬套检查",
+          "advice": "拆下的底盘衬套橡胶体出现明显的物理断裂和缺损，这种损伤会导致车辆在行驶中出现松散感、过坎异响以及定位参数失准。",
+          "result": "需处理",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/33891898e149b8a31e23704a53eb42ca.jpg"
+            }
+          ],
+          "imageSlots": [
+            4
+          ],
+          "imageLabel": "图4"
+        },
+        {
+          "partName": "底盘悬挂摆臂检查",
+          "advice": "展示了多个拆卸下来的铝合金下摆臂，技师正在进行分解作业。结合图4的衬套损坏情况，说明底盘悬挂系统的橡胶连接件已老化失效，需要更换整套摆臂或重新压入衬套以恢复底盘紧致度。",
+          "result": "需处理",
+          "images": [
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/6ef9a46e537edd432518b69f12d92a35.jpg"
+            },
+            {
+              "url": "https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/11/4914901ff9445d19e17aa979e6f104fb.jpg"
+            }
+          ],
+          "imageSlots": [
+            5,
+            6
+          ],
+          "imageLabel": "图5、图6"
+        }
+      ],
+      "canApply": true
+    }
+  ],
+  "faultAnalysis": "1. 机油、机滤等常规保养耗材达到更换周期，需进行例行更换。\n2. 空气滤芯或空调滤芯脏堵，影响进气效率或车内空气质量。\n3. 刹车片磨损接近极限或刹车油含水量超标，存在制动安全隐患。\n4. 底盘橡胶件（如衬套、球头）老化开裂或悬挂部件松动，导致行驶异响或操控偏差。",
+  "inspectOrder": [
+    "空气滤芯或空调滤芯脏堵，影响进气效率或车内空气质量。"
+  ],
+  "inspectOrderLen": 1
+}

@@ -17,7 +17,6 @@ async function loadAlbum(albumId) {
     where: { id: albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
 }
@@ -209,7 +208,6 @@ async function getSharedAlbumByToken(token) {
       album: {
         include: {
           nodes: { orderBy: { sortOrder: 'asc' } },
-          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
         },
       },
     },

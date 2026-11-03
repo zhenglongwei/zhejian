@@ -336,6 +336,43 @@ test('旧册空节点：从已生成报告找回交车内容', () => {
   assert.equal(delivery.content.deliveryExteriorUrl, 'https://cdn.example.com/finish-front.jpg')
 })
 
+test('定稿后只丢简述问答：仍从交车报告收回', () => {
+  const pkg = {
+    flowVersion: 6,
+    flowNodes: [
+      {
+        id: 'delivery_1',
+        kind: 'delivery_photos',
+        status: 'completed',
+        content: {
+          warrantyPeriod: '12 个月',
+          deliveryExteriorUrl: 'https://cdn.example.com/finish-front.jpg',
+          repairBrief: '',
+          ownerFaqs: [],
+        },
+      },
+      {
+        id: 'repair_1',
+        kind: 'repair_report',
+        content: {
+          repairBrief: '更换下摆臂并做了机油机滤',
+          ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
+          warrantyPeriod: '12 个月',
+          deliveryPhotos: [{ url: 'https://cdn.example.com/finish-front.jpg' }],
+        },
+        document: { status: 'pending_confirm', payload: {} },
+      },
+    ],
+  }
+  const { pkg: next, changed } = healFinishReportPackage(pkg)
+  assert.equal(changed, true)
+  const delivery = next.flowNodes.find((row) => row.kind === 'delivery_photos')
+  assert.equal(delivery.content.repairBrief, '更换下摆臂并做了机油机滤')
+  assert.equal(delivery.content.ownerFaqs.length, 1)
+  assert.equal(delivery.content.ownerFaqs[0].question, '几天可以洗车？')
+  assert.equal(delivery.content.warrantyPeriod, '12 个月')
+})
+
 test('落库迁移不得把交车报告摊成编辑袋', () => {
   const payload = {
     repairBrief: '右前门补漆完成，饰条已换新。',

@@ -84,7 +84,8 @@ cd backend && npm run case:enrichment-feed-smoke           # ENR → Feed（若�
 - [ ] design-system-check
 - [ ] component-usage-review
 - [ ] price-compliance（如适用）
-- [ ] privacy-desensitization（如适用；卷九须含 §快照只读）
+- [ ] node-mask-state-machine（凡改打码/托管读图；未跑大模型/失败原图口径）
+- [ ] privacy-desensitization（如适用；卷九须含 §快照只读；读图以节点状态机为准）
 - [ ] case-snapshot-check（卷九 / 案例快照相关改动；**先于**汇总合规表）
 
 ## 上线建议

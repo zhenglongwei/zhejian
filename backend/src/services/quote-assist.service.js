@@ -107,13 +107,13 @@ async function runGenerateLlm(facts, category) {
     '- kind=parts (parts OR materials: oil, paint, filters, bushings, etc.): oem/brand/economy ranges like "约800-1500"; leave dealer/indie empty.',
     '- kind=labor (teardown, diagnosis, labor-hour, alignment — no part brand): dealer (4S) and indie (修理厂) ranges; leave oem/brand/economy empty.',
     '- Mixed replace+labor → kind=parts. Watch/optional items: optional=true and reason must say 可由车主选择.',
-    '- omissions: inspection-backed items missing from the quote table; remind only, never auto-add as charged lines.',
+    '- omissions: inspection-backed billable items missing from the quote table. Same object shape as suggestedLines. One object = one concrete service name that can be written into the quote table (e.g. 更换机油机滤, 火花塞, 节气门清洗). Include market bands + reason. Never use umbrella titles like 建议补充常规保养项目 / 常规保养 / 以下项目. Never pack multiple services into one prose body. Never auto-add lines; the clerk applies each row separately.',
     '- Accident cars: leave all band fields empty. Skip 状态良好 / 仅记录 as charge lines. Closed packages keep the package main line.',
     '- Simplified Chinese only in natural-language values. No colloquial section titles.',
     MECHANIC_VOICE_RULES,
     `Category constraint: ${JSON.stringify(facts.constraint)}`,
     `Job facts JSON: ${JSON.stringify(facts.body)}`,
-    'Return JSON only: {"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}],"omissions":[{"title","body"}]}',
+    'Return JSON only: {"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}],"omissions":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}]}',
   ]
     .filter(Boolean)
     .join('\n')

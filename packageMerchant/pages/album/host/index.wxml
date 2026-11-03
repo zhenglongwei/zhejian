@@ -25,14 +25,10 @@
 
     <!-- 第 1 步：选方式。公开打码未完成时也停在这里 -->
     <block wx:if="{{wizardStep === 1}}">
-      <view wx:if="{{preparingPublicPreview || maskAutoRunning}}" class="merchant-host-page__status">
-        <text class="text-body">正在处理图片…</text>
-      </view>
-
       <view wx:if="{{!hosted}}" class="merchant-host-page__section">
         <text class="text-body merchant-host-page__label">托管方式</text>
         <view
-          class="merchant-host-page__option {{hostMode === 'private' ? 'is-on' : ''}}"
+          class="merchant-host-page__option {{hostMode === 'private' ? 'is-on' : ''}} {{preparingPublicPreview || maskAutoRunning ? 'is-busy' : ''}}"
           data-mode="private"
           bindtap="onSelectMode"
         >
@@ -40,12 +36,27 @@
           <text class="text-caption text-secondary">存档备查，不上店页</text>
         </view>
         <view
-          class="merchant-host-page__option {{hostMode === 'public' ? 'is-on' : ''}}"
+          class="merchant-host-page__option {{hostMode === 'public' ? 'is-on' : ''}} {{preparingPublicPreview || maskAutoRunning ? 'is-busy' : ''}}"
           data-mode="public"
           bindtap="onSelectMode"
         >
           <text class="text-body">公开托管</text>
           <text class="text-caption text-secondary">上店页前先看打码后的档案</text>
+        </view>
+
+        <view
+          wx:if="{{preparingPublicPreview || maskAutoRunning}}"
+          class="merchant-host-page__wait"
+        >
+          <view class="merchant-host-page__wait-row">
+            <text class="merchant-host-page__wait-text">正在处理图片</text>
+            <view class="merchant-host-page__wait-dots" aria-hidden="true">
+              <view class="merchant-host-page__wait-dot"></view>
+              <view class="merchant-host-page__wait-dot"></view>
+              <view class="merchant-host-page__wait-dot"></view>
+            </view>
+          </view>
+          <text class="merchant-host-page__wait-hint">请稍候，处理好再预览</text>
         </view>
       </view>
     </block>

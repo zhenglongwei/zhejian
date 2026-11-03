@@ -193,7 +193,6 @@ model Album {
   updatedAt           DateTime            @updatedAt @map("updated_at")
   order               Order?              @relation(fields: [orderId], references: [id])
   nodes               AlbumNode[]
-  images              AlbumImage[]
   authorization       AlbumAuthorization?
   publicCase          PublicCase?
   shareTokens         AlbumShareToken[]
@@ -216,36 +215,13 @@ model AlbumNode {
   comparePairRows Json   @default("[]") @map("compare_pair_rows")
   updatedAt DateTime?    @map("updated_at")
   album     Album        @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  images    AlbumImage[]
 
   @@id([albumId, nodeId])
   @@map("album_nodes")
 }
 
-model AlbumImage {
-  id                  String    @id
-  albumId             String    @map("album_id")
-  nodeId              String    @map("node_id")
-  idx                 Int       @default(0)
-  rawUrl              String    @map("raw_url") @db.VarChar(512)
-  /** ALB-UX · 单图备注（过程说明） */
-  caption             String    @default("") @db.VarChar(500)
-  /** 卷十五 · 关联软清单项 itemKey */
-  checklistItemKey    String    @default("") @map("checklist_item_key") @db.VarChar(64)
-  visibility          String    @default("private")
-  publicGateStatus    String    @default("pending") @map("public_gate_status")
-  publicGateReason    String    @default("") @map("public_gate_reason") @db.VarChar(64)
-  publicGateCheckedAt DateTime? @map("public_gate_checked_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  album               Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  node                AlbumNode @relation(fields: [albumId, nodeId], references: [albumId, nodeId], onDelete: Cascade)
-
-  @@index([albumId, nodeId])
-  @@index([albumId, visibility, publicGateStatus])
-  @@map("album_images")
-}
-
 /// PUB-GEO · 按图识图缓存（M2：上传不写；解读/生成案例才写）
+/// albumImageId 为历史键（曾对 album_images.id）；表 album_images 已废止，新写入可用 URL 指纹当 id。
 model AlbumImageVisionCache {
   id                 String    @id
   albumImageId       String    @map("album_image_id")

@@ -93,7 +93,7 @@ function assessPrivacyComplianceBlocks(albumView = {}, copyQuality = {}) {
         issue: 'no_public_media',
         field: 'publicMedia',
         message:
-          '暂无可公示过程图（接车/报价单仅留档不上网）。请在检测、施工、配件或交付节点补充可公示照片后再引导车主授权。',
+          '暂无可公示过程图（接车/报价仅留档不上网）。请在检测、施工或交车节点补充过程照片后再托管公开。',
       })
     }
   }

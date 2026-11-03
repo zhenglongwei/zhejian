@@ -45,7 +45,7 @@
 
 - [ ] `withdrawAuthorization` 校验 userId 归属
 - [ ] 运营台快照区只读；enrichment 区可编辑（若已实现 UI 拆分）
-- [ ] 公开链仅脱敏 URL（`privacy-desensitization-check` **§快照只读** 子集）
+- [ ] 公开链读图符合 `node-mask-state-machine`（优先脱敏 URL；`ok_no_privacy`/重试失败可原图；禁止假打码）（`privacy-desensitization-check` **§快照只读** 子集）
 
 ### F. 合规
 

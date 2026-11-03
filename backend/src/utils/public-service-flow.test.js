@@ -87,6 +87,9 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   assert.match(work.photos[0].caption, /拆下旧阀体/)
   // 工单条目带用料/品牌/数量，公网侧不带金额
   assert.equal(work.items[0].name, '阀体')
+  const done = flow.chapters.find((c) => c.kind === 'repair_report')
+  assert.deepEqual(done.items, [])
+  assert.ok(done.photos.length >= 1)
   assert.match(work.items[0].note, /阀体总成/)
   assert.match(work.items[0].note, /原厂/)
   assert.equal(work.items[0].amount, undefined)
@@ -331,7 +334,7 @@ test('施工中新发现使用产品名', () => {
   assert.equal(flow.chapters[0].items[0].amount, undefined)
 })
 
-test('公开页去掉未填占位，质保说明为「无」时不展示', () => {
+test('公开页完工章不列项目；质保说明为「无」时不展示', () => {
   const flow = buildPublicServiceFlow({
     flowNodes: [
       {
@@ -347,6 +350,8 @@ test('公开页去掉未填占位，质保说明为「无」时不展示', () =>
                 note: '已更换全新[品牌]机油（规格：[粘度]）及原厂机滤',
               },
             ],
+            repairBrief: '机油机滤已更换',
+            ownerFaqs: [{ question: '用什么机油？', answer: '全合成' }, { question: '空问', answer: '' }],
             warrantyPeriod: '2年',
             warrantyNotes: '无',
           },
@@ -355,7 +360,9 @@ test('公开页去掉未填占位，质保说明为「无」时不展示', () =>
     ],
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
-  assert.equal(done.items[0].note, '已更换全新机油及原厂机滤')
+  assert.deepEqual(done.items, [])
+  assert.equal(done.repairBrief, '机油机滤已更换')
+  assert.deepEqual(done.ownerFaqs, [{ question: '用什么机油？', answer: '全合成' }])
   assert.equal(done.warrantyPeriod, '2年')
   assert.equal(done.warrantyNotes, '')
 })
@@ -476,5 +483,19 @@ test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', 
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.ok(done)
   assert.equal(done.photos[0].url, RAW)
+})
+
+test('llm_failed / not_analyzed 公开预览允许原图上网', () => {
+  const { resolvePhotoDisplayUrl } = require('./public-service-flow')
+  const lookup = new Map()
+  lookup._requireDesensitized = true
+  assert.equal(
+    resolvePhotoDisplayUrl({ url: RAW, maskOutcome: 'llm_failed', maskedUrl: '' }, lookup),
+    RAW,
+  )
+  assert.equal(
+    resolvePhotoDisplayUrl({ url: RAW, maskOutcome: 'not_analyzed', maskedUrl: '' }, lookup),
+    RAW,
+  )
 })
 

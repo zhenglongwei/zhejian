@@ -386,7 +386,7 @@ async function runMediaDesensitize(mediaId, context = {}) {
         riskTags: [],
         detections: [],
         engineVersion: engineResult.engineVersion || ENGINE_VERSION,
-        maskOutcome: 'pending',
+        maskOutcome: 'not_analyzed',
         noSensitive: false,
       }
     }
@@ -810,13 +810,9 @@ async function syncMediaWithFlow(albumId, flowNodes, previousRefs = []) {
       .map((ref) => parseKey(ref && ref.url))
       .filter(Boolean),
   )
+  // 废止 album_images 占用查询；本册 flow 已不用的 key 可卸登记（文件可留）
   for (const objectKey of previousKeys) {
     if (currentKeys.has(objectKey)) continue
-    const stillUsed = await prisma.albumImage.findFirst({
-      where: { rawUrl: { contains: objectKey } },
-      select: { id: true },
-    })
-    if (stillUsed) continue
     await repo.deleteMany({ where: { objectKey } })
   }
   return { changedNodes }

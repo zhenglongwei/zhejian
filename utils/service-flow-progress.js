@@ -104,7 +104,13 @@ function resolveActiveNodeCta(node = {}) {
   if (node.kind === 'work') {
     return { text: '登记工单内容', type: 'photo' }
   }
-  if (node.nodeCategory === 'photo' || node.legacyStageId || node.legacyStageIds) {
+  if (
+    node.nodeCategory === 'photo' ||
+    node.kind === 'intake' ||
+    node.kind === 'inspection' ||
+    node.kind === 'intake_inspection' ||
+    node.kind === 'delivery_photos'
+  ) {
     return { text: '上传并确认', type: 'photo' }
   }
   const doc = node.document || {}

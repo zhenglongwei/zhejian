@@ -324,6 +324,27 @@ test('只有一组时仍展示拆分建议，但不能应用', () => {
   assert.equal(got.edits[0].groups[0].partName, '划痕检测')
 })
 
+test('建议补充检测主键可读，旧键检测顺序仍兼容', () => {
+  const got = parseInspectionAdvice(
+    {
+      故障分析: '1. 机油机滤到期。\n2. 底盘异响。',
+      建议补充检测: ['机油机滤尚未拍照'],
+      拆分建议: [],
+    },
+    [],
+    [],
+    [],
+  )
+  assert.deepEqual(got.inspectOrder, ['机油机滤尚未拍照'])
+  const legacy = parseInspectionAdvice(
+    { 故障分析: '异响。', 检测顺序: ['先查底盘'], 拆分建议: [] },
+    [],
+    [],
+    [],
+  )
+  assert.deepEqual(legacy.inspectOrder, ['先查底盘'])
+})
+
 test('故障分析键可读，检测顺序为空则不保留', () => {
   const got = parseInspectionAdvice(
     {
@@ -383,7 +404,7 @@ test('逐张看图和逐张归类只进步骤日志，不参与拆分', () => {
   assert.equal(steps.步骤2_逐张看图[1].内容, '底盘。')
   assert.equal(steps.步骤3_逐张归类[1].检测项目, '底盘检测')
   assert.equal(steps.步骤4_拆分建议[0].检测项目, '划痕检测')
-  assert.deepEqual(steps.步骤5_检测顺序, ['底盘这次没有对应照片'])
+  assert.deepEqual(steps.步骤5_建议补充检测, ['底盘这次没有对应照片'])
 })
 
 test('图注和空壳不能变成拆分建议', () => {

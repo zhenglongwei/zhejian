@@ -29,7 +29,6 @@ const {
   SERVICE_ALBUM_STATUS_VARIANT,
 } = require('../../../../constants/service-album-status')
 const {
-  resolveLegacyStageIdsForFlowNode,
   FINDING_RESULT,
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
@@ -113,7 +112,6 @@ const {
   resolveAiReviewFindingIndex,
 } = require('../../../../utils/ai-review-target')
 const {
-  persistAlbumNodeImages,
   uploadImage,
   uploadImagesBatch,
 } = require('../../../../utils/media-upload')
@@ -383,10 +381,12 @@ function mapCompletedStepPreview(step, node, album = {}) {
   }
 
   if (kind === 'repair_report') {
-    const workItems = Array.isArray(payload.workItems)
-      ? payload.workItems
-      : Array.isArray(payload.items)
-        ? payload.items
+    // 单据预览：payload 可能是信封空壳，正文以节点 content 为准
+    const bag = { ...nodeContentOf(node), ...payload }
+    const workItems = Array.isArray(bag.workItems)
+      ? bag.workItems
+      : Array.isArray(bag.items)
+        ? bag.items
         : []
     const mapped = workItems.map((row) => ({
       name: String((row && row.name) || ''),
@@ -394,8 +394,8 @@ function mapCompletedStepPreview(step, node, album = {}) {
       amount: row && row.amount != null ? row.amount : '',
     }))
     const total =
-      payload.totalAmount != null
-        ? Number(payload.totalAmount) || 0
+      bag.totalAmount != null
+        ? Number(bag.totalAmount) || 0
         : mapped.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
     return {
       ...base,
@@ -408,15 +408,15 @@ function mapCompletedStepPreview(step, node, album = {}) {
         sealed: String((node.document && node.document.status) || '') === 'confirmed',
         statusLabel: summary === '草稿' ? '' : summary,
         storeName,
-        metaLine,
+        metaLine: buildSheetMetaLine(bag, album),
         styleVariant: 'document',
-        repairBrief: String(payload.repairBrief || '').trim(),
+        repairBrief: String(bag.repairBrief || '').trim(),
         workItems: mapped,
         totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
-        deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
-        warrantyPeriod: String(payload.warrantyPeriod || ''),
-        warrantyNotes: resolveWarrantyNotes(payload),
-        ownerFaqs: (Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [])
+        deliveryPhotos: Array.isArray(bag.deliveryPhotos) ? bag.deliveryPhotos : [],
+        warrantyPeriod: String(bag.warrantyPeriod || ''),
+        warrantyNotes: resolveWarrantyNotes(bag),
+        ownerFaqs: (Array.isArray(bag.ownerFaqs) ? bag.ownerFaqs : [])
           .map((row, index) => ({
             id: String((row && row.id) || `faq_${index + 1}`),
             question: String((row && (row.question || row.q)) || '').trim(),
@@ -432,29 +432,30 @@ function mapCompletedStepPreview(step, node, album = {}) {
   return { ...base, kind, summary }
 }
 
-const STAGE_LABELS = {
-  stage_1: {
+/** 进度屏分区标签（键用 kind，不再用 album.nodes stage_*） */
+const SECTION_LABELS = {
+  intake: {
     title: '接车照片',
     tips: '连拍进场外观，把里程表拍进去',
     captionPlaceholder: '本图说明（选填）',
     findingMode: false,
     findingKind: '',
   },
-  stage_2: {
+  inspection: {
     title: '',
     tips: '',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
-  stage_5: {
+  work: {
     title: '',
     tips: '',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
   },
-  stage_6: {
+  delivery_photos: {
     title: '交车照',
     tips: '拍修好后的整车外观；部位图可选',
     captionPlaceholder: '',
@@ -727,19 +728,20 @@ Page({
     await this.loadFlow()
   },
 
-  mapStageImages(stage) {
-    return ((stage && stage.images) || []).map((img) => ({
-      url: typeof img === 'string' ? img : img.url,
-      caption: typeof img === 'object' ? img.caption || '' : '',
-      id: typeof img === 'object' ? img.id || '' : '',
-    }))
-  },
-
-  /** 接车与检测：统一入口；存量 stage_1 并入 stage_2 展示 */
-  collectIntakeImages(album) {
-    const stage1 = (album.nodes || []).find((n) => n.id === 'stage_1')
-    const stage2 = (album.nodes || []).find((n) => n.id === 'stage_2')
-    return this.mapStageImages(stage1).concat(this.mapStageImages(stage2))
+  mapPendingImages(list = []) {
+    return (list || [])
+      .map((img) => {
+        if (!img) return null
+        if (typeof img === 'string') return { url: img, caption: '', id: '' }
+        const url = String(img.url || img.rawUrl || '').trim()
+        if (!url) return null
+        return {
+          url,
+          caption: String(img.caption || '').trim(),
+          id: String(img.id || img.imageId || '').trim(),
+        }
+      })
+      .filter(Boolean)
   },
 
   collectMergedWorkDraftFindings(flowNodes = [], activeNode = null, photoDraft = {}) {
@@ -910,7 +912,7 @@ Page({
       }
     }
 
-    // 施工图以节点 content 为真源；stage_5 是落库镜像，再并入会因 URL 差异整批翻倍
+    // 施工图只认工单节点 content
     ;(flowNodes || []).forEach((node) => {
       if (!node || node.kind !== 'work') return
       ;(nodeContentOf(node).findings || []).forEach((raw) => {
@@ -918,17 +920,6 @@ Page({
         item.images.forEach((img) => put(img.url, item.partName, img.imageId))
       })
     })
-    if (!Object.keys(byKey).length) {
-      ;((album && album.nodes) || []).forEach((node) => {
-        if (!node || node.id !== 'stage_5') return
-        ;(node.images || []).forEach((img) => {
-          const url = typeof img === 'string' ? img : img && img.url
-          const imageId =
-            typeof img === 'object' ? img.id || img.imageId || '' : ''
-          put(url, typeof img === 'object' ? img.caption || '' : '', imageId)
-        })
-      })
-    }
     return Object.keys(byKey).map((k) => byKey[k])
   },
 
@@ -985,15 +976,14 @@ Page({
     const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
     const strictFindings = Object.prototype.hasOwnProperty.call(photoDraft, 'findings')
 
-    // 接车＝留证：问诊 + 里程表槽 + 外观灯光选传，**不做**故障判定
+    // 接车＝留证：只读节点 content.pendingImages
     if (node && node.kind === 'intake') {
-      const meta = STAGE_LABELS.stage_1
-      const stage = (album.nodes || []).find((n) => n.id === 'stage_1') || { images: [] }
-      const images = this.mapStageImages(stage)
+      const meta = SECTION_LABELS.intake
+      const images = this.mapPendingImages(photoDraft.pendingImages)
       const odoKey = mediaKey(photoDraft.odometerUrl)
       return [
         {
-          stageId: 'stage_1',
+          stageId: 'intake',
           title: meta.title,
           tips: meta.tips,
           captionPlaceholder: meta.captionPlaceholder,
@@ -1012,54 +1002,45 @@ Page({
 
     // 检测＝细查：部位级 findings（结论进检测报告）
     if (node && node.kind === 'inspection') {
-      const meta = STAGE_LABELS.stage_2
-      const stage = (album.nodes || []).find((n) => n.id === 'stage_2') || { images: [] }
-      const images = this.mapStageImages(stage)
+      const meta = SECTION_LABELS.inspection
+      const findings = mapFindingRows([], draftFindings, {
+        pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+        strictFindings: true,
+      })
       return [
         {
-          stageId: 'stage_2',
+          stageId: 'inspection',
           title: meta.title,
           tips: '',
           captionPlaceholder: meta.captionPlaceholder,
           findingMode: true,
           findingKind: 'inspection',
-          images,
-          // 检测只认草稿 findings；禁止按图 caption 静默摊成多项
-          findings: mapFindingRows(images, draftFindings, {
-            pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
-            strictFindings: true,
-          }),
+          images: this.findingImagesFromRows(findings),
+          findings,
           odometerUrl: '',
           odometerImageId: '',
         },
       ]
     }
 
-    // 存量合并节点（v5）：统一入口，stage_1 并入 stage_2 展示
+    // 存量合并节点（v5）：检测 findings 仍只认 content
     if (node && node.kind === 'intake_inspection') {
-      const meta = STAGE_LABELS.stage_2
-      const images = this.collectIntakeImages(album)
-      const mapped = mapFindingRows(images, draftFindings, {
+      const meta = SECTION_LABELS.inspection
+      const mapped = mapFindingRows([], draftFindings, {
         odometerUrl: photoDraft.odometerUrl,
         pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
         strictFindings: true,
       })
       const slot = pickOdometerSlot(photoDraft, mapped)
-      const odoKey = mediaKey(slot.odometerUrl)
-      const findingImages = images.filter((img) => {
-        const key = mediaKey(img && img.url)
-        if (odoKey && key === odoKey) return false
-        return String((img && img.caption) || '').trim() !== '仪表'
-      })
       return [
         {
-          stageId: 'stage_2',
+          stageId: 'inspection',
           title: meta.title,
           tips: '',
           captionPlaceholder: meta.captionPlaceholder,
           findingMode: true,
           findingKind: 'inspection',
-          images: findingImages,
+          images: this.findingImagesFromRows(slot.findings, slot.odometerUrl),
           findings: slot.findings,
           odometerUrl: slot.odometerUrl,
           odometerImageId: slot.odometerImageId,
@@ -1067,42 +1048,66 @@ Page({
       ]
     }
 
-    const ids = resolveLegacyStageIdsForFlowNode(node)
-    return ids.map((stageId) => {
-      const meta = STAGE_LABELS[stageId] || {
-        title: stageId,
-        tips: '',
-        findingMode: false,
-        findingKind: '',
+    if (node && node.kind === 'work') {
+      const meta = SECTION_LABELS.work
+      const mergedDraft = this.collectMergedWorkDraftFindings(flowNodes, node, photoDraft)
+      let findings = mapFindingRows([], mergedDraft, {
+        mode: 'work',
+        pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+        strictFindings,
+      })
+      const images = this.flattenWorkSectionImages(findings)
+      return [
+        {
+          stageId: 'work',
+          title: meta.title,
+          tips: meta.tips,
+          captionPlaceholder: meta.captionPlaceholder || '本图说明',
+          findingMode: true,
+          findingKind: 'work',
+          images,
+          findings,
+        },
+      ]
+    }
+
+    if (node && node.kind === 'delivery_photos') {
+      const meta = SECTION_LABELS.delivery_photos
+      const exterior = String(photoDraft.deliveryExteriorUrl || '').trim()
+      const images = []
+      const push = (url, caption) => {
+        const u = String(url || '').trim()
+        const key = mediaKey(u)
+        if (!u || !key || images.some((row) => mediaKey(row.url) === key)) return
+        images.push({ url: u, caption: String(caption || '').trim() })
       }
-      const stage = (album.nodes || []).find((n) => n.id === stageId) || { images: [] }
-      let images = this.mapStageImages(stage)
-      const findingMode = Boolean(meta.findingMode)
-      const findingKind = meta.findingKind || (findingMode ? 'inspection' : '')
-      let findings = []
-      if (findingMode) {
-        const mergedDraft =
-          findingKind === 'work'
-            ? this.collectMergedWorkDraftFindings(flowNodes, node, photoDraft)
-            : draftFindings
-        findings = mapFindingRows(images, mergedDraft, {
-          mode: findingKind === 'work' ? 'work' : 'inspection',
-          pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
-          strictFindings,
-        })
-        if (findingKind === 'work') images = this.flattenWorkSectionImages(findings)
-      }
-      return {
-        stageId,
-        title: meta.title,
-        tips: meta.tips,
-        captionPlaceholder: meta.captionPlaceholder || '本图说明',
-        findingMode,
-        findingKind,
-        images,
-        findings,
-      }
-    })
+      if (exterior) push(exterior, '整车外观')
+      ;(Array.isArray(photoDraft.selectedDeliveryUrls) ? photoDraft.selectedDeliveryUrls : []).forEach(
+        (row) => {
+          const url =
+            typeof row === 'string'
+              ? row
+              : row && typeof row === 'object'
+                ? row.url || row.rawUrl || ''
+                : ''
+          push(url, '交车图')
+        },
+      )
+      return [
+        {
+          stageId: 'delivery_photos',
+          title: meta.title,
+          tips: meta.tips,
+          captionPlaceholder: meta.captionPlaceholder || '本图说明',
+          findingMode: false,
+          findingKind: '',
+          images,
+          findings: [],
+        },
+      ]
+    }
+
+    return []
   },
 
   decorateQuoteLines(lines = [], evidenceFindings = []) {
@@ -1264,6 +1269,15 @@ Page({
         if (kind === 'work') return item.images.length || item.partName
         return item.url || item.partName || (item.images && item.images.length)
       })
+  },
+
+  /** 检测/工单有图闸：只数各项 images[]，禁止用 section.images / stage_* 散图当真源 */
+  countAttachedFindingPhotos(sections = this.data.sections) {
+    return this.collectFindingsFromSections(sections).reduce((n, row) => {
+      if (!row) return n
+      if (Array.isArray(row.images) && row.images.length) return n + row.images.length
+      return n + (row.url ? 1 : 0)
+    }, 0)
   },
 
   countFindingMissingFields(item = {}, findingKind = 'inspection') {
@@ -1613,7 +1627,6 @@ Page({
       const activeIsPhoto = Boolean(
         active &&
           (active.nodeCategory === 'photo' ||
-            (active.legacyStageIds && active.legacyStageIds.length) ||
             active.kind === 'intake_inspection' ||
             active.kind === 'intake' ||
             active.kind === 'inspection' ||
@@ -1621,7 +1634,11 @@ Page({
             active.kind === 'delivery_photos'),
       )
       const activeIsDoc = Boolean(active && active.document)
-      const docPayload = (active && active.document && active.document.payload) || {}
+      // 单据正文在 content；payload 可能只是信封。合并后工作项/简述等才读得到
+      const docPayload = {
+        ...nodeContentOf(active),
+        ...((active && active.document && active.document.payload) || {}),
+      }
       let photoDraft = { ...nodeContentOf(active) }
       if (active && active.id) {
         const local = readLocalFlowDraft(this.albumId, active.id)
@@ -1642,6 +1659,17 @@ Page({
           }
           if (!String(bag.deliveryExteriorUrl || '').trim() && String(photoDraft.deliveryExteriorUrl || '').trim()) {
             delete bag.deliveryExteriorUrl
+          }
+          // 本地草稿空简述/问答不得盖掉节点里已有内容（定稿后反复丢字的漏口）
+          if (!String(bag.repairBrief || '').trim() && String(photoDraft.repairBrief || '').trim()) {
+            delete bag.repairBrief
+          }
+          if (
+            !(Array.isArray(bag.ownerFaqs) && bag.ownerFaqs.length) &&
+            Array.isArray(photoDraft.ownerFaqs) &&
+            photoDraft.ownerFaqs.length
+          ) {
+            delete bag.ownerFaqs
           }
           photoDraft = { ...photoDraft, ...bag }
         }
@@ -1792,14 +1820,6 @@ Page({
             }
           }
           this._migratedArchiveCopy = migratedArchiveCopy
-          // 兼容：旧数据仅写在 stage_6、未记引用字段
-          if (!deliveryExteriorUrl) {
-            const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
-            const first = stage6 && Array.isArray(stage6.images) && stage6.images[0]
-            const fallbackUrl =
-              typeof first === 'string' ? first : first && first.url ? first.url : ''
-            if (fallbackUrl) deliveryExteriorUrl = String(fallbackUrl).trim()
-          }
           const packed = this.hydrateDeliveryGallery(album, photoDraft, deliveryExteriorUrl)
           workImagePool = packed.workImagePool
           deliveryPhotos = packed.deliveryPhotos
@@ -4011,13 +4031,18 @@ Page({
 
   deliveryFormFromNodes(album, flowNodes = [], photoDraft = {}) {
     const deliveryNode = (flowNodes || []).find((node) => node && node.kind === 'delivery_photos')
+    const repairNode = (flowNodes || []).find((node) => node && node.kind === 'repair_report')
     const deliveryDraft = nodeContentOf(deliveryNode)
+    const repairDraft = nodeContentOf(repairNode)
     const faqSource =
       (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
         ? deliveryDraft.ownerFaqs
         : null) ||
       (Array.isArray(photoDraft.ownerFaqs) && photoDraft.ownerFaqs.length
         ? photoDraft.ownerFaqs
+        : null) ||
+      (Array.isArray(repairDraft.ownerFaqs) && repairDraft.ownerFaqs.length
+        ? repairDraft.ownerFaqs
         : null) ||
       []
     const selected =
@@ -4041,12 +4066,14 @@ Page({
     const packed = this.hydrateDeliveryGallery(album, source, exterior)
     return {
       warrantyPeriod: String(
-        deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || '',
+        deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || repairDraft.warrantyPeriod || '',
       ).trim(),
       warrantyNotes:
-        resolveWarrantyNotes(deliveryDraft) || resolveWarrantyNotes(photoDraft),
+        resolveWarrantyNotes(deliveryDraft) ||
+        resolveWarrantyNotes(photoDraft) ||
+        resolveWarrantyNotes(repairDraft),
       repairBrief: String(
-        deliveryDraft.repairBrief || photoDraft.repairBrief || '',
+        deliveryDraft.repairBrief || photoDraft.repairBrief || repairDraft.repairBrief || '',
       ).trim(),
       ownerFaqs: (Array.isArray(faqSource) ? faqSource : [])
         .map((row, index) => ({
@@ -4121,12 +4148,6 @@ Page({
         push(url)
       },
     )
-    const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
-    ;((stage6 && stage6.images) || []).forEach((img) => {
-      const url = typeof img === 'string' ? img : img && img.url
-      const caption = typeof img === 'object' ? img.caption || '' : ''
-      push(url, caption)
-    })
     return this.packDeliveryGallery(photos, exterior)
   },
 
@@ -4134,7 +4155,7 @@ Page({
     const packed = this.packDeliveryGallery(photos, exteriorUrl)
     const exterior = packed.deliveryExteriorUrl
     const sections = (this.data.sections || []).map((section) => {
-      if (section.stageId !== 'stage_6') return section
+      if (section.stageId !== 'delivery_photos') return section
       const images = []
       if (exterior) images.push({ url: exterior, caption: '整车外观' })
       ;(packed.deliveryPhotos || []).forEach((row) => {
@@ -5630,117 +5651,9 @@ Page({
   },
 
   async persistPhotos() {
-    const album = (await fetchMerchantServiceAlbum(this.albumId).catch(() => this._album)) || this._album || {}
-    const sectionMap = {}
-    this.data.sections.forEach((section) => {
-      if (section.findingMode && section.findingKind === 'work') {
-        sectionMap[section.stageId] = this.appendPendingToImages(
-          this.flattenWorkSectionImages(section.findings || []),
-        )
-      } else if (section.findingMode) {
-        const odo = String(this.data.odometerUrl || '').trim()
-        const findingImgs = this.findingImagesFromRows(section.findings || [], odo)
-        const withOdo = odo
-          ? [{ url: odo, caption: '仪表' }].concat(findingImgs)
-          : findingImgs
-        sectionMap[section.stageId] = this.appendPendingToImages(withOdo)
-      } else if (section.stageId === 'stage_6' && this.data.isDeliveryPhotoStep) {
-        // 交车照本机上传，全部写入 stage_6
-        const exterior = String(this.data.deliveryExteriorUrl || '').trim()
-        const images = []
-        const pushImg = (url, caption) => {
-          const u = String(url || '').trim()
-          const key = mediaKey(u)
-          if (!u || !key || images.some((row) => mediaKey(row.url) === key)) return
-          images.push({ url: u, caption: String(caption || '').trim() })
-        }
-        if (exterior) pushImg(exterior, '整车外观')
-        ;(this.data.deliveryPhotos || this.data.workImagePool || []).forEach((row) => {
-          if (!row || !row.url || row.url === exterior) return
-          pushImg(row.url, row.partName || '交车图')
-        })
-        sectionMap[section.stageId] = images
-      } else if (this.data.isIntakePhotoStep) {
-        const odo = String(this.data.odometerUrl || '').trim()
-        const rest = (section.images || []).filter((img) => mediaKey(img && img.url) !== mediaKey(odo))
-        sectionMap[section.stageId] = odo
-          ? [{ url: odo, caption: '仪表', imageId: this.data.odometerImageId || '' }].concat(rest)
-          : rest
-      } else {
-        sectionMap[section.stageId] = section.images
-      }
-    })
-    // 接车与检测统一写入 stage_2，清空旧 stage_1
-    if (this.data.activeNode && this.data.activeNode.kind === 'intake_inspection') {
-      sectionMap.stage_1 = []
-      if (!sectionMap.stage_2) sectionMap.stage_2 = []
-    }
-    const imagesByNode = {}
-    ;(album.imageMeta || []).forEach((img) => {
-      const nid = String((img && (img.nodeId || img.node_id)) || '')
-      if (!nid) return
-      if (!imagesByNode[nid]) imagesByNode[nid] = []
-      imagesByNode[nid].push({
-        url: img.rawUrl || img.url,
-        id: img.id || '',
-        caption: img.caption || '',
-      })
-    })
-    let nodes = (album.nodes || []).filter((node) => {
-      const id = String((node && (node.id || node.nodeId)) || '')
-      return id && id !== 'library'
-    }).map((node) => {
-      const id = node.id || node.nodeId
-      const fallback = (node.images && node.images.length)
-        ? node.images
-        : (imagesByNode[id] || [])
-      const images = Object.prototype.hasOwnProperty.call(sectionMap, id)
-        ? sectionMap[id]
-        : fallback
-      if (!Object.prototype.hasOwnProperty.call(sectionMap, id)) {
-        return { ...node, id, images: fallback }
-      }
-      return {
-        ...node,
-        id,
-        images,
-        status: images.length ? 'completed' : 'pending',
-        updatedAt: new Date().toISOString(),
-      }
-    })
-    Object.keys(sectionMap).forEach((stageId) => {
-      if (nodes.some((n) => n.id === stageId)) return
-      nodes = nodes.concat([
-        {
-          id: stageId,
-          title: (STAGE_LABELS[stageId] && STAGE_LABELS[stageId].title) || stageId,
-          status: sectionMap[stageId].length ? 'completed' : 'pending',
-          images: sectionMap[stageId],
-          note: '',
-          updatedAt: new Date().toISOString(),
-        },
-      ])
-    })
-    const { nodes: persisted } = await persistAlbumNodeImages(
-      nodes.map((node) => ({
-        id: node.id,
-        title: node.title,
-        status: node.status,
-        images: node.images || [],
-        note: node.note || '',
-        comparePairRows: node.comparePairRows || [],
-        updatedAt: node.updatedAt || new Date().toISOString(),
-      })),
-    )
-    const nodePatches = persisted.filter((node) =>
-      Object.prototype.hasOwnProperty.call(sectionMap, node.id),
-    )
-    await saveMerchantServiceAlbum(this.albumId, {
-      nodePatches: nodePatches.length ? nodePatches : persisted,
-    })
-    this._album = { ...album, nodes: persisted }
+    // 已废止：进度图只写节点 content，不再双写 album.nodes stage_*
+    return
   },
-
   countMissingCaptions() {
     let missing = 0
     this.data.sections.forEach((section) => {
@@ -5780,29 +5693,33 @@ Page({
     const onTable = this.quoteTableNameSet(lines)
     const tableHadNames = Object.keys(onTable).length > 0
     const suggestedLines = Array.isArray(raw.suggestedLines) ? raw.suggestedLines : []
+    const buildBandChips = (row) => {
+      const kind = String((row && row.kind) || 'parts')
+      if (kind === 'labor') {
+        return [
+          row && row.dealer
+            ? { key: 'dealer', k: '4S店', v: String(row.dealer).trim() }
+            : null,
+          row && row.indie
+            ? { key: 'indie', k: '修理厂', v: String(row.indie).trim() }
+            : null,
+        ].filter((chip) => chip && chip.v)
+      }
+      return [
+        row && row.oem ? { key: 'oem', k: '原厂', v: String(row.oem).trim() } : null,
+        row && row.brand ? { key: 'brand', k: '品牌', v: String(row.brand).trim() } : null,
+        row && row.economy
+          ? { key: 'eco', k: '经济件', v: String(row.economy).trim() }
+          : null,
+      ].filter((chip) => chip && chip.v)
+    }
     const quoteRefs = suggestedLines
       .map((row, lineIndex) => {
         const name = String((row && row.name) || '').trim()
         const reason = String((row && row.reason) || '').trim()
         const kind = String((row && row.kind) || 'parts')
         const optional = Boolean(row && row.optional)
-        const bandChips =
-          kind === 'labor'
-            ? [
-                row && row.dealer
-                  ? { key: 'dealer', k: '4S店', v: String(row.dealer).trim() }
-                  : null,
-                row && row.indie
-                  ? { key: 'indie', k: '修理厂', v: String(row.indie).trim() }
-                  : null,
-              ].filter((chip) => chip && chip.v)
-            : [
-                row && row.oem ? { key: 'oem', k: '原厂', v: String(row.oem).trim() } : null,
-                row && row.brand ? { key: 'brand', k: '品牌', v: String(row.brand).trim() } : null,
-                row && row.economy
-                  ? { key: 'eco', k: '经济件', v: String(row.economy).trim() }
-                  : null,
-              ].filter((chip) => chip && chip.v)
+        const bandChips = buildBandChips(row)
         if (!name && !reason && !bandChips.length) return null
         const displayName = name || '报价项'
         const hit = Boolean(name && onTable[name])
@@ -5825,17 +5742,31 @@ Page({
       .filter(Boolean)
     const omissions = (Array.isArray(raw.omissions) ? raw.omissions : [])
       .map((row, index) => {
-        const base = this.decorateBriefItem(row)
-        if (!base.hasTitle && !base.hasBody) return null
-        const applyName = String(base.title || '').trim()
-        const hit = Boolean(applyName && onTable[applyName])
+        const name = String((row && (row.name || row.title)) || '').trim()
+        const reason = String((row && (row.reason || row.body)) || '').trim()
+        const kind = String((row && row.kind) || 'parts')
+        const optional = Boolean(row && row.optional)
+        const bandChips = buildBandChips(row)
+        if (!name && !reason && !bandChips.length) return null
+        // 总称袋不得应用进报价表
+        if (/^建议补充|常规保养项目|以下项目|下列项目/.test(name)) return null
+        const hit = Boolean(name && onTable[name])
         return {
-          ...base,
           index,
           source: 'omission',
-          applyName,
-          canApply: Boolean(applyName) && !hit,
-          applied: Boolean(applyName) && hit,
+          name: name || '补充项',
+          title: name || '补充项',
+          applyName: name,
+          kind,
+          reason,
+          body: reason,
+          optional,
+          bandChips,
+          hasChips: bandChips.length > 0,
+          hasTitle: Boolean(name),
+          hasBody: Boolean(reason),
+          canApply: Boolean(name) && !hit,
+          applied: Boolean(name) && hit,
         }
       })
       .filter(Boolean)
@@ -7343,24 +7274,16 @@ Page({
         wx.showToast({ title: '请先拍留证', icon: 'none' })
         return
       }
-    } else if (kind === 'inspection') {
-      const piled = normalizePendingImages(this.data.pendingImages).length
-      const total =
-        this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0) + piled
-      if (total < 1) {
+    } else if (kind === 'inspection' || kind === 'work') {
+      const shots = this.countAttachedFindingPhotos()
+      const piled =
+        kind === 'inspection' ? normalizePendingImages(this.data.pendingImages).length : 0
+      if (shots + piled < 1) {
         wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
         return
       }
-    } else if (kind === 'work') {
-      const shots = this.collectFindingsFromSections().reduce(
-        (n, row) => n + ((row && row.images && row.images.length) || 0),
-        0,
-      )
-      if (shots < 1) {
-        wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
-        return
-      }
-    } else if (kind !== 'delivery_photos') {
+    } else if (kind !== 'delivery_photos' && kind !== 'intake' && kind !== 'intake_inspection') {
+      // 非检测/工单才允许看 section.images；检测/工单已在上面按 findings 计数
       const total = this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0)
       if (total < 1) {
         wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
@@ -7422,8 +7345,11 @@ Page({
     }
     if (kind === 'delivery_photos') {
       const gaps = collectDeliveryPhotoDraftGaps({
+        repairBrief: this.data.repairBrief,
+        ownerFaqs: this.data.ownerFaqs,
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
+        delivererName: this.data.delivererName,
         deliveryExteriorUrl: this.data.deliveryExteriorUrl,
         selectedDeliveryUrls: (this.data.workImagePool || [])
           .filter((row) => row && row.selected)

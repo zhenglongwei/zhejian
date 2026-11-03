@@ -1438,11 +1438,26 @@ function resolveWarrantyNotes(source = {}) {
 
 function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
+  if (!String(payload.repairBrief || '').trim()) {
+    gaps.push('请填写本次维修简述')
+  }
+  const faqs = (Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : []).filter(
+    (row) =>
+      row &&
+      String(row.question || '').trim() &&
+      String(row.answer || '').trim(),
+  )
+  if (!faqs.length) {
+    gaps.push('请至少填写 1 条车主关心的问题（问+答）')
+  }
   const period = String(payload.warrantyPeriod || '').trim()
   if (!period) {
     gaps.push('请填写质保期限')
   } else if (isVagueWarrantyPeriod(period)) {
     gaps.push('质保期限请写清时长或里程，勿填「以门店公示为准」')
+  }
+  if (!String(payload.delivererName || '').trim()) {
+    gaps.push('请填写交付人')
   }
   if (!String(payload.deliveryExteriorUrl || '').trim()) {
     gaps.push('请指定整车外观（从施工图选择或补拍）')

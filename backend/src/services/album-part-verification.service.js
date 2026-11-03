@@ -144,7 +144,6 @@ async function loadAlbumPartsContext(albumId, userId) {
       partVerifyGuideText: true,
       partVerifyGuideInformed: true,
       partVerifyGuideFeedback: true,
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
 

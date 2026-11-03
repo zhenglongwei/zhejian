@@ -49,6 +49,91 @@
   border-color: var(--color-primary);
 }
 
+.merchant-host-page__option.is-busy {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.merchant-host-page__wait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  border: 2rpx solid var(--color-warning);
+  background-color: var(--color-warning-light);
+  animation: merchant-host-wait-pulse 1.6s ease-in-out infinite;
+}
+
+.merchant-host-page__wait-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.merchant-host-page__wait-text {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-warning);
+  line-height: 1.4;
+}
+
+.merchant-host-page__wait-hint {
+  font-size: var(--font-size-caption);
+  color: var(--color-mch-amber);
+  line-height: 1.4;
+}
+
+.merchant-host-page__wait-dots {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+  height: 1em;
+}
+
+.merchant-host-page__wait-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-warning);
+  opacity: 0.28;
+  animation: merchant-host-wait-dot 1s ease-in-out infinite;
+}
+
+.merchant-host-page__wait-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.merchant-host-page__wait-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes merchant-host-wait-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+@keyframes merchant-host-wait-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2rpx);
+  }
+}
+
 .merchant-host-page__mask-status {
   display: flex;
   flex-direction: column;

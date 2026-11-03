@@ -382,14 +382,6 @@ async function createAlbumFromWechatChat({ merchantId, storeId, text, category }
   }
 }
 
-function appendImagesToStage(nodes, stageId, images) {
-  return (nodes || []).map((node) => {
-    if (node.id !== stageId) return node
-    const next = (node.images || []).concat(images)
-    return { ...node, images: next }
-  })
-}
-
 function fillFindingUrls(findings, images, asWork) {
   const list = Array.isArray(findings) ? findings.slice() : []
   const queue = (images || []).filter((row) => row && row.url)
@@ -451,54 +443,43 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
     }
   })
 
-  let nodes = mapNodesForView(album)
-  // 接车组照片写入 stage_1（接车节点）；存量合并节点读侧兼容 stage_1 + stage_2
-  if (groups.intake.length) nodes = appendImagesToStage(nodes, 'stage_1', groups.intake)
-  if (groups.work.length) nodes = appendImagesToStage(nodes, 'stage_5', groups.work)
-  if (groups.delivery.length) nodes = appendImagesToStage(nodes, 'stage_6', groups.delivery)
-
-  if (groups.intake.length || groups.work.length || groups.delivery.length) {
-    await saveMerchantServiceAlbum(albumId, storeId, { nodes }, merchantId)
-  }
-
+  // 只写流程节点 content；禁止再写 album.nodes stage_*
   await writeFlowPackage(albumId, (pkg) => {
     const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
     const next = flowNodes.map((node) => {
-      // 存量合并节点（v5）：接车组照片填进其 findings
-      // 新体系接车照片已写入 stage_1，由 intake 节点按 legacyStageIds 读取
+      const bag = { ...(node.content || node.photoDraft || {}) }
+      if (node.kind === 'intake' && groups.intake.length) {
+        const pending = Array.isArray(bag.pendingImages) ? bag.pendingImages.slice() : []
+        groups.intake.forEach((img) => {
+          pending.push({ url: img.url, caption: img.caption || '' })
+        })
+        const content = { ...bag, pendingImages: pending }
+        return { ...node, content, photoDraft: content }
+      }
       if (node.kind === 'intake_inspection' && groups.intake.length) {
-        const photoDraft = node.photoDraft || {}
-        return {
-          ...node,
-          photoDraft: {
-            ...photoDraft,
-            findings: fillFindingUrls(photoDraft.findings, groups.intake, false),
-          },
+        const content = {
+          ...bag,
+          findings: fillFindingUrls(bag.findings, groups.intake, false),
         }
+        return { ...node, content, photoDraft: content }
       }
       if (node.kind === 'work' && groups.work.length) {
-        const photoDraft = node.photoDraft || {}
-        return {
-          ...node,
-          photoDraft: {
-            ...photoDraft,
-            findings: fillFindingUrls(photoDraft.findings, groups.work, true),
-          },
+        const content = {
+          ...bag,
+          findings: fillFindingUrls(bag.findings, groups.work, true),
         }
+        return { ...node, content, photoDraft: content }
       }
       if (node.kind === 'delivery_photos' && groups.delivery.length) {
-        const photoDraft = node.photoDraft || {}
         const urls = groups.delivery.map((row) => row.url)
-        return {
-          ...node,
-          photoDraft: {
-            ...photoDraft,
-            deliveryExteriorUrl: photoDraft.deliveryExteriorUrl || urls[0] || '',
-            selectedDeliveryUrls: Array.from(
-              new Set([].concat(photoDraft.selectedDeliveryUrls || [], urls.slice(1))),
-            ),
-          },
+        const content = {
+          ...bag,
+          deliveryExteriorUrl: bag.deliveryExteriorUrl || urls[0] || '',
+          selectedDeliveryUrls: Array.from(
+            new Set([].concat(bag.selectedDeliveryUrls || [], urls.slice(1))),
+          ),
         }
+        return { ...node, content, photoDraft: content }
       }
       return node
     })

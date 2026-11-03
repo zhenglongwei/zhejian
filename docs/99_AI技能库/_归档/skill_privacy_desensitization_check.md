@@ -24,15 +24,15 @@
 
 | 谁 | 图 |
 | --- | --- |
-| 公开/H5/分享到公域 | 只出脱敏图 |
+| 公开/H5/分享到公域 | 按 `node-mask-state-machine`：有码用码；无须打码或重试失败可用原图 |
 | **本单车主看自己相册** | 可以完整车牌 |
-| 商家归组识图 | 用打码图问模型；**不是**等整本打完才能成项（见 `skill_merchant_flow_photo_pipeline.md`） |
+| 商家归组识图 | 用**原图**问模型；**不是**等整本打完才能成项（见 `skill_merchant_flow_photo_pipeline.md`） |
 
-本检查管**公开链**。商家进度闸门、重复打码、归组快慢 **不要**用本 skill 代替进度 skill。
+本检查管**公开链**。打码状态机真源是 `skill_node_mask_state_machine.md`。商家进度闸门、重复打码、归组快慢 **不要**用本 skill 代替进度 skill。
 
 ## 检查规则
 
-1. **平台公示**（H5 公开页、公众号、站外 GEO）：必须使用脱敏图；未授权公示不得出现。**不含** 小程序案例 Tab（卷六 DS-DOC-01）。
+1. **平台公示**（H5 公开页、公众号、站外 GEO）：读图按 `skill_node_mask_state_machine.md`（有码用码；无须打码或托管重试失败可用原图，责任在商家）；未授权公示不得出现。**不含** 小程序案例 Tab（卷六 DS-DOC-01）。
 2. **用户自主分享**（私人传播）：默认脱敏；若支持原图分享须有 **风险提示 + 留痕**；**不得** 强制仅脱敏、**不得** 要求先授权公示才能分享。
 3. **授权公示** 须说明公开范围（与「分享」分开展示；界面文案仅用「授权公示」）。
 4. 图片/文案中 **平台公示** 不得展示：车牌、手机号、人脸、身份证、详细住址、付款码等敏感信息。
@@ -49,7 +49,7 @@
 与 `skill_case_snapshot_check.md` 隐私子集对齐；公开链 **真源为 CaseSnapshot**，不是 live 相册。
 
 10. **读侧只读 snapshot**：`getCaseDetail` / `listCases` / H5 `case-render` / Feed **不得** 在运行时 merge `albums` 表 nodes 或 live 图片 URL（禁止 `resolvePublicCaseNodes(liveAlbum)` 作公示真源）。
-11. **公开展示图片来源**：仅 snapshot 内脱敏字段（如 `maskedUrl` / `desensitizedUrl`）；**禁止**回退 `rawUrl`、相册原图或商家上传未脱敏链路到 C 端/H5/站外。
+11. **公开展示图片来源**（与 `skill_node_mask_state_machine.md` 对齐）：优先 snapshot/节点上的 `maskedUrl`（`ok_masked`）；`ok_no_privacy` 或托管重试后仍失败 → **允许原图**（隐私责任在商家，协议已明示）。**禁止**把原图复制进脱敏目录冒充成功；**禁止**无结论却当已打码。运营审核台仍不展示原图（见上条 8）。
 12. **授权后漂移**：车主授权并冻结 snapshot 后，商家改相册 DB **不得**改变已公示 H5 正文、过程节点文案与脱敏图（回归：`backend/scripts/case-snapshot-smoke.js` FLOW-02）。
 13. **提炼层与隐私**：`enrichment_json` 可变，但 **不得** 引入 snapshot 未含的敏感信息（完整车牌、手机号、人脸、住址等）；聚合 FAQ 统计来自 **脱敏公开集合**，数字不得与 snapshot 矛盾。
 14. **商家润色（CASE-MCH）**：润色仅在 **授权前** 写入相册草稿；打入 snapshot 时仍走脱敏资源；optimize 页/接口 **不** 单独暴露原图 URL 到公开链。

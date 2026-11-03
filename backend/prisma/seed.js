@@ -98,10 +98,8 @@ async function seedServiceAlbum(albumId, options = {}) {
     },
   })
 
-  await prisma.albumImage.deleteMany({ where: { albumId } })
-  if (images.length) {
-    await prisma.albumImage.createMany({ data: images })
-  }
+  // album_images 已废止；种子图写进 contentPackageJson.flowNodes（若调用方已带可不改）
+  void images
 }
 
 async function seedLeads() {
@@ -407,8 +405,7 @@ async function main() {
     },
   })
 
-  await prisma.albumImage.deleteMany({ where: { albumId: LEGACY_ALBUM_ID } })
-  await prisma.albumImage.createMany({ data: legacyImages })
+  void legacyImages
 
   await seedServiceAlbum(SERVICE_ALBUM_ID, {
     serviceName: '小保养套餐',

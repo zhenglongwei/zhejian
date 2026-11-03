@@ -70,6 +70,14 @@ const QUOTE_CONFIRM_COPY_TEARDOWN =
 const REPAIR_CONFIRM_COPY = '本人确认上述施工与交车状态，并知悉质保条款。'
 const INTAKE_CONFIRM_COPY = '本人确认以上为车辆进店时的可见状态与随车物品。'
 
+const PHOTO_FLOW_KINDS = {
+  intake: true,
+  inspection: true,
+  intake_inspection: true,
+  work: true,
+  delivery_photos: true,
+}
+
 function isValidFindingResult(value) {
   return FINDING_RESULT_OPTIONS.some((row) => row.value === value)
 }
@@ -92,7 +100,6 @@ const STANDARD_FLOW_CHAIN = [
     kind: 'intake',
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车',
-    legacyStageIds: ['stage_1'],
     photoTips: '漆面、玻璃、轮胎、灯光、随车物品',
     captionPlaceholder: '本图说明（选填）',
     description: '',
@@ -102,7 +109,6 @@ const STANDARD_FLOW_CHAIN = [
     kind: 'inspection',
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '检测',
-    legacyStageIds: ['stage_2'],
     photoTips: '',
     captionPlaceholder: '检查部位',
     description: '',
@@ -130,7 +136,6 @@ const STANDARD_FLOW_CHAIN = [
     kind: 'work',
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '工单',
-    legacyStageIds: ['stage_5'],
     photoTips: '',
     captionPlaceholder: '本图说明（选填）',
   },
@@ -138,7 +143,6 @@ const STANDARD_FLOW_CHAIN = [
     kind: 'delivery_photos',
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '完工照',
-    legacyStageIds: ['stage_6'],
     photoTips: '拍车身全貌作交车证据',
     captionPlaceholder: '本图说明（验收结论等，勿写金额）',
     description: '',
@@ -155,13 +159,6 @@ const STANDARD_FLOW_CHAIN = [
 
 const FLOW_KIND_META = STANDARD_FLOW_CHAIN.reduce((acc, row) => {
   acc[row.kind] = row
-  return acc
-}, {})
-
-const PHOTO_KIND_TO_LEGACY_STAGE = STANDARD_FLOW_CHAIN.reduce((acc, row) => {
-  if (row.legacyStageIds && row.legacyStageIds.length === 1) {
-    acc[row.kind] = row.legacyStageIds[0]
-  }
   return acc
 }, {})
 
@@ -203,6 +200,8 @@ function emptyPhotoDraft() {
     confirmCopy: '',
     selectedDeliveryUrls: [],
     deliveryExteriorUrl: '',
+    repairBrief: '',
+    ownerFaqs: [],
   }
 }
 
@@ -247,11 +246,6 @@ function buildStandardFlowNodes() {
       meta.nodeCategory === NODE_CATEGORY.DOCUMENT
         ? emptyDocument(meta.docType || meta.kind)
         : null,
-    legacyStageId:
-      meta.legacyStageIds && meta.legacyStageIds.length === 1
-        ? meta.legacyStageIds[0]
-        : '',
-    legacyStageIds: meta.legacyStageIds || [],
     insertedReason: '',
     parentNodeId: '',
     segmentLabel: '',
@@ -264,28 +258,11 @@ function getFlowKindMeta(kind) {
 
 function isPhotoFlowNode(node = {}) {
   if (node.nodeCategory === NODE_CATEGORY.PHOTO) return true
-  if (node.legacyStageId || (node.legacyStageIds && node.legacyStageIds.length)) return true
-  return Boolean(PHOTO_KIND_TO_LEGACY_STAGE[node.kind])
+  return Boolean(PHOTO_FLOW_KINDS[node.kind])
 }
 
 function isDocumentFlowNode(node = {}) {
   return node.nodeCategory === NODE_CATEGORY.DOCUMENT || Boolean(node.document)
-}
-
-function resolveLegacyStageIdsForFlowNode(node = {}) {
-  if (Array.isArray(node.legacyStageIds) && node.legacyStageIds.length) {
-    return node.legacyStageIds
-  }
-  if (node.legacyStageId) return [node.legacyStageId]
-  const meta = getFlowKindMeta(node.kind)
-  if (meta && meta.legacyStageIds) return meta.legacyStageIds
-  const single = PHOTO_KIND_TO_LEGACY_STAGE[node.kind]
-  return single ? [single] : []
-}
-
-function resolveLegacyStageIdForFlowNode(node = {}) {
-  const ids = resolveLegacyStageIdsForFlowNode(node)
-  return ids[0] || ''
 }
 
 /** 需车主确认：方案确认、完工确认（及增项方案）。接车照片只发给车主看。 */
@@ -310,18 +287,16 @@ module.exports = {
   QUOTE_CONFIRM_COPY_TEARDOWN,
   REPAIR_CONFIRM_COPY,
   INTAKE_CONFIRM_COPY,
+  PHOTO_FLOW_KINDS,
   isValidFindingResult,
   findingAdviceRequired,
   ownerFindingResultLabel,
   STANDARD_FLOW_CHAIN,
   FLOW_KIND_META,
-  PHOTO_KIND_TO_LEGACY_STAGE,
   buildStandardFlowNodes,
   getFlowKindMeta,
   isPhotoFlowNode,
   isDocumentFlowNode,
-  resolveLegacyStageIdForFlowNode,
-  resolveLegacyStageIdsForFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
   emptyPhotoDraft,

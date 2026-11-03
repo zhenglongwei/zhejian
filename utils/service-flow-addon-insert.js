@@ -56,8 +56,6 @@ function applyAddonInsert(nodes = [], options = {}) {
         confirmCopy: QUOTE_CONFIRM_COPY,
       },
     },
-    legacyStageId: '',
-    legacyStageIds: [],
     insertedReason: 'addon',
     parentNodeId: list[workIdx].id,
     segmentLabel: '增项',

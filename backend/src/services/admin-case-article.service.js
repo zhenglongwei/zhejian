@@ -320,7 +320,6 @@ async function buildLegacyRegeneratePayload(row) {
     where: { id: row.albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       authorization: true,
     },
   })

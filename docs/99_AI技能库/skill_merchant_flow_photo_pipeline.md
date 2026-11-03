@@ -3,7 +3,7 @@
 > Agent 入口：`.cursor/skills/merchant-flow-photo-pipeline/SKILL.md`  
 > 真源：[`../04_维修过程相册/26_商家端事件节点与单据节点链流程.md`](../04_维修过程相册/26_商家端事件节点与单据节点链流程.md)  
 > 图归属 / AI 上下文：[`../04_维修过程相册/29_节点AI分析_单据结构与状态流转梳理.md`](../04_维修过程相册/29_节点AI分析_单据结构与状态流转梳理.md)  
-> 引擎实现另走 `desensitize-engine`；公开链另走 `privacy-desensitization-check`
+> 引擎实现另走 `desensitize-engine`；节点打码结论/托管对账真源 **`node-mask-state-machine`**；公开链另走 `privacy-desensitization-check`
 
 ## 目标
 
@@ -36,7 +36,7 @@
 | 场景 | 图 |
 | --- | --- |
 | 识图 / AI分析 | 原图 |
-| 公开、分享 | 认到车牌、车架号、人脸、手机号、姓名、证件才打；否则用原图 |
+| 公开、分享 | 按 `node-mask-state-machine`：有码用码；无须打码或重试失败用原图（责任在商家） |
 | 本单车主看自己相册 | 原图 |
 | 商家归组 | 只等本批识完，不等打码 |
 
@@ -54,7 +54,10 @@
 - 增删项后图是否按下标/URL/部位名重对（须按项 `id`；图只住在该项 `images[]`）
 - 列表卡片 `wx:key` / `listKey` 是否用第几项（须用 finding `id`）
 - `syncFindingsWithImages` 一类「一排图对一项」是否仍被检测/工单主路径走到
-- 车主/托管读图是否仍从 `photoDraft` / 图库兜底（定稿后须只读报告）
+- 车主/托管读图是否仍从已废止的 `photoDraft` 真源 / 图库 / `stage_*` 镜像兜底（定稿后须只读报告节点 `content`；公网完工章不列项目清单）
+- **有图闸 / 「请至少上传」**：检测·工单是否仍用 `section.images` / `stage_*` 计数（须 `findings[].images` / `countAttachedFindingPhotos`）
+- `buildSections` 是否仍读 `album.nodes` 的 `stage_*` / `mapStageImages` / `collectIntakeImages`（须只读节点 `content`）
+- **DOC-FLOW stage 镜像链（已废止）**：`persistPhotos` 是否仍写 `stage_*`；`absorbLegacyStagePhotos` / `planAllPhotoFolds` / `flow-node-photos`；`resolveLegacyStageIds*` / 工厂 `legacyStageIds`；打开进度是否并进 stage
 
 ## 验证
 

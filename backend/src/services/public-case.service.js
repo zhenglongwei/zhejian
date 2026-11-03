@@ -379,7 +379,6 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     where: { id: albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       authorization: true,
       publicCase: true,
     },
@@ -764,7 +763,6 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
     where: { id: albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       authorization: true,
       publicCase: true,
     },

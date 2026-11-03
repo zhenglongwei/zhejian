@@ -65,15 +65,46 @@ async function loadHostedPublicMaskLookup(albumId) {
 async function loadHostMaskOutcomeIndex(albumId) {
   const { buildPreMaskTaskId, rawUrlLookupKeys } = require('./desensitize.constants')
   const index = new Map()
+  const isRegisteredOutcome = (outcome) => {
+    const code = String(outcome || '').trim()
+    return Boolean(code) && code !== 'not_analyzed' && code !== 'pending'
+  }
   const put = (url, row) => {
-    rawUrlLookupKeys(url).forEach((key) => {
-      if (key) index.set(key, row)
-    })
+    const write = (key) => {
+      if (!key) return
+      const prev = index.get(key)
+      const prevRegistered = prev && isRegisteredOutcome(prev.maskOutcome)
+      const nextRegistered = isRegisteredOutcome(row && row.maskOutcome)
+      // 节点已登记结论（成功或失败）不被空行/未分析盖掉；可合并媒体产物 URL
+      if (prevRegistered && !nextRegistered) {
+        index.set(key, {
+          ...row,
+          ...prev,
+          maskedUrl: prev.maskedUrl || (row && row.maskedUrl) || '',
+          preMaskedUrl: prev.preMaskedUrl || (row && row.preMaskedUrl) || '',
+          desensitizeStatus:
+            prev.desensitizeStatus || (row && row.desensitizeStatus) || '',
+          riskTags:
+            (Array.isArray(prev.riskTags) && prev.riskTags.length
+              ? prev.riskTags
+              : null) ||
+            (row && row.riskTags) ||
+            [],
+          maskRegions:
+            (Array.isArray(prev.maskRegions) && prev.maskRegions.length
+              ? prev.maskRegions
+              : null) ||
+            (row && row.maskRegions) ||
+            [],
+        })
+        return
+      }
+      index.set(key, row)
+    }
+    rawUrlLookupKeys(url).forEach(write)
     const masked = String((row && (row.maskedUrl || row.preMaskedUrl)) || '').trim()
     if (masked) {
-      rawUrlLookupKeys(masked).forEach((key) => {
-        if (key) index.set(key, row)
-      })
+      rawUrlLookupKeys(masked).forEach(write)
     }
   }
   const taskIds = [buildHostMaskTaskId(albumId), buildPreMaskTaskId(albumId)]
@@ -112,24 +143,22 @@ async function loadHostMaskOutcomeIndex(albumId) {
       const raw = String(slot.url || slot.src || slot.rawUrl || '').trim()
       if (raw) urls.add(raw)
       const outcome = String(slot.maskOutcome || '').trim()
-      if (outcome === 'ok_no_privacy' && raw) {
-        put(raw, {
-          status: '',
-          desensitizeStatus: 'success',
-          riskTags: [],
-          maskedUrl: '',
-          preMaskedUrl: '',
-          maskOutcome: 'ok_no_privacy',
-        })
-      } else if (raw && String(slot.maskedUrl || '').trim()) {
-        put(raw, {
-          status: 'masked_ready',
-          riskTags: Array.isArray(slot.maskRegions) && slot.maskRegions.length ? ['privacy'] : [],
-          maskedUrl: String(slot.maskedUrl || ''),
-          preMaskedUrl: String(slot.preMaskedUrl || slot.maskedUrl || ''),
-          maskOutcome: outcome || 'ok_masked',
-        })
-      }
+      const masked = String(slot.maskedUrl || slot.preMaskedUrl || '').trim()
+      const regions = Array.isArray(slot.maskRegions) ? slot.maskRegions : []
+      if (!raw) return
+      // 只登记「真有结论或产物」的节点图。裸图不写入 not_analyzed，
+      // 否则会挡住后面媒体表 success，托管又整本重跑大模型。
+      if (!outcome && !masked) return
+      put(raw, {
+        status: masked ? 'masked_ready' : '',
+        desensitizeStatus:
+          outcome === 'ok_no_privacy' || outcome === 'ok_masked' ? 'success' : '',
+        riskTags: regions.length ? ['privacy'] : [],
+        maskedUrl: masked,
+        preMaskedUrl: masked,
+        maskOutcome: outcome || (masked ? 'ok_masked' : ''),
+        maskRegions: regions,
+      })
     }
     const walkBag = (bag) => {
       if (!bag || typeof bag !== 'object') return
@@ -164,9 +193,20 @@ async function loadHostMaskOutcomeIndex(albumId) {
     })
     const list = [...urls].slice(0, 120)
     if (list.length) {
+      const { stripUrlQuery } = require('../lib/media-signed-url')
+      // 节点上可能是带签的 URL，媒体表常存去参后的；两侧都查
+      const urlCandidates = [
+        ...new Set(
+          list.flatMap((u) => {
+            const raw = String(u || '').trim()
+            const bare = stripUrlQuery(raw)
+            return [raw, bare].filter(Boolean)
+          }),
+        ),
+      ].slice(0, 240)
       const mediaRows = await prisma.mediaAsset.findMany({
-        where: { url: { in: list } },
-        take: 120,
+        where: { url: { in: urlCandidates } },
+        take: 200,
       })
       mediaRows.forEach((media) => {
         if (!media || !media.url) return

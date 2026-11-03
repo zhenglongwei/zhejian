@@ -194,6 +194,17 @@ function isAlbumWithdrawable(album) {
 }
 
 function mapImageMeta(album) {
+  // DOC-FLOW：可公示 / 托管硬拦只认流程节点挂图，废止 album_images 闸字段
+  const {
+    albumUsesFlowNodes,
+    mapFlowImageMeta,
+  } = require('../utils/flow-public-media')
+  if (albumUsesFlowNodes(album)) {
+    return mapFlowImageMeta(album).map((row) => ({
+      ...row,
+      rawUrl: rewriteMediaUrlForCurrentBase(row.rawUrl),
+    }))
+  }
   return (album.images || []).map((img) => ({
     id: img.id,
     nodeId: img.nodeId,
@@ -750,7 +761,6 @@ async function loadAlbum(albumId) {
     where: { id: albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       authorization: true,
       publicCase: true,
     },
@@ -831,13 +841,8 @@ function uniqueSyncAlbumNodes(nodesPayload = []) {
   return Array.from(map.values())
 }
 
-/** 卸下项上的图：删相册图行（对象存储文件可留）。本单图库已废除，不再改挂 library 节点。 */
-async function removeDetachedAlbumImages(tx, albumId, imageIds = []) {
-  const ids = (imageIds || []).filter(Boolean)
-  if (!ids.length) return
-  await tx.albumImage.deleteMany({
-    where: { albumId, id: { in: ids } },
-  })
+/** album_images 已废止；仅清本单图库节点壳（若仍在）。 */
+async function removeDetachedAlbumImages(tx, albumId, _imageIds = []) {
   await tx.albumNode.deleteMany({
     where: { albumId, nodeId: LIBRARY_NODE_ID },
   })
@@ -850,65 +855,11 @@ function stableAlbumImageId(albumId, rawUrl) {
 }
 
 /**
- * 挂图统一归属相册：流程节点一挂图就 upsert album_images（裸 URL）。
- * 不 replaceAll、不触发整本预打码，只补「可读归属」。
+ * 2026-11-03 废止：不再往 album_images 镜像挂图。
+ * 过程图真源只住流程节点 content；本函数保留签名以免调用方炸掉，恒返回 0。
  */
-async function ensureAlbumOwnsMediaUrls(albumId, nodeId, urls = [], options = {}) {
-  const id = String(albumId || '').trim()
-  const nid = String(nodeId || '').trim()
-  if (!id || !nid) return { upserted: 0 }
-  const bareUrls = [
-    ...new Set(
-      (Array.isArray(urls) ? urls : [])
-        .map((u) => stripUrlQuery(String(u || '').trim()))
-        .filter((u) => u && /\/media\/files\/uploads\//i.test(u)),
-    ),
-  ]
-  if (!bareUrls.length) return { upserted: 0 }
-  const title = String(options.title || nid).trim().slice(0, 120) || nid
-  const sortOrder = Number(options.sortOrder) || 0
-  let upserted = 0
-  await prisma.$transaction(async (tx) => {
-    await tx.albumNode.upsert({
-      where: { albumId_nodeId: { albumId: id, nodeId: nid } },
-      create: {
-        albumId: id,
-        nodeId: nid,
-        title,
-        sortOrder,
-        status: 'pending',
-        note: '',
-        comparePairRows: [],
-      },
-      update: { title },
-    })
-    for (let idx = 0; idx < bareUrls.length; idx += 1) {
-      const rawUrl = bareUrls[idx].slice(0, 512)
-      const imageId = stableAlbumImageId(id, rawUrl)
-      await tx.albumImage.upsert({
-        where: { id: imageId },
-        create: {
-          id: imageId,
-          albumId: id,
-          nodeId: nid,
-          idx,
-          rawUrl,
-          caption: '',
-          checklistItemKey: '',
-          visibility: 'private',
-          publicGateStatus: 'pending',
-          publicGateReason: '',
-        },
-        update: {
-          albumId: id,
-          nodeId: nid,
-          rawUrl,
-        },
-      })
-      upserted += 1
-    }
-  })
-  return { upserted }
+async function ensureAlbumOwnsMediaUrls(_albumId, _nodeId, _urls = [], _options = {}) {
+  return { upserted: 0 }
 }
 
 function existingAlbumImageIdByUrl(existingImages = []) {
@@ -1040,37 +991,9 @@ async function commitAlbumNodeImages(albumId, nodeRows, imageRows, options = {})
           },
         })
       }
-      for (let i = 0; i < imageRows.length; i += 1) {
-        const row = imageRows[i]
-        await tx.albumImage.upsert({
-          where: { id: row.id },
-          create: row,
-          update: {
-            albumId: row.albumId,
-            nodeId: row.nodeId,
-            idx: row.idx,
-            rawUrl: row.rawUrl,
-            caption: row.caption,
-            checklistItemKey: row.checklistItemKey,
-            visibility: row.visibility,
-            publicGateStatus: row.publicGateStatus,
-            publicGateReason: row.publicGateReason,
-            publicGateCheckedAt: row.publicGateCheckedAt,
-          },
-        })
-      }
-      const keepImageIds = imageRows.map((row) => row.id)
-      if (replaceAll || patchedNodeIds.length) {
-        const currentImages = await tx.albumImage.findMany({
-          where: { albumId },
-          select: { id: true, nodeId: true },
-        })
-        const detachedIds = listDetachedImageIds(currentImages, keepImageIds, {
-          replaceAll,
-          patchedNodeIds,
-        })
-        await removeDetachedAlbumImages(tx, albumId, detachedIds)
-      }
+      // 2026-11-03：废止 album_images 写入；只维护 album_nodes 标题/状态
+      void imageRows
+      void patchedNodeIds
       if (replaceAll) {
         const keepNodeIds = nodeRows.map((row) => row.nodeId)
         await tx.albumNode.deleteMany({
@@ -1086,13 +1009,7 @@ async function commitAlbumNodeImages(albumId, nodeRows, imageRows, options = {})
     }
     throw e
   }
-  const imageCount = await prisma.albumImage.count({ where: { albumId } })
-  try {
-    const { scheduleAlbumPreMask } = require('./desensitize.service')
-    scheduleAlbumPreMask(albumId, { trigger: 'album_images_commit' })
-  } catch (e) {
-    console.warn('[desensitize] schedule after album images commit failed', albumId, e && e.message)
-  }
+  const imageCount = Array.isArray(imageRows) ? imageRows.length : 0
   return { imageCount }
 }
 
@@ -1309,11 +1226,6 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
       updatedAt: true,
       authorization: { select: { status: true } },
       publicCase: { select: { status: true } },
-      images: {
-        take: 1,
-        orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }],
-        select: { rawUrl: true },
-      },
     },
     orderBy: { updatedAt: 'desc' },
     take: 40,
@@ -1370,7 +1282,6 @@ async function listUserServiceAlbums(userId, options = {}) {
     where,
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       authorization: true,
       publicCase: true,
     },
@@ -1509,7 +1420,6 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     where,
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       publicCase: true,
     },
     orderBy: { updatedAt: 'desc' },
@@ -2253,7 +2163,6 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
   try {
@@ -2266,7 +2175,6 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
     where: { id: albumId },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
   return buildMerchantView(withFlow || album)
@@ -2305,7 +2213,6 @@ async function persistOwnerPhone(existing, albumId, payload) {
         data: ownerUpdate,
         include: {
           nodes: { orderBy: { sortOrder: 'asc' } },
-          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
           authorization: true,
           publicCase: true,
         },
@@ -2407,22 +2314,20 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     if (payload.checklist && Array.isArray(payload.checklist.items)) {
       state = mergeChecklistPatch(state, payload.checklist.items)
     }
-    // 若本次同步了节点图，用落库后的 images 回填；否则用现有图
-    const imagesForLink =
-      payload.nodes != null
-        ? (
-            await prisma.albumImage.findMany({
-              where: { albumId },
-              orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }],
-            })
-          ).map((img) => ({
-            id: img.id,
-            checklistItemKey: img.checklistItemKey,
-            rawUrl: img.rawUrl,
-            caption: img.caption,
-            nodeId: img.nodeId,
-          }))
-        : existing.images || []
+    // album_images 已废止；清单挂图从流程节点投影（无则空）
+    const { collectPublicizableFlowPhotos } = require('../utils/flow-public-media')
+    const imagesForLink = collectPublicizableFlowPhotos({
+      contentPackageJson:
+        payload.contentPackageJson != null
+          ? payload.contentPackageJson
+          : existing.contentPackageJson,
+    }).map((row, idx) => ({
+      id: `flow_${row.nodeId}_${idx}`,
+      checklistItemKey: '',
+      rawUrl: row.url,
+      caption: '',
+      nodeId: row.nodeId,
+    }))
     state = syncChecklistImageLinks(state, imagesForLink)
     checklistJson = state
   }
@@ -2449,7 +2354,6 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
 
@@ -2496,7 +2400,6 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       publicCase: true,
     },
   })
@@ -3044,7 +2947,6 @@ async function switchMerchantServiceAlbumTemplate(
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
 

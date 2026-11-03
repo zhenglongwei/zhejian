@@ -150,7 +150,7 @@ function summarizeEngineError(err) {
   return [status, code, message].filter(Boolean).join(' ')
 }
 
-async function runGenerateLlm(urls) {
+async function runGenerateLlm(urls, albumId = '') {
   const engines = resolveConfiguredNodeAiReviewEngines()
   if (!engines.length) {
     console.warn('[intake-advice] no llm engines configured')
@@ -168,7 +168,7 @@ async function runGenerateLlm(urls) {
     '步骤：先把每张图看完——哪一侧拍到了、哪里有车牌/人脸等敏感区；想清楚后再输出。',
     '最终只输出一个 JSON 对象，前后不要解释、不要 markdown 代码块。',
     'JSON 形状：',
-    '{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"","问答":[],"提醒":[{"类型":"","标题":"缺车尾","正文":"再拍一张能看清车尾的照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
+    '{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"","问答":[],"提醒":[{"类型":"","标题":"缺车尾","正文":"再拍一张能看清车尾的照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
   const content = [{ type: 'text', text: instruction }].concat(
     (urls || []).flatMap((url, index) => [
@@ -228,7 +228,10 @@ async function runGenerateLlm(urls) {
         })
         try {
           const { voidApplyModelMasks } = require('./model-mask.service')
-          voidApplyModelMasks(urls, result && result.text)
+          // 必须带 albumId，否则只写了媒体表、节点无 maskOutcome → 托管又整本重跑看图
+          voidApplyModelMasks(urls, result && result.text, {
+            albumId: String(albumId || '').trim(),
+          })
         } catch (_) {
           /* 打码失败不影响出意见 */
         }
@@ -279,7 +282,7 @@ async function runIntakeAdviceJob(albumId) {
         updatedAt: new Date().toISOString(),
       },
     }))
-    const parsed = visionUrls.length ? await runGenerateLlm(visionUrls) : null
+    const parsed = visionUrls.length ? await runGenerateLlm(visionUrls, albumId) : null
     await patchIntakeNode(albumId, (item) => {
       const draft = contentOfFlowNode(item)
       const imageNotes = { ...(draft.imageNotes && typeof draft.imageNotes === 'object' ? draft.imageNotes : {}) }
@@ -352,7 +355,7 @@ async function runIntakeAdviceJob(albumId) {
   }
 }
 
-async function voidIntakeAdviceIfNeeded(album, merchantId, options = {}) {
+async function queueIntakeAdviceIfNeeded(album, merchantId, options = {}) {
   const force = Boolean(options && options.force)
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(merchantId || album.merchantId)
@@ -408,7 +411,7 @@ async function voidIntakeAdviceIfNeeded(album, merchantId, options = {}) {
 }
 
 module.exports = {
-  voidIntakeAdviceIfNeeded,
+  queueIntakeAdviceIfNeeded,
   sanitizeIntakeAdviceForView,
   runIntakeAdviceJob,
   buildFingerprint,

@@ -44,25 +44,58 @@ function lineHasMarketBand(row) {
   return Boolean(text(row.oem || row.brand || row.economy))
 }
 
+/** 总称袋：不能当一条可写入报价表的项目名 */
+function isUmbrellaQuoteName(name) {
+  const n = text(name)
+  if (!n) return true
+  if (/^建议补充/.test(n)) return true
+  if (/以下项目|下列项目|相关项目/.test(n)) return true
+  if (/常规保养项目|保养项目$|一揽子|套餐外补充/.test(n)) return true
+  if (/^补充(报价|项目|项)$/.test(n)) return true
+  return false
+}
+
 function parseSuggestedLines(raw) {
   const list = Array.isArray(raw) ? raw : []
   const lines = []
   list.forEach((row, index) => {
-    if (!row || typeof row !== 'object') return
-    const name = text(row.name || row.title)
-    if (!name) return
-    const note = text(row.note)
-    const kind = inferQuoteLineKind(name, note, row.kind || row.lineKind || row.type)
-    const oem = text(row.oem)
-    const brand = text(row.brand)
-    const economy = text(row.economy)
-    const dealer = text(row.dealer || row.fours || row.shop4s || row.dealerBand)
-    const indie = text(row.indie || row.garage || row.repairShop || row.indieBand)
-    const reason = text(row.reason || row.why || row.necessity || row.body).slice(0, 160)
+    if (row == null) return
+    // 旧 omissions 字符串 / {title,body} → 当成 name + reason
+    let name = ''
+    let note = ''
+    let kindRaw = ''
+    let oem = ''
+    let brand = ''
+    let economy = ''
+    let dealer = ''
+    let indie = ''
+    let reason = ''
+    let optionalRaw = null
+    if (typeof row === 'string') {
+      name = text(row)
+    } else if (typeof row === 'object') {
+      name = text(row.name || row.title || row.part)
+      note = text(row.note)
+      kindRaw = row.kind || row.lineKind || row.type
+      oem = text(row.oem)
+      brand = text(row.brand)
+      economy = text(row.economy)
+      dealer = text(row.dealer || row.fours || row.shop4s || row.dealerBand)
+      indie = text(row.indie || row.garage || row.repairShop || row.indieBand)
+      reason = text(row.reason || row.why || row.necessity || row.body || row.text || row.how).slice(
+        0,
+        160,
+      )
+      optionalRaw = row.optional
+      if (row.ownerChoice === true) optionalRaw = true
+    } else {
+      return
+    }
+    if (!name || isUmbrellaQuoteName(name)) return
+    const kind = inferQuoteLineKind(name, note, kindRaw)
     const optional = Boolean(
-      row.optional === true ||
-        row.optional === 'true' ||
-        row.ownerChoice === true ||
+      optionalRaw === true ||
+        optionalRaw === 'true' ||
         /可做可不做|可由车主选择|建议观察|先观察/.test(`${reason}${note}`),
     )
     if (kind === 'labor') {
@@ -96,6 +129,10 @@ function parseSuggestedLines(raw) {
     })
   })
   return lines.slice(0, 16)
+}
+
+function parseOmissionLines(raw) {
+  return parseSuggestedLines(raw)
 }
 
 function parseOwnerAsks(raw, max = 6) {
@@ -143,9 +180,8 @@ function parseQuoteAssistPayload(raw) {
     priceIssues: [],
     necessity: [],
     photoPlan: [],
-    omissions: parseTitleBodyList(
+    omissions: parseOmissionLines(
       parsed.omissions || parsed.supplements || analysis.omissions || analysis.supplements,
-      8,
     ),
     objections: [],
     suggestedLines,
@@ -179,7 +215,7 @@ function sanitizeQuoteAssistForView(assist, options = {}) {
     fingerprint,
     stale,
     suggestedLines,
-    omissions: Array.isArray(assist.omissions) ? assist.omissions : [],
+    omissions: parseOmissionLines(assist.omissions),
     objections: [],
     priceIssues: [],
     necessity: [],
@@ -193,7 +229,9 @@ function sanitizeQuoteAssistForView(assist, options = {}) {
 module.exports = {
   inferQuoteLineKind,
   lineHasMarketBand,
+  isUmbrellaQuoteName,
   parseSuggestedLines,
+  parseOmissionLines,
   parseOwnerAsks,
   parseQuoteAssistPayload,
   quoteAssistHasContent,

@@ -722,6 +722,29 @@
                 .join('')
           }
           body += renderFlowItems(ch.items)
+          if (ch.repairBrief) {
+            body +=
+              '<p class="h5-flow-k">本次维修简述</p><p class="h5-flow-p">' +
+              escapeHtml(ch.repairBrief) +
+              '</p>'
+          }
+          if (ch.ownerFaqs && ch.ownerFaqs.length) {
+            body +=
+              '<p class="h5-flow-k">车主关心的问题</p>' +
+              ch.ownerFaqs
+                .map(function (faq) {
+                  return (
+                    '<div class="h5-flow-faq"><p class="h5-flow-finding-name">' +
+                    escapeHtml(faq.question || '') +
+                    '</p>' +
+                    (faq.answer
+                      ? '<p class="h5-flow-item-note">' + escapeHtml(faq.answer) + '</p>'
+                      : '') +
+                    '</div>'
+                  )
+                })
+                .join('')
+          }
           body += renderFlowPhotos(ch.photos)
           var warrantyBits = [ch.warrantyPeriod, ch.warrantyNotes].filter(function (bit) {
             var bare = String(bit || '').trim().replace(/[。．.]$/, '')

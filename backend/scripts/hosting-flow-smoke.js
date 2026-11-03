@@ -22,26 +22,43 @@ const { isAlbumContentLocked } = require('../src/services/service-album.service'
 const prisma = new PrismaClient()
 const FULL = process.env.HOSTING_SMOKE_FULL === '1'
 
-/** 为冒烟准备可公示图（gate 通过 + 可解析的脱敏路径 URL） */
+/** 为冒烟准备可公示图：写入 flowNodes 施工挂图（album_images 已废止） */
 async function preparePublicGateImages(albumId) {
-  const imgs = await prisma.albumImage.findMany({
-    where: { albumId, nodeId: { in: ['stage_2', 'stage_5', 'stage_6'] } },
-    take: 2,
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: { contentPackageJson: true },
   })
-  for (const img of imgs) {
-    const desensitizedUrl = `https://geo.simplewin.cn/media/files/uploads/desensitized/hosting_smoke_${img.id}.jpg`
-    await prisma.albumImage.update({
-      where: { id: img.id },
-      data: {
-        rawUrl: desensitizedUrl,
-        visibility: 'public',
-        publicGateStatus: 'passed',
-        publicGateReason: '',
-        publicGateCheckedAt: new Date(),
-      },
-    })
+  const pkg =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? { ...album.contentPackageJson }
+      : {}
+  const nodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes.slice() : []
+  const url = `https://geo.simplewin.cn/media/files/uploads/desensitized/hosting_smoke_${albumId}.jpg`
+  let work = nodes.find((n) => n && n.kind === 'work')
+  if (!work) {
+    work = {
+      id: `fn_work_smoke_${albumId}`,
+      kind: 'work',
+      status: 'completed',
+      content: { findings: [] },
+    }
+    nodes.push(work)
   }
-  return imgs.length
+  const content = work.content && typeof work.content === 'object' ? { ...work.content } : {}
+  const findings = Array.isArray(content.findings) ? content.findings.slice() : []
+  findings.push({
+    id: `smoke_${Date.now()}`,
+    partName: '冒烟可公示项',
+    images: [{ url, maskOutcome: 'ok_no_privacy' }],
+  })
+  content.findings = findings
+  work.content = content
+  pkg.flowNodes = nodes.map((n) => (n && n.id === work.id ? work : n))
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { contentPackageJson: pkg },
+  })
+  return 1
 }
 
 async function pickCompletedAlbum() {

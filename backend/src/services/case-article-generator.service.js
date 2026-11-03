@@ -200,7 +200,6 @@ async function generateAndSaveCaseArticle(caseId, options = {}) {
       album: {
         include: {
           nodes: { orderBy: { sortOrder: 'asc' } },
-          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
           authorization: true,
         },
       },

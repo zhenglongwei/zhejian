@@ -232,15 +232,8 @@ async function loadAlbumNodesForSave(albumId, patch = {}) {
     where: { albumId },
     orderBy: { sortOrder: 'asc' },
   })
-  const images = await prisma.albumImage.findMany({
-    where: { albumId },
-    orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }],
-  })
-  const imagesByNode = images.reduce((acc, img) => {
-    if (!acc[img.nodeId]) acc[img.nodeId] = []
-    acc[img.nodeId].push(img.rawUrl)
-    return acc
-  }, {})
+  const images = []
+  const imagesByNode = {}
 
   return nodes.map((node) => {
     const nodeId = node.nodeId
@@ -304,7 +297,7 @@ async function cleanup({ albumId, caseId }) {
     }).catch(() => {})
     await prisma.desensitizeTask.deleteMany({ where: { bizId: albumId } }).catch(() => {})
     await prisma.albumAuthorization.deleteMany({ where: { albumId } }).catch(() => {})
-    await prisma.albumImage.deleteMany({ where: { albumId } }).catch(() => {})
+    /* album_images dropped */
     await prisma.albumNode.deleteMany({ where: { albumId } }).catch(() => {})
     await prisma.album.deleteMany({ where: { id: albumId } }).catch(() => {})
   }

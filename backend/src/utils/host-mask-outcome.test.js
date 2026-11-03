@@ -4,6 +4,8 @@ const {
   HOST_MASK_OUTCOME,
   classifyHostMaskOutcome,
   needsHostMaskAction,
+  hostMaskAction,
+  resolveHostDisplayUrl,
 } = require('./host-mask-outcome')
 
 test('clean scan success is ok_no_privacy, not manual', () => {
@@ -13,9 +15,10 @@ test('clean scan success is ok_no_privacy, not manual', () => {
     riskTags: [],
   })
   assert.equal(row.outcome, HOST_MASK_OUTCOME.OK_NO_PRIVACY)
-  assert.equal(row.needsManual, false)
+  assert.equal(row.maskSucceeded, true)
   assert.equal(row.publishSafe, true)
   assert.equal(needsHostMaskAction(row.outcome), false)
+  assert.equal(hostMaskAction(row.outcome), 'skip')
 })
 
 test('detected and stamped is ok_masked', () => {
@@ -25,42 +28,58 @@ test('detected and stamped is ok_masked', () => {
     riskTags: ['plate'],
   })
   assert.equal(row.outcome, HOST_MASK_OUTCOME.OK_MASKED)
-  assert.equal(row.needsManual, false)
+  assert.equal(row.maskSucceeded, true)
+  assert.equal(hostMaskAction(row.outcome), 'skip')
 })
 
-test('detected but stamp failed is ok_detect_mask_failed', () => {
+test('detected but stamp failed is mask_failed → registered skip', () => {
   const row = classifyHostMaskOutcome({
     status: 'mask_failed',
     riskTags: ['face'],
   })
-  assert.equal(row.outcome, HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED)
-  assert.equal(row.needsManual, true)
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.MASK_FAILED)
+  assert.equal(hostMaskAction(row.outcome), 'skip')
+  assert.equal(needsHostMaskAction(row.outcome), false)
+  assert.equal(row.allowsOriginalPublish, true)
 })
 
-test('ocr/network failure without hits is call_failed', () => {
+test('ocr/network failure without hits is llm_failed → registered skip', () => {
   const row = classifyHostMaskOutcome({
     status: 'mask_failed',
     riskTags: [],
   })
-  assert.equal(row.outcome, HOST_MASK_OUTCOME.CALL_FAILED)
-  assert.equal(row.needsManual, true)
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.LLM_FAILED)
+  assert.equal(hostMaskAction(row.outcome), 'skip')
 })
 
-test('need_manual media is detect_mask_failed', () => {
+test('need_manual media is mask_failed registered', () => {
   const row = classifyHostMaskOutcome({
     desensitizeStatus: 'need_manual',
     riskTags: ['plate'],
   })
-  assert.equal(row.outcome, HOST_MASK_OUTCOME.OK_DETECT_MASK_FAILED)
-  assert.equal(needsHostMaskAction(row.outcome), true)
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.MASK_FAILED)
+  assert.equal(needsHostMaskAction(row.outcome), false)
 })
 
-test('untouched asset stays pending and needs remask', () => {
+test('untouched asset is not_analyzed and needs llm', () => {
   const row = classifyHostMaskOutcome({ status: 'raw_uploaded' })
-  assert.equal(row.outcome, HOST_MASK_OUTCOME.PENDING)
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.NOT_ANALYZED)
   assert.equal(row.maskSucceeded, false)
   assert.equal(row.needsRemask, true)
-  assert.equal(needsHostMaskAction(row.outcome), true)
+  assert.equal(hostMaskAction(row.outcome), 'rerun_llm')
+})
+
+test('legacy pending / call_failed normalize via explicit maskOutcome', () => {
+  assert.equal(
+    classifyHostMaskOutcome({ maskOutcome: 'pending' }).outcome,
+    HOST_MASK_OUTCOME.NOT_ANALYZED,
+  )
+  assert.equal(
+    classifyHostMaskOutcome({ maskOutcome: 'call_failed' }).outcome,
+    HOST_MASK_OUTCOME.LLM_FAILED,
+  )
+  assert.equal(hostMaskAction('ok_detect_mask_failed'), 'skip')
+  assert.equal(hostMaskAction('llm_failed'), 'skip')
 })
 
 test('ok_no_privacy counts as mask success even without privacy hits', () => {
@@ -95,9 +114,32 @@ test('explicit node maskOutcome ok_no_privacy wins without product url', () => {
   assert.equal(row.publishSafe, true)
 })
 
-test('no marker means not success', () => {
+test('no marker means not_analyzed', () => {
   const row = classifyHostMaskOutcome({})
+  assert.equal(row.outcome, HOST_MASK_OUTCOME.NOT_ANALYZED)
   assert.equal(row.maskSucceeded, false)
   assert.equal(row.needsRemask, true)
-  assert.equal(row.publishSafe, false)
+  assert.equal(row.publishSafe, true)
+  assert.equal(row.allowsOriginalPublish, true)
+})
+
+test('resolveHostDisplayUrl prefers masked then original', () => {
+  assert.equal(
+    resolveHostDisplayUrl(
+      { maskOutcome: 'ok_masked', maskedUrl: 'https://x/m.jpg', url: 'https://x/r.jpg' },
+    ),
+    'https://x/m.jpg',
+  )
+  assert.equal(
+    resolveHostDisplayUrl({ maskOutcome: 'ok_no_privacy', url: 'https://x/r.jpg' }),
+    'https://x/r.jpg',
+  )
+  assert.equal(
+    resolveHostDisplayUrl({ maskOutcome: 'llm_failed', url: 'https://x/r.jpg' }),
+    'https://x/r.jpg',
+  )
+  assert.equal(
+    resolveHostDisplayUrl({ maskOutcome: 'not_analyzed', url: 'https://x/r.jpg' }),
+    'https://x/r.jpg',
+  )
 })

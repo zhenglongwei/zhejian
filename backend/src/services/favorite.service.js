@@ -180,7 +180,6 @@ async function enrichCaseFavorite(row) {
         where: { id: caseRow.albumId },
         include: {
           nodes: { orderBy: { sortOrder: 'asc' } },
-          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
         },
       })
     : null

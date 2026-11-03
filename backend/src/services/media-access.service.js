@@ -194,22 +194,9 @@ async function matchPublicServicePlanCover(objectKey) {
   return Boolean(planHit && mediaUrlMatchesObjectKey(planHit.coverUrl, objectKey))
 }
 
-/** 服务相册原图：album_images 表引用（商家/车主编辑页 <image> 无法带 Bearer） */
-async function matchAlbumImageMedia(objectKey) {
-  const filename = objectKeyFilename(objectKey)
-  const needle = String(objectKey || '').trim()
-  if (!filename && !needle) return false
-
-  const row = await prisma.albumImage.findFirst({
-    where: {
-      OR: [
-        { rawUrl: { contains: filename || needle } },
-        { rawUrl: { endsWith: filename || needle } },
-      ],
-    },
-    select: { rawUrl: true },
-  })
-  return Boolean(row && mediaUrlMatchesObjectKey(row.rawUrl, objectKey))
+/** @deprecated album_images 已废止；过程图改认 content_package / flowNodes */
+async function matchAlbumImageMedia(_objectKey) {
+  return false
 }
 
 /** partsJson 配件凭证图是否引用该 objectKey（含 thumbUrl / imageUrl / photos） */
@@ -352,32 +339,8 @@ async function canUserAccessAlbumRow(album, userId) {
   return Boolean(user?.phone && user.phone === album.userPhone)
 }
 
-async function canAccessViaAlbumImage(objectKey, auth) {
-  const needle = String(objectKey || '').trim()
-  if (!needle) return false
-
-  const row = await prisma.albumImage.findFirst({
-    where: {
-      OR: [
-        { rawUrl: { contains: needle } },
-        { rawUrl: { endsWith: needle } },
-      ],
-    },
-    select: {
-      album: {
-        select: { userId: true, userPhone: true, merchantId: true },
-      },
-    },
-  })
-  const album = row?.album
-  if (!album) return false
-
-  if (hasRole(auth, ROLES.MERCHANT) && auth.merchantId && album.merchantId === auth.merchantId) {
-    return true
-  }
-  if (hasRole(auth, ROLES.USER) && auth.userId) {
-    return canUserAccessAlbumRow(album, auth.userId)
-  }
+/** @deprecated album_images 已废止；鉴权走 contentPackage / MediaAsset */
+async function canAccessViaAlbumImage(_objectKey, _auth) {
   return false
 }
 

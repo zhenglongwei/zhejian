@@ -20,7 +20,6 @@ async function loadAlbumPlanRow(albumId, storeId, merchantId) {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
     include: {
-      images: { where: { nodeId: STAGE_PLAN }, orderBy: { idx: 'asc' } },
     },
   })
   assertMerchantAlbum(album, storeId, merchantId)
@@ -78,7 +77,7 @@ function buildPlanPartsContext(album) {
     planParts,
     planPartsLocked: Boolean(album.planPartsLockedAt),
     planPartsLockedAt: album.planPartsLockedAt ? toIso(album.planPartsLockedAt) : '',
-    planQuoteThumbs: resolvePlanQuoteThumbs(album.images),
+    planQuoteThumbs: resolvePlanQuoteThumbs(album.images || []),
     planQuoteImageIds: Array.isArray(album.planQuoteImageIds) ? album.planQuoteImageIds : [],
     planAmount,
     amountMismatch: amountCheck.mismatch,
@@ -87,15 +86,12 @@ function buildPlanPartsContext(album) {
 }
 
 async function syncPlanQuoteImageIds(albumId) {
-  const images = await prisma.albumImage.findMany({
-    where: { albumId, nodeId: STAGE_PLAN },
-    orderBy: { idx: 'asc' },
-  })
-  await prisma.album.update({
+  // album_images 已废止；报价图不再镜像到该表，保留既有 planQuoteImageIds
+  const album = await prisma.album.findUnique({
     where: { id: albumId },
-    data: { planQuoteImageIds: images.map((row) => row.id) },
+    select: { planQuoteImageIds: true },
   })
-  return images.map((row) => row.id)
+  return Array.isArray(album && album.planQuoteImageIds) ? album.planQuoteImageIds : []
 }
 
 async function getMerchantPlanPartsContext(albumId, storeId, merchantId) {

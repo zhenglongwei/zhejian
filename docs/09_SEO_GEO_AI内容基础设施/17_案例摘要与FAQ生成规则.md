@@ -68,7 +68,7 @@ AI 读完不知道修了什么，无从引用。
 
 | 坑 | 说明 |
 | --- | --- |
-| **工单节点没有 `document` 壳** | 工单项在 `work` 节点的 **`photoDraft.findings`**，不在 `document.payload`。`mapFlowNodeForView` 对 `work` 特判走 `mapOwnerWorkSheetCard`（`service-flow.service.js:1895`） |
+| **工单节点没有 `document` 壳** | 工单项在 `work` 节点 **`content.findings`**（接口可读别名 `photoDraft.findings`，非第二真源），不在 `document.payload`。`mapFlowNodeForView` 对 `work` 特判走 `mapOwnerWorkSheetCard` |
 | **`inspection` 会被过滤掉** | `isOwnerDocumentKind` 不认 `inspection`，所以 `buildHostContentReviewDocs` 不返回它。检测结论要取 `inspection_report`，缺了才回退 `inspection` |
 
 **现成的读取函数 `buildHostContentReviewDocs(album, albumNodes)` 能用，但有两个短板**：
@@ -97,18 +97,20 @@ AI 读完不知道修了什么，无从引用。
 
 ### 2.3 车型与诉求记在哪
 
-- 诉求：`intake.photoDraft.chiefComplaint`（检测报告的 `payload.chiefComplaint` 是跨节点合成的同一份）
-- 车型：`intake.photoDraft.vehicleBrand` / `vehicleSeries`（**品牌车系年款在新建相册页写**，不在接车步）
-- 里程：`intake.photoDraft.mileageKm`
+字段住在节点 **`content`**（旧写法 `photoDraft.xxx`＝别名）：
+
+- 诉求：`intake.content.chiefComplaint`（检测报告同字段是跨节点合成的同一份）
+- 车型：`intake.content.vehicleBrand` / `vehicleSeries`（**品牌车系年款在新建相册页写**，不在接车步）
+- 里程：`intake.content.mileageKm`
 
 ### 2.4 兼容：存量相册
 
-老相册是六阶段（`stage_1`～`stage_6`），且存在 `intake_inspection` 合并节点。取数时**按 kind 找不到就退回 stage**：
+老相册是六阶段（`stage_1`～`stage_6`），且存在 `intake_inspection` 合并节点。**打开相册时**按 kind 找不到可退回 stage **迁图一次进节点 content**；摘要/FAQ/公网档案取数**只认 flowNodes content / 已生成报告**，禁止再把 `stage_*` 当展示真源。
 
-- `intake` → `stage_1`
-- `inspection` → `stage_2`
-- `work` → `stage_5`
-- `repair_report` → `stage_6`
+- `intake` ← 历史 `stage_1`
+- `inspection` ← 历史 `stage_2`
+- `work` ← 历史 `stage_5`
+- `repair_report` / 交车 ← 历史 `stage_6`
 
 ---
 
