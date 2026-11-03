@@ -2060,43 +2060,6 @@ function albumHasOwner(album) {
   )
 }
 
-/** 完工门禁：内容非空（图 / 节点说明 / 证据 / 清单留证即可）。不要求车主手机号。 */
-function albumHasNonEmptyContent(album) {
-  if (!album) return false
-  if ((album.imageCount || 0) > 0) return true
-  if ((album.images || []).length > 0) return true
-  if ((album.nodes || []).some((n) => String((n && n.note) || '').trim())) return true
-  if (String(album.storeNote || '').trim()) return true
-  const evidence = album.evidenceItemsJson
-  if (Array.isArray(evidence)) {
-    const hit = evidence.some((it) => {
-      if (!it) return false
-      if ((it.images || []).length > 0) return true
-      return Boolean(
-        String(it.note || '').trim() ||
-          String(it.caption || '').trim() ||
-          String(it.text || '').trim(),
-      )
-    })
-    if (hit) return true
-  }
-  const checklistItems =
-    (album.checklistJson && Array.isArray(album.checklistJson.items) && album.checklistJson.items) ||
-    []
-  return checklistItems.some(
-    (it) =>
-      Boolean(String((it && it.note) || '').trim()) ||
-      (Array.isArray(it && it.imageIds) && it.imageIds.length > 0),
-  )
-}
-
-function assertAlbumHasNonEmptyContent(album) {
-  if (albumHasNonEmptyContent(album)) return
-  const err = new Error('相册内容不能为空，请至少留下一张图或一段说明')
-  err.status = 409
-  throw err
-}
-
 /** ALB-UX-11：允许商家手填车主手机号（手填即关联）；保留函数供调用点兼容 */
 function assertMerchantCannotSetOwnerPhone() {
   return
@@ -2386,7 +2349,6 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
     return view
   }
   assertAlbumContentEditable(existing)
-  assertAlbumHasNonEmptyContent(existing)
   // 相册归相册：完工不再要求案例稿，也不送人审；打码可先跑，生成预览另等就绪
   const prevCaseStatus = String(existing.publicCaseStatus || '').trim()
   const nextCaseStatus =
