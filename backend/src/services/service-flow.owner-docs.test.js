@@ -190,6 +190,92 @@ test('旧册薄报告：用冻住的交车节点重生成一次', () => {
   assert.equal(body.delivererName, '李店长')
 })
 
+test('车主接车报告：已发出但只留了留证时仍有入店照片', () => {
+  const view = buildOwnerFlowView(
+    albumWithFlow([
+      {
+        id: 'intake_1',
+        kind: 'intake',
+        title: '接车',
+        status: 'completed',
+        content: {
+          chiefComplaint: '地面有油迹',
+          pendingImages: [{ url: 'https://cdn.example.com/intake-front.jpg' }],
+        },
+        document: {
+          docType: 'intake_confirm',
+          status: 'delivered',
+          payload: {},
+        },
+      },
+    ]),
+    [],
+  )
+  const intake = view.docs.find((row) => row && row.kind === 'intake')
+  assert.ok(intake)
+  assert.equal(intake.locked, false)
+  assert.equal(intake.photos.length, 1)
+  assert.match(intake.photos[0].url, /intake-front/)
+})
+
+test('接车报告：商家定稿预览与车主打开同一份图和诉求', () => {
+  const { buildIntakePreviewFromContent } = require('../../../utils/owner-preview-doc')
+  const content = {
+    chiefComplaint: '过坎异响',
+    photos: [{ url: 'https://cdn.example.com/intake-a.jpg' }],
+    pendingImages: [{ url: 'https://cdn.example.com/intake-a.jpg' }],
+    belongings: '雨伞',
+    receiverName: '王师傅',
+    receivedAt: '2026-11-03',
+  }
+  const album = albumWithFlow([])
+  const merchant = buildIntakePreviewFromContent(content, album, {
+    issued: true,
+    mileageText: '里程 12,000 km',
+  })
+  const view = buildOwnerFlowView(
+    albumWithFlow([
+      {
+        id: 'intake_1',
+        kind: 'intake',
+        status: 'completed',
+        content,
+        document: { docType: 'intake_confirm', status: 'delivered', payload: {} },
+      },
+    ]),
+    [],
+  )
+  const owner = view.docs.find((row) => row && row.kind === 'intake')
+  assert.ok(owner)
+  assert.equal(owner.chiefComplaint, merchant.doc.chiefComplaint)
+  assert.equal(owner.photos.length, merchant.doc.photos.length)
+  assert.equal(owner.photos[0].url, merchant.doc.photos[0].url)
+  assert.equal(owner.belongings, merchant.doc.belongings)
+  assert.equal(owner.signName, merchant.doc.signName)
+})
+
+test('旧册已发出接车：heal 把留证收回定稿 photos', () => {
+  const pkg = {
+    flowVersion: 6,
+    flowNodes: [
+      {
+        id: 'intake_1',
+        kind: 'intake',
+        status: 'completed',
+        content: {
+          pendingImages: [{ url: 'https://cdn.example.com/intake-heal.jpg' }],
+        },
+        document: { status: 'delivered', payload: {} },
+      },
+    ],
+  }
+  const { pkg: next, changed } = healFinishReportPackage(pkg)
+  assert.equal(changed, true)
+  const intake = next.flowNodes.find((row) => row.kind === 'intake')
+  assert.equal(intake.content.photos.length, 1)
+  assert.match(intake.content.photos[0].url, /intake-heal/)
+})
+
 test('旧册空接车节点：从接车报告找回照片', () => {
   const pkg = {
     flowVersion: 6,

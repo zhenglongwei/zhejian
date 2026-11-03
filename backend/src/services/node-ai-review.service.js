@@ -689,6 +689,12 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
         updatedAt: new Date().toISOString(),
       },
     }))
+    try {
+      const { markAlbumAiAnalysisConsumed } = require('./merchant-plan-quota.service')
+      await markAlbumAiAnalysisConsumed(albumId)
+    } catch (_) {
+      /* ignore */
+    }
   } catch (error) {
     try {
       const { loadAlbum } = require('./service-album.service')
@@ -757,6 +763,10 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
       queueReviewJob(album.id, node.id, merchantId)
     }
     return sanitizeAiReviewForView(existing)
+  }
+  {
+    const { assertAiAnalysisQuotaAvailable } = require('./merchant-plan-quota.service')
+    await assertAiAnalysisQuotaAvailable(merchantId || album.merchantId, album.id)
   }
   console.info('[node-ai-review] 排队检查', {
     nodeId: node.id,

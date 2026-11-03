@@ -117,46 +117,108 @@ function ownerProcessSentence(raw) {
   return body.slice(0, 80)
 }
 
+function adviceRows(parsed, zhKey, enKey) {
+  if (!parsed || typeof parsed !== 'object') return []
+  if (Array.isArray(parsed[zhKey])) return parsed[zhKey]
+  if (enKey && Array.isArray(parsed[enKey])) return parsed[enKey]
+  return []
+}
+
+function workRemindKind(row) {
+  const t = text(row && (row['类型'] || row.kind))
+  if (t === '增项' || t === 'extra' || t === 'extra_work' || t === 'addon') return 'extra'
+  if (t === '留证' || t === 'photo' || t === 'photoPlan') return 'plan'
+  if (
+    t === '缺项' ||
+    t === 'missing' ||
+    t === 'missing_quote_item' ||
+    t === 'missing_process_photo' ||
+    t === 'missing_brand' ||
+    t === 'missing_old_new'
+  ) {
+    return 'missing'
+  }
+  return t ? 'missing' : 'plan'
+}
+
 function parseWorkAdvice(raw, items, slots) {
   const parsed = parseReviewModelJson(raw) || {}
   const byId = new Map()
-  ;(Array.isArray(parsed.items) ? parsed.items : []).forEach((row) => {
-    const id = text(row && row.id)
-    const body = text(row && row.body).slice(0, 80)
+  const byName = new Map()
+  adviceRows(parsed, '填写建议', 'items').forEach((row) => {
+    const id = text(row && (row.id || row['编号']))
+    const name = text(row && (row['项目'] || row.partName || row.name || row.title))
+    const body = text(row && (row['描述'] || row.body)).slice(0, 80)
     const supplement = text(row && row.supplement).slice(0, 80)
-    if (id) byId.set(id, { body, supplement })
+    const hit = { body, supplement }
+    if (id) byId.set(id, hit)
+    if (name && !byName.has(name)) byName.set(name, hit)
   })
-  const gaps = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
-    .map((row) => {
-      const kindText = text(row && row.kind)
-      const kind =
-        kindText === 'extra' || kindText === 'addon' || kindText === 'extra_work'
-          ? 'extra'
-          : kindText === 'missing' || kindText === 'missing_quote_item'
-            ? 'missing'
-            : kindText === 'missing_process_photo' ||
-                kindText === 'missing_brand' ||
-                kindText === 'missing_old_new'
-              ? 'missing'
-              : ''
-      const title = text(row && (row.title || row.partName || row.lineName)).slice(0, 16)
-      const body = text(row && row.body).slice(0, 120)
-      if (!kind || (!title && !body)) return null
-      return {
+  let gaps = []
+  let photoPlan = []
+  if (Array.isArray(parsed['提醒'])) {
+    parsed['提醒'].forEach((row) => {
+      const title = text(row && (row['标题'] || row.title || row.partName || row.lineName)).slice(0, 20)
+      const body = text(row && (row['正文'] || row.body)).slice(0, 120)
+      if (!title && !body) return
+      const kind = workRemindKind(row)
+      if (kind === 'plan') {
+        photoPlan.push({ title: title || '留证', body })
+        return
+      }
+      if (kind !== 'extra' && kind !== 'missing') return
+      gaps.push({
         kind,
         title: title || '提醒',
         body:
           body ||
           (kind === 'extra' ? `${title}是新增项，没有事先报价。` : `报价里的${title}，施工没有做。`),
-      }
+      })
     })
-    .filter(Boolean)
-    .slice(0, 4)
+    gaps = gaps.slice(0, 4)
+    photoPlan = photoPlan.slice(0, 6)
+  } else {
+    gaps = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
+      .map((row) => {
+        const kindText = text(row && row.kind)
+        const kind =
+          kindText === 'extra' || kindText === 'addon' || kindText === 'extra_work'
+            ? 'extra'
+            : kindText === 'missing' || kindText === 'missing_quote_item'
+              ? 'missing'
+              : kindText === 'missing_process_photo' ||
+                  kindText === 'missing_brand' ||
+                  kindText === 'missing_old_new'
+                ? 'missing'
+                : ''
+        const title = text(row && (row.title || row.partName || row.lineName)).slice(0, 16)
+        const body = text(row && row.body).slice(0, 120)
+        if (!kind || (!title && !body)) return null
+        return {
+          kind,
+          title: title || '提醒',
+          body:
+            body ||
+            (kind === 'extra' ? `${title}是新增项，没有事先报价。` : `报价里的${title}，施工没有做。`),
+        }
+      })
+      .filter(Boolean)
+      .slice(0, 4)
+    photoPlan = (Array.isArray(parsed.photoPlan) ? parsed.photoPlan : [])
+      .map((row) => {
+        const title = text(row && (row.title || row.partName)).slice(0, 20)
+        const body = text(row && row.body).slice(0, 120)
+        if (!title && !body) return null
+        return { title: title || '留证', body }
+      })
+      .filter(Boolean)
+      .slice(0, 6)
+  }
   const written = (Array.isArray(items) ? items : [])
     .map((row) => {
       const noted = text(row && row.note)
       const name = text(row && row.name)
-      const hit = byId.get(text(row && row.id)) || null
+      const hit = byId.get(text(row && row.id)) || byName.get(name) || null
       if (noted || !name || !(Number(row && row.photos) > 0) || !hit) return null
       const body = ownerProcessSentence(hit.body)
       if (!body) return null
@@ -174,37 +236,37 @@ function parseWorkAdvice(raw, items, slots) {
   const names = new Set((Array.isArray(items) ? items : []).map((row) => text(row && row.name)).filter(Boolean))
   const bySlot = new Map((Array.isArray(slots) ? slots : []).map((row) => [row.slot, row]))
   const seenSlot = new Set()
-  const groups = (Array.isArray(parsed.groups) ? parsed.groups : [])
-    .map((row) => {
-      const slot = Number(row && row.slot)
-      const partName = text(row && (row.partName || row.title)).slice(0, 16)
+  const splitRows = Array.isArray(parsed['拆分建议']) ? parsed['拆分建议'] : null
+  const groupRows = splitRows || (Array.isArray(parsed.groups) ? parsed.groups : [])
+  const groups = []
+  groupRows.forEach((row) => {
+    const partName = text(row && (row['检测项目'] || row.partName || row.title)).slice(0, 16)
+    if (!partName || !names.has(partName)) return
+    const nums = splitRows
+      ? collectGroupSlotNumbers({
+          imageSlots: slotTokens(row['图片']).concat(slotTokens(row.imageSlots)),
+          imageNames: slotTokens(row.imageNames),
+          imageName: row.imageName,
+          photoNames: row.photoNames,
+        })
+      : [Number(row && row.slot)].filter((n) => Number.isInteger(n) && n >= 1)
+    nums.forEach((slot) => {
       const shot = bySlot.get(slot)
-      if (!Number.isInteger(slot) || !shot || !partName || !names.has(partName)) return null
-      if (shot.partName === partName || seenSlot.has(slot)) return null
+      if (!shot || shot.partName === partName || seenSlot.has(slot)) return
       seenSlot.add(slot)
-      return {
+      groups.push({
         slot,
         url: shot.url,
         partName,
         body: `这张更像是${partName}。`,
-      }
+      })
     })
-    .filter(Boolean)
-    .slice(0, 4)
-  const photoPlan = (Array.isArray(parsed.photoPlan) ? parsed.photoPlan : [])
-    .map((row) => {
-      const title = text(row && (row.title || row.partName)).slice(0, 20)
-      const body = text(row && row.body).slice(0, 120)
-      if (!title && !body) return null
-      return { title: title || '留证', body }
-    })
-    .filter(Boolean)
-    .slice(0, 6)
+  })
   return {
     scope: 'process',
     gaps,
     items: written,
-    groups,
+    groups: groups.slice(0, 4),
     photoPlan,
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
@@ -231,8 +293,8 @@ function parseOwnerFaqSuggestions(list) {
   return normalizeOwnerFaqs(
     raw.map((row, index) => ({
       id: text(row && row.id) || `suggest_${index + 1}`,
-      question: text(row && (row.question || row.q)),
-      answer: text(row && (row.answer || row.a)),
+      question: text(row && (row['问'] || row.question || row.q)),
+      answer: text(row && (row['答'] || row.answer || row.a)),
     })),
   ).slice(0, 5)
 }
@@ -255,21 +317,24 @@ function parseDeliveryAdvice(raw) {
   }
   const legacyCopy = parseArchiveCopyFromDelivery(parsed)
   const repairBrief = text(
-    parsed.repairBrief ||
+    parsed['简述'] ||
+      parsed.repairBrief ||
       (parsed.repair && parsed.repair.body) ||
       (parsed.talk && parsed.talk.repair) ||
       (legacyCopy && legacyCopy.summary),
   ).slice(0, 500)
   const ownerFaqs = parseOwnerFaqSuggestions(
-    parsed.ownerFaqs ||
+    (Array.isArray(parsed['问答']) && parsed['问答'].length ? parsed['问答'] : null) ||
+      parsed.ownerFaqs ||
       parsed.faqs ||
       (legacyCopy && legacyCopy.faq) ||
       [],
   )
-  const tips = (Array.isArray(parsed.tips) ? parsed.tips : [])
+  const tipSource = Array.isArray(parsed['提醒']) ? parsed['提醒'] : parsed.tips
+  const tips = (Array.isArray(tipSource) ? tipSource : [])
     .map((row, index) => {
-      const title = text(row && row.title).slice(0, 40)
-      const body = text(row && row.body).slice(0, 120)
+      const title = text(row && (row['标题'] || row.title)).slice(0, 40)
+      const body = text(row && (row['正文'] || row.body)).slice(0, 120)
       if (!title && !body) return null
       return { id: `tip_${index + 1}`, title, body }
     })
@@ -485,16 +550,43 @@ function zhInspectProse(value, max = 200) {
   return zhOnly(dropRankWords(value), max)
 }
 
+/** 「图2、图3」这种一段才切开。空白不切，避免「图 1」被拆散。 */
+function splitFigureTokens(value) {
+  return String(value)
+    .split(/[、,，;；]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+/**
+ * 图片按类型收：字符串数组按项取；多套一层只取内层字符串；一段才按顿号逗号切开。
+ * 对象、再深一层、其它类型丢掉，不当图号。
+ */
 function slotTokens(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value === 'string') {
-    return value
-      .split(/[、,，;；\s]+/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-  }
   if (value == null || value === '') return []
-  return [value]
+  if (typeof value === 'string') return splitFigureTokens(value)
+  if (typeof value === 'number') return [value]
+  if (!Array.isArray(value)) return []
+  const out = []
+  value.forEach((item) => {
+    if (typeof item === 'string') {
+      splitFigureTokens(item).forEach((part) => out.push(part))
+      return
+    }
+    if (typeof item === 'number') {
+      out.push(item)
+      return
+    }
+    if (!Array.isArray(item)) return
+    item.forEach((inner) => {
+      if (typeof inner === 'string') {
+        splitFigureTokens(inner).forEach((part) => out.push(part))
+        return
+      }
+      if (typeof inner === 'number') out.push(inner)
+    })
+  })
+  return out
 }
 
 /**
@@ -1059,13 +1151,14 @@ async function runLlm(instruction, urls, label, options = {}) {
 function workInstruction(ctx) {
   const slots = ctx.workPhotoSlots || []
   return [
-    'You assist a Chinese auto shop clerk during repair work documentation.',
-    'Goal: whether critical process photos exist, brand/spec of parts, old-vs-new comparison, and whether captions are clear for the car owner. Content over form.',
-    'Compare against confirmed quote lines. Do NOT change prices. Do NOT move photos yourself — only suggest groups.',
-    'Prior steps: use analysis summaries + image notes only; do not re-attach those images.',
-    'Current: work items and NEW work photos only (slots below). Already-noted photos are text only.',
-    'Owner cares about proof of work, what was replaced, and readable descriptions — not technician poses or tool close-ups.',
-    `Context JSON: ${JSON.stringify({
+    '你是修理厂的施工顾问，帮店员看这一步留证齐不齐。',
+    '对照已经确认的报价行。不要改价格。不要自己挪图，只建议。',
+    '前序节点只带文字，不要再看那些图。本步只看施工项和这次的施工图。',
+    '车主要看做成了什么、换了什么件；店员姿势和工具特写不算留证。',
+    '提醒：报价有施工无，类型写「缺项」；施工有报价无，类型写「增项」；该拍还没拍，类型写「留证」。',
+    '填写建议：只给还没有施工说明、并且已经有照片的项写描述。项目填该项名称。',
+    '拆分建议：某张图更像另一项时，检测项目填已有施工项名称，图片用["图1"]。已经挂对的不要再写。其它键留空。',
+    `参考材料：${JSON.stringify({
       prior: {
         intake: ctx.intakeAdviceSummary,
         intakeNoted: ctx.intakeNoted,
@@ -1075,10 +1168,9 @@ function workInstruction(ctx) {
         workNoted: ctx.workNoted,
       },
       workItems: ctx.workItems,
-      photos: slots.map((row) => ({ slot: row.slot, on: row.partName })),
+      photos: slots.map((row) => ({ 图: `图${row.slot}`, 现在挂在: row.partName })),
     })}`,
-    'Also list photoPlan: which workmanship photos this step should take (old/new parts, critical process) — shop reminder only.',
-    'Return JSON only: {"gaps":[{"kind":"missing_quote_item|extra_work|missing_process_photo|missing_brand|missing_old_new","title":"","body":""}],"items":[{"id":"","body":"","canApply":true}],"groups":[{"slot":1,"partName":"","body":""}],"photoPlan":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[{"检测项目":"已有施工项名称","图片":["图1"],"描述":"这张更像这一项。","处理意见":""}],"填写建议":[{"项目":"已有施工项名称","描述":"更换了开裂的下摆臂胶套。"}],"简述":"","问答":[],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没有照片。"}],"masks":[]}',
   ].join('\n')
 }
 
@@ -1217,17 +1309,13 @@ function deliveryInstruction(ctx) {
     selectedCount: ctx.selectedCount,
   })
   return [
-    'You assist a Chinese auto shop clerk at vehicle delivery / handover.',
-    'Goal: using whole-case facts, draft (1) repairBrief and (2) ownerFaqs for the delivery node. Clerk will apply; you only propose.',
-    'Do NOT rehash intake/inspect/quote/work "what to do next" advice. Do NOT say 系统内缺少 or invent unfinished paint/body work.',
-    'Hard rules:',
-    '- repairBrief: one short Chinese paragraph of what was done this visit (facts only). No prices, no PII. Suitable for owner report header.',
-    '- ownerFaqs: 1–5 items {question, answer}. MUST include ongoing care/precautions if any (break-in, seepage to watch, how warranty works). If none, add case-related general consumer questions. Max 5.',
-    '- tips: optional short reminders only for THIS step (missing delivery photo, empty warranty period).',
-    '- Simplified Chinese only in natural-language values.',
-    'Context JSON (PII already stripped):',
-    JSON.stringify(safeFacts),
-    'Return JSON only: {"repairBrief":"","ownerFaqs":[{"question":"","answer":""}],"tips":[{"title":"","body":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
+    '你是修理厂的交车顾问。根据整单事实，写出本次维修简述和车主会问的问题。',
+    '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
+    '简述：一段话说这次做了什么，可放进车主报告抬头。不要写价格和隐私。',
+    '问答：1到5条。有需要持续注意的必须写成问答；没有就写和本案相关的常见问。',
+    '提醒：只写本步还缺的，比如交车照、质保期限空。其它键留空。店员点应用才写入。',
+    `参考材料：${JSON.stringify(safeFacts)}`,
+    '只返回 JSON：{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"新胶套要注意什么？","答":"近期少过剧烈颠簸，磨合几天。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[]}',
   ].join('\n')
 }
 
@@ -1381,6 +1469,14 @@ async function runJob(albumId, kind, options = {}) {
       }
       return next
     })
+    if (ok) {
+      try {
+        const { markAlbumAiAnalysisConsumed } = require('./merchant-plan-quota.service')
+        await markAlbumAiAnalysisConsumed(albumId)
+      } catch (_) {
+        /* ignore */
+      }
+    }
   } catch (err) {
     const { field, nodeKind } = nodeField(kind)
     await patchNode(albumId, nodeKind, (item) => ({
@@ -1425,6 +1521,10 @@ async function queueIfNeeded(album, kind, options = {}) {
       reuse: true,
       stale: text(current.fingerprint) !== fingerprint,
     }
+  }
+  {
+    const { assertAiAnalysisQuotaAvailable } = require('./merchant-plan-quota.service')
+    await assertAiAnalysisQuotaAvailable(album.merchantId, album.id)
   }
   await patchNode(album.id, nodeKind, (item) => {
     const prev = (item && item[field]) || {}

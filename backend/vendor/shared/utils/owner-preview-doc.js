@@ -177,6 +177,38 @@ function albumMetaLine(album, mileageText) {
   return [plate, name, String(mileageText || '').trim()].filter(Boolean).join(' · ')
 }
 
+/**
+ * 接车报告入店照片：未发出跟留证；已发出只认定稿 photos。
+ * 旧册缺定稿时由库侧一次收回，读侧不再用编辑底稿补洞。
+ */
+function intakePhotoRowsFromContent(content = {}, options = {}) {
+  const issued = Boolean(options.issued)
+  const sealed = photoRows(content && content.photos)
+  if (issued) return sealed
+  const pending = photoRows(content && content.pendingImages)
+  return pending.length ? pending : sealed
+}
+
+/** 商家预览与车主打开共用：从节点内容拼接车报告 */
+function buildIntakePreviewFromContent(content = {}, album = {}, options = {}) {
+  const bag = content && typeof content === 'object' ? content : {}
+  const issued = Boolean(options.issued)
+  const mileageText = String(options.mileageText || '').trim()
+  return buildOwnerPreviewDoc({
+    family: 'intake',
+    album: previewAlbumOf(album),
+    chiefComplaint: String(bag.chiefComplaint || '').trim(),
+    photos: intakePhotoRowsFromContent(bag, { issued }),
+    mileageText,
+    belongings: String(bag.belongings || '').trim(),
+    fuelReading: String(bag.fuelReading || '').trim(),
+    signName: String(options.signName != null ? options.signName : bag.receiverName || '').trim(),
+    signAt: formatClerkAtForDoc(
+      options.signAt != null ? options.signAt : bag.receivedAt || '',
+    ),
+  })
+}
+
 function buildOwnerPreviewDoc(input = {}) {
   const family = String(input.family || '')
   const album = input.album || {}
@@ -364,6 +396,8 @@ function buildOwnerPreviewDoc(input = {}) {
 
 module.exports = {
   buildOwnerPreviewDoc,
+  buildIntakePreviewFromContent,
+  intakePhotoRowsFromContent,
   previewAlbumOf,
   workItemsFromFindings,
   quoteTotalsFromNodes,

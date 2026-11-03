@@ -70,22 +70,6 @@
   gap: var(--space-sm);
 }
 
-.mine__guest-album {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-lg);
-  border-radius: var(--radius-md);
-  background-color: var(--color-album-frame-inner);
-  border: 1rpx solid var(--color-album-frame-line);
-  box-shadow: var(--shadow-album-list-thumb);
-  box-sizing: border-box;
-}
-
-.mine__guest-album:active {
-  opacity: 0.72;
-}
-
 .mine__consult-entry {
   display: flex;
   align-items: center;

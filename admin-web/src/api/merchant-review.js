@@ -23,3 +23,15 @@ export function requestModifyMerchant(merchantId, body) {
 export function revokeMerchantAuth(merchantId, body) {
   return request.post(`/admin/merchants/${merchantId}/revoke-auth`, body)
 }
+
+export function fetchCatalogPricing() {
+  return request.get('/admin/pricing/catalog')
+}
+
+export function updateCatalogPricing(body) {
+  return request.put('/admin/pricing/catalog', body)
+}
+
+export function updateStorePricing(storeId, body) {
+  return request.put(`/admin/stores/${storeId}/pricing`, body)
+}

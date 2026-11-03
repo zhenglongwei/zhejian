@@ -136,21 +136,17 @@ async function runGenerateLlm(urls) {
   const { chatCompletion } = require('../lib/dashscope-chat')
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
-    'You assist a Chinese auto shop clerk at vehicle intake (pre-repair check-in photos).',
-    'Goal: decide whether front / rear / left / right of the car are covered by the photos. Content over form — judge what is actually visible.',
-    'Rules:',
-    '- Do NOT diagnose damage, severity, or repair order.',
-    '- Do NOT rewrite the owner complaint text.',
-    '- Count a side as covered ONLY if that side of the car body is clearly visible, including 3/4 angle shots. Perfect square-on panorama is NOT required.',
-    '- If photos are unrelated, blurry, interior-only, parts-only, or do not show that exterior side, mark the side missing (false). Do NOT mark covered when unsure.',
-    '- coverage and missing MUST agree: every false in coverage appears in missing; never put a side in missing when coverage says true.',
-    '- Output natural-language strings in Simplified Chinese. Keys in English.',
-    'Return JSON only:',
-    '{"coverage":{"front":true,"rear":true,"left":true,"right":true},"missing":["车头"|"车尾"|"左侧"|"右侧"],"tips":[{"title":"","body":""}],"imageNotes":[{"slot":1,"note":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
+    '你是修理厂的接车顾问，只看车身四周拍没拍全。',
+    '不要判断损伤，不要改客户诉求。',
+    '某一侧车身能看清就算拍到，斜拍也可以，不必正对全景。',
+    '看不清、完全没拍到、或只拍了内饰零件的一侧，写一条提醒。标题只用：缺车头、缺车尾、缺左侧、缺右侧。',
+    '四周都拍到了，提醒用空数组。其它键留空。',
+    '只返回 JSON：',
+    '{"故障分析":"","检测顺序":[],"拆分建议":[],"填写建议":[],"简述":"","问答":[],"提醒":[{"类型":"","标题":"缺车尾","正文":"再拍一张能看清车尾的照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"plate","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
   const content = [{ type: 'text', text: instruction }].concat(
     (urls || []).flatMap((url, index) => [
-      { type: 'text', text: `Photo slot ${index + 1}` },
+      { type: 'text', text: `图${index + 1}` },
       { type: 'image_url', image_url: { url } },
     ]),
   )
@@ -165,8 +161,7 @@ async function runGenerateLlm(urls) {
         messages: [
           {
             role: 'system',
-            content:
-              'Reply with JSON only. Natural-language string values must be Simplified Chinese.',
+            content: '只返回 JSON。键名和句子都用简体中文。',
           },
           { role: 'user', content: content },
         ],
@@ -264,6 +259,14 @@ async function runIntakeAdviceJob(albumId) {
       }
       return next
     })
+    if (!visionUrls.length || parsed) {
+      try {
+        const { markAlbumAiAnalysisConsumed } = require('./merchant-plan-quota.service')
+        await markAlbumAiAnalysisConsumed(albumId)
+      } catch (_) {
+        /* ignore */
+      }
+    }
   } catch (err) {
     await patchIntakeNode(albumId, (item) => ({
       ...item,
@@ -312,6 +315,10 @@ async function queueIntakeAdviceIfNeeded(album, merchantId, options = {}) {
       reuse: true,
       stale: text(current.fingerprint) !== fingerprint,
     }
+  }
+  {
+    const { assertAiAnalysisQuotaAvailable } = require('./merchant-plan-quota.service')
+    await assertAiAnalysisQuotaAvailable(merchantId || album.merchantId, album.id)
   }
   await patchIntakeNode(album.id, (item) => {
     const prev = (item && item.intakeAdvice) || {}

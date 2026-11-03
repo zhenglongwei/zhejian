@@ -1,4 +1,4 @@
-const {
+﻿const {
   fetchMerchantProfile,
   refreshMerchantSession,
   fetchMerchantStores,
@@ -14,7 +14,6 @@ const { fetchMerchantSubscriptionPanel } = require('../../../services/merchant-s
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
 const { isMerchantOwner, isLoggedIn } = require('../../../utils/auth')
-const { promptHomePrivacy } = require('../../../utils/privacy-authorize')
 const { wechatLogin } = require('../../../services/user')
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
@@ -33,7 +32,7 @@ const {
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
-  buildMerchantPlanTag,
+  buildMerchantPricingCue,
   filterMerchantGeoOpportunity,
 } = require('../../../constants/merchant-hub')
 const { buildMerchantAlbumEntryPath } = require('../../../utils/merchant-album-nav')
@@ -85,6 +84,8 @@ Page({
     switchingStore: false,
     geoOpportunity: null,
     planTag: null,
+    pricingCue: '',
+    pricingCueKind: 'plan',
     showPricing: false,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
@@ -116,7 +117,6 @@ Page({
   onShow() {
     const { hideLaunchHomeButton } = require('../../../utils/app-role')
     hideLaunchHomeButton()
-    promptHomePrivacy(this)
     this._syncArchiveGateCopy()
     this.loadProfile({ silent: this.data.status === 'normal' })
   },
@@ -216,6 +216,8 @@ Page({
     let albumRows = []
     let home = buildWorkbenchHome([])
     let planTag = null
+    let pricingCue = ''
+    let pricingCueKind = 'plan'
 
     try {
       if (isMerchantOwner()) {
@@ -262,11 +264,15 @@ Page({
         .filter(Boolean)
       geoOpportunity = filterMerchantGeoOpportunity(geoOpp, storeServiceNames)
 
-      planTag = subPanel
-        ? buildMerchantPlanTag(subPanel.subscription, canManageStaff)
-        : canManageStaff
-          ? buildMerchantPlanTag({ plan: 'free' }, true)
-          : null
+      const cue = canManageStaff
+        ? buildMerchantPricingCue(
+            subPanel || { subscription: { effectivePlan: 'taste', usedQuota: 0, quotaLimit: 3 } },
+            true,
+          )
+        : null
+      planTag = cue
+      pricingCue = cue ? cue.text : ''
+      pricingCueKind = cue ? cue.kind : 'plan'
 
       const heroes = pickMerchantHubAlbums(albumList || []).map((item) =>
         quietMerchantHubAlbumTags(enrichMerchantAlbumListItem(item))
@@ -300,6 +306,8 @@ Page({
       canManageStores,
       geoOpportunity,
       planTag,
+      pricingCue,
+      pricingCueKind,
       showPricing: canManageStaff,
     })
     this.promptSetupIfNeeded(profile)
@@ -309,15 +317,18 @@ Page({
     if (!profile || profile.publicReady || !isMerchantOwner()) return
     if (this._setupPrompted) return
     this._setupPrompted = true
-    const next = profile.setupNext === 'profile' ? 'profile' : 'auth'
+    const gate = profile.publicGate || {}
+    const next =
+      gate.action === 'profile' || profile.setupNext === 'profile' ? 'profile' : 'auth'
     const content =
-      profile.setupNext === 'licenseTaken'
+      gate.message ||
+      (profile.setupNext === 'licenseTaken'
         ? '这张执照已注册过其他门店'
-        : '补齐后才会出现在网站上'
+        : '补齐后才会出现在网站上')
     wx.showModal({
-      title: '资料还没齐',
+      title: gate.title || '资料还没齐',
       content,
-      confirmText: '去补',
+      confirmText: gate.actionLabel || '去补',
       cancelText: '先去干活',
       success: (res) => {
         if (!res.confirm) return

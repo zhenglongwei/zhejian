@@ -63,28 +63,42 @@ function normalizeCreditCode(value) {
   return code.replace(/\s+/g, '')
 }
 
-function unwrapLicensePayload(raw) {
-  let node = safeParseData(raw)
-  if (!node && raw && typeof raw === 'object') {
-    node = raw
+function toPlainOcr(value) {
+  if (value == null) return value
+  if (typeof value === 'string') return safeParseData(value) || value
+  if (typeof value !== 'object') return value
+  if (typeof value.toMap === 'function') {
+    try {
+      const mapped = value.toMap()
+      if (mapped && typeof mapped === 'object') return mapped
+    } catch (e) {
+      /* keep original */
+    }
   }
+  return value
+}
+
+function unwrapLicensePayload(raw) {
+  let node = toPlainOcr(safeParseData(raw) || (raw && typeof raw === 'object' ? raw : null))
   if (!node) return null
 
   for (let i = 0; i < 4; i += 1) {
-    if (node.data == null) break
-    if (typeof node.data === 'string') {
-      const inner = safeParseData(node.data)
-      if (!inner) break
-      node = inner
+    node = toPlainOcr(node)
+    const inner = node && typeof node === 'object' ? node.data ?? node.Data : null
+    if (inner == null) break
+    if (typeof inner === 'string') {
+      const parsed = safeParseData(inner)
+      if (!parsed) break
+      node = parsed
       continue
     }
-    if (typeof node.data === 'object' && !Array.isArray(node.data)) {
-      node = node.data
+    if (typeof inner === 'object' && !Array.isArray(inner)) {
+      node = inner
       continue
     }
     break
   }
-  return node
+  return toPlainOcr(node)
 }
 
 function mapLicenseOcrResult(raw) {
@@ -310,25 +324,47 @@ async function recognizeBusinessLicense(licensePhotoUrl) {
 
 function pickIdField(node, keys) {
   if (!node || typeof node !== 'object') return ''
-  const data = node.data && typeof node.data === 'object' ? node.data : node
+  const data = node.data && typeof node.data === 'object' && !Array.isArray(node.data) ? node.data : node
   return pickField(data, keys)
+}
+
+function idCardNode(data, keys) {
+  if (!data || typeof data !== 'object') return null
+  for (const key of keys) {
+    if (data[key] && typeof data[key] === 'object') return data[key]
+  }
+  return null
+}
+
+function ocrShapeKeys(raw) {
+  const node = toPlainOcr(raw)
+  if (!node || typeof node !== 'object') return { type: typeof raw }
+  const keys = Object.keys(node)
+  const nested = {}
+  keys.forEach((key) => {
+    const value = node[key]
+    nested[key] =
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.keys(toPlainOcr(value))
+        : typeof value
+  })
+  return nested
 }
 
 function mapIdCardOcrResult(raw) {
   const data = unwrapLicensePayload(raw) || {}
-  const faceNode = data.face || data.Face || data
-  const backNode = data.back || data.Back || data
+  const faceNode = toPlainOcr(
+    idCardNode(data, ['frontResult', 'FrontResult', 'face', 'Face']) || data
+  )
+  const backNode = toPlainOcr(
+    idCardNode(data, ['backResult', 'BackResult', 'back', 'Back']) || data
+  )
   const name = pickIdField(faceNode, ['name', 'Name', '姓名'])
-  const validPeriod = pickIdField(backNode, [
-    'validPeriod',
-    'ValidPeriod',
-    'validDate',
-    'ValidDate',
-    'endDate',
-    'EndDate',
-    'startDate',
-    'StartDate',
-  ])
+  const startDate = pickIdField(backNode, ['startDate', 'StartDate'])
+  const endDate = pickIdField(backNode, ['endDate', 'EndDate'])
+  const validPeriod =
+    pickIdField(backNode, ['validPeriod', 'ValidPeriod', 'validDate', 'ValidDate']) ||
+    [startDate, endDate].filter(Boolean).join('-')
   const issueAuthority = pickIdField(backNode, [
     'issueAuthority',
     'IssueAuthority',
@@ -375,7 +411,15 @@ async function recognizeIdCardWithViapi(imagePath, side = '') {
   if (side) request.side = side
   const resp = await client.recognizeIdentityCardAdvance(request, runtime)
   const body = resp?.body || {}
-  return mapIdCardOcrResult(body.data ?? body.Data)
+  const rawData = body.data ?? body.Data
+  const mapped = mapIdCardOcrResult(rawData)
+  if (!mapped.name && !mapped.issueAuthority && !mapped.validPeriod) {
+    console.warn('[license-ocr] idcard viapi empty map', {
+      requestedSide: side,
+      shape: ocrShapeKeys(rawData),
+    })
+  }
+  return mapped
 }
 
 async function recognizeIdCard(photoUrl, options = {}) {
@@ -397,7 +441,12 @@ async function recognizeIdCard(photoUrl, options = {}) {
       const mapped = await withOcrRetries(() =>
         recognizeIdCardWithViapi(materialized.filePath, side)
       )
-      console.info('[license-ocr] idcard viapi ok', { side: mapped.side || side })
+      console.info('[license-ocr] idcard viapi ok', {
+        requestedSide: side,
+        mappedSide: mapped.side,
+        hasName: Boolean(mapped.name),
+        hasBack: Boolean(mapped.issueAuthority || mapped.validPeriod),
+      })
       return mapped
     } catch (viapiError) {
       console.warn(

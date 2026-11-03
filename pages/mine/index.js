@@ -2,7 +2,6 @@ const { fetchMineSummary } = require('../../services/user')
 const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
-const { promptHomePrivacy } = require('../../utils/privacy-authorize')
 const { buildMineMenuSections, buildMineHubDock, buildOwnerHubLinks } = require('../../constants/mine-menu')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { compareOwnerAlbums, visibleOwnerHubAlbums, nextOwnerHubFilter, needsOwnerConfirm } = require('../../utils/owner-album-rank')
@@ -19,7 +18,7 @@ const {
   summarizeAuthorizationTodos,
   buildMineTodoSummary,
 } = require('../../constants/mine-hub')
-const { TOOL_GUEST_ALBUM_TITLE, TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
+const { TOOL_GUEST_LOGIN_TITLE } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildCaseListH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
@@ -73,7 +72,7 @@ Page({
     albumHeroCards: [],
     pendingAuthBadge: '',
     hubDock: buildMineHubDock(),
-    hubLinks: [],
+    hubLinks: buildOwnerHubLinks(),
     hubFilter: 'preview',
     hubEmptyTitle: '这里还没有服务',
     hubAlbums: [],
@@ -95,8 +94,7 @@ Page({
     albumEmptyTitle: MINE_ALBUM_EMPTY_TITLE,
     albumEmptyDesc: MINE_ALBUM_EMPTY_DESC,
     albumEmptyH5Link: MINE_ALBUM_EMPTY_H5_LINK,
-    guestAlbumTitle: TOOL_GUEST_ALBUM_TITLE,
-    guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
+    guestLoginTitle: TOOL_GUEST_LOGIN_TITLE,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
     h5OutletText: MINE_H5_OUTLET_TEXT,
     ...albumAuthShareData(),
@@ -111,7 +109,6 @@ Page({
   onShow() {
     const { hideLaunchHomeButton } = require('../../utils/app-role')
     hideLaunchHomeButton()
-    promptHomePrivacy(this)
     this.loadPage({ silent: this.data.isLoggedIn && this.data.status === 'normal' })
   },
 
@@ -303,6 +300,14 @@ Page({
 
   onLoginTap() {
     this.openLoginSheet('login')
+  },
+
+  onHelloTap() {
+    if (this.data.isLoggedIn) {
+      this.onProfileTap()
+      return
+    }
+    this.onLoginTap()
   },
 
   onProfileTap() {

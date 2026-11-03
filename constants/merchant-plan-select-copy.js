@@ -30,20 +30,12 @@ const PLAN_SELECT_FOOTER =
 
 const PLAN_SELECT_CTA = '进入工作台'
 
-/** 工作台 · 收费页。金额先空着；权益只写名称。 */
+/** @deprecated 收费页已改为四档对照表，见 merchant-plan-catalog.js */
 const SUBSCRIPTION_COPY = {
-  amountLabel: '金额',
-  priceMark: '¥',
-  benefitsTitle: '包含权益',
-  agreementLink: '查看《套餐与工具服务协议》',
+  agreementLink: '查看《商家工具服务协议》',
 }
 
-const SUBSCRIPTION_BENEFITS = [
-  '不限次使用AI分析',
-  '无限案例公示',
-  '访问数据看板',
-  '无限生成朋友圈、自媒体图文转发素材',
-]
+const SUBSCRIPTION_BENEFITS = []
 
 module.exports = {
   PLAN_SELECT_HERO,

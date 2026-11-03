@@ -1,17 +1,35 @@
-/** 商家 SaaS 套餐 · 当前全功能免费；旧 plan 码仅兼容 */
+/**
+ * 商家 SaaS 套餐 · 四档月费（真源：docs/03_商家端/05_商家套餐与权益.md）
+ * 旧 plan 码仅读兼容，映射为尝鲜权益。
+ */
+const {
+  MERCHANT_PLAN: CATALOG_PLAN,
+  MERCHANT_PLAN_ORDER,
+  DEFAULT_PLAN_CATALOG,
+  isSellablePlanCode,
+} = require('./merchant-plan-catalog')
 
 const MERCHANT_PLAN = {
-  FREE: 'free',
-  INDEX_99: 'index_99',
-  /** @deprecated 已停售；存量商家迁移为 free */
-  OPTIMIZE_299: 'optimize_299',
+  TASTE: CATALOG_PLAN.TASTE,
+  MICRO: CATALOG_PLAN.MICRO,
+  STANDARD: CATALOG_PLAN.STANDARD,
+  SCALE: CATALOG_PLAN.SCALE,
+  FREE: CATALOG_PLAN.FREE,
+  INDEX_99: CATALOG_PLAN.INDEX_99,
+  OPTIMIZE_299: CATALOG_PLAN.OPTIMIZE_299,
 }
 
 const MERCHANT_PLAN_LABELS = {
-  [MERCHANT_PLAN.FREE]: '免费使用',
-  [MERCHANT_PLAN.INDEX_99]: '免费使用',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '免费使用',
+  [MERCHANT_PLAN.TASTE]: '尝鲜版',
+  [MERCHANT_PLAN.MICRO]: '小微店',
+  [MERCHANT_PLAN.STANDARD]: '标准店',
+  [MERCHANT_PLAN.SCALE]: '规模店',
+  [MERCHANT_PLAN.FREE]: '尝鲜版',
+  [MERCHANT_PLAN.INDEX_99]: '尝鲜版',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '尝鲜版',
 }
+
+const MERCHANT_PLAN_TAG_LABELS = { ...MERCHANT_PLAN_LABELS }
 
 const MERCHANT_PLAN_TIER = {
   BASIC: 'basic',
@@ -19,20 +37,22 @@ const MERCHANT_PLAN_TIER = {
 }
 
 const MERCHANT_PLAN_TIER_BY_PLAN = {
+  [MERCHANT_PLAN.TASTE]: MERCHANT_PLAN_TIER.BASIC,
+  [MERCHANT_PLAN.MICRO]: MERCHANT_PLAN_TIER.BASIC,
+  [MERCHANT_PLAN.STANDARD]: MERCHANT_PLAN_TIER.STANDARD,
+  [MERCHANT_PLAN.SCALE]: MERCHANT_PLAN_TIER.STANDARD,
   [MERCHANT_PLAN.FREE]: MERCHANT_PLAN_TIER.BASIC,
   [MERCHANT_PLAN.INDEX_99]: MERCHANT_PLAN_TIER.BASIC,
   [MERCHANT_PLAN.OPTIMIZE_299]: MERCHANT_PLAN_TIER.BASIC,
 }
 
-const MERCHANT_PLAN_TAG_LABELS = {
-  [MERCHANT_PLAN.FREE]: '免费使用',
-  [MERCHANT_PLAN.INDEX_99]: '免费使用',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '免费使用',
-}
-
 const MERCHANT_PLAN_TAG_TIERS = MERCHANT_PLAN_TIER_BY_PLAN
 
 const MERCHANT_PLAN_PRICE_CENTS = {
+  [MERCHANT_PLAN.TASTE]: DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.TASTE].priceCents,
+  [MERCHANT_PLAN.MICRO]: DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.MICRO].priceCents,
+  [MERCHANT_PLAN.STANDARD]: DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.STANDARD].priceCents,
+  [MERCHANT_PLAN.SCALE]: DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.SCALE].priceCents,
   [MERCHANT_PLAN.FREE]: 0,
   [MERCHANT_PLAN.INDEX_99]: 0,
   [MERCHANT_PLAN.OPTIMIZE_299]: 0,
@@ -52,46 +72,74 @@ const MERCHANT_PAYMENT_STATUS = {
   CLOSED: 'closed',
 }
 
-/** 当前：任意有效订阅均可公域基础收录（含 free） */
+/** 可付费开通的四档 */
+const SELLABLE_PLANS = new Set(MERCHANT_PLAN_ORDER)
+
+/** 付费四档（有到期日） */
+const PAID_PLANS = new Set(MERCHANT_PLAN_ORDER)
+
+/** 公域基础收录：有效订阅均可（含未付尝鲜权益） */
 const PUBLIC_INDEX_PLANS = new Set([
+  ...MERCHANT_PLAN_ORDER,
   MERCHANT_PLAN.FREE,
   MERCHANT_PLAN.INDEX_99,
   MERCHANT_PLAN.OPTIMIZE_299,
 ])
 
-/** 可售套餐（工作台说明用；当前仅展示免费） */
-const SELLABLE_PLANS = new Set([MERCHANT_PLAN.FREE])
+const PLAN_RANK = {
+  [MERCHANT_PLAN.FREE]: 0,
+  [MERCHANT_PLAN.INDEX_99]: 0,
+  [MERCHANT_PLAN.OPTIMIZE_299]: 0,
+  [MERCHANT_PLAN.TASTE]: 1,
+  [MERCHANT_PLAN.MICRO]: 2,
+  [MERCHANT_PLAN.STANDARD]: 3,
+  [MERCHANT_PLAN.SCALE]: 4,
+}
 
-const SUBSCRIPTION_TERM_DAYS = 365
-const STANDARD_TRIAL_DAYS = 90
+/** 月付 30 天 */
+const SUBSCRIPTION_TERM_DAYS = 30
+const STANDARD_TRIAL_DAYS = 0
+const RENEWAL_NOTICE_DAYS = 3
 
-const PLAN_CATALOG = [
-  {
-    plan: MERCHANT_PLAN.FREE,
-    name: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.FREE],
-    priceCents: 0,
-    priceLabel: '当前免费',
-    highlights: [
-      '服务相册、车主查看与私域分享',
-      '车主发布案例基础收录不另收费',
-    ],
+const PLAN_CATALOG = MERCHANT_PLAN_ORDER.map((code) => {
+  const row = DEFAULT_PLAN_CATALOG[code]
+  return {
+    plan: code,
+    name: row.name,
+    priceCents: row.priceCents,
+    priceLabel: `¥${row.priceCents / 100}/月`,
+    caseQuota: row.caseQuota,
+    caseQuotaLabel: row.caseQuotaLabel,
+    highlights: ['相册生成不限', `AI分析、公开托管 ${row.caseQuotaLabel}`],
     publicIndex: true,
-  },
-]
+  }
+})
+
+function caseQuotaForPlan(planCode) {
+  const code = String(planCode || '')
+  if (DEFAULT_PLAN_CATALOG[code]) return DEFAULT_PLAN_CATALOG[code].caseQuota
+  return DEFAULT_PLAN_CATALOG[MERCHANT_PLAN.TASTE].caseQuota
+}
 
 module.exports = {
   MERCHANT_PLAN,
+  MERCHANT_PLAN_ORDER,
   MERCHANT_PLAN_LABELS,
   MERCHANT_PLAN_TAG_LABELS,
   MERCHANT_PLAN_TAG_TIERS,
   MERCHANT_PLAN_TIER,
-  MERCHANT_PLAN_TIER_BY_PLAN: MERCHANT_PLAN_TIER_BY_PLAN,
+  MERCHANT_PLAN_TIER_BY_PLAN,
   MERCHANT_PLAN_PRICE_CENTS,
   MERCHANT_SUBSCRIPTION_STATUS,
   MERCHANT_PAYMENT_STATUS,
   PUBLIC_INDEX_PLANS,
+  PAID_PLANS,
   SELLABLE_PLANS,
+  PLAN_RANK,
   SUBSCRIPTION_TERM_DAYS,
   STANDARD_TRIAL_DAYS,
+  RENEWAL_NOTICE_DAYS,
   PLAN_CATALOG,
+  isSellablePlanCode,
+  caseQuotaForPlan,
 }

@@ -1231,4 +1231,5 @@ module.exports = {
   applyPublicDisplayRules,
   isStorePubliclyVisible,
   isPublicCaseStoreVisible,
+  resolveActivePublicStoreIds,
 }

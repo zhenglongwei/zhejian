@@ -1837,6 +1837,7 @@ function normalizePhotoDraft(raw = {}) {
       : [],
     pendingImages: normalizePendingImages(raw.pendingImages),
     fuelReading: String(raw.fuelReading || '').trim(),
+    belongings: String(raw.belongings || '').trim(),
     intakeResults: Array.isArray(raw.intakeResults)
       ? raw.intakeResults.map((row) => normalizeIntakeResult(row)).filter((row) => row.images.length || row.reading)
       : [],
@@ -1902,6 +1903,7 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     next.pendingImages = normalizePendingImages(patch.pendingImages)
   }
   if (patch.fuelReading != null) next.fuelReading = String(patch.fuelReading || '').trim()
+  if (patch.belongings != null) next.belongings = String(patch.belongings || '').trim()
   if (patch.intakeResults != null) {
     next.intakeResults = normalizePhotoDraft({ intakeResults: patch.intakeResults }).intakeResults
   }

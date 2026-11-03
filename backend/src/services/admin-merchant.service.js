@@ -273,6 +273,15 @@ async function getAdminMerchantDetail(merchantId) {
       createdAt: toIso(log.createdAt),
     })),
     updatedAt: toIso(merchant.updatedAt),
+    pricing: await (async () => {
+      try {
+        const { getAdminStorePricing } = require('./merchant-plan-pricing.service')
+        return await getAdminStorePricing(store.id)
+      } catch (e) {
+        console.warn('[admin-merchant] pricing', e && e.message)
+        return null
+      }
+    })(),
   }
 }
 

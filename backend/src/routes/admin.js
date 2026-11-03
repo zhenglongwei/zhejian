@@ -818,6 +818,50 @@ router.post('/merchants/:merchantId/subscription/activate', async (req, res, nex
   }
 })
 
+router.get('/pricing/catalog', async (req, res, next) => {
+  try {
+    const {
+      getAdminCatalogPricing,
+    } = require('../services/merchant-plan-pricing.service')
+    const data = await getAdminCatalogPricing()
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/pricing/catalog', async (req, res, next) => {
+  try {
+    const {
+      updateAdminCatalogPricing,
+    } = require('../services/merchant-plan-pricing.service')
+    const data = await updateAdminCatalogPricing(req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/stores/:storeId/pricing', async (req, res, next) => {
+  try {
+    const { getAdminStorePricing } = require('../services/merchant-plan-pricing.service')
+    const data = await getAdminStorePricing(req.params.storeId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/stores/:storeId/pricing', async (req, res, next) => {
+  try {
+    const { updateAdminStorePricing } = require('../services/merchant-plan-pricing.service')
+    const data = await updateAdminStorePricing(req.params.storeId, req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/services', async (req, res, next) => {
   try {
     const data = await listAdminServicePlans(req.query)

@@ -1544,17 +1544,24 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     reviewLineForAlbum,
     buildMerchantHubCard,
   } = require('../utils/merchant-hub-card')
+  const { resolveActivePublicStoreIds } = require('./content.service')
+  const { isPublicCaseOnPublicWeb } = require('../utils/public-case-visibility')
+  const readyIds = await resolveActivePublicStoreIds(
+    albums.map((album) => album.storeId).filter(Boolean)
+  )
   return albums
     .map((album) => {
       const view = buildMerchantView(album)
       const followUpCount = countFollowUpItemsInChecklist(album.checklistJson)
-      const host = mapMerchantAlbumHostSite(album)
+      const storePublicReady = readyIds.has(album.storeId)
+      const host = mapMerchantAlbumHostSite(album, storePublicReady)
       const hubCard = buildMerchantHubCard({
         status: view.status,
         flowNodes: view.flowNodes,
         vehicle: view.vehicle,
         serviceName: view.serviceName,
         publicCaseStatus: view.publicCaseStatus,
+        publicOnSite: isPublicCaseOnPublicWeb(album.publicCase, storePublicReady),
         createdAt: view.createdAt,
         completedAt: view.completedAt,
         updatedAt: view.updatedAt,
@@ -1577,6 +1584,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
         usesFlowTimeline: Boolean(view.usesFlowTimeline),
         hosted: host.hosted,
         hostedSiteUrl: host.hostedSiteUrl,
+        hostedTag: host.hostedTag,
         hubCard,
         reviewLine: reviewLineForAlbum(hubCard.repairDone, reviewByAlbum.get(album.id)),
       }
@@ -1584,16 +1592,32 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     .filter((item) => matchMerchantAlbumTab(item.hubCard, merchantTab))
 }
 
-/** 已托管且网站可打开时，列表才给出网页地址 */
-function mapMerchantAlbumHostSite(album) {
+async function loadAlbumPublicGate(storeId) {
+  const { describePublicGate } = require('../utils/store-public-readiness')
+  if (!storeId) return describePublicGate({}, {})
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+    include: { merchant: true },
+  })
+  if (!store || !store.merchant) return describePublicGate({}, {})
+  const { findCreditCodeOwnerMerchantId } = require('./merchant-onboarding.service')
+  const ownerId = await findCreditCodeOwnerMerchantId(store.merchant.creditCode)
+  return describePublicGate(store.merchant, store, { creditCodeOwnerMerchantId: ownerId })
+}
+
+/** 已托管且访客现在能打开时，列表才给出网页地址 */
+function mapMerchantAlbumHostSite(album, storePublicReady = true) {
   const { readHostMeta } = require('./case-hosting.service')
-  const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
+  const {
+    isPublicCaseOnPublicWeb,
+    decorateMerchantHostPublicState,
+  } = require('../utils/public-case-visibility')
   const { buildCaseH5Url } = require('./case-article-publish.service')
-  const meta = readHostMeta(album)
+  const meta = decorateMerchantHostPublicState(readHostMeta(album), album && album.publicCase, storePublicReady)
   const pc = album && album.publicCase
   const hosted = Boolean(meta.hosted)
-  if (!hosted || !isPublicCaseH5Visible(pc)) {
-    return { hosted, hostedSiteUrl: '' }
+  if (!hosted || !isPublicCaseOnPublicWeb(pc, storePublicReady)) {
+    return { hosted, hostedSiteUrl: '', hostedTag: meta.hostedTag }
   }
   return {
     hosted: true,
@@ -1602,6 +1626,7 @@ function mapMerchantAlbumHostSite(album) {
       caseId: pc.id,
       canonicalPath: pc.canonicalPath,
     }),
+    hostedTag: meta.hostedTag,
   }
 }
 
@@ -1634,6 +1659,11 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   let view = buildMerchantView(album)
   Object.assign(view, assessPublicCaseQuality(view))
   view = attachPublishInviteFields(view, album)
+  const { isStorePubliclyVisible } = require('./content.service')
+  const { decorateMerchantHostPublicState } = require('../utils/public-case-visibility')
+  const storePublicReady = await isStorePubliclyVisible(album.storeId)
+  view.hostMeta = decorateMerchantHostPublicState(view.hostMeta, album.publicCase, storePublicReady)
+  view.publicGate = await loadAlbumPublicGate(album.storeId)
   const {
     readPackageFromAlbum,
     mergeQualitySuggestionsIntoCopyQuality,
@@ -2091,6 +2121,7 @@ async function confirmAndCompleteMerchantCaseDraft(
   merchantId = '',
   payload = {},
 ) {
+  // 额度按「托管到案例站」占用；确认案例稿本身不占额（见 case-hosting.hostAlbum）
   const saved = await saveMerchantCaseDraft(albumId, storeId, merchantId, {
     ...(payload || {}),
     confirm: true,

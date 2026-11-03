@@ -14,6 +14,8 @@ const freshHosted = {
 assert.strictEqual(resolvePublishLabel(freshHosted).key, 'published_h5')
 assert.strictEqual(resolvePublishLabel(freshHosted).label, '已上网站')
 assert.ok(resolveRecentH5Url(freshHosted))
+assert.strictEqual(resolvePublishLabel(freshHosted, { storePublicReady: false }).label, '网站未展示')
+assert.strictEqual(resolveRecentH5Url(freshHosted, { storePublicReady: false }), '')
 
 const hidden = { ...freshHosted, storefrontHidden: true }
 assert.strictEqual(resolveRecentH5Url(hidden), '')

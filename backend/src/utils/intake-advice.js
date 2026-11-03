@@ -180,7 +180,11 @@ function sidesFromList(list) {
   const missing = []
   const seen = new Set()
   ;(Array.isArray(list) ? list : []).forEach((item) => {
-    const side = sideName(typeof item === 'string' ? item : item && (item.title || item.body || item.name))
+    const side = sideName(
+      typeof item === 'string'
+        ? item
+        : item && (item['标题'] || item.title || item['正文'] || item.body || item.name),
+    )
     if (!side || seen.has(side)) return
     seen.add(side)
     missing.push(side)
@@ -198,7 +202,7 @@ function missingSidesFromPayload(parsed = {}) {
   if (hasCoverageBool) {
     return COVERAGE_KEYS.filter(({ key }) => cov[key] === false).map(({ label }) => label)
   }
-  const fromList = sidesFromList(parsed.missing || parsed.risks)
+  const fromList = sidesFromList(parsed['提醒'] || parsed.missing || parsed.risks)
   if (cov && typeof cov === 'object') {
     return fromList.filter((side) => {
       const hit = COVERAGE_KEYS.find((row) => row.label === side)
@@ -230,7 +234,7 @@ function parseIntakeAdvicePayload(raw) {
   const coverage = buildCoverageResult(missingSidesFromPayload(parsed))
   return {
     diagnosis: '',
-    photoTips: parseTitleBodyList(parsed.tips || parsed.photoTips, 4),
+    photoTips: parseTitleBodyList(parsed['提醒'] || parsed.tips || parsed.photoTips, 4),
     askOwner: [],
     checkpoints: [],
     scope: 'coverage',

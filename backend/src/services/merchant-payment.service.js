@@ -2,23 +2,21 @@ const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { config } = require('../config')
 const {
-  MERCHANT_PLAN,
   MERCHANT_PLAN_LABELS,
   MERCHANT_PAYMENT_STATUS,
-  PUBLIC_INDEX_PLANS,
+  isSellablePlanCode,
 } = require('../constants/merchant-subscription')
 const {
   getOrCreateSubscription,
   activateMerchantPlan,
   resolveChargeAmountCents,
-  resolvePlanPriceCents,
+  resolvePlanPriceCentsForStore,
   formatSubscriptionRow,
   buildPlanSwitchQuote,
   schedulePlanDowngrade,
-  hasPublicIndexEntitlement,
   isSubscriptionActive,
   canRenewSamePlan,
-  isEligibleForStandardTrial,
+  isPaidPlan,
 } = require('./merchant-subscription.service')
 const {
   createJsapiOrder,
@@ -113,7 +111,7 @@ async function activateZeroAmountSubscription(auth, plan, options = {}) {
 }
 
 function assertSwitchablePlan(plan) {
-  if (plan !== MERCHANT_PLAN.FREE && !PUBLIC_INDEX_PLANS.has(plan)) {
+  if (!isSellablePlanCode(plan)) {
     const err = new Error('无效的套餐类型')
     err.status = 400
     throw err
@@ -196,49 +194,23 @@ function readOrderProration(order) {
 }
 
 async function createSubscriptionOrder(auth, plan, options = {}) {
-  assertSwitchablePlan(plan)
-  if (plan !== MERCHANT_PLAN.FREE) {
-    assertSubscriptionPayConsent(options)
+  if (auth && auth.staffRole && auth.staffRole !== 'owner') {
+    const err = new Error('仅主账号可开通或续费套餐')
+    err.status = 403
+    throw err
   }
+  assertSwitchablePlan(plan)
+  assertSubscriptionPayConsent(options)
   const subscription = await getOrCreateSubscription(auth.merchantId)
-  const intentTrial = String(options.intent || '').trim() === 'trial'
+  const listPrice = await resolvePlanPriceCentsForStore(plan, auth.storeId || '')
+  const chargePrice = resolveChargeAmountCents(plan, subscription, listPrice)
 
   if (
-    plan === MERCHANT_PLAN.INDEX_99 &&
-    subscription.plan === MERCHANT_PLAN.FREE &&
-    (intentTrial || (await isEligibleForStandardTrial(subscription)))
-  ) {
-    const eligible = await isEligibleForStandardTrial(subscription)
-    if (!eligible) {
-      const err = new Error('标准版免费试用已用完或不可用')
-      err.status = 409
-      throw err
-    }
-    return activateZeroAmountSubscription(auth, plan, {
-      isStandardTrial: true,
-      summary: '首次开通标准版，享 90 天免费试用',
-      subscriptionConsent: options.subscriptionConsent || options.consent,
-      authMeta: options.authMeta,
-    })
-  }
-
-  const listPrice =
-    plan === MERCHANT_PLAN.FREE ? 0 : resolvePlanPriceCents(plan, subscription)
-  const chargePrice =
-    plan === MERCHANT_PLAN.FREE ? 0 : resolveChargeAmountCents(plan, subscription)
-
-  if (plan === MERCHANT_PLAN.FREE) {
-    if (subscription.plan === MERCHANT_PLAN.FREE && !subscription.pendingPlan) {
-      const err = new Error('当前已是基础版')
-      err.status = 409
-      throw err
-    }
-  } else if (
     subscription.plan === plan &&
     !subscription.pendingPlan &&
     !canRenewSamePlan(subscription, plan) &&
-    isSubscriptionActive(subscription) &&
-    hasPublicIndexEntitlement(subscription)
+    isPaidPlan(subscription.plan) &&
+    isSubscriptionActive(subscription)
   ) {
     const err = new Error('当前已是该套餐，无需重复购买')
     err.status = 409
@@ -272,42 +244,9 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
     plan,
     listPrice,
     chargePrice,
-    {
-      trialEligible:
-        plan === MERCHANT_PLAN.INDEX_99 &&
-        (await isEligibleForStandardTrial(subscription)),
-    }
   )
 
-  let effectiveQuote = quote
-  if (
-    plan === MERCHANT_PLAN.INDEX_99 &&
-    subscription.plan === MERCHANT_PLAN.FREE &&
-    quote.switchMode !== 'downgrade_scheduled' &&
-    (await isEligibleForStandardTrial(subscription))
-  ) {
-    effectiveQuote = {
-      ...quote,
-      switchMode: 'trial',
-      isCurrentPlan: false,
-      isPendingPlan: false,
-      refundCents: 0,
-      payCents: 0,
-      creditCents: 0,
-      amountCents: 0,
-      refundExcessCents: 0,
-      creditAppliedCents: 0,
-      listPriceCents: listPrice,
-      creditYuan: '0.00',
-      amountYuan: '0.00',
-      refundYuan: '0.00',
-      payYuan: '0.00',
-      refundExcessYuan: '0.00',
-      summary: '首次开通标准版，享 90 天免费试用',
-    }
-  }
-
-  if (effectiveQuote.switchMode === 'downgrade_scheduled') {
+  if (quote.switchMode === 'downgrade_scheduled') {
     if (quote.isPendingPlan) {
       const err = new Error('已预约该方案，到期后自动切换')
       err.status = 409
@@ -332,70 +271,18 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
     }
   }
 
-  const amount = effectiveQuote.amountCents
-  const priorPlan =
-    PUBLIC_INDEX_PLANS.has(subscription.plan) &&
-    isSubscriptionActive(subscription) &&
-    subscription.plan !== plan
-      ? subscription.plan
-      : ''
-
+  const amount = quote.amountCents
   const proration = {
-    priorPlan,
+    priorPlan: '',
     creditAppliedCents: 0,
-    refundExcessCents: effectiveQuote.refundExcessCents,
+    refundExcessCents: 0,
   }
-
   const orderExpiresAt = new Date(Date.now() + ORDER_TTL_MINUTES * 60 * 1000)
 
   if (amount <= 0) {
-    const order = await prisma.merchantPaymentOrder.create({
-      data: {
-        id: newId('mpay'),
-        merchantId: auth.merchantId,
-        userId: auth.userId,
-        plan,
-        amount: 0,
-        status: MERCHANT_PAYMENT_STATUS.PAID,
-        paidAt: new Date(),
-        orderExpiresAt,
-        notifyPayloadJson: {
-          proration,
-          zeroAmountSwitch: true,
-          standardTrial: effectiveQuote.switchMode === 'trial',
-        },
-      },
-    })
-
-    await processPriorPlanRefund(
-      auth.merchantId,
-      proration.priorPlan,
-      proration.refundExcessCents
-    )
-    const activated = await activateMerchantPlan(auth.merchantId, plan, {
-      isStandardTrial: effectiveQuote.switchMode === 'trial',
-    })
-
-    await logSubscriptionPayConsent(auth, order.id, options)
-
-    return {
-      orderId: order.id,
-      plan,
-      planLabel: MERCHANT_PLAN_LABELS[plan],
-      amount: 0,
-      amountYuan: '0.00',
-      orderExpiresAt: orderExpiresAt.toISOString(),
-      wechatPayConfigured: config.wechatPay.configured,
-      immediate: true,
-      trial: effectiveQuote.switchMode === 'trial',
-      subscription: activated,
-      proration: {
-        ...proration,
-        creditYuan: effectiveQuote.creditYuan,
-        refundExcessYuan: effectiveQuote.refundExcessYuan,
-        summary: effectiveQuote.summary,
-      },
-    }
+    const err = new Error('金额异常，请稍后重试')
+    err.status = 400
+    throw err
   }
 
   const order = await prisma.merchantPaymentOrder.create({
@@ -407,7 +294,7 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
       amount,
       status: MERCHANT_PAYMENT_STATUS.CREATED,
       orderExpiresAt,
-      notifyPayloadJson: { proration },
+      notifyPayloadJson: { proration, switchMode: quote.switchMode },
     },
   })
 
@@ -424,9 +311,7 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
     wechatPayConfigured: config.wechatPay.configured,
     proration: {
       ...proration,
-      creditYuan: effectiveQuote.creditYuan,
-      refundExcessYuan: effectiveQuote.refundExcessYuan,
-      summary: effectiveQuote.summary,
+      summary: quote.summary,
     },
   }
 }
@@ -506,13 +391,7 @@ async function completePaidOrder(order, wxPayload = {}) {
   if (order.status === MERCHANT_PAYMENT_STATUS.PAID) {
     return {
       alreadyPaid: true,
-      subscription: await activateMerchantPlan(order.merchantId, order.plan, {
-        isStandardTrial: Boolean(
-          order.notifyPayloadJson &&
-            typeof order.notifyPayloadJson === 'object' &&
-            order.notifyPayloadJson.standardTrial
-        ),
-      }),
+      subscription: await activateMerchantPlan(order.merchantId, order.plan),
     }
   }
 
@@ -531,21 +410,7 @@ async function completePaidOrder(order, wxPayload = {}) {
     },
   })
 
-  if (proration.refundExcessCents > 0) {
-    await processPriorPlanRefund(
-      order.merchantId,
-      proration.priorPlan,
-      proration.refundExcessCents
-    )
-  }
-
-  const subscription = await activateMerchantPlan(order.merchantId, order.plan, {
-    isStandardTrial: Boolean(
-      order.notifyPayloadJson &&
-        typeof order.notifyPayloadJson === 'object' &&
-        order.notifyPayloadJson.standardTrial
-    ),
-  })
+  const subscription = await activateMerchantPlan(order.merchantId, order.plan)
   return { alreadyPaid: false, subscription, proration }
 }
 

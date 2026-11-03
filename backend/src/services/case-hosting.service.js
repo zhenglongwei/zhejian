@@ -937,6 +937,10 @@ async function confirmHostedPublicPublish(
     err.status = 409
     throw err
   }
+  {
+    const { assertPublicHostQuotaAvailable } = require('./merchant-plan-quota.service')
+    await assertPublicHostQuotaAvailable(merchantId || album.merchantId, albumId)
+  }
   if (!privacyAgreementAccepted) {
     const err = new Error('请先同意隐私责任协议')
     err.status = 400
@@ -1063,6 +1067,13 @@ async function confirmHostedPublicPublish(
     where: { albumId },
     data: { articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_H5 },
   })
+
+  try {
+    const { markAlbumPublicHostConsumed } = require('./merchant-plan-quota.service')
+    await markAlbumPublicHostConsumed(albumId)
+  } catch (e) {
+    console.warn('[case-hosting] mark public host quota', e && e.message)
+  }
 
   return {
     albumId,
@@ -1209,16 +1220,20 @@ async function listHostedCasesForStore(storeId) {
     orderBy: { updatedAt: 'desc' },
     take: 200,
   })
-  return albums.map(mapHostedCaseListItem).filter(Boolean)
+  const { isStorePubliclyVisible } = require('./content.service')
+  const storePublicReady = await isStorePubliclyVisible(storeId)
+  return albums.map((album) => mapHostedCaseListItem(album, storePublicReady)).filter(Boolean)
 }
 
-function mapHostedCaseListItem(album) {
+function mapHostedCaseListItem(album, storePublicReady = true) {
   const meta = readHostMeta(album)
   const pc = album.publicCase
   const live = isPublicCaseH5Visible(pc)
   if (!meta.hosted && !live) return null
   const visibility = live || meta.visibility === 'public' ? 'public' : 'private'
   const caseId = pc && pc.id ? pc.id : ''
+  const { isPublicCaseOnPublicWeb, merchantHostedTag } = require('../utils/public-case-visibility')
+  const onPublicWeb = isPublicCaseOnPublicWeb(pc, storePublicReady)
   return {
     albumId: album.id,
     caseId,
@@ -1228,12 +1243,19 @@ function mapHostedCaseListItem(album) {
     coverImage: (pc && pc.coverImage) || '',
     hosted: meta.hosted || live,
     visibility,
+    onPublicWeb,
+    hostedTag: merchantHostedTag({
+      hosted: meta.hosted || live,
+      visibility,
+      onPublicWeb,
+    }),
     overview: meta.overview || (pc && pc.summary) || '',
     updatedAt: meta.updatedAt || album.updatedAt,
     sourceLabel: '商家上传',
-    publicPath: caseId
-      ? resolveCaseCanonicalPath({ slug: pc && pc.slug, caseId })
-      : '',
+    publicPath:
+      caseId && onPublicWeb
+        ? resolveCaseCanonicalPath({ slug: pc && pc.slug, caseId })
+        : '',
   }
 }
 

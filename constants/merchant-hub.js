@@ -5,7 +5,7 @@
 
 const { attachNavIcon } = require('./nav-icons')
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('./service-album-status')
-const { buildMerchantPlanTag } = require('./merchant-plan-tier')
+const { buildMerchantPlanTag, buildMerchantPricingCue } = require('./merchant-plan-tier')
 const { MERCHANT_AUTH_HINT } = require('./merchant-onboarding-copy')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
@@ -139,9 +139,9 @@ function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
 function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
   if (!isOwner || !subscription || typeof subscription !== 'object') return null
   return {
-    title: '套餐与工具权益',
-    desc: '当前免费使用，公开案例基础收录不另收费',
-    action: '查看说明',
+    title: '收费对照',
+    desc: '四档月费：相册不限，案例按档限额',
+    action: '查看',
     tone: 'active',
   }
 }
@@ -198,6 +198,7 @@ module.exports = {
   buildMerchantOverviewLine,
   buildMerchantSubscriptionEntry,
   buildMerchantPlanTag,
+  buildMerchantPricingCue,
   filterMerchantGeoOpportunity,
   overviewMetricIsPositive,
 }

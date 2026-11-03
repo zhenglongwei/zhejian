@@ -75,10 +75,15 @@ page {
 
 .mch-pricing {
   flex: none;
+  max-width: 280rpx;
   color: var(--color-mch-blue);
   font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
   line-height: 1.35;
+}
+
+.mch-pricing.is-alert {
+  color: var(--color-mch-amber);
 }
 
 .mch-bell {

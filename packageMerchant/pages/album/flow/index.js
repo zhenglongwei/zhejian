@@ -5,7 +5,6 @@ const {
   completeMerchantServiceAlbum,
   completeMerchantFlowNode,
   fetchMerchantFlowNodeAiReview,
-  organizeMerchantFlowNodePhotos,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   deliverMerchantFlowNode,
@@ -22,6 +21,8 @@ const {
   toggleSocialImage,
 } = require('../../../../utils/social-card-session')
 const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../../utils/social-card-actions')
+const { fetchMerchantProfile } = require('../../../../services/merchant')
+const { promptMerchantHostEntry } = require('../../../../utils/merchant-host-public-gate')
 const {
   SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_STATUS_LABEL,
@@ -55,6 +56,7 @@ const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../
 const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
 const {
   buildOwnerPreviewDoc,
+  buildIntakePreviewFromContent,
   previewAlbumOf,
   workItemsFromFindings,
   quoteTotalsFromNodes,
@@ -90,10 +92,8 @@ const {
   parseMileageKm,
   pickOdometerSlot,
   isOdometerFinding,
-  applyOrganizeGroups,
   applyInspectionSuggestion,
   foldInspectionPendingDraft,
-  applyIntakeOrganizeGroups,
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
   seedWorkFindingsFromQuoteLines,
@@ -220,22 +220,6 @@ function pickLocalImages(options = {}) {
   }
   onFail({ errMsg: 'chooseImage:fail not support' })
 }
-
-function organizeFailHint(err) {
-  const code = err && err.code
-  const msg = String((err && err.message) || '')
-  if (code === 'NETWORK_ERROR' || /网络/.test(msg)) {
-    return '照片已保存，这次没归上，请自己归'
-  }
-  return msg || '这次没归上'
-}
-
-function sleepMs(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-const ORGANIZE_FLOW_WAIT_MS = 180000
-const ORGANIZE_POLL_MS = 2000
 
 function flowDraftStorageKey(albumId, nodeId) {
   return `zj_flow_draft_${String(albumId || '').trim()}_${String(nodeId || '').trim()}`
@@ -618,6 +602,8 @@ Page({
     showHostEntry: false,
     hosted: false,
     hostVisibility: 'private',
+    onPublicWeb: undefined,
+    publicGate: null,
     workImagePool: [],
     deliveryPhotos: [],
     deliveryExtraCount: 0,
@@ -2256,6 +2242,8 @@ Page({
           status === SERVICE_ALBUM_STATUS.COMPLETED || status === 'published',
         hosted: Boolean((album.hostMeta && album.hostMeta.hosted) || false),
         hostVisibility: (album.hostMeta && album.hostMeta.visibility) || 'private',
+        onPublicWeb: album.hostMeta ? album.hostMeta.onPublicWeb : undefined,
+        publicGate: album.publicGate || null,
         workImagePool,
         deliveryPhotos,
         deliveryExtraCount,
@@ -2908,17 +2896,23 @@ Page({
     const repair = nodes.find((node) => node && node.kind === 'repair_report')
     const repairPayload = (repair && repair.document && repair.document.payload) || {}
     if (title === '接车报告') {
-      // 只认节点当前 pendingImages（屏上列表也由此算出）
-      const photos = this.intakePileFromPending(intakeDraft.pendingImages)
-      return buildOwnerPreviewDoc({
-        family: 'intake',
-        album,
-        chiefComplaint: intakeDraft.chiefComplaint || this.intakeComplaintText(),
-        photos,
+      const issued = this.intakeDocumentSent()
+      // 发出后与车主同读定稿；未发出跟当前留证（与屏上列表一致）
+      const content = issued
+        ? intakeDraft
+        : {
+            ...intakeDraft,
+            chiefComplaint: intakeDraft.chiefComplaint || this.intakeComplaintText(),
+            pendingImages: this.intakePileFromPending(intakeDraft.pendingImages),
+            belongings: intakeDraft.belongings,
+            receiverName: intakeDraft.receiverName,
+            receivedAt: intakeDraft.receivedAt || this.data.receivedAt,
+          }
+      return buildIntakePreviewFromContent(content, album, {
+        issued,
         mileageText,
-        belongings: intakeDraft.belongings,
-        signName: intakeDraft.receiverName,
-        signAt: formatClerkAtForDoc(intakeDraft.receivedAt || this.data.receivedAt),
+        signName: content.receiverName,
+        signAt: content.receivedAt,
       })
     }
     if (title === '检测报告') {
@@ -4829,103 +4823,6 @@ Page({
     wx.previewImage({ current: url || urls[0], urls })
   },
 
-  collectPendingForOrganize(kind) {
-    if (kind === 'intake') {
-      const section = (this.data.sections || []).find((row) => row && !row.findingMode) || this.data.sections[0]
-      const byKey = {}
-      normalizePendingImages(section && section.images)
-        .concat(normalizePendingImages(this.data.pendingImages))
-        .forEach((img) => {
-          const key = mediaKey(img && img.url)
-          if (key) byKey[key] = img
-        })
-      return Object.keys(byKey).map((k) => byKey[k])
-    }
-    return normalizePendingImages(this.data.pendingImages)
-  },
-
-  applyIntakeOrganize(res) {
-    const pending = this.collectPendingForOrganize('intake')
-    const applied = applyIntakeOrganizeGroups({
-      pendingImages: pending,
-      groups: (res && res.groups) || [],
-      prevResults: this.data.intakeResults,
-    })
-    const leftover = applied.pendingImages
-    const leftoverKeys = new Set(leftover.map((img) => mediaKey(img && img.url)))
-    const usedKeys = new Set()
-    pending.forEach((img) => {
-      const key = mediaKey(img && img.url)
-      if (key && !leftoverKeys.has(key)) usedKeys.add(key)
-    })
-    const sections = (this.data.sections || []).map((row) => {
-      if (row.findingMode) return row
-      return {
-        ...row,
-        images: normalizePendingImages(row.images).filter((img) => {
-          const key = mediaKey(img && img.url)
-          if (!key) return false
-          if (leftoverKeys.has(key) || usedKeys.has(key)) return false
-          return true
-        }),
-      }
-    })
-    this.setData({
-      sections,
-      intakeResults: applied.intakeResults,
-      pendingImages: leftover,
-      mileageKm: applied.mileageKm || this.data.mileageKm,
-      fuelReading: applied.fuelReading || this.data.fuelReading,
-      odometerUrl: applied.odometerUrl || this.data.odometerUrl,
-      odometerImageId: applied.odometerImageId || this.data.odometerImageId,
-      autoSaveLabel: '保存中…',
-    })
-    this.scheduleAutoSavePhotos()
-  },
-
-  summarizeOrganizeResult(pending = [], findings = [], leftover = []) {
-    const names = []
-    const seen = new Set()
-    ;(pending || []).forEach((img) => {
-      const key = mediaKey(img && img.url)
-      if (!key) return
-      const host = (findings || []).find((row) =>
-        ((row && row.images) || []).some((shot) => mediaKey(shot && shot.url) === key),
-      )
-      if (!host) return
-      const name = String((host && host.partName) || '').trim() || '未填部位'
-      if (seen.has(name)) return
-      seen.add(name)
-      names.push(name)
-    })
-    const leftoverCount = (leftover || []).length
-    if (!names.length) {
-      return leftoverCount ? `未成项，余 ${leftoverCount} 张` : ''
-    }
-    const shown = names.length > 3 ? `${names.slice(0, 3).join('、')} 等${names.length}项` : names.join('、')
-    const placed = `已归入 ${shown}`
-    return leftoverCount ? `${placed}。余 ${leftoverCount} 张` : placed
-  },
-
-  async waitForOrganizeResult(payload) {
-    const node = this.data.activeNode
-    const deadline = Date.now() + ORGANIZE_FLOW_WAIT_MS
-    let last = { skipped: true, groups: [] }
-    let lastErr = null
-    while (Date.now() < deadline) {
-      try {
-        last = await organizeMerchantFlowNodePhotos(this.albumId, node.id, payload)
-        lastErr = null
-        if (!last || !last.skipped) return last || {}
-      } catch (err) {
-        lastErr = err
-      }
-      await sleepMs(ORGANIZE_POLL_MS)
-    }
-    if (lastErr) throw lastErr
-    return last
-  },
-
   collectInspectionAiBatch(findings) {
     const pending = normalizePendingImages(this.data.pendingImages)
     const seen = new Set(pending.map((img) => mediaKey(img && img.url)).filter(Boolean))
@@ -4942,125 +4839,6 @@ Page({
       })
     })
     return pending.concat(extra)
-  },
-
-  async onOrganizePhotos(options = {}) {
-    if (this.data.readOnly || this.data.organizingPhotos) return false
-    const node = this.data.activeNode
-    const rawKind = (node && node.kind) || ''
-    if (rawKind === 'delivery_photos' || rawKind === 'work' || rawKind === 'intake') return false
-    const kind =
-      rawKind === 'intake_inspection' ? 'inspection' : rawKind
-    const pending = options.images
-      ? normalizePendingImages(options.images)
-      : this.collectPendingForOrganize(kind)
-    if (!pending.length) {
-      if (!options.silentEmpty) wx.showToast({ title: '先上传照片', icon: 'none' })
-      return false
-    }
-    const pageWait = kind !== 'intake'
-    this.setData({ organizingPhotos: true, organizeResultHint: '' })
-    if (!pageWait) wx.showLoading({ title: '归组中' })
-    try {
-      await this.persistPhotos()
-      await this.persistPhotoDraft()
-      const findings = this.collectFindingsFromSections()
-      const res = await this.waitForOrganizeResult({
-        kind,
-        pendingImages: pending,
-        findings,
-      })
-      if (kind === 'intake') {
-        if (res && res.skipped) {
-          wx.showToast({ title: '这次没归上，稍后再试', icon: 'none' })
-          return
-        }
-        this.applyIntakeOrganize(res || {})
-        wx.showToast({ title: '核对里程和油量', icon: 'none' })
-        return
-      }
-      const groups = (res && res.groups) || []
-      // 检测：归组结果不得改 findings（连 aiApply 也不挂）；拆项只走意见「应用」
-      if (kind === 'inspection' || options.suggestOnly) {
-        this.setData({
-          organizeResultHint: groups.length ? '' : '这次没看出来',
-          adviceOpen: true,
-        })
-        return true
-      }
-      if (!groups.length) {
-        this.setData({
-          organizeResultHint: (res && res.skipped)
-            ? '照片已保存，这次没归上，请自己归'
-            : '没写成项，请自己归或改部位名后再传',
-        })
-        return
-      }
-      const mode = 'work'
-      const applied = applyOrganizeGroups({
-        pendingImages: pending,
-        findings,
-        groups,
-        mode,
-        quoteNames: collectConfirmedQuoteNames(this._flowNodes || []),
-      })
-      const sections = this.data.sections.map((row) => {
-        if (!row.findingMode) return row
-        const nextFindings = applied.findings
-        return {
-          ...row,
-          findings: nextFindings,
-          images:
-            mode === 'work'
-              ? this.flattenWorkSectionImages(nextFindings)
-              : this.findingImagesFromRows(nextFindings, this.data.odometerUrl),
-        }
-      })
-      const originKeys = new Set(
-        normalizePendingImages(this.data.pendingImages)
-          .map((img) => mediaKey(img && img.url))
-          .filter(Boolean),
-      )
-      const leftover = (applied.pendingImages || []).filter((img) =>
-        originKeys.has(mediaKey(img && img.url)),
-      )
-      const organizeResultHint = this.summarizeOrganizeResult(
-        pending,
-        applied.findings,
-        leftover,
-      )
-      const checkpointMisses =
-        mode === 'inspection'
-          ? this.computeCheckpointMisses(this._flowNodes || [], applied.findings, true)
-          : this.data.checkpointMisses
-      this.setSectionsWithFindings(
-        sections,
-        {
-          pendingImages: leftover,
-          autoSaveLabel: '保存中…',
-          organizedOnce: true,
-          organizeResultHint,
-          checkpointMisses,
-        },
-        this.findFirstIncompleteFindingKey(sections) || '',
-        () => {
-          this.writeLocalFlowDraft()
-          this.persistPhotoDraft()
-            .then(() => this.setAutoSaveLabel('已自动保存'))
-            .catch((err) => {
-              this.setAutoSaveLabel((err && err.message) || '自动保存失败，请检查网络')
-            })
-        },
-      )
-    } catch (err) {
-      this.setData({
-        organizeResultHint: organizeFailHint(err),
-      })
-      this.scheduleAutoSavePhotos()
-    } finally {
-      this.setData({ organizingPhotos: false })
-      if (!pageWait) wx.hideLoading()
-    }
   },
 
   writeLocalFlowDraft() {
@@ -5100,7 +4878,6 @@ Page({
     if (this.data.readOnly) return
     if (this._parkTimer) clearTimeout(this._parkTimer)
     this._parkTimer = setTimeout(() => {
-      if (this.data.organizingPhotos) return
       this.persistPhotos().catch(() => {})
     }, 500)
   },
@@ -5139,7 +4916,7 @@ Page({
   },
 
   async runAutoSavePhotos() {
-    if (this.data.readOnly || this.data.organizingPhotos) return
+    if (this.data.readOnly) return
     this.writeLocalFlowDraft()
     this.setAutoSaveLabel('已自动保存')
   },
@@ -8870,10 +8647,23 @@ Page({
     }
   },
 
-  onGoHostAlbum() {
+  async onGoHostAlbum() {
     if (!this.albumId) return
-    wx.navigateTo({
-      url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+    let publicGate = this.data.publicGate
+    if (!publicGate) {
+      try {
+        const profile = await fetchMerchantProfile()
+        publicGate = profile && profile.publicGate
+      } catch (_) {
+        publicGate = null
+      }
+    }
+    promptMerchantHostEntry({
+      albumId: this.albumId,
+      publicGate,
+      hosted: this.data.hosted,
+      hostVisibility: this.data.hostVisibility,
+      onPublicWeb: this.data.onPublicWeb,
     })
   },
 

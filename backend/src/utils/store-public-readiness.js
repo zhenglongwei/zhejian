@@ -58,6 +58,104 @@ function authMaterialsReady(merchant = {}) {
   )
 }
 
+function profileMissingNotes(merchant = {}, store = {}) {
+  const slots = readBasicSlots(merchant, store)
+  const notes = []
+  if (!slots.name || isPlaceholderStoreName(slots.name)) notes.push('店名')
+  if (!slots.address) notes.push('地址')
+  if (!slots.phone) notes.push('电话')
+  if (!slots.hours) notes.push('营业时间')
+  if (!slots.intro) notes.push('介绍')
+  else if (slots.intro.length < INTRO_FULL) notes.push('介绍写短了')
+  if (!slots.facade) notes.push('门头照片')
+  if (!slots.workshop.length) notes.push('工位照片')
+  if (!slots.reception.length) notes.push('接待区照片')
+  return notes
+}
+
+function describePublicGate(merchant = {}, store = {}, options = {}) {
+  const setupNext = setupNextStep(merchant, store, options)
+  const ready = isStorePublicReady(merchant, store, options)
+  if (ready) {
+    return {
+      ready: true,
+      setupNext: '',
+      reasonKey: '',
+      title: '',
+      message: '',
+      action: '',
+      actionLabel: '',
+      missingLine: '',
+    }
+  }
+  const merchantStatus = String(merchant.status || '')
+  const storeStatus = String(store.status || '')
+  if (
+    (merchantStatus && merchantStatus !== MERCHANT_STATUS.ACTIVE) ||
+    (storeStatus && storeStatus !== STORE_STATUS.ACTIVE)
+  ) {
+    return {
+      ready: false,
+      setupNext,
+      reasonKey: 'inactive',
+      title: '门店未开放',
+      message: '门店当前未开放，档案不会出现在网站上。',
+      action: '',
+      actionLabel: '',
+      missingLine: '',
+    }
+  }
+  if (setupNext === 'licenseTaken') {
+    return {
+      ready: false,
+      setupNext,
+      reasonKey: 'licenseTaken',
+      title: '执照已被占用',
+      message: '这张执照已注册过其他门店。',
+      action: 'auth',
+      actionLabel: '去处理',
+      missingLine: '',
+    }
+  }
+  if (setupNext === 'profile') {
+    const missing = profileMissingNotes(merchant, store)
+    const missingLine = missing.join('、')
+    return {
+      ready: false,
+      setupNext,
+      reasonKey: 'needProfile',
+      title: '先补门店资料',
+      message: missingLine ? `还缺${missingLine}。` : '把门店资料补齐，档案才能出现在网站上。',
+      action: 'profile',
+      actionLabel: '去补资料',
+      missingLine,
+    }
+  }
+  const authStatus = String(merchant.authStatus || '')
+  if (authStatus === AUTH_STATUS.FAILED) {
+    return {
+      ready: false,
+      setupNext: 'auth',
+      reasonKey: 'authFailed',
+      title: '认证未通过',
+      message: '认证未通过，请重拍证件。',
+      action: 'auth',
+      actionLabel: '去认证',
+      missingLine: '',
+    }
+  }
+  return {
+    ready: false,
+    setupNext: setupNext || 'auth',
+    reasonKey: 'needAuth',
+    title: '先完成认证',
+    message: '上传执照和身份证后，档案才能出现在网站上。',
+    action: 'auth',
+    actionLabel: '去认证',
+    missingLine: '',
+  }
+}
+
 function setupNextStep(merchant = {}, store = {}, options = {}) {
   if (String(merchant.authStatus || '') !== AUTH_STATUS.VERIFIED || !authMaterialsReady(merchant)) {
     return 'auth'
@@ -87,6 +185,8 @@ module.exports = {
   INTRO_FULL,
   readBasicSlots,
   isBasicStoreProfileComplete,
+  profileMissingNotes,
   setupNextStep,
+  describePublicGate,
   isStorePublicReady,
 }

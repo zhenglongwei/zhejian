@@ -21,6 +21,7 @@ const {
   toggleSocialImage,
 } = require('../../../../utils/social-card-session')
 const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../../utils/social-card-actions')
+const { promptMerchantHostEntry } = require('../../../../utils/merchant-host-public-gate')
 
 Page({
   data: {
@@ -73,13 +74,28 @@ Page({
     }
     // 2026-09-09：主路径迁至托管向导；生成/完工后不再进旧案例稿页
     if (generateMode || fromComplete) {
-      wx.redirectTo({
-        url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
-      })
+      this.redirectToHost()
       return
     }
     this.setData({ fromComplete, generateMode })
     this.initPage()
+  },
+
+  async redirectToHost() {
+    if (!this.albumId) return
+    let publicGate = null
+    try {
+      const profile = await fetchMerchantProfile()
+      publicGate = profile && profile.publicGate
+    } catch (_) {
+      publicGate = null
+    }
+    promptMerchantHostEntry({
+      albumId: this.albumId,
+      publicGate,
+      hosted: false,
+      replace: true,
+    })
   },
 
   onUnload() {

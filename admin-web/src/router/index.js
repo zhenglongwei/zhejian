@@ -61,6 +61,11 @@ const routes = [
         name: 'merchant-detail',
         component: () => import('@/views/merchant-review/detail/index.vue'),
       },
+      {
+        path: 'pricing/catalog',
+        name: 'pricing-catalog',
+        component: () => import('@/views/pricing/catalog/index.vue'),
+      },
       // 旧路径兼容
       { path: 'store-capability', redirect: { name: 'store-capability-list' } },
       {

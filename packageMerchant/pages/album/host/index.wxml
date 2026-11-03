@@ -11,6 +11,16 @@
   <block wx:else>
     <view class="merchant-host-page__intro">
       <text class="text-body">{{serviceName}}</text>
+      <view wx:if="{{listedOff}}" class="merchant-host-page__status">
+        <text class="text-body">网站上看不到</text>
+        <text class="text-caption merchant-host-page__hint">{{listedOffMessage}}</text>
+        <ui-button
+          wx:if="{{listedOffAction}}"
+          type="ghost"
+          size="sm"
+          bind:btntap="onFixPublicGate"
+        >{{listedOffActionLabel}}</ui-button>
+      </view>
     </view>
 
     <!-- 第 1 步：选方式。公开打码未完成时也停在这里 -->

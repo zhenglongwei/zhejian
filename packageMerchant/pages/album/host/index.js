@@ -15,6 +15,11 @@ const {
   resolveWizardMaxStep,
   shouldKeepExistingGeoDraft,
 } = require('../../../../utils/host-wizard-step')
+const {
+  navigatePublicGateAction,
+  promptPublicPathBlocked,
+} = require('../../../../utils/merchant-host-public-gate')
+const { fetchMerchantProfile } = require('../../../../services/merchant')
 
 /** 答句偏短只在确认公开时提醒，不拦截。与后台 SHORT_FAQ_REMIND_LEN 一致。 */
 const SHORT_FAQ_REMIND_LEN = 30
@@ -315,6 +320,12 @@ Page({
     hostMode: 'private',
     hosted: false,
     hostVisibility: 'private',
+    onPublicWeb: false,
+    publicGate: null,
+    listedOff: false,
+    listedOffMessage: '',
+    listedOffAction: '',
+    listedOffActionLabel: '去处理',
     publicPublishStage: '',
     wizardStep: 1,
     wizardMaxStep: 1,
@@ -357,7 +368,11 @@ Page({
 
   onLoad(options) {
     this.albumId = String(options.albumId || '').trim()
-    this.setData({ albumId: this.albumId })
+    const preferPrivate = String(options.mode || '').trim() === 'private'
+    this.setData({
+      albumId: this.albumId,
+      hostMode: preferPrivate ? 'private' : this.data.hostMode,
+    })
     this.bootstrap()
   },
 
@@ -387,6 +402,14 @@ Page({
         })
         return
       }
+      if (!album.publicGate) {
+        try {
+          const profile = await fetchMerchantProfile()
+          album.publicGate = profile && profile.publicGate
+        } catch (_) {
+          album.publicGate = null
+        }
+      }
       this.applyAlbum(album)
       if (this.data.hosted && this.data.hostVisibility === 'public') {
         await this.loadPublicFace({ silent: true })
@@ -413,6 +436,14 @@ Page({
     this._archiveCopy = archiveCopy
     const hosted = Boolean(hostMeta.hosted)
     const visibility = hostMeta.visibility || 'private'
+    const publicGate = album.publicGate || null
+    const onPublicWeb = Boolean(hostMeta.onPublicWeb)
+    const listedOff = Boolean(
+      hosted &&
+        visibility === 'public' &&
+        !onPublicWeb &&
+        (!publicGate || publicGate.ready === false),
+    )
     const hostMode =
       hosted && (stage || visibility === 'public') ? 'public' : hosted ? 'private' : this.data.hostMode
     const wizardMaxStep = resolveWizardMaxStep(hostMeta)
@@ -454,6 +485,19 @@ Page({
       serviceName: album.serviceName || '服务相册',
       hosted,
       hostVisibility: visibility,
+      onPublicWeb,
+      publicGate,
+      listedOff,
+      listedOffMessage:
+        listedOff
+          ? (publicGate && publicGate.message) ||
+            '认证或门店资料不齐，档案暂时不会出现在网站上。'
+          : '',
+      listedOffAction: listedOff && publicGate ? publicGate.action || '' : '',
+      listedOffActionLabel:
+        listedOff && publicGate && publicGate.actionLabel
+          ? publicGate.actionLabel
+          : '去处理',
       publicPublishStage: stage,
       hostMode: hosted ? hostMode : this.data.hostMode,
       wizardStep,
@@ -472,7 +516,12 @@ Page({
   onSelectMode(e) {
     const mode = e.currentTarget.dataset.mode
     if (!mode || this.data.hosted) return
+    if (mode === 'public' && promptPublicPathBlocked(this.data.publicGate)) return
     this.setData({ hostMode: mode })
+  },
+
+  onFixPublicGate() {
+    navigatePublicGateAction(this.data.listedOffAction)
   },
 
   seedGeoFromArchiveCopy() {
@@ -505,6 +554,7 @@ Page({
     if (this.data.working || this.data.hosted) return
     if (this.data.preparingPublicPreview || this.data.maskAutoRunning) return
     if (this.data.hostMode === 'public') {
+      if (promptPublicPathBlocked(this.data.publicGate)) return
       this._autoMaskTried = false
       await this.enterPublicPreview()
       return
@@ -596,6 +646,7 @@ Page({
 
   async onConfirmHost() {
     if (this.data.working || this.data.hosted || this.data.wizardStep !== 2) return
+    if (this.data.hostMode === 'public' && promptPublicPathBlocked(this.data.publicGate)) return
     if (this.data.hostMode !== 'public') {
       this.setData({ working: true })
       try {

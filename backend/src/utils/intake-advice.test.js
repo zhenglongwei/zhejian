@@ -7,6 +7,17 @@ const {
   missingSidesFromPayload,
 } = require('./intake-advice')
 
+test('接车提醒用缺车尾标题时只报这一侧', () => {
+  const got = parseIntakeAdvicePayload({
+    提醒: [{ 标题: '缺车尾', 正文: '再拍一张能看清车尾的照片。' }],
+  })
+  assert.equal(got.covered, false)
+  assert.deepEqual(
+    got.risks.map((row) => row.title),
+    ['缺车尾'],
+  )
+})
+
 test('接车意见只保留没拍到的侧面，且不再平行生成补全景', () => {
   const got = parseIntakeAdvicePayload({
     diagnosis: '漆面受损，建议看深度。',

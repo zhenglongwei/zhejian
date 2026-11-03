@@ -186,6 +186,30 @@
     </el-card>
 
     <el-card shadow="never" class="section">
+      <template #header>门店特价（元/月）</template>
+      <p class="capability-tip">留空则用目录价；只改价，不改案例额度。</p>
+      <el-table v-if="pricingRows.length" :data="pricingRows" border size="small">
+        <el-table-column prop="name" label="版本" width="120" />
+        <el-table-column prop="caseQuotaLabel" label="AI分析、公开托管" width="160" />
+        <el-table-column prop="catalogLabel" label="目录价" width="120" />
+        <el-table-column label="特价">
+          <template #default="{ row }">
+            <el-input-number
+              v-model="pricingDraft[row.planCode]"
+              :min="0"
+              :precision="0"
+              :controls="false"
+              placeholder="目录价"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="soft-actions" style="margin-top: 12px">
+        <el-button type="primary" :loading="pricingSaving" @click="onSaveStorePricing">保存特价</el-button>
+      </div>
+    </el-card>
+
+    <el-card shadow="never" class="section">
       <template #header>监管操作</template>
       <div class="soft-actions">
         <el-button
@@ -219,15 +243,16 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
 import {
   fetchMerchantDetail,
   approveMerchant,
   rejectMerchant,
   requestModifyMerchant,
   revokeMerchantAuth,
+  updateStorePricing,
 } from '@/api/merchant-review'
 import {
   COMPLIANCE_NOTICES,
@@ -241,15 +266,61 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const submitting = ref(false)
+const pricingSaving = ref(false)
 const detail = ref({})
 const actionRef = ref(null)
+const pricingDraft = ref({})
+
+const pricingRows = computed(() => {
+  const columns = detail.value?.pricing?.columns || []
+  return columns.map((col) => ({
+    planCode: col.planCode,
+    name: col.name,
+    caseQuotaLabel: col.caseQuotaLabel,
+    catalogLabel: `¥${(col.catalogPriceCents || 0) / 100}/月`,
+  }))
+})
+
+function syncPricingDraft() {
+  const next = {}
+  ;(detail.value?.pricing?.columns || []).forEach((col) => {
+    next[col.planCode] = col.hasSpecialPrice ? col.priceCents / 100 : undefined
+  })
+  pricingDraft.value = next
+}
 
 async function loadDetail() {
   loading.value = true
   try {
     detail.value = await fetchMerchantDetail(route.params.merchantId)
+    syncPricingDraft()
   } finally {
     loading.value = false
+  }
+}
+
+async function onSaveStorePricing() {
+  if (!detail.value?.storeId) return
+  pricingSaving.value = true
+  try {
+    const prices = {}
+    pricingRows.value.forEach((row) => {
+      const value = pricingDraft.value[row.planCode]
+      prices[row.planCode] = value === undefined || value === null || value === '' ? '' : value
+    })
+    const data = await updateStorePricing(detail.value.storeId, { prices })
+    detail.value = {
+      ...detail.value,
+      pricing: {
+        ...(detail.value.pricing || {}),
+        overrides: data.overrides,
+        columns: data.columns,
+      },
+    }
+    syncPricingDraft()
+    ElMessage.success('特价已保存')
+  } finally {
+    pricingSaving.value = false
   }
 }
 

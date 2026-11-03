@@ -804,16 +804,8 @@
                 <block wx:if="{{section.findingMode}}">
                   <text wx:if="{{section.title}}" class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
-                  <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending">
-                    <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
-                      <text class="text-body">归组中</text>
-                      <view class="merchant-flow-page__organize-dots" aria-hidden="true">
-                        <view class="merchant-flow-page__organize-dot"></view>
-                        <view class="merchant-flow-page__organize-dot"></view>
-                        <view class="merchant-flow-page__organize-dot"></view>
-                      </view>
-                    </view>
-                    <block wx:else>
+                  <view wx:if="{{!hasFindingItems && (!readOnly || pendingImages.length)}}" class="merchant-flow-page__pending">
+                    <block>
                     <flow-unmatched-photos
                       wx:if="{{activeKind !== 'inspection' && !isWorkPhotoStep}}"
                       images="{{pendingImages}}"
@@ -1065,24 +1057,13 @@
                     </view>
                   </view>
                   <text
-                    wx:if="{{hasFindingItems && !readOnly && !organizingPhotos}}"
+                    wx:if="{{hasFindingItems && !readOnly}}"
                     class="text-caption text-link merchant-flow-page__add-finding"
                     data-section-index="{{sectionIndex}}"
                     bindtap="onAddFindingItem"
                   >加一项</text>
-                  <view wx:if="{{organizeResultHint}}" class="merchant-flow-page__organize-result">
-                    <text class="text-body">{{organizeResultHint}}</text>
-                  </view>
-                  <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length || organizingPhotos)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
-                    <view wx:if="{{organizingPhotos}}" class="merchant-flow-page__organize-wait">
-                      <text class="text-body">归组中</text>
-                      <view class="merchant-flow-page__organize-dots" aria-hidden="true">
-                        <view class="merchant-flow-page__organize-dot"></view>
-                        <view class="merchant-flow-page__organize-dot"></view>
-                        <view class="merchant-flow-page__organize-dot"></view>
-                      </view>
-                    </view>
-                    <block wx:else>
+                  <view wx:if="{{hasFindingItems && (!readOnly || pendingImages.length)}}" class="merchant-flow-page__pending merchant-flow-page__pending--after">
+                    <block>
                     <flow-unmatched-photos
                       wx:if="{{activeKind !== 'inspection' && !isWorkPhotoStep}}"
                       images="{{pendingImages}}"
@@ -1301,7 +1282,7 @@
                       type="primary"
                       block="{{true}}"
                       loading="{{confirming}}"
-                      disabled="{{confirming || organizingPhotos}}"
+                      disabled="{{confirming}}"
                       bind:btntap="onConfirmPhotoStep"
                     >{{photoConfirmLabel}}</ui-button>
                   </view>
@@ -1862,7 +1843,7 @@
   <ai-fab
     wx:if="{{workOpen && stageBoard}}"
     hidden="{{adviceOpen || recordPreview || docBrief || showCancelAddonModal || showPickSheet}}"
-    waiting="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}"
+    waiting="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}"
     bind:tap="onAiFab"
   />
 
@@ -1880,11 +1861,11 @@
         </view>
       </view>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">
-        <view wx:if="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}" class="merchant-flow-page__ai-status">
+        <view wx:if="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}" class="merchant-flow-page__ai-status">
           <view class="merchant-flow-page__ai-status-spin"></view>
           <text class="merchant-flow-page__ai-status-text">{{adviceWaitHint || '正在出意见'}}</text>
         </view>
-        <block wx:if="{{(stageBoard.family === 'work' && workAdvice.hasContent) || (stageBoard.family === 'finish' && deliveryAdvice.hasContent) || (stageBoard.family === 'inspect' && inspectionAdvice.hasContent) || (stageBoard.family === 'intake' && intakeAdvice.hasContent) || (stageBoard.family === 'quote' && quoteAssist.hasContent) || !((advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && (inspectionAdvice.isWaiting || organizingPhotos)) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)))}}">
+        <block wx:if="{{(stageBoard.family === 'work' && workAdvice.hasContent) || (stageBoard.family === 'finish' && deliveryAdvice.hasContent) || (stageBoard.family === 'inspect' && inspectionAdvice.hasContent) || (stageBoard.family === 'intake' && intakeAdvice.hasContent) || (stageBoard.family === 'quote' && quoteAssist.hasContent) || !((advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)))}}">
           <block wx:if="{{stageBoard.family === 'work' && workAdvice.hasContent}}">
             <view wx:if="{{workAdvice.hasPhotoPlan}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">施工留证建议</text>

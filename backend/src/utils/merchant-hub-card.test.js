@@ -82,6 +82,13 @@ test('已完工相册是已交车，五步都完成', () => {
   assert.equal(card.repairDone, true)
   assert.equal(card.publicOnSite, true)
   assert.equal(card.progress, 100)
+  const held = buildMerchantHubCard({
+    status: 'completed',
+    publicCaseStatus: 'public_approved',
+    publicOnSite: false,
+    flowNodes: [],
+  })
+  assert.equal(held.publicOnSite, false)
   assert.ok(card.steps.every((step) => step.state === 'done'))
 })
 

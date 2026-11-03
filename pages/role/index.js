@@ -1,6 +1,6 @@
 const { isLoggedIn, isMerchant, getSession } = require('../../utils/auth')
 const { hasAgreedLegalConsent, markLegalConsent } = require('../../utils/legal-consent')
-const { markHomePrivacyPrompted } = require('../../utils/privacy-authorize')
+const { authorizeOnRolePage } = require('../../utils/privacy-authorize')
 const { wechatLogin, fetchMineSummary, refreshSession } = require('../../services/user')
 const {
   ROLE_MERCHANT,
@@ -48,8 +48,6 @@ Page({
     // 启动确认不接受「暂不」：弹窗保持，用户可退出或继续阅读
     if (!agreed) return
     markLegalConsent()
-    // 本次启动已经确认过，后面的首页不再重复弹一次隐私提示
-    markHomePrivacyPrompted()
     this.setData({ status: 'loading' })
     this.bootstrap()
   },
@@ -128,9 +126,30 @@ Page({
   },
 
   async pick(role) {
-    if (this._picking) return
+    if (this._picking || this._left) return
     this._picking = true
-    await persistRole(role)
-    reLaunchRoleHome(role)
+    try {
+      await persistRole(role)
+      if (!isLoggedIn()) {
+        const loggedIn = await this.authorizeAndLogin()
+        if (!loggedIn || this._left) return
+      }
+      reLaunchRoleHome(role)
+    } catch (e) {
+      if (this._left) return
+      wx.showToast({
+        title: (e && e.message) || '登录失败，请重试',
+        icon: 'none',
+      })
+    } finally {
+      this._picking = false
+    }
+  },
+
+  async authorizeAndLogin() {
+    const agreed = await authorizeOnRolePage(this)
+    if (!agreed) return false
+    await wechatLogin()
+    return isLoggedIn()
   },
 })

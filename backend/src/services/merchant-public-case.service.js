@@ -11,7 +11,10 @@ const {
 } = require('../constants/case-article-status')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { buildCaseH5Url } = require('./case-article-publish.service')
-const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
+const {
+  isPublicCaseH5Visible,
+  isPublicCaseOnPublicWeb,
+} = require('../utils/public-case-visibility')
 
 const H5_CASE_VIEW_EVENT = 'h5_case_view'
 const MP_CASE_VIEW_EVENT = 'case_view'
@@ -28,7 +31,7 @@ function paramStoreId(params) {
   return String(params.storeId || params.store_id || '').trim()
 }
 
-function resolvePublishLabel(row) {
+function resolvePublishLabel(row, options = {}) {
   if (row.status === PUBLIC_CASE_STATUS.PENDING_REVIEW) {
     return { key: 'pending_review', label: '审核中' }
   }
@@ -39,7 +42,10 @@ function resolvePublishLabel(row) {
   ) {
     return { key: 'published_wechat', label: '已发公众号' }
   }
-  if (isPublicCaseH5Visible(row)) {
+  if (isPublicCaseH5Visible(row) && options.storePublicReady === false) {
+    return { key: 'held_for_store', label: '网站未展示' }
+  }
+  if (isPublicCaseOnPublicWeb(row, options.storePublicReady)) {
     if (row.seoNoindex) {
       return { key: 'published_h5_private', label: '未公开' }
     }
@@ -64,8 +70,8 @@ function resolvePublishLabel(row) {
 }
 
 /** 网站已可打开才给链接。不再另等旧「文章已发到网站」。 */
-function resolveRecentH5Url(row) {
-  if (!isPublicCaseH5Visible(row)) return ''
+function resolveRecentH5Url(row, options = {}) {
+  if (!isPublicCaseOnPublicWeb(row, options.storePublicReady)) return ''
   return buildCaseH5Url(row)
 }
 
@@ -159,10 +165,14 @@ async function fetchMerchantCasePublishPanel(storeId) {
         publishedAt: true,
         updatedAt: true,
         seoNoindex: true,
+        storefrontHidden: true,
       },
     }),
   ])
 
+  const { isStorePubliclyVisible } = require('./content.service')
+  const storePublicReady = await isStorePubliclyVisible(storeId)
+  const livePublishedH5 = storePublicReady ? publishedH5 : 0
   const caseIds = recentRows.map((row) => row.id)
   const {
     total: caseViews7d,
@@ -174,8 +184,8 @@ async function fetchMerchantCasePublishPanel(storeId) {
   } = await countCaseViews7d(storeId, caseIds)
 
   const recent = recentRows.map((row) => {
-    const publish = resolvePublishLabel(row)
-    const h5Url = resolveRecentH5Url(row)
+    const publish = resolvePublishLabel(row, { storePublicReady })
+    const h5Url = resolveRecentH5Url(row, { storePublicReady })
     return {
       caseId: row.id,
       albumId: row.albumId || '',
@@ -201,7 +211,7 @@ async function fetchMerchantCasePublishPanel(storeId) {
       pendingReview,
       /** @deprecated 兼容旧字段，等同 pendingReview */
       pendingPublish: pendingReview,
-      publishedH5,
+      publishedH5: livePublishedH5,
       readyToPublish,
       caseViews7d,
       h5CaseViews7d,

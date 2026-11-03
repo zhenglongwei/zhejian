@@ -43,6 +43,7 @@ const {
 } = resolveShared('utils/service-flow-docs.js')
 const {
   buildOwnerPreviewDoc,
+  buildIntakePreviewFromContent,
   previewAlbumOf,
   workItemsFromFindings,
   formatClerkAtForDoc,
@@ -296,7 +297,7 @@ function healFinishReportPackage(pkg = {}, album = {}) {
   )
   if (intakeIdx >= 0) {
     const intake = list[intakeIdx]
-    const draft = contentOfFlowNode(intake)
+    let draft = contentOfFlowNode(intake)
     const payload = (intake.document && intake.document.payload) || {}
     const fromReport = pendingImagesFromReportPhotos(payload)
     if (
@@ -304,6 +305,25 @@ function healFinishReportPackage(pkg = {}, album = {}) {
       fromReport.length
     ) {
       list[intakeIdx] = writeNodeContent(intake, { content: { pendingImages: fromReport } })
+      draft = contentOfFlowNode(list[intakeIdx])
+      changed = true
+    }
+    const docStatus = String((list[intakeIdx].document && list[intakeIdx].document.status) || '')
+    const issued =
+      docStatus === 'delivered' ||
+      docStatus === 'confirmed' ||
+      docStatus === 'pending_confirm' ||
+      String(list[intakeIdx].status || '') === 'completed'
+    const sealedPhotos = pendingImagesFromReportPhotos({ photos: draft.photos })
+    const pending = Array.isArray(draft.pendingImages) ? draft.pendingImages : []
+    if (issued && !sealedPhotos.length && pending.length) {
+      const sealed = sealIntakePhotosPayload(list[intakeIdx], draft)
+      list[intakeIdx] = writeNodeContent(list[intakeIdx], {
+        content: {
+          photos: sealed.photos,
+          ...(sealed.confirmCopy ? { confirmCopy: sealed.confirmCopy } : {}),
+        },
+      })
       changed = true
     }
   }
@@ -1148,6 +1168,11 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   const { stripMediaAccessQueryDeep } = require('../lib/media-signed-url')
   let album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
+  try {
+    album = await persistHealedFinishReport(albumId, album)
+  } catch (e) {
+    console.warn('[flow] heal intake/finish on getFlow failed', albumId, e && e.message)
+  }
   let nodes = mapNodesForView(album)
   if (readFlowVersion(album) < 1) {
     await initFlowOnAlbum(albumId)
@@ -1734,6 +1759,14 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       status: 'completed',
     }
     if (list[idx].kind === 'intake' || list[idx].kind === 'intake_inspection') {
+      const sealed = sealIntakePhotosPayload(list[idx], contentOfFlowNode(list[idx]))
+      list[idx] = writeNodeContent(list[idx], {
+        content: {
+          photos: sealed.photos,
+          ...(sealed.chiefComplaint ? { chiefComplaint: sealed.chiefComplaint } : {}),
+          ...(sealed.confirmCopy ? { confirmCopy: sealed.confirmCopy } : {}),
+        },
+      })
       const prevDoc = list[idx].document || emptyDocument('intake_confirm')
       const prevStatus = String(prevDoc.status || '')
       list[idx] = {
@@ -2474,34 +2507,6 @@ function isOwnerDocContentReady(node = {}) {
   }
 }
 
-function ownerIntakePhotos(node = {}, payload = {}) {
-  const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
-  const rows = []
-  const push = (row) => {
-    const raw = typeof row === 'string' ? row : row && (row.url || row.src)
-    const url = resolveClientReadableMediaUrl(raw)
-    if (!url || rows.some((item) => item.url === url)) return
-    rows.push({ url })
-  }
-  ;(Array.isArray(payload.photos) ? payload.photos : []).forEach(push)
-  if (rows.length) return rows
-  // 已定稿 / 已完成：禁止回落草稿（缺图就缺图）
-  const docStatus = String((node.document && node.document.status) || '')
-  const nodeStatus = String(node.status || '')
-  if (
-    docStatus === 'delivered' ||
-    docStatus === 'confirmed' ||
-    docStatus === 'pending_confirm' ||
-    nodeStatus === 'completed'
-  ) {
-    return rows
-  }
-  // 仅商家作业未发出时，允许预览内容袋留证
-  const pending = contentOfFlowNode(node).pendingImages
-  ;(Array.isArray(pending) ? pending : []).forEach(push)
-  return rows
-}
-
 function mapOwnerFriendlyLine(row = {}) {
   const normalized = normalizeQuoteLine(row)
   return {
@@ -2667,6 +2672,72 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
     String(doc.status || '') === 'pending_confirm'
   const kind = node.kind
   const intakeSheet = kind === 'intake' || kind === 'intake_inspection'
+  if (intakeSheet) {
+    const vehicle = (album && album.vehicleJson) || (album && album.vehicle) || {}
+    const mileageKm = String(payload.mileageKm || '').trim()
+    const mileageText = String(
+      payload.mileageText || (mileageKm ? `里程 ${mileageKm} km` : ''),
+    ).trim()
+    const docStatus = String(doc.status || '')
+    const issued =
+      docStatus === 'delivered' ||
+      docStatus === 'confirmed' ||
+      docStatus === 'pending_confirm' ||
+      String(node.status || '') === 'completed'
+    const preview = signPreviewMedia(
+      buildIntakePreviewFromContent(payload, album, {
+        issued,
+        mileageText,
+      }).doc || {},
+    )
+    const isCancelled = docStatus === 'cancelled'
+    const cancelledBy = String(doc.cancelledBy || '')
+    const ownerRejectReason = String(doc.ownerRejectReason || '').trim()
+    return {
+      ...preview,
+      id: node.id,
+      kind,
+      title: '接车报告',
+      segmentLabel: node.segmentLabel || '',
+      isAddon: false,
+      cancelledBy,
+      ownerRejectReason,
+      discoveryNote: '',
+      discoveryImages: [],
+      statusLabel: isCancelled
+        ? cancelledBy === 'owner'
+          ? '车主未同意'
+          : '门店已取消'
+        : ownerRejectReason && docStatus === 'draft'
+          ? '车主未同意'
+          : resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
+      needsConfirm,
+      cancelled: isCancelled,
+      cancelReason: String(doc.cancelReason || '').trim(),
+      sealed: docStatus === 'confirmed',
+      vehicleBrand: String(payload.vehicleBrand || vehicle.brand || '').trim(),
+      vehicleSeries: String(payload.vehicleSeries || vehicle.series || '').trim(),
+      mileageText,
+      reportDate: String(payload.reportDate || doc.confirmedAt || doc.deliveredAt || '').trim(),
+      disclaimer: '',
+      conclusion: '',
+      findings: [],
+      lines: [],
+      items: [],
+      workItems: [],
+      totalAmount: 0,
+      totalAmountLabel: '',
+      deliveryPhotos: [],
+      repairBrief: '',
+      ownerFaqs: [],
+      warrantyPeriod: '',
+      warrantyNotes: '',
+      warrantyScope: '',
+      warrantyExclusions: '',
+      confirmCopy: '',
+      photos: Array.isArray(preview.photos) ? preview.photos : [],
+    }
+  }
   const lines = (Array.isArray(payload.lines) ? payload.lines : []).map(mapOwnerFriendlyLine)
   const items = (Array.isArray(payload.items) ? payload.items : []).map(mapOwnerFriendlyLine)
   const findings = (Array.isArray(payload.findings) ? payload.findings : []).map((row) => ({
@@ -2697,7 +2768,6 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
   const mileageText = String(
     payload.mileageText || (mileageKm ? `里程 ${mileageKm} km` : ''),
   ).trim()
-  const intakePhotos = ownerIntakePhotos(node, payload)
   const reportDate = String(
     payload.reportDate || doc.confirmedAt || doc.deliveredAt || '',
   ).trim()
@@ -2805,7 +2875,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
         '',
     ).trim(),
     belongings: String(payload.belongings || '').trim(),
-    photos: intakePhotos,
+    photos: [],
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
     chiefComplaint: String(
       payload.chiefComplaint || contentOfFlowNode(node).chiefComplaint || '',
@@ -3016,7 +3086,15 @@ function deriveOwnerProgressLabel(docs = [], album = {}) {
 /** 车主端：单据整链（未到灰显）；不含商家拍照步 */
 function buildOwnerFlowView(album, albumNodes = []) {
   const flowVersion = readFlowVersion(album)
-  const rawNodes = sortFlowNodes(readFlowNodesRaw(album))
+  const rawPkg = {
+    flowVersion,
+    flowNodes: sortFlowNodes(readFlowNodesRaw(album)),
+  }
+  // 旧册缺接车定稿图：读前按冻住留证收回一次（仅内存；落库见 persistHealedFinishReport）
+  const healed = healFinishReportPackage(rawPkg, album)
+  const rawNodes = sortFlowNodes(
+    Array.isArray(healed.pkg.flowNodes) ? healed.pkg.flowNodes : [],
+  )
   if (!rawNodes.length) {
     return {
       flowVersion,

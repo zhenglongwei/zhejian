@@ -30,7 +30,7 @@ const {
   normalizeCreditCode,
   legalNamesMatch,
 } = require('../utils/merchant-trust')
-const { setupNextStep, isStorePublicReady } = require('../utils/store-public-readiness')
+const { setupNextStep, isStorePublicReady, describePublicGate } = require('../utils/store-public-readiness')
 const { recognizeBusinessLicense, recognizeIdCard } = require('./license-ocr.service')
 
 /** 商家端 <image> 无法带 Bearer，读侧须返回新鲜 signed URL */
@@ -163,6 +163,7 @@ function formatOnboardingProfile(merchant, store) {
     publisherTrust: trust,
     setupNext: setupNextStep(merchant, store),
     publicReady: false,
+    publicGate: describePublicGate(merchant, store),
   }
 }
 
@@ -201,6 +202,7 @@ async function attachPublicReady(profile, merchant, store) {
     ...profile,
     publicReady: isStorePublicReady(merchant, store, gate),
     setupNext: setupNextStep(merchant, store, gate),
+    publicGate: describePublicGate(merchant, store, gate),
   }
 }
 
@@ -838,6 +840,7 @@ async function persistAuthResult(merchant, store, data) {
   return { updated, profile }
 }
 
+/** 提交认证：先认执照并拦占用，再认身份证、比对法人。 */
 async function applyMerchantAuthDocuments(merchant, store, body = {}) {
   const licensePhotoUrl = String(body.licensePhotoUrl || merchant.licensePhotoUrl || '').trim()
   const legalIdPhotoUrl = String(body.legalIdPhotoUrl || merchant.legalIdPhotoUrl || '').trim()
@@ -886,6 +889,39 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
     err.profile = profile
     throw err
   }
+
+  const creditCode = normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode)
+  if (!creditCode) {
+    const err = new Error('未识别到信用代码，请重拍营业执照')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    throw err
+  }
+  const ownerId = await findCreditCodeOwnerMerchantId(creditCode)
+  if (ownerId && ownerId !== merchant.id) {
+    const { profile } = await persistAuthResult(merchant, store, {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalIdBackPhotoUrl,
+      legalName: String(licenseOcr.legalName || body.legalName || merchant.legalName || '').trim(),
+      creditCode,
+      authStatus: AUTH_STATUS.FAILED,
+    })
+    const err = new Error('这张营业执照已注册过门店')
+    err.status = 409
+    err.code = 'AUTH_FAILED'
+    err.profile = profile
+    throw err
+  }
+
+  const licensePerson = String(licenseOcr.legalPerson || '').trim()
+  if (!licensePerson) {
+    const err = new Error('未识别到法人姓名，请重拍营业执照')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    throw err
+  }
+
   try {
     frontOcr = await recognizeIdCard(legalIdPhotoUrl, { side: 'face' })
   } catch (e) {
@@ -894,7 +930,7 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
       legalIdPhotoUrl,
       legalIdBackPhotoUrl,
       legalName: String(licenseOcr.legalName || body.legalName || merchant.legalName || '').trim(),
-      creditCode: normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode),
+      creditCode,
       authStatus: AUTH_STATUS.FAILED,
     })
     const err = new Error('请重拍身份证人像面')
@@ -911,7 +947,7 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
       legalIdPhotoUrl,
       legalIdBackPhotoUrl,
       legalName: String(licenseOcr.legalName || body.legalName || merchant.legalName || '').trim(),
-      creditCode: normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode),
+      creditCode,
       authStatus: AUTH_STATUS.FAILED,
     })
     const err = new Error('请重拍身份证国徽面')
@@ -921,14 +957,7 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
     throw err
   }
 
-  const licensePerson = String(licenseOcr.legalPerson || '').trim()
   const idName = String(frontOcr.name || '').trim()
-  if (!licensePerson) {
-    const err = new Error('未识别到法人姓名，请重拍营业执照')
-    err.status = 400
-    err.code = 'AUTH_FAILED'
-    throw err
-  }
   if (!idName || frontOcr.side === 'back') {
     const err = new Error('请重拍身份证人像面')
     err.status = 400
@@ -947,35 +976,11 @@ async function applyMerchantAuthDocuments(merchant, store, body = {}) {
       legalIdPhotoUrl,
       legalIdBackPhotoUrl,
       legalName: licenseOcr.legalName || licensePerson,
-      creditCode: normalizeCreditCode(licenseOcr.creditCode),
+      creditCode,
       authStatus: AUTH_STATUS.FAILED,
     })
     const err = new Error('执照法人与身份证姓名不一致')
     err.status = 400
-    err.code = 'AUTH_FAILED'
-    err.profile = profile
-    throw err
-  }
-
-  const creditCode = normalizeCreditCode(licenseOcr.creditCode || body.creditCode || merchant.creditCode)
-  if (!creditCode) {
-    const err = new Error('未识别到信用代码，请重拍营业执照')
-    err.status = 400
-    err.code = 'AUTH_FAILED'
-    throw err
-  }
-  const ownerId = await findCreditCodeOwnerMerchantId(creditCode)
-  if (ownerId && ownerId !== merchant.id) {
-    const { profile } = await persistAuthResult(merchant, store, {
-      licensePhotoUrl,
-      legalIdPhotoUrl,
-      legalIdBackPhotoUrl,
-      legalName: licenseOcr.legalName || licensePerson,
-      creditCode,
-      authStatus: AUTH_STATUS.FAILED,
-    })
-    const err = new Error('这张营业执照已注册过门店')
-    err.status = 409
     err.code = 'AUTH_FAILED'
     err.profile = profile
     throw err

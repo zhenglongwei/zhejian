@@ -94,6 +94,8 @@ model Store {
   intro         String   @default("") @db.Text
   photosJson    Json     @default("{}") @map("photos_json")
   capabilityJson Json    @default("{}") @map("capability_json")
+  /// 门店特价：{ taste: 分, micro: 分, ... }；缺省键用目录价
+  planPriceOverridesJson Json @default("{}") @map("plan_price_overrides_json")
   servicesJson  Json     @default("[]") @map("services_json")
   status        String   @default("DRAFT")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -1126,4 +1128,13 @@ model MerchantPaymentOrder {
   @@index([status])
   @@index([wxTransactionId])
   @@map("merchant_payment_orders")
+}
+
+/// 平台级配置（如商家四档目录价）
+model PlatformSetting {
+  key       String   @id @db.VarChar(64)
+  valueJson Json     @default("{}") @map("value_json")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
 }

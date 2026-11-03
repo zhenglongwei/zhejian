@@ -65,6 +65,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { promptMerchantHostEntry } = require('../../../../utils/merchant-host-public-gate')
 const {
   hydrateEvidenceItems,
   filterEvidenceByStage,
@@ -251,6 +252,8 @@ Page({
     hosting: false,
     hosted: false,
     hostVisibility: 'private',
+    hostedTag: '未托管',
+    publicGate: null,
     hostUpdatedAt: '',
     ownerPhoneInput: '',
     allowTestOwnerPhone: true,
@@ -834,6 +837,14 @@ Page({
       detail,
       hosted: Boolean(hostMeta.hosted),
       hostVisibility: hostMeta.visibility || 'private',
+      hostedTag:
+        hostMeta.hostedTag ||
+        (hostMeta.hosted
+          ? hostMeta.visibility === 'public'
+            ? '已托管·公开'
+            : '已托管·私密'
+          : '未托管'),
+      publicGate: detail.publicGate || null,
       hostUpdatedAt: hostMeta.updatedAt || '',
       statusLabel: display.statusLabel,
       statusVariant: display.statusVariant,
@@ -2887,10 +2898,7 @@ Page({
   onBottomPrimaryTap() {
     const action = this.data.bottomPrimaryAction
     if (action === 'hostAlbum') {
-      if (!this.albumId) return
-      wx.navigateTo({
-        url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
-      })
+      this.onHostAlbum()
       return
     }
     if (action === 'generateCase' || action === 'viewDraft') {
@@ -2912,9 +2920,7 @@ Page({
     if (!this.albumId) return
     const action = this.data.bottomPrimaryAction
     if (action === 'generateCase') {
-      wx.navigateTo({
-        url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
-      })
+      this.onHostAlbum()
       return
     }
     wx.navigateTo({
@@ -2922,10 +2928,24 @@ Page({
     })
   },
 
-  onHostAlbum() {
+  async onHostAlbum() {
     if (!this.albumId) return
-    wx.navigateTo({
-      url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+    let publicGate = this.data.publicGate
+    if (!publicGate) {
+      try {
+        const profile = await fetchMerchantProfile()
+        publicGate = profile && profile.publicGate
+      } catch (_) {
+        publicGate = null
+      }
+    }
+    const hostMeta = (this.data.detail && this.data.detail.hostMeta) || {}
+    promptMerchantHostEntry({
+      albumId: this.albumId,
+      publicGate,
+      hosted: this.data.hosted,
+      hostVisibility: this.data.hostVisibility,
+      onPublicWeb: hostMeta.onPublicWeb,
     })
   },
 

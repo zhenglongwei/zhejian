@@ -1,30 +1,54 @@
 <ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
   <view class="merchant-sub">
-    <view class="merchant-sub__hero">
-      <text class="merchant-sub__kicker">{{amountLabel}}</text>
-      <view class="merchant-sub__price">
-        <text class="merchant-sub__yen">{{priceMark}}</text>
-        <view class="merchant-sub__price-blank" />
-      </view>
-    </view>
-
     <view class="merchant-sub__card">
-      <text class="merchant-sub__section">{{benefitsTitle}}</text>
-      <view class="merchant-sub__benefits">
+      <text class="merchant-sub__section">收费对照</text>
+      <view wx:if="{{quotaLine}}" class="merchant-sub__quota">{{quotaLine}}</view>
+      <view class="merchant-sub__table">
+        <view class="merchant-sub__tr merchant-sub__tr--head">
+          <text class="merchant-sub__th merchant-sub__plan">版本</text>
+          <text class="merchant-sub__th">相册</text>
+          <text class="merchant-sub__th">AI</text>
+          <text class="merchant-sub__th">托管</text>
+          <text class="merchant-sub__th merchant-sub__price-col">价格</text>
+          <text wx:if="{{canPay}}" class="merchant-sub__th merchant-sub__action-col">操作</text>
+        </view>
         <view
-          wx:for="{{benefits}}"
-          wx:for-item="title"
-          wx:key="*this"
-          class="merchant-sub__benefit"
+          wx:for="{{columns}}"
+          wx:key="planCode"
+          class="merchant-sub__tr {{item.current ? 'is-current' : ''}}"
         >
-          <view class="merchant-sub__check">
-            <text class="merchant-sub__check-mark">✓</text>
+          <text class="merchant-sub__td merchant-sub__plan">{{item.name}}</text>
+          <text class="merchant-sub__td">{{item.albumLabel}}</text>
+          <text class="merchant-sub__td">{{item.aiQuotaLabel || item.caseQuotaLabel}}</text>
+          <text class="merchant-sub__td">{{item.publicHostQuotaLabel || item.caseQuotaLabel}}</text>
+          <text class="merchant-sub__td merchant-sub__price-col merchant-sub__price-cell">{{item.priceLabel}}</text>
+          <view wx:if="{{canPay}}" class="merchant-sub__td merchant-sub__action-col">
+            <text
+              wx:if="{{item.actionLabel}}"
+              class="merchant-sub__action {{item.actionDisabled ? 'is-disabled' : ''}}"
+              data-plan="{{item.planCode}}"
+              data-disabled="{{item.actionDisabled}}"
+              bindtap="onPlanAction"
+            >{{item.actionLabel}}</text>
           </view>
-          <text class="merchant-sub__benefit-text">{{title}}</text>
         </view>
       </view>
+
+      <label wx:if="{{canPay}}" class="merchant-sub__consent" bindtap="onToggleConsent">
+        <view class="merchant-sub__check {{consentChecked ? 'is-on' : ''}}"></view>
+        <text class="merchant-sub__consent-text">{{consentText}}</text>
+      </label>
+      <text
+        wx:if="{{canPay}}"
+        class="merchant-sub__link merchant-sub__link--inline"
+        bindtap="onOpenSubscriptionAgreement"
+      >查看协议</text>
     </view>
 
-    <text class="merchant-sub__link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
+    <text
+      wx:if="{{!canPay}}"
+      class="merchant-sub__link"
+      bindtap="onOpenSubscriptionAgreement"
+    >{{agreementLink}}</text>
   </view>
 </ui-tool-page-shell>

@@ -92,6 +92,95 @@ test('报价里没有的施工项，提醒之外仍保留施工描述', () => {
   assert.equal(got.items[1].display, '下摆臂胶套建议描述为：更换了开裂的下摆臂胶套。')
 })
 
+function inspectSplitGroups(raw, photos) {
+  const slots = photos.map((url, i) => ({
+    slot: i + 1,
+    url,
+    findingId: 'pile',
+  }))
+  return parseInspectionAdvice(
+    { 故障分析: '异响。', 检测顺序: [], 拆分建议: raw },
+    [{ id: 'pile', name: '', note: '', photos: photos.length }],
+    photos,
+    slots,
+  ).edits.find((row) => row.findingId === 'pile')
+}
+
+test('拆分建议图片写成嵌套数组时仍能对上多张图', () => {
+  const got = parseInspectionAdvice(
+    {
+      故障分析: '底盘衬套异响。',
+      检测顺序: [],
+      拆分建议: [
+        { 检测项目: '维修过程记录', 图片: [['图1']], 描述: '工位记录。', 处理意见: '仅记录' },
+        {
+          检测项目: '底盘检测',
+          图片: [['图2', '图3', '图4', '图5', '图6']],
+          描述: '衬套破裂，需更换。',
+          处理意见: '需处理',
+        },
+      ],
+    },
+    [{ id: 'pile', name: '', note: '', photos: 6 }],
+    [],
+    [
+      { slot: 1, url: 'https://a/1.jpg', findingId: 'pile' },
+      { slot: 2, url: 'https://a/2.jpg', findingId: 'pile' },
+      { slot: 3, url: 'https://a/3.jpg', findingId: 'pile' },
+      { slot: 4, url: 'https://a/4.jpg', findingId: 'pile' },
+      { slot: 5, url: 'https://a/5.jpg', findingId: 'pile' },
+      { slot: 6, url: 'https://a/6.jpg', findingId: 'pile' },
+    ],
+  )
+  const split = got.edits.find((row) => row.findingId === 'pile')
+  assert.equal(split.groups.length, 2)
+  assert.equal(split.groups[0].partName, '维修过程记录')
+  assert.equal(split.groups[0].images.length, 1)
+  assert.equal(split.groups[1].partName, '底盘检测')
+  assert.equal(split.groups[1].images.length, 5)
+  assert.equal(split.groups[1].imageLabel, '图2、图3、图4、图5、图6')
+  assert.equal(split.groups[1].result, '需处理')
+  assert.equal(split.canApply, true)
+})
+
+test('图片一张一个小数组时仍按组收齐', () => {
+  const split = inspectSplitGroups(
+    [{ 检测项目: '底盘检测', 图片: [['图1'], ['图2'], ['图4'], ['图5']], 描述: '底盘件。', 处理意见: '需处理' }],
+    ['https://a/1.jpg', 'https://a/2.jpg', 'https://a/3.jpg', 'https://a/4.jpg', 'https://a/5.jpg'],
+  )
+  assert.equal(split.groups.length, 1)
+  assert.equal(split.groups[0].imageLabel, '图1、图2、图4、图5')
+})
+
+test('图片写成一段才按顿号逗号切开', () => {
+  const split = inspectSplitGroups(
+    [{ 检测项目: '底盘检测', 图片: '图2、图3,图4', 描述: '衬套。', 处理意见: '需处理' }],
+    ['https://a/1.jpg', 'https://a/2.jpg', 'https://a/3.jpg', 'https://a/4.jpg'],
+  )
+  assert.equal(split.groups.length, 1)
+  assert.equal(split.groups[0].imageLabel, '图2、图3、图4')
+})
+
+test('图片写成对象或再深一层时丢掉这一组', () => {
+  const photos = ['https://a/1.jpg', 'https://a/2.jpg']
+  assert.equal(inspectSplitGroups(
+    [{ 检测项目: '底盘检测', 图片: { slot: 1 }, 描述: '对象不当图号。', 处理意见: '需处理' }],
+    photos,
+  ), undefined)
+  assert.equal(inspectSplitGroups(
+    [{ 检测项目: '底盘检测', 图片: [[['图2']]], 描述: '再深一层丢掉。', 处理意见: '需处理' }],
+    photos,
+  ), undefined)
+})
+
+test('图片写成说明句子时不把句中数字当成图号', () => {
+  const split = inspectSplitGroups(
+    [{ 检测项目: '底盘检测', 图片: '衬套开裂，建议更换。', 描述: '不能当图。', 处理意见: '需处理' }],
+    ['https://a/1.jpg', 'https://a/2.jpg'],
+  )
+  assert.equal(split, undefined)
+})
+
 test('检测意见按关键字整理：同条里划痕并组、底盘另组', () => {
   const got = parseInspectionAdvice(
     {
@@ -529,6 +618,34 @@ test('故障诊断按看见的问题分行，换行保留', () => {
   assert.equal(split.groups[2].partName, '制动盘检查')
 })
 
+test('施工意见认统一中文信封：提醒、填写建议、拆分建议', () => {
+  const slots = [
+    { slot: 1, url: 'https://cdn.example/a.jpg', partName: '钣喷' },
+    { slot: 2, url: 'https://cdn.example/b.jpg', partName: '钣喷' },
+  ]
+  const got = parseWorkAdvice({
+    提醒: [
+      { 类型: '缺项', 标题: '下摆臂', 正文: '报价有这项，施工还没有照片。' },
+      { 类型: '留证', 标题: '旧件', 正文: '再拍一张拆下的旧件。' },
+    ],
+    填写建议: [{ 项目: '下摆臂胶套', 描述: '更换了已经开裂的下摆臂胶套。' }],
+    拆分建议: [{ 检测项目: '维修发动机', 图片: ['图1'], 描述: '这张更像这一项。' }],
+  }, [
+    { id: 'a', name: '钣喷', note: '', photos: 2 },
+    { id: 'b', name: '维修发动机', note: '', photos: 0 },
+    { id: 'c', name: '下摆臂胶套', note: '', photos: 2 },
+  ], slots)
+  assert.equal(got.gaps.length, 1)
+  assert.equal(got.gaps[0].kind, 'missing')
+  assert.equal(got.photoPlan.length, 1)
+  assert.match(got.photoPlan[0].body, /旧件/)
+  assert.equal(got.items.length, 1)
+  assert.equal(got.items[0].partName, '下摆臂胶套')
+  assert.equal(got.groups.length, 1)
+  assert.equal(got.groups[0].partName, '维修发动机')
+  assert.equal(got.groups[0].url, 'https://cdn.example/a.jpg')
+})
+
 test('交车出简述与车主关心的问题', () => {
   const got = parseDeliveryAdvice({
     repairBrief: '更换下摆臂胶套，并做了机油机滤保养。',
@@ -540,6 +657,18 @@ test('交车出简述与车主关心的问题', () => {
   })
   assert.match(got.repairBrief, /下摆臂胶套/)
   assert.equal(got.ownerFaqs.length, 2)
+  assert.match(got.ownerFaqs[0].question, /新胶套/)
+  assert.equal(got.tips.length, 1)
+})
+
+test('交车认统一中文信封：简述、问答、提醒', () => {
+  const got = parseDeliveryAdvice({
+    简述: '更换下摆臂胶套，并做了机油机滤保养。',
+    问答: [{ 问: '新胶套要注意什么？', 答: '近期少过剧烈颠簸，磨合几天。' }],
+    提醒: [{ 标题: '交车照', 正文: '还缺整车外观。' }],
+  })
+  assert.match(got.repairBrief, /下摆臂胶套/)
+  assert.equal(got.ownerFaqs.length, 1)
   assert.match(got.ownerFaqs[0].question, /新胶套/)
   assert.equal(got.tips.length, 1)
 })

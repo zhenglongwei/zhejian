@@ -4,6 +4,7 @@ const {
   isBasicStoreProfileComplete,
   isStorePublicReady,
   setupNextStep,
+  describePublicGate,
 } = require('./store-public-readiness')
 
 const completeStore = {
@@ -52,4 +53,34 @@ test('public ready needs verified unique license and complete profile', () => {
     setupNextStep(merchant, completeStore, { creditCodeOwnerMerchantId: 'm2' }),
     'licenseTaken'
   )
+})
+
+test('public gate copy points to auth, profile or taken license', () => {
+  const merchant = {
+    id: 'm1',
+    status: 'ACTIVE',
+    authStatus: 'verified',
+    creditCode: '91330100MA2XXXXX0X',
+    licensePhotoUrl: 'https://x/l.jpg',
+    legalIdPhotoUrl: 'https://x/f.jpg',
+    legalIdBackPhotoUrl: 'https://x/b.jpg',
+  }
+  const ready = describePublicGate(merchant, completeStore, { creditCodeOwnerMerchantId: 'm1' })
+  assert.equal(ready.ready, true)
+  assert.equal(ready.message, '')
+
+  const needAuth = describePublicGate({ ...merchant, authStatus: 'none' }, completeStore)
+  assert.equal(needAuth.reasonKey, 'needAuth')
+  assert.equal(needAuth.action, 'auth')
+
+  const failed = describePublicGate({ ...merchant, authStatus: 'failed' }, completeStore)
+  assert.equal(failed.reasonKey, 'authFailed')
+  assert.match(failed.message, /重拍/)
+
+  const profile = describePublicGate(merchant, { name: '我的门店', status: 'ACTIVE' })
+  assert.equal(profile.reasonKey, 'needProfile')
+  assert.match(profile.message, /店名/)
+
+  const taken = describePublicGate(merchant, completeStore, { creditCodeOwnerMerchantId: 'm2' })
+  assert.equal(taken.reasonKey, 'licenseTaken')
 })

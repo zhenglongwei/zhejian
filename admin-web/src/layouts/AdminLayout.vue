@@ -11,6 +11,7 @@
           <el-menu-item index="/merchants/capability">能力变更</el-menu-item>
           <el-menu-item index="/merchants/expiry">资质到期</el-menu-item>
           <el-menu-item index="/services">服务监管</el-menu-item>
+          <el-menu-item index="/pricing/catalog">套餐目录价</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="geo-group">
@@ -65,6 +66,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/merchants/expiry') || route.path.startsWith('/store-expiry')) {
     return '/merchants/expiry'
   }
+  if (route.path.startsWith('/pricing/catalog')) return '/pricing/catalog'
   if (route.path.startsWith('/merchants')) return '/merchants'
   if (route.path.startsWith('/services')) return '/services'
   if (route.path.startsWith('/reports')) return '/reports'

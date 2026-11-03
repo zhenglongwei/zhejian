@@ -128,7 +128,10 @@ function buildMerchantHubCard(input = {}) {
     quotePending,
     deliveryPending,
     repairDone,
-    publicOnSite: input.publicCaseStatus === PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+    publicOnSite:
+      input.publicOnSite != null
+        ? Boolean(input.publicOnSite)
+        : input.publicCaseStatus === PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
     createdAt: input.createdAt || '',
     completedAt: input.completedAt || '',
     updatedAt: input.updatedAt || '',

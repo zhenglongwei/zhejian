@@ -2,13 +2,13 @@
  * 微信地图选点 — 入驻/门店编辑等场景共用
  * 后台须声明「收集你选择的位置信息」（chooseLocation；小程序不采集用户实时位置）
  */
-const { requestPrivacyAuthorization } = require('./privacy-authorize')
+const { requestPrivacyAuthorization, LOCATION_PRIVACY_COPY } = require('./privacy-authorize')
 
 function chooseStoreLocation(options = {}, context = {}) {
   const { latitude, longitude } = options
   const { privacyPopup } = context
 
-  return requestPrivacyAuthorization(privacyPopup).then((authorized) => {
+  return requestPrivacyAuthorization(privacyPopup, LOCATION_PRIVACY_COPY).then((authorized) => {
     if (!authorized) {
       const err = new Error('privacy_not_agreed')
       err.code = 'privacy_not_agreed'
