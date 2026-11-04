@@ -96,8 +96,12 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
 
   const media = publicRows
     .map((row) => {
-      const toolMasked = resolveMaskedUrlForImage(task, row.nodeId, row.idx, row.rawUrl)
-      let maskedUrl = toolMasked
+      // 节点写回的打码结论优先（DOC-FLOW 真源）；task 资产仅作旧数据兜底
+      const nodeMasked = resolvePublicCaseMediaUrl(row.maskedUrl || '')
+      const toolMasked = nodeMasked
+        ? ''
+        : resolveMaskedUrlForImage(task, row.nodeId, row.idx, row.rawUrl)
+      let maskedUrl = nodeMasked || toolMasked
       if (!maskedUrl && allowStoreProcessedFace) {
         maskedUrl = resolveStoreProcessedPublicUrl(row.rawUrl || '') || ''
       }
@@ -107,7 +111,7 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
         idx: row.idx,
         maskedUrl,
         caption: captionForNode(nodes, row.nodeId),
-        storeProcessed: Boolean(allowStoreProcessedFace && !toolMasked),
+        storeProcessed: Boolean(allowStoreProcessedFace && !nodeMasked && !toolMasked),
       }
     })
     .filter(Boolean)

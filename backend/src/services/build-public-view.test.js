@@ -67,6 +67,35 @@ test('buildPublicView excludes private stage images', () => {
   assert.equal(nodes[0].images.length, 1)
 })
 
+test('buildPublicView prefers node write-back maskedUrl over task lookup', () => {
+  const albumView = {
+    serviceName: '刹车保养',
+    planAmount: 680,
+    store: { id: 'st_1', name: '测试门店', city: '杭州' },
+    storeNote: '',
+    planParts: [],
+    nodes: [{ id: 'stage_4', title: '配件', note: '新片', images: [] }],
+    imageMeta: [
+      {
+        nodeId: 'stage_4',
+        idx: 0,
+        rawUrl: 'https://x/b.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        maskedUrl: 'https://x/files/uploads/desensitized/node-writeback.jpg',
+      },
+    ],
+  }
+  // 无 task：旧逻辑会落到门店自处理原图，公开读侧剥掉后内容消失
+  const view = buildPublicView(albumView, null, {
+    authorizationTier: 'named',
+    allowStoreProcessedFace: true,
+  })
+  assert.equal(view.media.length, 1)
+  assert.equal(view.media[0].maskedUrl, 'https://x/files/uploads/desensitized/node-writeback.jpg')
+  assert.equal(view.media[0].storeProcessed, false)
+})
+
 test('stage policy marks intake and plan as always private', () => {
   assert.equal(isAlwaysPrivateStage('stage_1'), true)
   assert.equal(isAlwaysPrivateStage('stage_3'), true)
