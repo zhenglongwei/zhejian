@@ -7,8 +7,8 @@
  *
  * 用法：
  *   npm run smoke:prod
- *   npm run smoke:prod -- https://geo.simplewin.cn
- *   SMOKE_BASE_URL=https://geo.simplewin.cn npm run smoke:prod
+ *   npm run smoke:prod -- https://zhejian.simplewin.cn
+ *   SMOKE_BASE_URL=https://zhejian.simplewin.cn npm run smoke:prod
  *
  * 预发：
  *   npm run smoke:prod -- https://staging.zhejian.simplewin.cn
@@ -19,7 +19,7 @@ const BASE = (
   process.argv[2] ||
   process.env.SMOKE_BASE_URL ||
   process.env.PUBLIC_BASE_URL ||
-  'https://geo.simplewin.cn'
+  'https://zhejian.simplewin.cn'
 ).replace(/\/$/, '')
 
 const DEMO_CASE_IDS = new Set(['case_svc_demo_completed', 'case_001', 'case_003'])
@@ -123,7 +123,7 @@ async function main() {
 
   await step('生产不应出现演示兜底案例', async () => {
     const demoHits = caseList.filter((c) => DEMO_CASE_IDS.has(c.id))
-    if (BASE.includes('geo.simplewin.cn') && !BASE.includes('staging')) {
+    if (BASE.includes('zhejian.simplewin.cn') && !BASE.includes('staging')) {
       assert(
         demoHits.length === 0,
         `生产列表含演示案例: ${demoHits.map((c) => c.id).join(', ')}（应关闭 CONTENT_PUBLIC_CASE_FALLBACK / 重启 API）`

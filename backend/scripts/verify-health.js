@@ -3,8 +3,8 @@
  * B-INF-04 · 部署健康检查
  * 用法：
  *   node scripts/verify-health.js
- *   node scripts/verify-health.js https://geo.simplewin.cn
- *   npm run deploy:verify -- https://geo.simplewin.cn
+ *   node scripts/verify-health.js https://zhejian.simplewin.cn
+ *   npm run deploy:verify -- https://zhejian.simplewin.cn
  */
 const base = (process.argv[2] || process.env.PUBLIC_BASE_URL || 'http://127.0.0.1:3000').replace(
   /\/$/,

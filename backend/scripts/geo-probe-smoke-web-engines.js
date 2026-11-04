@@ -2,7 +2,7 @@
  * GEO 联网探测 · 千问 + 豆包 批量冒烟（不写 DB）
  *
  *   npm run geo:probe-smoke-web
- *   node scripts/geo-probe-smoke-web-engines.js --prompt="辙见 geo.simplewin.cn 杭州刹车片"
+ *   node scripts/geo-probe-smoke-web-engines.js --prompt="辙见 zhejian.simplewin.cn 杭州刹车片"
  */
 require('dotenv').config()
 const { probeWithEngine, resolveEngineRuntimeConfig } = require('../src/services/geo-probe-engines')
@@ -11,7 +11,7 @@ const { parseProbeAnswer } = require('../src/utils/geo-probe-parse')
 const DEFAULT_ENGINES = ['qwen', 'doubao']
 const DEFAULT_PROMPTS = [
   '杭州刹车片更换大概多少钱？',
-  '辙见 geo.simplewin.cn 是做什么的？公开汽车维修案例',
+  '辙见 zhejian.simplewin.cn 是做什么的？公开汽车维修案例',
   '2026年6月21日 杭州西湖区天气怎么样？',
 ]
 
@@ -69,7 +69,7 @@ async function runOne(engineId, prompt, options) {
   const parseText = result.answerForParse || result.answer || ''
   const parsed =
     result.status === 'ok' || result.status === 'dry_run'
-      ? parseProbeAnswer(parseText, { publicBaseUrl: process.env.PUBLIC_BASE_URL || 'https://geo.simplewin.cn' })
+      ? parseProbeAnswer(parseText, { publicBaseUrl: process.env.PUBLIC_BASE_URL || 'https://zhejian.simplewin.cn' })
       : { mentioned: false, citedUrl: '' }
 
   return {

@@ -18,7 +18,7 @@
 | 项 | 预发 | 生产 |
 | --- | --- | --- |
 | 目录 | `/var/www/zhejian-staging` | `/var/www/zhejian` |
-| 域名 | `https://staging.zhejian.simplewin.cn` | `https://zhejian.simplewin.cn`（过渡别名 `geo.simplewin.cn`） |
+| 域名 | `https://staging.zhejian.simplewin.cn` | `https://zhejian.simplewin.cn`（过渡别名 `zhejian.simplewin.cn`） |
 | API 端口 | `3101` | `3100` |
 | PM2 名 | `zhejian-api-staging` | `zhejian-api` |
 | 数据库 | `zhejian_staging`（MariaDB） | `zhejian` |
@@ -167,7 +167,7 @@ sudo certbot --nginx -d staging.zhejian.simplewin.cn
 
 不要把 `staging.geo.simplewin.cn` 写进同一张证：该名已无 DNS，Let's Encrypt 会报 NXDOMAIN。
 
-预发证书文件还不存在时，Nginx 的 `ssl_certificate` 先指向正式站已有证书 `geo.simplewin.cn`（否则 `nginx -t` 失败，certbot 也无法跑）。**不要 `systemctl stop nginx`**，正式站会一起停。签完后再把路径改成：
+预发证书文件还不存在时，Nginx 的 `ssl_certificate` 先指向正式站已有证书 `zhejian.simplewin.cn`（否则 `nginx -t` 失败，certbot 也无法跑）。**不要 `systemctl stop nginx`**，正式站会一起停。签完后再把路径改成：
 
 - `/etc/letsencrypt/live/staging.zhejian.simplewin.cn/fullchain.pem`
 - `/etc/letsencrypt/live/staging.zhejian.simplewin.cn/privkey.pem`
@@ -252,7 +252,7 @@ curl -s https://zhejian.simplewin.cn/api/v1/health
 2. **禁止**预发 `MEDIA_STORAGE_DIR` 指向生产 `data/media`。
 3. **禁止**正式版小程序带着 `ACTIVE_ENV = 'staging'` 提审。
 4. 预发 crontab（统计/GEO 聚合）默认**不要**照抄生产；需要时再单独加，并写清路径为 `zhejian-staging`。
-5. **预发必须禁止搜索收录**（必做，不是按需）：`robots.txt` 对 `User-agent: *` 使用 `Disallow: /`，且 Nginx 全站加 `X-Robots-Tag: noindex, nofollow`。勿把测试脏数据当生产 SEO；正式站 `geo.simplewin.cn` 不得套用该策略。
+5. **预发必须禁止搜索收录**（必做，不是按需）：`robots.txt` 对 `User-agent: *` 使用 `Disallow: /`，且 Nginx 全站加 `X-Robots-Tag: noindex, nofollow`。勿把测试脏数据当生产 SEO；正式站 `zhejian.simplewin.cn` 不得套用该策略。
 
 ---
 

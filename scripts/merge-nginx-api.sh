@@ -1,4 +1,6 @@
 #!/bin/bash
+# 【历史装机脚本 · 2026-11 未随域名收口更新】geo.simplewin.cn 已废弃，
+# 现行 Nginx 真源为 backend/deploy/simplewin.conf（/api/ 反代已内置）。
 # 辙见 · 将 /api/ 反代合并到已有 geo.simplewin.cn Nginx 配置（避免 server_name 冲突）
 # 用法：sudo bash scripts/merge-nginx-api.sh
 set -euo pipefail

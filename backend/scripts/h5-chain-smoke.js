@@ -5,7 +5,7 @@
  *
  * 用法：
  *   npm run h5:chain-smoke
- *   SMOKE_BASE_URL=https://geo.simplewin.cn npm run h5:chain-smoke
+ *   SMOKE_BASE_URL=https://zhejian.simplewin.cn npm run h5:chain-smoke
  *   SMOKE_CASE_ID=case_xxx npm run h5:chain-smoke
  *   SMOKE_SKIP_ENR=1 npm run h5:chain-smoke   # 跳过 CASE-ENR-06 enrichment/Feed 段
  *   npm run h5:chain-smoke -- --http-only   # 无 DATABASE_URL 时仅测 HTTP 前两步
@@ -19,7 +19,7 @@ const {
 const { formatShanghaiDate, statDateValue } = require('../src/lib/shanghai-date')
 const { buildAuthSession } = require('../src/services/auth.service')
 
-const BASE = process.env.SMOKE_BASE_URL || 'https://geo.simplewin.cn'
+const BASE = process.env.SMOKE_BASE_URL || 'https://zhejian.simplewin.cn'
 const CASE_ID_ENV = process.env.SMOKE_CASE_ID || ''
 const HTTP_ONLY = process.argv.includes('--http-only')
 const KEEP_EVENT = process.argv.includes('--keep-event')

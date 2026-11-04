@@ -4,7 +4,7 @@
  *
  * 用法：
  *   node scripts/merchant-leads-smoke.js
- *   SMOKE_BASE_URL=https://geo.simplewin.cn node scripts/merchant-leads-smoke.js
+ *   SMOKE_BASE_URL=https://zhejian.simplewin.cn node scripts/merchant-leads-smoke.js
  *
  * 依赖：API 已启动；本地需 db:seed（store_demo_1 / merchant_demo_1）；JWT_SECRET 或 DEV_AUTH_ENABLED
  */

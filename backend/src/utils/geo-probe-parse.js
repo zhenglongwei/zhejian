@@ -1,7 +1,10 @@
 /**
  * GEO-OBS-B04 · 解析探测答案中的 mention / citation
  */
-const OWN_PUBLIC_HOSTS = ['zhejian.simplewin.cn', 'geo.simplewin.cn']
+const OWN_PUBLIC_HOSTS = [
+  'zhejian.simplewin.cn',
+  'geo.simplewin.cn', // 旧生产名（2026-11 废弃），保留以识别历史引用文本
+]
 
 function extractDomain(url) {
   try {

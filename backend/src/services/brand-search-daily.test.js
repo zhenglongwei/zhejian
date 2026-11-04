@@ -10,7 +10,7 @@ function run() {
       referrer: '',
       eventParams: { keyword: '辙见 刹车' },
     },
-    { channel: 'referral', source: '', referrer: 'https://geo.simplewin.cn/', eventParams: {} },
+    { channel: 'referral', source: '', referrer: 'https://zhejian.simplewin.cn/', eventParams: {} },
     { channel: 'organic', source: 'google', referrer: '', eventParams: {} },
   ])
 

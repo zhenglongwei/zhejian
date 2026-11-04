@@ -3,14 +3,14 @@
  *
  * 用法：
  *   node scripts/public-case-prod-check.js
- *   SMOKE_BASE_URL=https://geo.simplewin.cn node scripts/public-case-prod-check.js
+ *   SMOKE_BASE_URL=https://zhejian.simplewin.cn node scripts/public-case-prod-check.js
  *   SMOKE_CASE_ID=case_xxx node scripts/public-case-prod-check.js
  *
  * 服务器上有 DATABASE_URL 时额外查 public_cases 表（可选）。
  */
 require('dotenv').config()
 
-const BASE = process.env.SMOKE_BASE_URL || 'https://geo.simplewin.cn'
+const BASE = process.env.SMOKE_BASE_URL || 'https://zhejian.simplewin.cn'
 const CASE_ID = process.env.SMOKE_CASE_ID || ''
 const FALLBACK_IDS = new Set(['case_svc_demo_completed'])
 

@@ -7,7 +7,7 @@
  *   node scripts/check-production-env.js --strict       # 按 production 标准严格检查
  *   node scripts/check-production-env.js --probe URL    # 远程探测 dev 鉴权是否关闭
  *   npm run check:prod-env
- *   npm run check:prod-env -- --probe https://geo.simplewin.cn
+ *   npm run check:prod-env -- --probe https://zhejian.simplewin.cn
  */
 const path = require('path')
 const fs = require('fs')
@@ -241,7 +241,7 @@ function checkPhase2Security() {
     if (corsRaw) {
       add('OK', 'CORS_ALLOWED_ORIGINS', `已配置 ${corsRaw.split(',').filter(Boolean).length} 个 origin`)
     } else {
-      add('OK', 'CORS_ALLOWED_ORIGINS', '使用默认白名单 zhejian.simplewin.cn + geo.simplewin.cn + simplewin.cn')
+      add('OK', 'CORS_ALLOWED_ORIGINS', '使用默认白名单 zhejian.simplewin.cn + zhejian.simplewin.cn + simplewin.cn')
     }
   }
 

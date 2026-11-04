@@ -1,5 +1,8 @@
 #!/bin/bash
 # zhejian-server-install: v2
+# 【历史装机脚本 · 2026-11 未随域名收口更新】geo.simplewin.cn 已废弃，
+# 现行部署用 pm2 + backend/deploy/simplewin.conf，证书为 /etc/letsencrypt/live/zhejian.simplewin.cn/。
+# 重跑前请先把脚本内 geo.simplewin.cn 相关路径改为 zhejian.simplewin.cn。
 # 辙见 · 服务器部署（B-INF-01～04）
 # 支持：Alibaba Cloud Linux / CentOS（yum/dnf）、Ubuntu/Debian（apt）
 #

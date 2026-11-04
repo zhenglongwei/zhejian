@@ -6,7 +6,7 @@
  *   DESENSITIZE_ENGINE=dev node scripts/public-case-smoke.js
  *
  * 远程：
- *   SMOKE_BASE_URL=https://geo.simplewin.cn DESENSITIZE_ENGINE=dev node scripts/public-case-smoke.js
+ *   SMOKE_BASE_URL=https://zhejian.simplewin.cn DESENSITIZE_ENGINE=dev node scripts/public-case-smoke.js
  */
 require('dotenv').config()
 const fs = require('fs')

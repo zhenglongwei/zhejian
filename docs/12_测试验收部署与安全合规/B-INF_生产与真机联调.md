@@ -1,7 +1,7 @@
 # B-INF · 生产部署与真机联调
 
 > 对应 `docs/00_开发计划.md` **B-INF-01～B-INF-04**  
-> **当前生产现状（2026-05-26）**：`https://geo.simplewin.cn/api/v1/health` 返回 Next.js HTML 404，说明 **/api/ 尚未反代到 Node**。完成本文 §二 后应返回 JSON `"db":"up"`。
+> **当前生产现状（2026-05-26）**：`https://zhejian.simplewin.cn/api/v1/health` 返回 Next.js HTML 404，说明 **/api/ 尚未反代到 Node**。完成本文 §二 后应返回 JSON `"db":"up"`。
 
 ---
 
@@ -10,7 +10,7 @@
 | ID | 任务 | 负责方 | 验收 |
 | --- | --- | --- | --- |
 | B-INF-01 | 服务器部署 backend + MySQL | 运维/开发 SSH | `systemctl status zhejian-api` active |
-| B-INF-02 | Nginx HTTPS + `/api/` 反代 | 运维 | `curl https://geo.simplewin.cn/api/v1/health` 为 JSON |
+| B-INF-02 | Nginx HTTPS + `/api/` 反代 | 运维 | `curl https://zhejian.simplewin.cn/api/v1/health` 为 JSON |
 | B-INF-03 | 微信小程序 request 合法域名 | 小程序管理员 | 真机 request 不报域名非法 |
 | B-INF-04 | migrate + 可选 seed + health 脚本 | 开发/运维 | `npm run deploy:verify` 通过 |
 
@@ -51,7 +51,7 @@ sudo bash scripts/server-install.sh --bootstrap
 curl -s http://127.0.0.1:3000/api/v1/health
 
 # 外网 HTTPS（B-INF-02）
-curl -s https://geo.simplewin.cn/api/v1/health
+curl -s https://zhejian.simplewin.cn/api/v1/health
 ```
 
 期望 JSON 示例：
@@ -66,7 +66,7 @@ curl -s https://geo.simplewin.cn/api/v1/health
 ### 2.4 Nginx 与 Next.js 共存
 
 若域名上已有 **Next.js** 占 `/`，必须在 Nginx 中保证 **`location /api/` 写在 catch-all 之前**，并 `proxy_pass` 到 `127.0.0.1:3000`。  
-配置文件：`backend/deploy/nginx-geo.simplewin.cn.conf`；仅合并反代时用 `backend/deploy/nginx-api-location.snippet.conf`。
+配置文件：`backend/deploy/nginx-zhejian.simplewin.cn.conf`；仅合并反代时用 `backend/deploy/nginx-api-location.snippet.conf`。
 
 ### 2.5 生产数据库
 
@@ -81,7 +81,7 @@ curl -s https://geo.simplewin.cn/api/v1/health
 | 域名 | 用途 | 是否改动 |
 | --- | --- | --- |
 | `simplewin.cn` | 公司官网 | **勿动**（保留 `simplewin.conf` 中官网 server 块） |
-| `geo.simplewin.cn` | 辙见 API + H5 | 使用仓库 `nginx-geo.simplewin.cn.conf` 独占 |
+| `zhejian.simplewin.cn` | 辙见 API + H5 | 使用仓库 `nginx-zhejian.simplewin.cn.conf` 独占 |
 
 若服务器上曾有其它项目占 **3000** 端口，需先停掉旧服务，再部署 `zhejian-api`。
 
@@ -89,7 +89,7 @@ curl -s https://geo.simplewin.cn/api/v1/health
 # 查看占用
 sudo bash scripts/redeploy-geo-clean.sh --inspect
 
-# 手动：stop/disable 旧 node/next/pm2 服务；从 simplewin.conf 删除 geo.simplewin.cn 的 server 块
+# 手动：stop/disable 旧 node/next/pm2 服务；从 simplewin.conf 删除 zhejian.simplewin.cn 的 server 块
 
 sudo bash scripts/redeploy-geo-clean.sh --deploy
 # 等价于：释放 3000 → server-install.sh → 独立 geo Nginx + systemd
@@ -98,7 +98,7 @@ sudo bash scripts/redeploy-geo-clean.sh --deploy
 目标架构：
 
 ```text
-geo.simplewin.cn
+zhejian.simplewin.cn
   /api/*     → zhejian-api :3000
   /case/*    → /var/www/zhejian/h5/case/
   /shared/*  → /var/www/zhejian/h5/shared/
@@ -110,7 +110,7 @@ geo.simplewin.cn
 报错示例：
 
 ```text
-cannot load certificate "/etc/nginx/ssl/geo.simplewin.cn/fullchain.pem": No such file
+cannot load certificate "/etc/nginx/ssl/zhejian.simplewin.cn/fullchain.pem": No such file
 ```
 
 **原因**：模板默认路径与服务器实际证书位置不一致。域名若已能 HTTPS 打开，说明证书已在某处配置好。
@@ -126,7 +126,7 @@ grep -r ssl_certificate /etc/nginx/
 | 方式 | 操作 |
 | --- | --- |
 | A. 写入 `.env` | 在 `backend/.env` 增加 `SSL_CERTIFICATE=` / `SSL_CERTIFICATE_KEY=`（见 `.env.production.example`） |
-| B. 符号链接 | `sudo mkdir -p /etc/nginx/ssl/geo.simplewin.cn` 后 `ln -sf` 到实际 pem |
+| B. 符号链接 | `sudo mkdir -p /etc/nginx/ssl/zhejian.simplewin.cn` 后 `ln -sf` 到实际 pem |
 | C. 只合并 API | 已有 Next.js 站点时，编辑原 `server` 块，插入 `backend/deploy/nginx-api-location.snippet.conf`，然后 `sudo bash scripts/server-install.sh --skip-nginx` |
 
 **步骤 3 — 重跑**：
@@ -146,7 +146,7 @@ sudo bash scripts/server-install.sh
 
 1. 登录 [微信公众平台](https://mp.weixin.qq.com/) → 开发 → 开发管理 → 开发设置  
 2. **服务器域名** → request 合法域名添加：  
-   - 生产：`https://geo.simplewin.cn`  
+   - 生产：`https://zhejian.simplewin.cn`  
    - 预发（若使用）：`https://staging.zhejian.simplewin.cn`（搭建见 `B-INF_预发环境搭建.md`）  
 3. 保存后等待生效（约几分钟）
 

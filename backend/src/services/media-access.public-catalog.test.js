@@ -7,7 +7,7 @@ const { mediaUrlMatchesObjectKey } = require('./media-access.service')
 
 const objectKey = 'uploads/2026/06/5b6a227d9dbbcd7740a61f77d042b431.jpg'
 const publicUrl =
-  'https://geo.simplewin.cn/api/v1/media/files/uploads/2026/06/5b6a227d9dbbcd7740a61f77d042b431.jpg'
+  'https://zhejian.simplewin.cn/api/v1/media/files/uploads/2026/06/5b6a227d9dbbcd7740a61f77d042b431.jpg'
 
 assert.strictEqual(mediaUrlMatchesObjectKey(publicUrl, objectKey), true)
 assert.strictEqual(

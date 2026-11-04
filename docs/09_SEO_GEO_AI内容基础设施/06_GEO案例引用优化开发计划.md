@@ -276,7 +276,7 @@
 
 | 优先级 | 指标 | 说明 | 主责 |
 | ---: | --- | --- | --- |
-| **P0** | `prompt_probe_citation_rate` | 词库 prompt 探测中，答案含 `geo.simplewin.cn` 链接的比例 | OBS |
+| **P0** | `prompt_probe_citation_rate` | 词库 prompt 探测中，答案含 `zhejian.simplewin.cn` 链接的比例 | OBS |
 | **P0** | `prompt_intent_coverage` | 已发布专题（或案例聚合）覆盖的核心 prompt 数 / 词库总数 | TOPIC + OBS |
 | **P1** | `post_citation_lead_rate` | 探测周内有 citation 的 prompt 对应专题/案例页，产生的咨询+电话 / 该页 UV | OBS + 埋点 |
 | **P1** | `citable_summary_rate` | 新发布案例 `ai_summary` 通过摘引自检（非模板套话）的比例 | CITE |

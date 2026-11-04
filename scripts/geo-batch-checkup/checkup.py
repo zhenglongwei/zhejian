@@ -530,7 +530,7 @@ def summary_report(conn, run_id):
 <div class="card"><table>
 <tr><th>#</th><th>门店</th><th>区域</th><th>总分</th><th>提及/30</th><th>位次/25</th>
 <th>准确/20</th><th>地基/15</th><th>内容/10</th><th></th></tr>{body}</table></div>
-<div class="footer">盈简科技 SimpleWin · geo.simplewin.cn</div></div></body></html>""")
+<div class="footer">盈简科技 SimpleWin · zhejian.simplewin.cn</div></div></body></html>""")
     return path
 
 

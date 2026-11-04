@@ -1,6 +1,6 @@
 # 阿里云部署指南（B-INF）
 
-目标：**geo.simplewin.cn** 提供 `/api/v1/`（Node）、`/admin/`、`/case/` 静态 H5。  
+目标：**zhejian.simplewin.cn** 提供 `/api/v1/`（Node）、`/admin/`、`/case/` 静态 H5。  
 预发：**staging.zhejian.simplewin.cn** 同结构、同机另一目录（见下「预发」）。
 
 | 路径 | 说明 |
@@ -37,7 +37,7 @@ cd /var/www/zhejian
 sudo bash scripts/server-install.sh --init
 # 编辑 backend/.env 后：
 sudo bash scripts/server-install.sh
-curl -s https://geo.simplewin.cn/api/v1/health
+curl -s https://zhejian.simplewin.cn/api/v1/health
 ```
 
 ## PM2（推荐，与现有运维习惯一致）
@@ -107,13 +107,13 @@ cd backend && pm2 restart zhejian-api
 
 若只改 `/api/` 片段、不覆盖整文件，见 `backend/deploy/nginx-api-location.snippet.conf`。
 
-独立 geo 模板（含 `__SSL_*__` 占位符）：`backend/deploy/nginx-geo.simplewin.cn.conf`。
+独立 geo 模板（含 `__SSL_*__` 占位符）：`backend/deploy/nginx-zhejian.simplewin.cn.conf`。
 
 ## 验证脚本
 
 ```bash
 cd backend
-npm run deploy:verify -- https://geo.simplewin.cn
+npm run deploy:verify -- https://zhejian.simplewin.cn
 ```
 
 ## 安全清单
@@ -124,7 +124,7 @@ npm run deploy:verify -- https://geo.simplewin.cn
 cd backend
 npm run check:prod-env
 # 远程探测 dev 鉴权 / 默认密码是否仍可用
-npm run check:prod-env -- --probe https://geo.simplewin.cn
+npm run check:prod-env -- --probe https://zhejian.simplewin.cn
 ```
 
 - [ ] `npm run check:prod-env` 无 CRIT
@@ -207,13 +207,13 @@ npm run geo:topic-scale-smoke
 npm run geo:robots-audit-smoke
 npm run geo:aggregate-refresh-smoke
 npm run public:feed-parity-smoke
-npm run deploy:verify -- https://geo.simplewin.cn
+npm run deploy:verify -- https://zhejian.simplewin.cn
 ```
 
 ### 4. `.env` GEO 相关（生产必查）
 
 ```bash
-PUBLIC_BASE_URL=https://geo.simplewin.cn
+PUBLIC_BASE_URL=https://zhejian.simplewin.cn
 GEO_PROBE_ENABLED=true          # 要跑 Citation Gap 时
 GEO_PROBE_DRY_RUN=false
 GEO_PROBE_ENGINES=qwen,doubao   # 按实际有 Key 的引擎
@@ -233,7 +233,7 @@ DEV_AUTH_ENABLED=false
 
 ### 6. 运营台动作
 
-1. 登录 `https://geo.simplewin.cn/admin/` → **GEO 探测**
+1. 登录 `https://zhejian.simplewin.cn/admin/` → **GEO 探测**
 2. **同步词库** → **批量生成草稿**（刷新 100 条专题内容，不降级已发布）
 3. 在 **专题健康度** 看板检查告警项
 4. 逐条或批量合规后，在专题编辑页走 **H06 发布闸门** 发布

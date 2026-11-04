@@ -33,7 +33,7 @@ async function preparePublicGateImages(albumId) {
       ? { ...album.contentPackageJson }
       : {}
   const nodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes.slice() : []
-  const url = `https://geo.simplewin.cn/media/files/uploads/desensitized/hosting_smoke_${albumId}.jpg`
+  const url = `https://zhejian.simplewin.cn/media/files/uploads/desensitized/hosting_smoke_${albumId}.jpg`
   let work = nodes.find((n) => n && n.kind === 'work')
   if (!work) {
     work = {

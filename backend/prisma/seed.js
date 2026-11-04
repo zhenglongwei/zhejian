@@ -18,7 +18,7 @@ const STORE_ID = 'store_demo_1'
 const USER_PHONE = '13812345678'
 
 function mockImageUrl(albumId, nodeId, index) {
-  return `https://geo.simplewin.cn/media/raw/${albumId}/${nodeId}/${index}.jpg`
+  return `https://zhejian.simplewin.cn/media/raw/${albumId}/${nodeId}/${index}.jpg`
 }
 
 const STAGE_NODES = [

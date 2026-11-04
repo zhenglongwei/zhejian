@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在 ECS 上执行：把 simplewin.cn 切到本仓库 brand-web，不改 geo.simplewin.cn 案例根。
+# 在 ECS 上执行：把 simplewin.cn 切到本仓库 brand-web，不改 zhejian.simplewin.cn 案例根。
 # 前置：已 git push，且 /var/www/zhejian git pull 到含 brand-web 的提交。
 set -euo pipefail
 
@@ -23,8 +23,8 @@ if ! grep -q "root /var/www/zhejian/brand-web" "$CONF_SRC"; then
   exit 1
 fi
 
-if ! grep -q "server_name geo.simplewin.cn" "$CONF_SRC"; then
-  echo "$CONF_SRC 没有 geo 块，中止。"
+if ! grep -q "server_name zhejian.simplewin.cn" "$CONF_SRC"; then
+  echo "$CONF_SRC 没有 zhejian 块，中止。"
   exit 1
 fi
 
@@ -33,5 +33,5 @@ sudo cp "$CONF_SRC" "$CONF_DST"
 sudo nginx -t
 sudo systemctl reload nginx
 
-echo "Nginx 已 reload。请验证 https://simplewin.cn/ 与 https://geo.simplewin.cn/ （案例站应仍在）。"
+echo "Nginx 已 reload。请验证 https://simplewin.cn/ 与 https://zhejian.simplewin.cn/ （案例站应仍在）。"
 echo "体检接口另需：cd $ROOT/backend && pm2 restart zhejian-api"

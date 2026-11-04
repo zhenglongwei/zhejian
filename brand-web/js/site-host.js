@@ -1,6 +1,6 @@
 ;(function (global) {
   var CASE_SITE = 'https://zhejian.simplewin.cn'
-  var CASE_SITE_LEGACY = 'https://geo.simplewin.cn'
+  var CASE_SITE_LEGACY = 'https://zhejian.simplewin.cn'
 
   function withSlash(url) {
     return String(url || '').replace(/\/?$/, '/')

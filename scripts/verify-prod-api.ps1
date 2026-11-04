@@ -3,7 +3,7 @@
 #       powershell -ExecutionPolicy Bypass -File scripts/verify-prod-api.ps1 -BaseUrl http://127.0.0.1:3000
 
 param(
-  [string]$BaseUrl = "https://geo.simplewin.cn"
+  [string]$BaseUrl = "https://zhejian.simplewin.cn"
 )
 
 $ErrorActionPreference = "Stop"

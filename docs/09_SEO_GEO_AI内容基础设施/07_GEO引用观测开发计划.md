@@ -70,7 +70,7 @@
 
 | 优先级 | 指标 ID | 定义 | 首目标（内部基线，可调） |
 | ---: | --- | --- | --- |
-| **P0** | `prompt_probe_citation_rate` | **生态外** 词库 API 探测中，答案含 `geo.simplewin.cn` 的占比（**不含**微信元宝/搜一搜 AI） | 上线 OBS-B 后 **连续 4 周** 建立基线；MVP 后环比提升 |
+| **P0** | `prompt_probe_citation_rate` | **生态外** 词库 API 探测中，答案含 `zhejian.simplewin.cn` 的占比（**不含**微信元宝/搜一搜 AI） | 上线 OBS-B 后 **连续 4 周** 建立基线；MVP 后环比提升 |
 | **P0** | `prompt_intent_coverage` | 词库中至少有 1 条已发布专题（或案例聚合页）可对应的 prompt 占比 | 首批 30 专题后 **≥40%** |
 | **P1** | `prompt_probe_mention_rate` | 答案提及「辙见」或域名（无链接） | 与 citation 分开看 used-vs-cited |
 | **P1** | `post_citation_lead_rate` | 探测周内有 citation 的 URL，7 日内 `h5_consult_click`+`h5_call_click` / 该 URL UV | 建立基线；优化 CTA 后环比 |
@@ -92,7 +92,7 @@
 | L0 | `crawler_view` | 已知 AI/搜索 Bot 访问 H5 URL 次数 | Nginx + `B-TRACK-04` ✅ | 已有 |
 | L1 | `crawler_unique_url` | 被爬过的独立案例/专题 URL 数 | 爬虫日志解析 | A |
 | L2 | `prompt_probe_mention` | 固定 prompt 答案中出现「辙见」或域名 | 合成 prompt 任务 | B |
-| L3 | `prompt_probe_citation` | 答案含 `geo.simplewin.cn` 链接 | 同上 | B |
+| L3 | `prompt_probe_citation` | 答案含 `zhejian.simplewin.cn` 链接 | 同上 | B |
 | L4 | `used_vs_cited` | 页面被提及但未带链接 vs 带链接 | L2/L3 差分 | C |
 | L5 | `citation_gap_score` | 同城+同服务：专题/案例覆盖 vs 探测命中 | 业务 DB + L3 | C |
 | L6 | `merchant_geo_opportunity` | 单店：同城同服务公开案例数排名 | 聚合 | C |
@@ -112,10 +112,10 @@
 
 | 维度 | **生态外（Open Web）** | **微信生态内（WeChat）** |
 | --- | --- | --- |
-| 典型入口 | 浏览器、`geo.simplewin.cn`、国产 LLM 独立 App / **开放 API** | **微信小程序内搜一搜**、聊天内打开链接 |
+| 典型入口 | 浏览器、`zhejian.simplewin.cn`、国产 LLM 独立 App / **开放 API** | **微信小程序内搜一搜**、聊天内打开链接 |
 | 辙见主内容 | H5 案例/专题/服务页 | 公众号同步文（链回 H5）、小程序深链页（`utils/wx-search-submit.js` · UI-ALB-D-07） |
 | 现有观测 | `crawler_view`、OBS-D `prompt_probe`（**千问/豆包/DeepSeek**/Kimi/文心） | OBS-W 双周人工抽检搜一搜；**元宝 TokenHub 已移出 D** |
-| citation 形态 | 答案含 `geo.simplewin.cn` URL | 更常 **引公众号文章**、摘要内店名/小程序，**未必**外链 H5 |
+| citation 形态 | 答案含 `zhejian.simplewin.cn` URL | 更常 **引公众号文章**、摘要内店名/小程序，**未必**外链 H5 |
 | 自动化程度 | cron + 多引擎 API（OBS-D） | **人工抽检为主**（OBS-W）；不做 UI 自动化刷微信 |
 | 与北极星关系 | **`prompt_probe_citation_rate` 仅统计本渠道** | 单独台账；Go/No-Go 时 **并列看**，不替代 L3 |
 
@@ -445,7 +445,7 @@
 
 | 码 | 含义 | 是否计为「生态内 citation」 |
 | ---: | --- | ---: |
-| **H** | 答案/摘要含 **H5** `geo.simplewin.cn` 链接 | ✓ |
+| **H** | 答案/摘要含 **H5** `zhejian.simplewin.cn` 链接 | ✓ |
 | **M** | 提及 **公众号** 文章/辙见名，无 H5 外链 | △（mention，单列） |
 | **P** | 仅 **小程序** 卡片/路径 | △ |
 | **N** | 无辙见相关 | ✗ |
@@ -463,7 +463,7 @@
 
 **公众号→H5（每周顺带看，不必每条 prompt）**
 
-- [ ] 当周新发公众号文是否文末链 `geo.simplewin.cn` 且带 `utm_source=wechat_mp`
+- [ ] 当周新发公众号文是否文末链 `zhejian.simplewin.cn` 且带 `utm_source=wechat_mp`
 - [ ] 该文对应案例/专题在 H5 是否 `published_h5`
 - [ ] 7 日内该文带来 `h5_case_view` / 咨询是否 >0（样本小标「仅供参考」）
 

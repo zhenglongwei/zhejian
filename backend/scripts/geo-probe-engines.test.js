@@ -103,11 +103,11 @@ test('collectSearchSources reads TokenHub message.search_results', () => {
 test('collectSearchSources extracts nested urls', () => {
   const sources = collectSearchSources({
     search_info: {
-      search_results: [{ url: 'https://geo.simplewin.cn/case/a.html', title: '案例' }],
+      search_results: [{ url: 'https://zhejian.simplewin.cn/case/a.html', title: '案例' }],
     },
   })
   assert.equal(sources.length, 1)
-  assert.equal(sources[0].url, 'https://geo.simplewin.cn/case/a.html')
+  assert.equal(sources[0].url, 'https://zhejian.simplewin.cn/case/a.html')
 })
 
 test('collectSearchSources extracts dashscope output.search_info', () => {

@@ -3,16 +3,16 @@
 **盈简科技**旗下产品；仓库代号 `zhejian`（文档中「辙见」同指本项目）。
 
 微信小程序（用户端 + 商家分包）+ 后端 API + H5 公开页 monorepo。  
-对外域名：**geo.simplewin.cn**（API / SEO·GEO / 运营后台）；公司官网 **simplewin.cn** 独立部署。
+对外域名：**zhejian.simplewin.cn**（API / SEO·GEO / 运营后台）；公司官网 **simplewin.cn** 独立部署。
 
 ## 域名与路径
 
 | 域名 / 路径 | 用途 |
 |---|---|
 | `simplewin.cn` | 盈简科技官网（不在本仓库） |
-| `geo.simplewin.cn/api/v1/` | 小程序与后台 API |
-| `geo.simplewin.cn/admin/` | 运营后台 Web（规划中） |
-| `geo.simplewin.cn/` | H5 公开案例 / SEO·GEO |
+| `zhejian.simplewin.cn/api/v1/` | 小程序与后台 API |
+| `zhejian.simplewin.cn/admin/` | 运营后台 Web（规划中） |
+| `zhejian.simplewin.cn/` | H5 公开案例 / SEO·GEO |
 
 详见 [docs/10_技术架构与接口/10_域名与部署架构.md](docs/10_技术架构与接口/10_域名与部署架构.md)。
 
@@ -51,11 +51,11 @@ npm run db:setup
 npm run dev
 ```
 
-### 联调 geo.simplewin.cn
+### 联调 zhejian.simplewin.cn
 
 1. 按 `backend/deploy/README.md` 部署到阿里云
 2. `services/config.js` → `mode: 'dev'`
-3. 微信公众平台配置 request 合法域名 `https://geo.simplewin.cn`
+3. 微信公众平台配置 request 合法域名 `https://zhejian.simplewin.cn`
 4. 联调 token 与 `backend/.env` 中 `DEV_USER_TOKEN` 一致
 
 ## 文档

@@ -1,6 +1,6 @@
 # admin-web（运营后台）
 
-> 部署路径：`https://geo.simplewin.cn/admin/` · API：`/api/v1/`
+> 部署路径：`https://zhejian.simplewin.cn/admin/` · API：`/api/v1/`
 
 ## 本地开发
 
@@ -39,7 +39,7 @@ sudo cp /var/www/zhejian/backend/deploy/simplewin.conf /etc/nginx/conf.d/simplew
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-浏览器打开：`https://geo.simplewin.cn/admin/` → 登录页。
+浏览器打开：`https://zhejian.simplewin.cn/admin/` → 登录页。
 
 ## OPS-MASK-01 页面
 

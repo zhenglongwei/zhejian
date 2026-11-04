@@ -1,5 +1,5 @@
 /**
- * PM2 · 辙见 API 生产（geo.simplewin.cn）
+ * PM2 · 辙见 API 生产（zhejian.simplewin.cn）
  *
  * 服务器用法（在 /var/www/zhejian/backend）：
  *   pm2 start ecosystem.config.cjs

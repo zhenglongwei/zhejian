@@ -29,7 +29,7 @@ pm2 restart "$API_NAME" --update-env
 sleep 3
 
 echo "==> 5/5 健康检查"
-BASE=https://geo.simplewin.cn/api/v1/public
+BASE=https://zhejian.simplewin.cn/api/v1/public
 
 check() {
   local label="$1"

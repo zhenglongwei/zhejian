@@ -1,4 +1,6 @@
 #!/bin/bash
+# 【历史装机脚本 · 2026-11 未随域名收口更新】geo.simplewin.cn 已废弃（DNS 已撤），
+# 现行生产域名为 zhejian.simplewin.cn。清理类操作仍可参考，域名相关判断需先更新。
 # 辙见 · geo.simplewin.cn 干净重装（释放 3000 端口、去掉旧项目冲突）
 #
 # 背景：geo.simplewin.cn 专用于辙见（API + H5）；simplewin.cn 为公司官网，勿动。

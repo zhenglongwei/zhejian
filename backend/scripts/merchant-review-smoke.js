@@ -62,7 +62,7 @@ async function main() {
   const userJwt = session.token
   assert(userJwt, '无法签发用户 JWT')
 
-  const demoPhoto = 'https://geo.simplewin.cn/api/v1/media/files/uploads/smoke/license.jpg'
+  const demoPhoto = 'https://zhejian.simplewin.cn/api/v1/media/files/uploads/smoke/license.jpg'
 
   const submitBody = {
     storeName: `冒烟测试店-${suffix}`,

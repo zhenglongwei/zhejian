@@ -1,5 +1,5 @@
 [Unit]
-Description=Zhejian API (辙见 · geo.simplewin.cn)
+Description=Zhejian API (辙见 · zhejian.simplewin.cn)
 After=network.target mysql.service
 Wants=network-online.target
 

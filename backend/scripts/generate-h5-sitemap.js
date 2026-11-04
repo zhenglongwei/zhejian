@@ -3,7 +3,7 @@
  *
  * 用法：
  *   npm run h5:sitemap
- *   PUBLIC_BASE_URL=https://geo.simplewin.cn npm run h5:sitemap
+ *   PUBLIC_BASE_URL=https://zhejian.simplewin.cn npm run h5:sitemap
  */
 require('dotenv').config()
 const fs = require('fs')

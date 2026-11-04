@@ -367,9 +367,7 @@ const config = {
       if ((process.env.NODE_ENV || 'development') === 'production') {
         return [
           'https://zhejian.simplewin.cn',
-          'https://geo.simplewin.cn',
           'https://staging.zhejian.simplewin.cn',
-          'https://staging.geo.simplewin.cn',
           'https://simplewin.cn',
           'https://www.simplewin.cn',
         ]
