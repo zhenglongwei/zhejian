@@ -11,7 +11,7 @@
  *   SMOKE_BASE_URL=https://geo.simplewin.cn npm run smoke:prod
  *
  * 预发：
- *   npm run smoke:prod -- https://staging.geo.simplewin.cn
+ *   npm run smoke:prod -- https://staging.zhejian.simplewin.cn
  */
 require('dotenv').config()
 

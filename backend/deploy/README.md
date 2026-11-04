@@ -1,7 +1,7 @@
 # 阿里云部署指南（B-INF）
 
 目标：**geo.simplewin.cn** 提供 `/api/v1/`（Node）、`/admin/`、`/case/` 静态 H5。  
-预发：**staging.geo.simplewin.cn** 同结构、同机另一目录（见下「预发」）。
+预发：**staging.zhejian.simplewin.cn** 同结构、同机另一目录（见下「预发」）。
 
 | 路径 | 说明 |
 | --- | --- |
@@ -69,9 +69,9 @@ pm2 startup                      # 按提示执行一条 sudo 命令，开机自
 ## 小程序
 
 - 生产：`services/config.js` → `ACTIVE_ENV = 'prod'`
-- 预发联调：`ACTIVE_ENV = 'staging'`（须微信合法域名含 `https://staging.geo.simplewin.cn`；提审前改回 `prod`）
+- 预发联调：`ACTIVE_ENV = 'staging'`（须微信合法域名含 `https://staging.zhejian.simplewin.cn`；提审前改回 `prod`）
 
-## 预发（staging.geo.simplewin.cn）
+## 预发（staging.zhejian.simplewin.cn）
 
 同机隔离：目录 `/var/www/zhejian-staging`、端口 **3101**、库 **`zhejian_staging`**、PM2 **`zhejian-api-staging`**。
 
@@ -82,11 +82,12 @@ cp .env.staging.example .env   # 编辑 PORT/DATABASE_URL/PUBLIC_BASE_URL/JWT �
 npm install && npm run sync:shared-utils && npm run db:setup:prod
 pm2 start ecosystem.staging.config.cjs
 
-sudo certbot certonly --nginx -d staging.geo.simplewin.cn
+# 模板文件名沿用历史名 nginx-staging.geo.simplewin.cn.conf；其内容 server_name 已是新域名
+sudo certbot certonly --nginx -d staging.zhejian.simplewin.cn
 sudo cp deploy/nginx-staging.geo.simplewin.cn.conf \
-  /etc/nginx/conf.d/staging.geo.simplewin.cn.conf
+  /etc/nginx/conf.d/staging.zhejian.simplewin.cn.conf
 sudo nginx -t && sudo systemctl reload nginx
-curl -s https://staging.geo.simplewin.cn/api/v1/health
+curl -s https://staging.zhejian.simplewin.cn/api/v1/health
 ```
 
 **勿**用生产 `simplewin.conf` 覆盖预发配置；预发独立 conf 文件。

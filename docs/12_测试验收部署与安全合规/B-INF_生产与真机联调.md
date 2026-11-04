@@ -147,7 +147,7 @@ sudo bash scripts/server-install.sh
 1. 登录 [微信公众平台](https://mp.weixin.qq.com/) → 开发 → 开发管理 → 开发设置  
 2. **服务器域名** → request 合法域名添加：  
    - 生产：`https://geo.simplewin.cn`  
-   - 预发（若使用）：`https://staging.geo.simplewin.cn`（搭建见 `B-INF_预发环境搭建.md`）  
+   - 预发（若使用）：`https://staging.zhejian.simplewin.cn`（搭建见 `B-INF_预发环境搭建.md`）  
 3. 保存后等待生效（约几分钟）
 
 ### 3.2 小程序工程
