@@ -37,7 +37,8 @@ async function callPrivacyMasksModel(labeled) {
     '你只做隐私打码框选，不要给维修意见。',
     '最终只输出一个 JSON：{"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
     MODEL_MASKS_INSTRUCTION,
-    '每张附图都必须在 masks 里有一条；没有敏感区就给空 regions。',
+    '再次强调：masks 数组长度必须等于本次附图张数，每张图一条，绝对不允许省略。',
+    '某张图没有敏感区，也必须返回 {"imageSlot":N,"regions":[]}——空 regions 就是无隐私标记；漏图会导致这张被误判为模型失败、整批重跑，严禁漏图。',
   ].join('\n')
 
   const userContent = [{ type: 'text', text: instruction }].concat(

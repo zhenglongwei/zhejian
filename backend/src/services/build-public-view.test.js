@@ -5,6 +5,7 @@ const {
   buildPublicRepairPlan,
   buildPublicView,
   publicViewToSnapshotNodes,
+  pickPublicViewCover,
 } = require('./build-public-view.service')
 const { isAlwaysPrivateStage } = require('../constants/album-public-visibility-policy')
 
@@ -14,7 +15,7 @@ test('scrubPiiText masks phone and plate patterns', () => {
   assert.match(out, /车牌已隐藏/)
 })
 
-test('buildPublicRepairPlan uses note planParts and planAmount', () => {
+test('buildPublicRepairPlan uses note and planParts, hides planAmount (公域藏价)', () => {
   const text = buildPublicRepairPlan({
     nodes: [{ id: 'stage_3', note: '更换刹车片' }],
     planParts: [{ name: '刹车片', partType: '品牌件' }],
@@ -22,7 +23,7 @@ test('buildPublicRepairPlan uses note planParts and planAmount', () => {
   })
   assert.match(text, /更换刹车片/)
   assert.match(text, /刹车片/)
-  assert.match(text, /680/)
+  assert.doesNotMatch(text, /680/)
 })
 
 test('buildPublicView excludes private stage images', () => {
@@ -94,6 +95,36 @@ test('buildPublicView prefers node write-back maskedUrl over task lookup', () =>
   assert.equal(view.media.length, 1)
   assert.equal(view.media[0].maskedUrl, 'https://x/files/uploads/desensitized/node-writeback.jpg')
   assert.equal(view.media[0].storeProcessed, false)
+})
+
+test('新政策：无打码产物不丢图，持久化原图放行且可作封面', () => {
+  const albumView = {
+    serviceName: '刹车保养',
+    planAmount: 680,
+    store: { id: 'st_1', name: '测试门店', city: '杭州' },
+    storeNote: '',
+    planParts: [],
+    nodes: [{ id: 'stage_4', title: '配件', note: '新片', images: [] }],
+    imageMeta: [
+      {
+        nodeId: 'stage_4',
+        idx: 0,
+        rawUrl: 'https://x/api/v1/media/files/uploads/2026/11/raw.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        maskedUrl: '',
+      },
+    ],
+  }
+  const view = buildPublicView(albumView, null, { authorizationTier: 'named' })
+  assert.equal(view.media.length, 1)
+  assert.match(view.media[0].maskedUrl, /uploads\/2026\/11\/raw\.jpg/)
+  assert.equal(view.media[0].storeProcessed, true)
+  const nodes = publicViewToSnapshotNodes(view, albumView.nodes)
+  assert.equal(nodes.length, 1)
+  assert.equal(nodes[0].images.length, 1)
+  const cover = pickPublicViewCover(view)
+  assert.match(cover, /uploads\/2026\/11\/raw\.jpg/)
 })
 
 test('stage policy marks intake and plan as always private', () => {

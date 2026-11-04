@@ -82,7 +82,8 @@ function captionForNode(nodes, nodeId) {
  * @param {object} albumView buildAlbumView 产物（含 imageMeta）
  * @param {object|null} task pre-mask / authorize task
  * @param {{ authorizationTier?: string, softCap?: number, allowStoreProcessedFace?: boolean }} [options]
- *        allowStoreProcessedFace：托管公开路径；隐私已过且未用平台脱敏任务时，允许用可公开池图（责任在门店）
+ *        allowStoreProcessedFace 已废弃（保留参数兼容旧调用）：新政策下隐私责任在商家，
+ *        平台只做必要技术脱敏，不强制拦截原图——有码用码，无产物放行持久化原图。
  */
 function buildPublicView(albumView = {}, task = null, options = {}) {
   const nodes = albumView.nodes || []
@@ -92,7 +93,6 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
     0,
     Math.min(softCap, PUBLIC_MEDIA_SOFT_CAP),
   )
-  const allowStoreProcessedFace = Boolean(options.allowStoreProcessedFace)
 
   const media = publicRows
     .map((row) => {
@@ -101,17 +101,16 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
       const toolMasked = nodeMasked
         ? ''
         : resolveMaskedUrlForImage(task, row.nodeId, row.idx, row.rawUrl)
-      let maskedUrl = nodeMasked || toolMasked
-      if (!maskedUrl && allowStoreProcessedFace) {
-        maskedUrl = resolveStoreProcessedPublicUrl(row.rawUrl || '') || ''
-      }
+      // 无打码产物时不再丢弃图片：放行持久化原图（责任在商家）
+      const maskedUrl =
+        nodeMasked || toolMasked || resolveStoreProcessedPublicUrl(row.rawUrl || '')
       if (!maskedUrl) return null
       return {
         nodeId: row.nodeId,
         idx: row.idx,
         maskedUrl,
         caption: captionForNode(nodes, row.nodeId),
-        storeProcessed: Boolean(allowStoreProcessedFace && !nodeMasked && !toolMasked),
+        storeProcessed: !nodeMasked && !toolMasked,
       }
     })
     .filter(Boolean)
@@ -176,12 +175,18 @@ function publicViewToSnapshotNodes(publicView = {}, fallbackNodes = []) {
 
 function pickPublicViewCover(publicView = {}) {
   const media = Array.isArray(publicView.media) ? publicView.media : []
+  const pick = (item) => {
+    const url = String((item && item.maskedUrl) || '').trim()
+    if (!url) return ''
+    // 打码产物优先；无产物时允许持久化原图（责任在商家）
+    return resolvePublicCaseMediaUrl(url) || resolveStoreProcessedPublicUrl(url)
+  }
   for (let i = media.length - 1; i >= 0; i -= 1) {
-    const url = resolvePublicCaseMediaUrl(media[i].maskedUrl || '')
+    const url = pick(media[i])
     if (url) return url
   }
   for (const item of media) {
-    const url = resolvePublicCaseMediaUrl(item.maskedUrl || '')
+    const url = pick(item)
     if (url) return url
   }
   return ''
