@@ -32,33 +32,33 @@ test('detected and stamped is ok_masked', () => {
   assert.equal(hostMaskAction(row.outcome), 'skip')
 })
 
-test('detected but stamp failed is mask_failed → registered skip', () => {
+test('detected but stamp failed is mask_failed → restamp only', () => {
   const row = classifyHostMaskOutcome({
     status: 'mask_failed',
     riskTags: ['face'],
   })
   assert.equal(row.outcome, HOST_MASK_OUTCOME.MASK_FAILED)
-  assert.equal(hostMaskAction(row.outcome), 'skip')
-  assert.equal(needsHostMaskAction(row.outcome), false)
+  assert.equal(hostMaskAction(row.outcome), 'restamp')
+  assert.equal(needsHostMaskAction(row.outcome), true)
   assert.equal(row.allowsOriginalPublish, true)
 })
 
-test('ocr/network failure without hits is llm_failed → registered skip', () => {
+test('ocr/network failure without hits is llm_failed → rerun llm', () => {
   const row = classifyHostMaskOutcome({
     status: 'mask_failed',
     riskTags: [],
   })
   assert.equal(row.outcome, HOST_MASK_OUTCOME.LLM_FAILED)
-  assert.equal(hostMaskAction(row.outcome), 'skip')
+  assert.equal(hostMaskAction(row.outcome), 'rerun_llm')
 })
 
-test('need_manual media is mask_failed registered', () => {
+test('need_manual media is mask_failed and waits for restamp', () => {
   const row = classifyHostMaskOutcome({
     desensitizeStatus: 'need_manual',
     riskTags: ['plate'],
   })
   assert.equal(row.outcome, HOST_MASK_OUTCOME.MASK_FAILED)
-  assert.equal(needsHostMaskAction(row.outcome), false)
+  assert.equal(needsHostMaskAction(row.outcome), true)
 })
 
 test('untouched asset is not_analyzed and needs llm', () => {
@@ -78,8 +78,8 @@ test('legacy pending / call_failed normalize via explicit maskOutcome', () => {
     classifyHostMaskOutcome({ maskOutcome: 'call_failed' }).outcome,
     HOST_MASK_OUTCOME.LLM_FAILED,
   )
-  assert.equal(hostMaskAction('ok_detect_mask_failed'), 'skip')
-  assert.equal(hostMaskAction('llm_failed'), 'skip')
+  assert.equal(hostMaskAction('ok_detect_mask_failed'), 'restamp')
+  assert.equal(hostMaskAction('llm_failed'), 'rerun_llm')
 })
 
 test('ok_no_privacy counts as mask success even without privacy hits', () => {

@@ -125,7 +125,7 @@ async function main() {
   assert(meta.geoDraft && meta.geoDraft.summary, 'hostMeta 应持久化 geoDraft')
 
   if (FULL && process.env.HOSTING_SMOKE_CONFIRM === '1') {
-    const { confirmHostedPublicPublish } = require('../src/services/case-hosting.service')
+    const { confirmHostedPublicPublish, HOST_PRIVACY_AGREEMENT_VERSION } = require('../src/services/case-hosting.service')
     try {
       // 若已公开，先取消公开再确认，便于重复冒烟
       const row = await prisma.publicCase.findUnique({ where: { albumId: album.id } })
@@ -141,7 +141,7 @@ async function main() {
         summary: geo.geoDraft.summary,
         faq: geo.geoDraft.faq,
         privacyAgreementAccepted: true,
-        privacyAgreementVersion: 'host_privacy_v2',
+        privacyAgreementVersion: HOST_PRIVACY_AGREEMENT_VERSION,
       })
       assert(pub.publicCase, 'confirm-public 应返回 publicCase')
       console.log('[hosting-smoke] FULL: 确认公开 OK status=', pub.publicCase.status || pub.status)

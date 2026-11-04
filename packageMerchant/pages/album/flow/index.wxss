@@ -919,6 +919,12 @@
   box-sizing: border-box;
 }
 
+/* 交车报告汇总区：简述与车主问答从上到下排列（key-fill 默认横向，供检测/工单多字段并排用） */
+.merchant-flow-page__key-fill--report {
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 .merchant-flow-page__key-fill-rail {
   width: 6rpx;
   align-self: stretch;
@@ -1874,15 +1880,6 @@
 .merchant-flow-page__quote-total {
   margin: var(--space-sm) 0;
   font-weight: 600;
-}
-
-.merchant-flow-page__work-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-sm);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1rpx solid var(--color-border);
 }
 
 .merchant-flow-page__doc-actions {
@@ -3593,19 +3590,28 @@
 
 .doc-brief__sheet {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-height: 86vh;
-  overflow-y: auto;
   box-sizing: border-box;
   padding: var(--space-lg) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom));
   border-radius: var(--radius-mch-hero) var(--radius-mch-hero) 0 0;
   background: var(--color-bg-muted);
 }
 
+/* 内容区用 scroll-view 原生滚动，并给显式高度上限：微信 scroll-view 需要确定
+   高度才启用内部滚动，flex 分配的高度在部分真机不生效（模拟器正常）；同时外层
+   catchtouchmove（防穿透）会拦掉 view + overflow 的触摸滚动，故不能用普通 view */
+.doc-brief__scroll {
+  max-height: 56vh;
+}
+
 .doc-brief__top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-shrink: 0;
   gap: var(--space-md);
 }
 
@@ -3849,6 +3855,7 @@
 
 .doc-brief__actions {
   display: flex;
+  flex-shrink: 0;
   gap: var(--space-sm);
   margin-top: var(--space-lg);
 }

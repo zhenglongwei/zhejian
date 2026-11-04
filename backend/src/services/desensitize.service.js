@@ -62,6 +62,7 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
       rawUrl: url,
       maskedUrl: product,
       maskOutcome: outcome || 'ok_masked',
+      maskSource: String(masked.maskSource || '').trim() || 'auto',
       maskRegions: Array.isArray(masked.maskRegions) ? masked.maskRegions : undefined,
     }
   }
@@ -156,6 +157,54 @@ async function mapLimit(list, limit, mapper) {
   const n = Math.max(1, Math.min(Number(limit) || 1, items.length || 1))
   await Promise.all(Array.from({ length: items.length ? n : 0 }, () => worker()))
   return out
+}
+
+/**
+ * 只重贴：用节点上已有的敏感区重跑贴码引擎，不调大模型。
+ * 成功 → ok_masked + maskedUrl；失败 → mask_failed（保留区域，下次还能重贴）。
+ * @param {{ rawUrl: string, regions: array, nodeId?: string, idx?: number }[]} items
+ */
+async function restampHostMaskAssets(items, albumId) {
+  const list = Array.isArray(items) ? items : []
+  const id = String(albumId || '').trim()
+  if (!id || !list.length) return []
+  const { resolveDesensitizedUrlForAsset } = require('./media.service')
+  const pairs = []
+  await mapLimit(list, 2, async (item) => {
+    const regions = Array.isArray(item.regions) ? item.regions : []
+    let maskedUrl = ''
+    try {
+      const masked = await resolveDesensitizedUrlForAsset(item.rawUrl, {
+        albumId: id,
+        nodeId: item.nodeId,
+        idx: item.idx,
+        boxes: regions,
+        // 只用节点区域贴，不再自己检测一遍
+        requireBoxes: true,
+        force: true,
+        modelPrivacyJudged: true,
+      })
+      maskedUrl = String((masked && masked.maskedUrl) || '').trim()
+    } catch (error) {
+      console.warn('[runAutoMask] restamp asset failed', {
+        message: String((error && error.message) || '').slice(0, 160),
+      })
+    }
+    pairs.push({
+      rawUrl: item.rawUrl,
+      maskedUrl,
+      maskOutcome: maskedUrl ? 'ok_masked' : 'mask_failed',
+      maskSource: maskedUrl ? 'auto' : '',
+      maskRegions: regions,
+    })
+    return null
+  })
+  try {
+    await persistMaskedPairsToAlbumFlow(id, pairs)
+  } catch (error) {
+    console.warn('[runAutoMask] restamp writeback failed', error && error.message)
+  }
+  return pairs
 }
 
 function buildReviewAssetInputsFromRow(row) {
@@ -1122,10 +1171,7 @@ async function runAutoMask(taskId, options = {}) {
   const hostPublic =
     String(task.taskId || '').startsWith('task_host_mask_') ||
     task.bizType === BIZ_TYPE.MERCHANT_HISTORY
-  const {
-    classifyHostMaskOutcome,
-    hostMaskAction,
-  } = require('../utils/host-mask-outcome')
+  const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
   const { lookupHostMaskOutcomeRow, loadHostMaskOutcomeIndex } = require('./hosted-public-mask.service')
 
   let nodeOutcomeIndex = new Map()
@@ -1141,33 +1187,63 @@ async function runAutoMask(taskId, options = {}) {
     const nodeRow = hostPublic
       ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
       : null
-    return classifyHostMaskOutcome({
-      status: asset.status,
-      desensitizeStatus: nodeRow && nodeRow.desensitizeStatus,
-      riskTags: (nodeRow && nodeRow.riskTags) || asset.riskTags || [],
-      maskedUrl: asset.maskedUrl || asset.preMaskedUrl || (nodeRow && nodeRow.maskedUrl) || '',
-      preMaskedUrl: asset.preMaskedUrl || (nodeRow && nodeRow.preMaskedUrl) || '',
-      maskOutcome: (nodeRow && nodeRow.maskOutcome) || '',
-      maskRegions: (nodeRow && nodeRow.maskRegions) || [],
-      needManual: Boolean(asset.needManual),
-    })
+    return classifyHostMaskOutcome(
+      {
+        status: asset.status,
+        desensitizeStatus: nodeRow && nodeRow.desensitizeStatus,
+        riskTags: (nodeRow && nodeRow.riskTags) || (!hostPublic && asset.riskTags) || [],
+        // 托管只认节点产物；任务行残留的 maskedUrl 不得当结论
+        maskedUrl: hostPublic
+          ? (nodeRow && (nodeRow.maskedUrl || nodeRow.preMaskedUrl)) || ''
+          : asset.maskedUrl || asset.preMaskedUrl || '',
+        preMaskedUrl: hostPublic
+          ? (nodeRow && nodeRow.preMaskedUrl) || ''
+          : asset.preMaskedUrl || '',
+        maskOutcome: (nodeRow && nodeRow.maskOutcome) || '',
+        maskSource: (nodeRow && nodeRow.maskSource) || '',
+        maskRegions: (nodeRow && nodeRow.maskRegions) || [],
+        needManual: Boolean(asset.needManual),
+      },
+      hostPublic ? { nodeOnly: true } : {},
+    )
   }
 
   if (hostPublic) {
     const llmUrls = []
+    const restampItems = []
     ;(task.assets || []).forEach((asset) => {
-      if (!asset || assetMaskSettled(asset)) return
+      if (!asset) return
+      const url = String(asset.rawUrl || '').trim()
+      if (!url) return
       const classified = classifyAsset(asset)
-      if (hostMaskAction(classified.outcome) === 'rerun_llm') {
-        const url = String(asset.rawUrl || '').trim()
-        if (url) llmUrls.push(url)
+      if (classified.hostAction === 'rerun_llm') {
+        llmUrls.push(url)
+        return
+      }
+      if (classified.hostAction === 'restamp') {
+        const nodeRow = lookupHostMaskOutcomeRow(nodeOutcomeIndex, url)
+        const regions = Array.isArray(nodeRow && nodeRow.maskRegions) ? nodeRow.maskRegions : []
+        // 区域丢了没法只重贴，回退跑模型
+        if (!regions.length) {
+          llmUrls.push(url)
+          return
+        }
+        restampItems.push({ rawUrl: url, regions, nodeId: asset.nodeId, idx: asset.idx })
       }
     })
-    console.info('[runAutoMask] host privacy llm queue', {
+    console.info('[runAutoMask] host privacy queue', {
       albumId: task.bizId,
       totalAssets: (task.assets || []).length,
       needLlm: llmUrls.length,
+      needRestamp: restampItems.length,
     })
+    if (restampItems.length) {
+      try {
+        await restampHostMaskAssets(restampItems, task.bizId)
+      } catch (error) {
+        console.warn('[runAutoMask] host restamp failed', error && error.message)
+      }
+    }
     if (llmUrls.length) {
       try {
         const { rerunHostPrivacyLlmForUrls } = require('./host-privacy-llm.service')
@@ -1175,6 +1251,8 @@ async function runAutoMask(taskId, options = {}) {
       } catch (error) {
         console.warn('[runAutoMask] host privacy llm batch failed', error && error.message)
       }
+    }
+    if (llmUrls.length || restampItems.length) {
       try {
         nodeOutcomeIndex = await loadHostMaskOutcomeIndex(task.bizId)
       } catch (_) {
@@ -1191,8 +1269,7 @@ async function runAutoMask(taskId, options = {}) {
       const syncSettledFromNode = (classified) => {
         const product = String(
           (nodeRow && (nodeRow.maskedUrl || nodeRow.preMaskedUrl)) ||
-            asset.maskedUrl ||
-            asset.preMaskedUrl ||
+            (hostPublic ? '' : asset.maskedUrl || asset.preMaskedUrl) ||
             '',
         ).trim()
         const noPrivacy = classified.outcome === 'ok_no_privacy'
@@ -1208,9 +1285,10 @@ async function runAutoMask(taskId, options = {}) {
           },
         })
       }
-      if (assetMaskSettled(asset)) return null
+      // 托管：结论只看节点；任务行 settled 不代表节点已登记
+      if (!hostPublic && assetMaskSettled(asset)) return null
       const classified = classifyAsset(asset)
-      const action = hostMaskAction(classified.outcome)
+      const action = classified.hostAction
       if (action === 'skip') {
         // 已登记成功：任务行可能仍是 raw → 同步结算态
         if (hostPublic && classified.maskSucceeded && !assetMaskSettled(asset)) {
@@ -1233,8 +1311,8 @@ async function runAutoMask(taskId, options = {}) {
         return null
       }
 
-      // 托管：仅 not_analyzed 会进 rerun_llm；上面已批量跑过模型，此处只同步任务行
-      if (hostPublic && action === 'rerun_llm') {
+      // 托管：模型/贴码已在上面对账处理，这里只同步任务行
+      if (hostPublic && (action === 'rerun_llm' || action === 'restamp')) {
         const after = classifyAsset(asset)
         if (after.maskSucceeded) {
           return syncSettledFromNode(after)
@@ -1301,22 +1379,31 @@ async function runAutoMask(taskId, options = {}) {
         const nodeRow = hostPublic
           ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
           : null
-        const classified = classifyHostMaskOutcome({
-          status: asset.status,
-          riskTags: asset.riskTags || [],
-          maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
-          preMaskedUrl: asset.preMaskedUrl || '',
-          maskOutcome: (nodeRow && nodeRow.maskOutcome) || '',
-          maskRegions: (nodeRow && nodeRow.maskRegions) || [],
-        })
+        const nodeMasked = String(
+          (nodeRow && (nodeRow.maskedUrl || nodeRow.preMaskedUrl)) || '',
+        ).trim()
+        const classified = classifyHostMaskOutcome(
+          {
+            status: hostPublic ? '' : asset.status,
+            riskTags: hostPublic ? [] : asset.riskTags || [],
+            maskedUrl: hostPublic ? nodeMasked : asset.maskedUrl || asset.preMaskedUrl || '',
+            preMaskedUrl: hostPublic ? nodeMasked : asset.preMaskedUrl || '',
+            maskOutcome: (nodeRow && nodeRow.maskOutcome) || '',
+            maskSource: (nodeRow && nodeRow.maskSource) || '',
+            maskRegions: (nodeRow && nodeRow.maskRegions) || [],
+          },
+          hostPublic ? { nodeOnly: true } : {},
+        )
         let pair = writebackPairFromMaskResult(asset.rawUrl, {
-          maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
-          ok: assetMaskSettled(asset),
-          noSensitive:
-            assetMaskSettled(asset) &&
-            !String(asset.maskedUrl || asset.preMaskedUrl || '').trim(),
-          riskTags: asset.riskTags || [],
+          maskedUrl: hostPublic ? nodeMasked : asset.maskedUrl || asset.preMaskedUrl || '',
+          ok: hostPublic ? classified.maskSucceeded : assetMaskSettled(asset),
+          noSensitive: hostPublic
+            ? classified.outcome === 'ok_no_privacy'
+            : assetMaskSettled(asset) &&
+              !String(asset.maskedUrl || asset.preMaskedUrl || '').trim(),
+          riskTags: hostPublic ? [] : asset.riskTags || [],
           maskOutcome: classified.outcome,
+          maskSource: hostPublic ? (nodeRow && nodeRow.maskSource) || '' : '',
           maskRegions: (nodeRow && nodeRow.maskRegions) || [],
         })
         // 托管：失败态也必须登记，避免再次托管又当未分析
@@ -1388,6 +1475,30 @@ async function refreshPreMaskStatusForTask(taskId) {
   notifyPreMaskLifecycle(task.bizId, preMaskStatus)
 }
 
+/** 把节点结论同步到任务行（托管任务用；结论真源仍在节点） */
+async function syncAssetRowFromNode(taskId, asset, albumId) {
+  const {
+    loadHostMaskOutcomeIndex,
+    lookupHostMaskOutcomeRow,
+  } = require('./hosted-public-mask.service')
+  const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
+  const index = await loadHostMaskOutcomeIndex(albumId)
+  const nodeRow = lookupHostMaskOutcomeRow(index, asset.rawUrl)
+  const classified = classifyHostMaskOutcome(nodeRow || {}, { nodeOnly: true })
+  const product = String((nodeRow && (nodeRow.maskedUrl || nodeRow.preMaskedUrl)) || '').trim()
+  await prisma.desensitizeAsset.update({
+    where: { taskId_assetId: { taskId, assetId: asset.assetId } },
+    data: {
+      mediaId: asset.mediaId || '',
+      maskedUrl: product,
+      preMaskedUrl: product,
+      status: classified.maskSucceeded ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
+      riskTags: classified.outcome === 'ok_no_privacy' ? [] : asset.riskTags || [],
+      riskLevel: classified.maskSucceeded ? 'low' : '',
+    },
+  })
+}
+
 async function retryAsset(taskId, assetId, options = {}) {
   const asset = await prisma.desensitizeAsset.findUnique({
     where: { taskId_assetId: { taskId, assetId } },
@@ -1401,6 +1512,35 @@ async function retryAsset(taskId, assetId, options = {}) {
   const auth = normalizeTaskAuthOptions(options)
   if (auth) {
     await assertDesensitizeTaskAccess(mapTaskRecord(asset.task), auth)
+  }
+  // 托管任务：按节点结论分派（成功跳过 / 模型失败重跑模型 / 贴码失败只重贴）
+  const retryAlbumId = String(asset.task.bizId || '').trim()
+  const retryHostPublic =
+    String(asset.task.taskId || '').startsWith('task_host_mask_') ||
+    asset.task.bizType === BIZ_TYPE.MERCHANT_HISTORY
+  if (retryHostPublic && retryAlbumId) {
+    const {
+      loadHostMaskOutcomeIndex,
+      lookupHostMaskOutcomeRow,
+    } = require('./hosted-public-mask.service')
+    const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
+    const index = await loadHostMaskOutcomeIndex(retryAlbumId)
+    const nodeRow = lookupHostMaskOutcomeRow(index, asset.rawUrl)
+    const classified = classifyHostMaskOutcome(nodeRow || {}, { nodeOnly: true })
+    if (classified.maskSucceeded) return getTaskById(taskId, options)
+    const regions = Array.isArray(nodeRow && nodeRow.maskRegions) ? nodeRow.maskRegions : []
+    if (classified.outcome === 'mask_failed' && regions.length) {
+      await restampHostMaskAssets(
+        [{ rawUrl: asset.rawUrl, regions, nodeId: asset.nodeId, idx: asset.idx }],
+        retryAlbumId,
+      )
+    } else {
+      const { rerunHostPrivacyLlmForUrls } = require('./host-privacy-llm.service')
+      await rerunHostPrivacyLlmForUrls([asset.rawUrl], { albumId: retryAlbumId })
+    }
+    await syncAssetRowFromNode(taskId, asset, retryAlbumId)
+    await refreshPreMaskStatusForTask(taskId)
+    return getTaskById(taskId, options)
   }
   const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
     albumId: asset.task.bizId,
@@ -1537,6 +1677,8 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
           rawUrl: asset.rawUrl,
           maskedUrl: result.maskedUrl,
           maskOutcome: 'ok_masked',
+          // 手工打码标记：此后永不再跑模型、永不再自动贴码
+          maskSource: 'manual',
         },
       ])
     }

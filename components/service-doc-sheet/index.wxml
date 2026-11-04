@@ -2,9 +2,12 @@
   <view class="service-doc-sheet__paper">
   <view wx:if="{{showHeader}}" class="service-doc-sheet__head">
     <view class="service-doc-sheet__shop">
-      <view class="service-doc-sheet__mark"></view>
+      <view class="service-doc-sheet__mark">{{storeInitial}}</view>
       <text class="service-doc-sheet__store">{{doc.storeName || '本店'}}</text>
-      <text wx:if="{{doc.statusLabel}}" class="service-doc-sheet__stamp">{{doc.statusLabel}}</text>
+      <text
+        wx:if="{{doc.statusLabel}}"
+        class="service-doc-sheet__stamp {{doc.needsConfirm && !doc.ownerRejectReason && !doc.cancelled ? '' : 'service-doc-sheet__stamp--muted'}}"
+      >{{doc.statusLabel}}</text>
     </view>
     <text class="service-doc-sheet__title">{{doc.title}}</text>
     <view class="service-doc-sheet__bar"></view>
@@ -66,7 +69,7 @@
         >
           <view class="service-doc-sheet__finding-head">
             <text class="service-doc-sheet__finding-name">{{finding.partName}}</text>
-            <text wx:if="{{finding.result}}" class="text-caption service-doc-sheet__prose">{{finding.result}}</text>
+            <text wx:if="{{finding.result}}" class="text-caption service-doc-sheet__finding-result service-doc-sheet__finding-result--{{group.key}}">{{finding.result}}</text>
           </view>
           <view wx:if="{{finding.images.length}}" class="service-doc-sheet__finding-photos">
             <image

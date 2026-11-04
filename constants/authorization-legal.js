@@ -5,8 +5,8 @@
  */
 const PUBLIC_CASE_PRIVACY_EXPLANATION = {
   title: '公开案例与隐私说明',
-  version: '2.0.10',
-  updatedAt: '2026-08-17',
+  version: '2.0.11',
+  updatedAt: '2026-11-04',
   sections: [
     {
       heading: '一、公开记录是什么',
@@ -45,7 +45,7 @@ const PUBLIC_CASE_PRIVACY_EXPLANATION = {
     {
       heading: '六、法律依据',
       body:
-        '门店把打码施工说明放到店页后，你可以随时要求撤下。你作出选择后，我们将停止继续公开；不影响此前已依法进行的处理。本说明上线前须经律师审阅。',
+        '门店把打码施工说明放到店页后，你可以随时要求撤下。你作出选择后，我们将停止继续公开；不影响此前已依法进行的处理。',
     },
   ],
 }

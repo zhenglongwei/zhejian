@@ -508,6 +508,8 @@ function buildMerchantStoreData(payload) {
       legalName: payload.legalName,
       creditCode: payload.creditCode,
       licensePhotoUrl: payload.licensePhotoUrl,
+      legalIdPhotoUrl: payload.legalIdPhotoUrl,
+      legalIdBackPhotoUrl: payload.legalIdBackPhotoUrl,
       licenseEstablishedOn: payload.licenseEstablishedOn
         ? new Date(`${payload.licenseEstablishedOn}T00:00:00.000Z`)
         : null,

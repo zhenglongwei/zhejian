@@ -587,17 +587,8 @@ async function getCaseDetail(idOrSlug, opts = {}) {
           },
         })
       : null
-    let maskLookup = null
-    if (album && album.id) {
-      try {
-        const { loadHostedPublicMaskLookup } = require('./hosted-public-mask.service')
-        const packed = await loadHostedPublicMaskLookup(album.id)
-        maskLookup = packed && packed.byRawUrl
-      } catch (_) {
-        maskLookup = null
-      }
-    }
-    item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album, { maskLookup }))
+    // 打码图只认节点写回的 maskedUrl，不再用任务行映射兜底
+    item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album))
     if (item.storeId) {
       const trustMap = await loadPublisherTrustByStoreIds([item.storeId])
       item = attachPublisherTrust(item, trustMap.get(item.storeId))

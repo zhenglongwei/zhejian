@@ -420,6 +420,17 @@
   line-height: 1.6;
 }
 
+/* 核心免责条款（第四/五条）：显著提示，避免埋入滚动正文 */
+.merchant-host-page__agreement-section--emphasis {
+  padding: var(--space-md);
+  background-color: var(--color-warning-light);
+  border-radius: var(--radius-md);
+}
+
+.merchant-host-page__agreement-section--emphasis .merchant-host-page__agreement-para {
+  color: var(--color-text-primary);
+}
+
 .merchant-host-page__agreement-foot {
   display: flex;
   gap: var(--space-sm);

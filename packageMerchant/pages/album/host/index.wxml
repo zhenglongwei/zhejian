@@ -178,7 +178,7 @@
         <view
           wx:for="{{privacyAgreementSections}}"
           wx:key="heading"
-          class="merchant-host-page__agreement-section"
+          class="merchant-host-page__agreement-section{{item.emphasis ? ' merchant-host-page__agreement-section--emphasis' : ''}}"
         >
           <text class="text-body merchant-host-page__agreement-heading">{{item.heading}}</text>
           <text

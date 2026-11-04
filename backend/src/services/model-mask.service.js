@@ -32,14 +32,21 @@ async function applyModelMasks(rows, masks, options = {}) {
   const pairs = []
   for (let index = 0; index < list.length; index += 1) {
     const row = list[index]
-    let regions = regionsFor(masks, row, index)
-    const rawUrl = String((row && (row.rawUrl || row.url)) || '').trim()
+    const rawUrl = String(
+      (typeof row === 'string' ? row : row && (row.rawUrl || row.url || row.src)) || '',
+    ).trim()
     if (!rawUrl) continue
-    // 整份 masks 为空/未解析 → 跳过，禁止空 masks[] 把整批误标无敏感
-    // 同批已有其它图的 masks 条目、唯独这张没写 → 视为看过且无区
+    const regions = regionsFor(masks, row, index)
+    // 模型没给这张判定（masks 缺条目 / 整份为空）→ 未跑通，记 llm_failed。
+    // 禁止把「没判」当「看过且无敏感」，否则失败态被洗成 ok_no_privacy。
     if (regions == null) {
-      if (!list.length) continue
-      regions = []
+      // 不传 maskRegions：保留节点上可能已有的区域，便于以后只重贴
+      pairs.push({
+        rawUrl,
+        maskedUrl: '',
+        maskOutcome: 'llm_failed',
+      })
+      continue
     }
     try {
       const media = await ensureMediaRecordFromUrl(rawUrl)
@@ -60,21 +67,25 @@ async function applyModelMasks(rows, masks, options = {}) {
         modelPrivacyJudged: true,
       })
       const maskedUrl = String((result && (result.desensitizedUrl || result.maskedUrl)) || '').trim()
-      const maskOutcome =
-        String((result && result.maskOutcome) || '') ||
-        (maskedUrl ? 'ok_masked' : 'ok_no_privacy')
+      // 有区却没产物 = 贴码失败；无区且跑通 = 无须打码
+      const maskOutcome = maskedUrl
+        ? 'ok_masked'
+        : regions.length
+          ? 'mask_failed'
+          : 'ok_no_privacy'
       pairs.push({
         rawUrl,
         maskedUrl,
         maskOutcome,
+        maskSource: maskedUrl ? 'auto' : '',
         maskRegions: regions,
       })
     } catch (_) {
       pairs.push({
         rawUrl,
         maskedUrl: '',
-        maskOutcome: regions && regions.length ? 'mask_failed' : 'llm_failed',
-        maskRegions: regions || [],
+        maskOutcome: regions.length ? 'mask_failed' : 'llm_failed',
+        maskRegions: regions,
       })
     }
   }
@@ -82,8 +93,13 @@ async function applyModelMasks(rows, masks, options = {}) {
     try {
       const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
       await persistMaskedPairsToAlbumFlow(albumId, pairs)
-    } catch (_) {
-      /* 写回失败不挡意见 */
+    } catch (error) {
+      // 写回失败会让下次托管当未分析重跑；至少要留痕，不能静默
+      console.warn('[model-mask] writeback failed', {
+        albumId,
+        pairs: pairs.length,
+        message: String((error && error.message) || '').slice(0, 160),
+      })
     }
   }
   return pairs

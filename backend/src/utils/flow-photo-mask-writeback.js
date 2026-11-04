@@ -48,6 +48,7 @@ function normalizeRegions(list) {
 function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   const product = text(meta.maskedUrl)
   const outcome = text(meta.maskOutcome)
+  const source = text(meta.maskSource)
   const regions = meta.maskRegions !== undefined ? normalizeRegions(meta.maskRegions) : null
   if (!product && !outcome && regions == null) return { next: slot, changed: false }
 
@@ -56,6 +57,7 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
     const next = { url: slot }
     if (product) next.maskedUrl = product
     if (outcome) next.maskOutcome = outcome
+    if (source) next.maskSource = source
     if (regions) next.maskRegions = regions
     return { next, changed: true }
   }
@@ -101,12 +103,23 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
         preMaskedUrl: '',
         maskOutcome: outcome,
       }
-      if (!keepRegions) next.maskRegions = Array.isArray(regions) ? regions : []
+      // llm_failed 不带区域时保留节点原区域，避免以后只能重跑模型
+      if (!keepRegions && Array.isArray(regions)) next.maskRegions = regions
       changed = true
     }
   }
   if (outcome && text(next.maskOutcome) !== outcome) {
     next.maskOutcome = outcome
+    changed = true
+  }
+  // 打码来源：有产物才记 auto/manual；无产物或失败态不保留
+  if (source && product) {
+    if (text(next.maskSource) !== source) {
+      next.maskSource = source
+      changed = true
+    }
+  } else if (text(next.maskSource)) {
+    next = { ...next, maskSource: '' }
     changed = true
   }
   if (regions) {
@@ -216,7 +229,7 @@ function writeMaskResultIntoFlowNodes(flowNodes, rawUrl, meta = {}) {
   if (!rawKeys.size || !Array.isArray(flowNodes)) {
     return { nodes: flowNodes, changed: false }
   }
-  if (!product && !outcome && meta.maskRegions === undefined) {
+  if (!product && !outcome && meta.maskRegions === undefined && !text(meta.maskSource)) {
     return { nodes: flowNodes, changed: false }
   }
 
@@ -278,6 +291,7 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
     const r = writeMaskResultIntoFlowNodes(nodes, pair.rawUrl, {
       maskedUrl: pair.maskedUrl,
       maskOutcome: pair.maskOutcome,
+      maskSource: pair.maskSource,
       maskRegions: pair.maskRegions,
     })
     nodes = r.nodes

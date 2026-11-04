@@ -26,7 +26,7 @@
 | 打码真源住哪 | **只住节点图对象**：`url`/`rawUrl` + `maskOutcome` + `maskRegions`（空数组也算结论）+ 有区贴成功才有的 `maskedUrl` |
 | MediaAsset / 媒体表 | **文件登记簿**（存哪、大小、上传者）；**不是**打码结论真源；不得用 `desensitizeStatus` 决定展示或是否再跑 |
 | **`album_images`（废止）** | **不是**过程图真源，**不是**可公示闸；禁止再用 `visibility`+`publicGate*` 判托管能否确认；停写；删表随迁移 |
-| 任务表 | 作业旁路（排队、重试）；成功后必须写回节点；禁止另建「原图→打码图」对照表当真源 |
+| 任务表 | 作业记录（排队、重试）；成功后必须写回节点；**读侧不读任务表**，禁止另建「原图→打码图」对照表补位 |
 
 ## 状态机（产品语言）
 
@@ -34,10 +34,12 @@
 上传 → 节点上已有图（默认 maskOutcome = not_analyzed / 未跑大模型）
   ↓
 店员点 AI 分析（看图用原图；打码是附带结果）
-  ├─ 大模型调用失败 → llm_failed（调用大模型失败）
+  ├─ 大模型调用失败 / 未给这张判定 → llm_failed（调用大模型失败）
   ├─ 大模型跑通 + 敏感区为空 → ok_no_privacy（无须打码；不写 maskedUrl，禁止复制原图冒充）
   ├─ 大模型跑通 + 有区 + 贴码成功 → ok_masked（已打码；写 maskedUrl）
   └─ 大模型跑通 + 有区 + 贴码失败 → mask_failed / ok_detect_mask_failed（贴码失败；保留 regions）
+  ↓（预览内可点图）
+手工打码成功 → ok_masked + maskSource=manual + maskedUrl（永不再跑模型、永不再自动贴码）
 ```
 
 ### `maskOutcome` 枚举（写库用）
@@ -45,12 +47,14 @@
 | 码 | 中文 | 含义 |
 | --- | --- | --- |
 | `not_analyzed` | 未跑大模型 | 从未成功跑通看图分析（含缺字段、旧数据无结论） |
-| `llm_failed` | 调用大模型失败 | 分析调用客观失败 |
+| `llm_failed` | 调用大模型失败 | 分析调用客观失败，或 masks 里缺这张的判定 |
 | `ok_no_privacy` | 无须打码 | 分析跑通且 `maskRegions: []` |
-| `ok_masked` | 已打码 | 有区且贴码成功，有 `maskedUrl` |
-| `mask_failed` / `ok_detect_mask_failed` | 贴码失败 | 有区但贴像素失败 |
+| `ok_masked` | 已打码 | 有区且贴码成功（或手工打码），有 `maskedUrl` |
+| `mask_failed` / `ok_detect_mask_failed` | 贴码失败 | 有区但贴像素失败，保留 `maskRegions` 供重贴 |
 
-兼容：历史 `pending` / 空 / 缺字段 → **按 `not_analyzed` 处理**。历史 `call_failed` → 按 `llm_failed`。
+来源 `maskSource`：`auto`（自动）/ `manual`（手工）。手工打码同样是 `ok_masked`，读侧不分叉；**只有 `maskSource` 说明谁打的**。
+
+兼容：历史 `pending` / 空 / 缺字段 → **按 `not_analyzed` 处理**。历史 `call_failed` → 按 `llm_failed`。**masks 缺某张条目 = 未判定**，记 `llm_failed`，禁止当 `ok_no_privacy`。
 
 ## 托管公开预览：按张对账（禁止整本重打）
 
@@ -65,19 +69,22 @@
 
 本步结束后，**每张公开相关图都必须有登记好的 `maskOutcome`**（成功或失败都算登记）；有打码图的还要写 `maskedUrl`。
 
-### 手工打码
+### 手工打码（预览内点图）
 
-店员点图手工打码成功后，同样写回节点：`maskOutcome=ok_masked` + `maskedUrl`。不得只改任务行不改节点。
+`llm_failed` / `mask_failed` 不挡预览；店员点图手工打码成功后写回节点：`maskOutcome=ok_masked` + `maskSource=manual` + `maskedUrl`（及手工 `maskRegions`）。此后该图**永不再跑模型、永不再自动贴码**。不得只改任务行不改节点。
 
 ### 再次托管（取消后再托管，或节点已有结论）
 
 | 该张结论 | 做什么 |
 | --- | --- |
-| `ok_masked` | **跳过**，展示 `maskedUrl` |
-| `ok_no_privacy` / `llm_failed` / `mask_failed`（及旧码兼容） | **跳过**，展示原图 |
-| 仅 `not_analyzed` / 空 | 按首次路径补跑并登记 |
+| `ok_masked`（自动或手工） | **跳过**，展示 `maskedUrl` |
+| `ok_no_privacy` | **跳过**，展示原图 |
+| `llm_failed` / `call_failed`（无手工标记） | **重跑大模型**（每次对账试一次）；仍失败则本轮用原图 |
+| `mask_failed` / `ok_detect_mask_failed`（有 `maskRegions`） | **只重贴码**，不再调模型 |
+| `mask_failed` 但无 `maskRegions` | 回退**重跑大模型** |
+| `not_analyzed` / 空 | 按首次路径补跑并登记 |
 
-**禁止**：已登记结论（含失败）因再次托管再跑大模型或整本重贴；一张未结清 → `albumForce` 整本清空。
+**禁止**：`ok_masked` / `ok_no_privacy` 因再次托管再跑大模型或整本重贴；一张未结清 → `albumForce` 整本清空。
 
 接口 `force` 在托管路径只表示「重新对账资产列表、补进漏图」，**不等于**整本作废。
 
@@ -85,8 +92,8 @@
 
 隐私责任在商家；协议文案不按单图成败切换。
 
-1. **首次**对账时：未登记的才跑模型；跑完无论成败都登记到节点。  
-2. 已登记失败态：**公开正文允许挂原图**（读 `url`/`rawUrl`），不得留空白、不得挡整案公开。  
+1. **对账**：`not_analyzed` / `llm_failed` 跑模型（后者每次对账试一次）；`mask_failed` 只重贴；`ok_masked` / `ok_no_privacy` 跳过。跑完无论成败都登记到节点。  
+2. 已登记失败态且本轮仍失败：**公开正文允许挂原图**（读 `url`/`rawUrl`），不得留空白、不得挡整案公开。  
 3. **禁止**把原图复制进脱敏目录再标成功。  
 4. 运营审核台仍**不展示原图**（审核员只看脱敏图 + OCR）；与「商家托管上网」分流。
 
@@ -96,10 +103,11 @@
 
 | 条件 | 展示 |
 | --- | --- |
-| 有非空 `maskedUrl` 且 `ok_masked` | 打码图 |
+| 有非空 `maskedUrl` 且 `ok_masked`（`maskSource` 自动或手工） | 打码图 |
 | `ok_no_privacy` | 原图 |
 | 失败态且已按上表重试过（或商家已确认托管） | **原图**（责任在店） |
-| 尚未对账/重试完成 | 预览闸：未完成对账不得假装「已打码完成」；对账完成后按上表 |
+| 仍有 `not_analyzed` 在处理 | 预览闸：停在选方式步，不得假装「已打码完成」 |
+| `llm_failed` / `mask_failed` | **不挡预览**：进预览后点图可手工打码 |
 
 **禁止**：用「URL 是否在脱敏目录」代替 `maskOutcome`；用媒体表 `desensitizeStatus` 决定 C 端/H5 展示；无落痕当已处理。
 
@@ -119,10 +127,11 @@
 ## 改代码前自检
 
 - [ ] 写回是否落在**节点图对象**，而不是只改媒体表？  
-- [ ] 仅 `not_analyzed` 才跑大模型？已登记失败/成功是否跳过？  
+- [ ] `ok_masked` / `ok_no_privacy` 是否一律跳过？`llm_failed` 是否重跑模型？`mask_failed` 是否只重贴？  
 - [ ] 首次对账结束后是否每张都写回了 `maskOutcome`（及有码时的 `maskedUrl`）？  
-- [ ] 手工打码是否写回 `ok_masked` + `maskedUrl`？  
-- [ ] 再次托管是否只读登记、不再跑模型？  
+- [ ] 模型没给某张 `masks` 条目时，是否记 `llm_failed`（而非 `ok_no_privacy`）？  
+- [ ] 手工打码是否写回 `ok_masked` + `maskSource: manual` + `maskedUrl`？  
+- [ ] `llm_failed` / `mask_failed` 是否仍可进预览并点图？  
 - [ ] 失败登记后是否仍允许原图上网？  
 - [ ] 有无整本 `albumForce` / 清空成功标识的入口？  
 

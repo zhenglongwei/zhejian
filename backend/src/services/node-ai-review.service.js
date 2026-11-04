@@ -396,6 +396,27 @@ function collectVisionUrlsForNode(node) {
   return { ready: true, urls }
 }
 
+/**
+ * 模型整体没跑通时，把本轮附图登记为 llm_failed（已有成功结论的图不会被覆盖）。
+ */
+async function markNodeVisionLlmFailed(albumId, labeled, reason) {
+  const id = text(albumId)
+  const urls = (Array.isArray(labeled) ? labeled : [])
+    .map((row) => (typeof row === 'string' ? row : (row && (row.rawUrl || row.url)) || ''))
+    .map((url) => String(url || '').trim())
+    .filter(Boolean)
+  if (!id || !urls.length) return
+  try {
+    const { markUrlsLlmFailed } = require('./host-privacy-llm.service')
+    await markUrlsLlmFailed(id, urls)
+  } catch (error) {
+    console.warn('[node-ai-review] mark llm_failed failed', {
+      reason,
+      message: String((error && error.message) || '').slice(0, 160),
+    })
+  }
+}
+
 async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
   if (!capability.llmEnabled) return null
   const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
@@ -563,9 +584,12 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
       const merchantBrief = parseMerchantBrief(parsed, ctx)
       try {
         const { applyModelMasks } = require('./model-mask.service')
-        await applyModelMasks(labeled, parsed.masks)
-      } catch (_) {
-        /* 遮挡打不上不影响意见 */
+        // albumId 必须带上：打码结论要写回节点，否则下次托管当未分析重跑
+        await applyModelMasks(labeled, parsed.masks, { albumId: text(options.albumId) })
+      } catch (error) {
+        console.warn('[node-ai-review] mask writeback failed', {
+          message: String((error && error.message) || '').slice(0, 160),
+        })
       }
       console.info('[node-ai-review] llm ok', {
         vendor: engine.vendor,
@@ -583,8 +607,10 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     }
   }
   if (!called && failures.length) {
+    await markNodeVisionLlmFailed(options.albumId, labeled, 'call_failed')
     throw new Error(`模型不可用：${failures.join('；')}`)
   }
+  await markNodeVisionLlmFailed(options.albumId, labeled, 'no_result')
   return null
 }
 
@@ -652,6 +678,7 @@ async function analyzeNode(album, node, capability) {
     try {
       const fromModel = await runLlmSuggestions(ctx, visionUrls, capability, {
         skipEngineId: ctx.skipEngineId,
+        albumId: album.id,
       })
       if (fromModel) {
         if (fromModel.suggestions && fromModel.suggestions.length) {

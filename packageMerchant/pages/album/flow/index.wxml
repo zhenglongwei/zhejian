@@ -1745,10 +1745,6 @@
                     </view>
                   </view>
                 </view>
-                <text class="text-caption text-secondary">已施工项目</text>
-                <view wx:for="{{docPayload.workItems}}" wx:key="name" class="merchant-flow-page__work-item">
-                  <text class="text-body">{{item.name}}</text>
-                </view>
                 <text class="text-body merchant-flow-page__label">交付人</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
                 <text class="text-body merchant-flow-page__label">完工时间</text>
@@ -2004,14 +2000,16 @@
         <text class="doc-brief__sheet-name">{{docBrief.title}}</text>
         <text class="doc-brief__close" catchtap="onCloseDoc">×</text>
       </view>
-      <service-doc-sheet
-        wx:if="{{docBrief.sheetDoc}}"
-        doc="{{docBrief.sheetDoc}}"
-        mode="merchant"
-        quote-lines="{{docBrief.quoteLines}}"
-        show-header="{{true}}"
-      />
-      <text wx:else class="doc-brief__empty">{{docBrief.emptyText || '还没有这份内容'}}</text>
+      <scroll-view scroll-y class="doc-brief__scroll" show-scrollbar="{{false}}">
+        <service-doc-sheet
+          wx:if="{{docBrief.sheetDoc}}"
+          doc="{{docBrief.sheetDoc}}"
+          mode="merchant"
+          quote-lines="{{docBrief.quoteLines}}"
+          show-header="{{true}}"
+        />
+        <text wx:else class="doc-brief__empty">{{docBrief.emptyText || '还没有这份内容'}}</text>
+      </scroll-view>
       <view class="doc-brief__actions">
         <view class="doc-brief__send" catchtap="onBriefSend">{{briefSending ? '发送中' : '发送车主'}}</view>
         <view class="doc-brief__full" catchtap="onBriefFull">查看完整文件</view>

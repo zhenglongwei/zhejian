@@ -5,12 +5,25 @@
 }
 
 .service-doc-sheet__paper {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  padding: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
   background: #fff;
   border: 2rpx solid var(--color-text-primary);
+}
+
+/* 纸面内衬细线：外粗内细，公文感保留、层次更足 */
+.service-doc-sheet__paper::after {
+  content: '';
+  position: absolute;
+  top: 6rpx;
+  right: 6rpx;
+  bottom: 6rpx;
+  left: 6rpx;
+  border: 1rpx solid var(--color-border);
+  pointer-events: none;
 }
 
 .service-doc-sheet__head {
@@ -24,24 +37,40 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .service-doc-sheet__mark {
-  width: 16rpx;
-  height: 16rpx;
-  background: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
   flex-shrink: 0;
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-caption);
+  line-height: 1;
+  font-weight: var(--font-weight-semibold);
 }
 
 .service-doc-sheet__stamp {
   flex-shrink: 0;
-  padding: 4rpx 12rpx;
-  border: 2rpx solid var(--color-danger);
+  padding: 4rpx 14rpx;
+  border: 3rpx solid var(--color-danger);
+  border-radius: var(--radius-sm);
   color: var(--color-danger);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 2rpx;
+  transform: rotate(-6deg);
+}
+
+/* 已定稿 / 已确认：灰章 */
+.service-doc-sheet__stamp--muted {
+  border-color: var(--color-text-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .service-doc-sheet__title {
@@ -147,11 +176,31 @@
 .service-doc-sheet__section {
   display: block;
   margin-bottom: var(--space-xs);
+  padding-left: var(--space-xs);
+  border-left: 6rpx solid var(--color-text-primary);
   font-family: "Songti SC", "STSong", "SimSun", serif;
   font-size: var(--font-body);
   line-height: var(--font-body-lh);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+/* 检测结果文字按分段语义色（不加框，保持「无结果 Tag」口径） */
+.service-doc-sheet__finding-result {
+  flex-shrink: 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.service-doc-sheet__finding-result--action {
+  color: var(--color-danger);
+}
+
+.service-doc-sheet__finding-result--watch {
+  color: var(--color-warning);
+}
+
+.service-doc-sheet__finding-result--ok {
+  color: var(--color-primary);
 }
 
 .service-doc-sheet__group {
@@ -258,6 +307,7 @@
   width: 100%;
   height: 196rpx;
   border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
 }
 
 .service-doc-sheet__finding-advice {
@@ -326,6 +376,7 @@
   height: 72rpx;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
 }
 
 .service-doc-sheet__line-name {
@@ -357,6 +408,12 @@
   line-height: var(--font-caption-lh);
   font-weight: var(--font-weight-regular);
   color: var(--color-text-secondary);
+}
+
+/* 费用/施工行内的品牌、用料等附注：缩进加细竖线，体现从属关系 */
+.service-doc-sheet__table-row .service-doc-sheet__note {
+  padding-left: var(--space-xs);
+  border-left: 2rpx solid var(--color-border);
 }
 
 .service-doc-sheet__faq {
@@ -408,13 +465,16 @@
 
 .service-doc-sheet__photo {
   width: 100%;
-  height: 144rpx;
+  height: 196rpx;
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
 }
 
 .service-doc-sheet__protocol {
   margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
-  border: 2rpx solid var(--color-text-primary);
+  border: 1rpx solid var(--color-border);
+  background: var(--color-bg-card);
 }
 
 .service-doc-sheet__protocol-kicker {
@@ -440,12 +500,14 @@
 .service-doc-sheet__signoff {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 8rpx;
   padding-top: var(--space-sm);
   border-top: 1rpx solid var(--color-border);
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
+  text-align: right;
 }
 
 .service-doc-sheet__contact {

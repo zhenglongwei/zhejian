@@ -661,10 +661,10 @@ function annotateMaskImageRow(url, outcomeIndex) {
     needsRemask: Boolean(classified.needsRemask),
     // masked=已成功处理；失败态仍 publishSafe，预览可出原图
     masked: Boolean(classified.maskSucceeded),
+    // pending 只表示「从未跑过大模型」；已登记失败由本轮对账处理，不再触发第二轮
     pending:
       classified.outcome === HOST_MASK_OUTCOME.NOT_ANALYZED ||
-      classified.outcome === HOST_MASK_OUTCOME.PENDING ||
-      Boolean(classified.needsRemask),
+      classified.outcome === HOST_MASK_OUTCOME.PENDING,
   }
 }
 
@@ -742,7 +742,6 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
   } = require('./service-album.service')
   const { assessPublicCaseQuality } = require('./public-case-quality.service')
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
-  const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
   const { buildHostContentReviewDocs } = require('./service-flow.service')
   const { buildPublicServiceFlow } = require('../utils/public-service-flow')
 
@@ -762,54 +761,36 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     message: block.message || '存在隐私风险，请处理后再公开',
   }))
 
-  let lookup = { byRawUrl: new Map(), byNodeIdx: new Map(), ready: false }
   let outcomeIndex = new Map()
+  let unanalyzedCount = 0
   try {
     const {
-      loadHostedPublicMaskLookup,
       loadHostMaskOutcomeIndex,
+      countUnanalyzedNodeImages,
     } = require('./hosted-public-mask.service')
-    lookup = await loadHostedPublicMaskLookup(albumId)
     outcomeIndex = await loadHostMaskOutcomeIndex(albumId)
+    unanalyzedCount = await countUnanalyzedNodeImages(albumId, outcomeIndex)
   } catch (_) {
-    /* 无预脱敏也可预览原图（门店自认） */
+    /* 无节点结论也可预览原图（门店自认） */
   }
 
-  // 公开托管预览：有码用码；无须打码或重试失败用原图（责任在商家）。
+  // 公开托管预览：只认节点结论。有码用码；无须打码 / 失败态用原图（责任在商家）。
   const mustMask = Boolean(requireMasked)
   const { resolveHostDisplayUrl } = require('../utils/host-mask-outcome')
   const { lookupHostMaskOutcomeRow } = require('./hosted-public-mask.service')
   const resolveImageUrl = (rawInput) => {
     const raw = String(rawInput || '').trim()
     if (!raw) return ''
-    if (lookup.byRawUrl) {
-      const hit =
-        lookup.byRawUrl.get(raw) ||
-        lookup.byRawUrl.get(rewriteMediaUrlForCurrentBase(raw))
-      if (hit) return hit
-    }
-    if (mustMask) {
-      const row = lookupHostMaskOutcomeRow(outcomeIndex, raw) || {}
-      return resolveHostDisplayUrl({ ...row, url: raw }, raw)
-    }
-    return raw
+    if (!mustMask) return raw
+    const nodeRow = lookupHostMaskOutcomeRow(outcomeIndex, raw) || {}
+    return resolveHostDisplayUrl({ ...nodeRow, url: raw }, raw)
   }
 
   const albumNodes = mapNodesForView(album)
   // 质量检查仍用单据链；界面预览改为公开档案章节
   const reviewDocs = buildHostContentReviewDocs(album, albumNodes, { resolveImageUrl })
   // 打码清单要留得住「还没打上的原图」，否则公开预览藏原图后店员没法点图改码
-  const resolveImageUrlForMaskList = (rawInput) => {
-    const raw = String(rawInput || '').trim()
-    if (!raw) return ''
-    if (lookup.byRawUrl) {
-      const hit =
-        lookup.byRawUrl.get(raw) ||
-        lookup.byRawUrl.get(rewriteMediaUrlForCurrentBase(raw))
-      if (hit) return hit
-    }
-    return raw
-  }
+  const resolveImageUrlForMaskList = (rawInput) => String(rawInput || '').trim()
   const reviewDocsForMaskList = mustMask
     ? buildHostContentReviewDocs(album, albumNodes, {
         resolveImageUrl: resolveImageUrlForMaskList,
@@ -823,8 +804,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     flowNodes: Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [],
     album,
     contentNodes: view.nodes || [],
-    maskLookup: lookup,
-    // 公开托管：有码用码；失败/无须打码允许原图（见 resolvePhotoDisplayUrl）
+    // 公开托管：只读节点写回的打码图；有码用码，失败/无须打码允许原图
     requireDesensitized: false,
     allowPrivateFallback: true,
   })
@@ -894,7 +874,8 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
       reviewDocs,
       geoDraft: prev.geoDraft || {},
     }).suggestions,
-    desensitizeReady: Boolean(lookup.ready),
+    // 就绪 = 节点上没有「还没跑过大模型」的图；失败态不挡预览
+    desensitizeReady: unanalyzedCount === 0,
   }
 }
 
@@ -931,7 +912,7 @@ async function ensureHostDesensitizeTask(albumId, { storeId, merchantId, force =
   }
 }
 
-const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v2'
+const HOST_PRIVACY_AGREEMENT_VERSION = 'host_privacy_v3'
 
 /** 确认店页文案并公开（须隐私已过 + 门店同意隐私责任协议） */
 async function confirmHostedPublicPublish(

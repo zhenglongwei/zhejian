@@ -88,6 +88,22 @@
       <text wx:if="{{licenseOcrHint}}" class="text-caption merchant-onboard__ocr-hint">{{licenseOcrHint}}</text>
     </view>
 
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">法人身份证 · 人像面</text>
+      <text class="text-caption merchant-onboard__optional-hint">选填；与执照传齐后，开通时自动完成认证</text>
+      <view class="merchant-onboard__photo-slot" bindtap="onPickLegalId">
+        <image wx:if="{{form.legalIdPhotoUrl}}" class="merchant-onboard__photo" src="{{form.legalIdPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">点击上传</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">法人身份证 · 国徽面</text>
+      <view class="merchant-onboard__photo-slot" bindtap="onPickLegalIdBack">
+        <image wx:if="{{form.legalIdBackPhotoUrl}}" class="merchant-onboard__photo" src="{{form.legalIdBackPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">点击上传</text>
+      </view>
+    </view>
+
     <text class="merchant-onboard__section-title text-h3">商家主体</text>
     <view class="merchant-form__section">
       <text class="merchant-form__label">主体名称（与执照一致）</text>

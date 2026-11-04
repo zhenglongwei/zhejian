@@ -576,6 +576,39 @@ Page({
     }
   },
 
+  hasAuthMaterials() {
+    const f = this.data.form
+    return Boolean(f.licensePhotoUrl && f.legalIdPhotoUrl && f.legalIdBackPhotoUrl)
+  },
+
+  /** 开通成功后自动补认证；失败不拦截开通，仅提示后回工作台 */
+  async tryAutoAuth(profile) {
+    if (!this.hasAuthMaterials()) return ''
+    const { form } = this.data
+    try {
+      await submitMerchantAuth({
+        merchantId: profile.merchantId || this.data.merchantId,
+        licensePhotoUrl: form.licensePhotoUrl,
+        legalIdPhotoUrl: form.legalIdPhotoUrl,
+        legalIdBackPhotoUrl: form.legalIdBackPhotoUrl,
+        legalName: form.legalName,
+        creditCode: form.creditCode,
+      })
+      return 'ok'
+    } catch (e) {
+      wx.showModal({
+        title: '认证未通过',
+        content: `资料已保存。${(e && e.message) || '进入工作台后可重新认证'}`,
+        showCancel: false,
+        confirmText: '进入工作台',
+        success: () => {
+          redirectAfterMerchantApproved(profile.merchantId, 'submit')
+        },
+      })
+      return 'failed'
+    }
+  },
+
   async onSubmit() {
     if (this.data.submitting || !this.validate()) return
     this.setData({ submitting: true })
@@ -586,7 +619,13 @@ Page({
       })
       const profile = result.profile || result
       if (profile.status === MERCHANT_STATUS.APPROVED) {
-        wx.showToast({ title: '已开通尝鲜试用 30 天', icon: 'success', duration: 2500 })
+        const authOutcome = await this.tryAutoAuth(profile)
+        if (authOutcome === 'failed') return
+        wx.showToast({
+          title: authOutcome === 'ok' ? '已开通，认证通过' : '已开通尝鲜试用 30 天',
+          icon: 'success',
+          duration: 2500,
+        })
         setTimeout(() => {
           redirectAfterMerchantApproved(profile.merchantId, 'submit')
         }, 800)

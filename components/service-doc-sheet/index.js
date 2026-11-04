@@ -42,6 +42,7 @@ Component({
   },
 
   data: {
+    storeInitial: '店',
     findingGroups: [],
     quoteLineRows: [],
     totalAmountText: '',
@@ -55,6 +56,7 @@ Component({
       const keepExpand = nextId && nextId === this._sheetDocId
       this._sheetDocId = nextId || ''
       this.setData({
+        storeInitial: String((doc && doc.storeName) || '').trim().charAt(0) || '店',
         findingGroups: buildFindingGroups((doc && doc.findings) || [], {
           groupForOwner: mode === 'owner',
           quoteLines: quoteLines || [],

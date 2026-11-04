@@ -1,67 +1,42 @@
 const { describe, it } = require('node:test')
 const assert = require('node:assert/strict')
+const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
 
 /**
- * 与 loadHostMaskOutcomeIndex 内 put 规则对齐的轻量复刻：
- * not_analyzed 不算「已登记」，不得挡住媒体表 success。
+ * 托管对账只读节点：任务行/媒体表不再参与结论。
+ * 回归点：媒体表 success 曾把节点「未分析」洗成无须打码，导致托管整本跳过。
  */
-function isRegisteredOutcome(outcome) {
-  const code = String(outcome || '').trim()
-  return Boolean(code) && code !== 'not_analyzed' && code !== 'pending'
+function classifyNode(row) {
+  return classifyHostMaskOutcome(row, { nodeOnly: true })
 }
 
-function putInto(index, key, row) {
-  const prev = index.get(key)
-  const prevRegistered = prev && isRegisteredOutcome(prev.maskOutcome)
-  const nextRegistered = isRegisteredOutcome(row && row.maskOutcome)
-  if (prevRegistered && !nextRegistered) {
-    index.set(key, {
-      ...row,
-      ...prev,
-      maskedUrl: prev.maskedUrl || (row && row.maskedUrl) || '',
-      preMaskedUrl: prev.preMaskedUrl || (row && row.preMaskedUrl) || '',
-      desensitizeStatus: prev.desensitizeStatus || (row && row.desensitizeStatus) || '',
-    })
-    return
-  }
-  index.set(key, row)
-}
-
-describe('host mask outcome index put rules', () => {
-  it('media success upgrades placeholder not_analyzed', () => {
-    const index = new Map()
-    putInto(index, 'a', {
-      maskOutcome: 'not_analyzed',
-      desensitizeStatus: '',
-      maskedUrl: '',
-    })
-    putInto(index, 'a', {
-      maskOutcome: '',
-      desensitizeStatus: 'success',
-      maskedUrl: '',
-    })
-    assert.equal(index.get('a').desensitizeStatus, 'success')
-    assert.equal(isRegisteredOutcome(index.get('a').maskOutcome), false)
+describe('host mask outcome: node only', () => {
+  it('media success does not settle a node without outcome', () => {
+    const classified = classifyNode({ desensitizeStatus: 'success', riskTags: [] })
+    assert.equal(classified.outcome, 'not_analyzed')
+    assert.equal(classified.hostAction, 'rerun_llm')
   })
 
-  it('registered ok_no_privacy is not wiped by empty media row', () => {
-    const index = new Map()
-    putInto(index, 'a', {
-      maskOutcome: 'ok_no_privacy',
+  it('media success does not override node llm_failed', () => {
+    const classified = classifyNode({
       desensitizeStatus: 'success',
-      maskedUrl: '',
+      maskOutcome: 'llm_failed',
     })
-    putInto(index, 'a', {
-      maskOutcome: '',
-      desensitizeStatus: '',
-      maskedUrl: '',
-    })
-    assert.equal(index.get('a').maskOutcome, 'ok_no_privacy')
+    assert.equal(classified.outcome, 'llm_failed')
+    assert.equal(classified.hostAction, 'rerun_llm')
   })
 
-  it('bare node should not be indexed as not_analyzed (caller skips put)', () => {
-    // 回归：旧逻辑会 put not_analyzed，导致媒体 success 进不来
-    const bareShouldPut = false
-    assert.equal(bareShouldPut, false)
+  it('node ok_no_privacy is authoritative', () => {
+    const classified = classifyNode({ maskOutcome: 'ok_no_privacy', maskRegions: [] })
+    assert.equal(classified.outcome, 'ok_no_privacy')
+    assert.equal(classified.hostAction, 'skip')
+  })
+
+  it('node ok_masked requires a product url', () => {
+    assert.equal(
+      classifyNode({ maskOutcome: 'ok_masked', maskedUrl: 'https://x/d.jpg' }).outcome,
+      'ok_masked',
+    )
+    assert.equal(classifyNode({ maskOutcome: 'ok_masked', maskedUrl: '' }).outcome, 'mask_failed')
   })
 })

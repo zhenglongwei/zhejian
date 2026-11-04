@@ -89,16 +89,29 @@ async function markUrlsLlmFailed(albumId, urls) {
   const list = rowsFromUrls(urls)
   if (!albumId || !list.length) return
   try {
-    const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
-    await persistMaskedPairsToAlbumFlow(
-      albumId,
-      list.map((row) => ({
+    const {
+      loadHostMaskOutcomeIndex,
+      lookupHostMaskOutcomeRow,
+    } = require('./hosted-public-mask.service')
+    const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
+    const index = await loadHostMaskOutcomeIndex(albumId)
+    const pending = []
+    list.forEach((row) => {
+      const nodeRow = lookupHostMaskOutcomeRow(index, row.rawUrl)
+      const classified = classifyHostMaskOutcome(nodeRow || {}, { nodeOnly: true })
+      // 已有成功结论的图不得被一次模型失败洗掉
+      if (classified.maskSucceeded) return
+      pending.push({
         rawUrl: row.rawUrl,
         maskedUrl: '',
         maskOutcome: 'llm_failed',
-        maskRegions: [],
-      })),
-    )
+        // 之前因贴码失败留下的区域要保留，否则下次只能重跑模型
+        maskRegions: Array.isArray(nodeRow && nodeRow.maskRegions) ? nodeRow.maskRegions : [],
+      })
+    })
+    if (!pending.length) return
+    const { persistMaskedPairsToAlbumFlow } = require('./desensitize.service')
+    await persistMaskedPairsToAlbumFlow(albumId, pending)
   } catch (error) {
     console.warn('[host-privacy-llm] write llm_failed failed', error && error.message)
   }

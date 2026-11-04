@@ -167,6 +167,8 @@ function parseOnboardingForm(form = {}) {
   const legalName = String(form.legalName || '').trim()
   const creditCode = String(form.creditCode || '').trim()
   const licensePhotoUrl = String(form.licensePhotoUrl || '').trim()
+  const legalIdPhotoUrl = String(form.legalIdPhotoUrl || '').trim()
+  const legalIdBackPhotoUrl = String(form.legalIdBackPhotoUrl || '').trim()
   const licenseEstablishedOn = normalizeLicenseEstablishedOn(
     form.licenseEstablishedOn || form.establishedOn || form.foundingDate
   )
@@ -221,6 +223,8 @@ function parseOnboardingForm(form = {}) {
     legalName,
     creditCode,
     licensePhotoUrl,
+    legalIdPhotoUrl,
+    legalIdBackPhotoUrl,
     licenseEstablishedOn,
     contactEmail,
     businessHours,
@@ -311,6 +315,8 @@ function validateBasicOnboardingPayload(payload) {
     ...payload,
     phone: phoneDigits,
     licensePhotoUrl: assertPersistentOptional(payload.licensePhotoUrl),
+    legalIdPhotoUrl: assertPersistentOptional(payload.legalIdPhotoUrl),
+    legalIdBackPhotoUrl: assertPersistentOptional(payload.legalIdBackPhotoUrl),
     qualification: sanitizeQualificationPayload(q),
     photos,
   }

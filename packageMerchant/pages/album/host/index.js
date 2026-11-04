@@ -751,9 +751,10 @@ Page({
   },
 
   countUnresolvedMaskImages(maskImages = []) {
-    // 仅未登记才算未结清；已登记失败可点图改，但不触发再跑大模型
+    // 只数「从未跑过大模型」的图：已登记失败（llm_failed / mask_failed）由本轮对账处理一次，
+    // 不再触发第二轮，避免同一次预览把失败图跑两遍模型。
     return (Array.isArray(maskImages) ? maskImages : []).filter(
-      (row) => row && (row.pending || row.needsRemask),
+      (row) => row && row.pending,
     ).length
   },
 
