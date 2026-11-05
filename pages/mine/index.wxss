@@ -253,6 +253,30 @@
   line-height: var(--font-h2-lh);
 }
 
+.mine__phone-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding: 20rpx 28rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+}
+
+.mine__phone-hint__text {
+  flex: 1;
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.mine__phone-hint__action {
+  flex-shrink: 0;
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
 .mine__album-stack {
   display: flex;
   flex-direction: column;

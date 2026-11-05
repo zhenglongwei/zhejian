@@ -13,8 +13,8 @@
         theme="album"
         title="无法打开服务进度"
         description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
+        actionText="{{phoneMismatch ? '更换手机号' : '重试'}}"
+        bind:action="onErrorAction"
       />
     </view>
   </block>

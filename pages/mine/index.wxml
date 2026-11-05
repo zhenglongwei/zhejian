@@ -25,6 +25,10 @@
       <view wx:if="{{isLoggedIn && heroLine}}" class="mine__hero-line">
         <text>{{heroLine}}</text>
       </view>
+      <view wx:if="{{needPhoneHint}}" class="mine__phone-hint" bindtap="onBindPhoneHintTap">
+        <text class="mine__phone-hint__text">绑定手机号后可查看门店为你创建的服务相册</text>
+        <text class="mine__phone-hint__action">去绑定</text>
+      </view>
       <view class="mine__section-head">
         <text class="mine__section-title">{{albumSectionTitle}}</text>
       </view>

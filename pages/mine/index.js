@@ -82,6 +82,7 @@ Page({
       { key: 'review', label: '待评价' },
     ],
     heroLine: '',
+    needPhoneHint: false,
     todoSummary: null,
     shareIncentivePreview: buildMineEarningsPreview({ loggedIn: false }),
     showShareIncentive: false,
@@ -208,6 +209,7 @@ Page({
         isLoggedIn: false,
         user: null,
         errorMessage: '',
+        needPhoneHint: false,
       })
       return
     }
@@ -268,6 +270,7 @@ Page({
         user: summary.user,
         heroLine,
         albumSectionTitle,
+        needPhoneHint: !auth.ok || !checkAuth({ needPhone: true }).ok,
       })
     } catch (e) {
       this.setData({
@@ -291,6 +294,10 @@ Page({
 
   closeLoginSheet() {
     this.setData({ loginSheetVisible: false })
+  },
+
+  onBindPhoneHintTap() {
+    this.openLoginSheet('bindPhone')
   },
 
   onLoginSheetSuccess() {

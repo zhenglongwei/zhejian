@@ -186,10 +186,9 @@ Component({
       try {
         const { user } = await wechatLogin()
         this.setData({ loading: false })
-        this.triggerEvent('success', { user, step: 'login' })
-
         const nextStep = this.resolveStepAfterLogin(user)
         if (nextStep === 'bindPhone') {
+          // 登录成功但未绑手机：留在弹层顺势引导绑定，绑定完成后才回调 success
           this.setData({
             step: 'bindPhone',
             displayTitle: COPY.bindPhone.title,
@@ -206,6 +205,7 @@ Component({
           })
           return
         }
+        this.triggerEvent('success', { user, step: 'login' })
         this.triggerEvent('close')
       } catch (e) {
         this.setData({

@@ -255,6 +255,7 @@ Page({
     albumId: '',
     status: 'loading',
     errorMessage: '',
+    phoneMismatch: false,
     detail: null,
     showAuthSection: false,
     showShareEntry: false,
@@ -749,6 +750,7 @@ Page({
         status: 'error',
         errorMessage: message,
         detail: null,
+        phoneMismatch: code === 403,
       })
     }
   },
@@ -1432,6 +1434,18 @@ Page({
 
   closeLoginSheet() {
     this.setData({ loginSheetVisible: false })
+  },
+
+  onErrorAction() {
+    if (this.data.phoneMismatch) {
+      if (!isLoggedIn()) {
+        this.setData({ loginSheetVisible: true, loginSheetMode: 'login' })
+        return
+      }
+      wx.navigateTo({ url: '/pages/mine/settings/change-phone/index' })
+      return
+    }
+    this.onRetry()
   },
 
   onLoginSheetSuccess() {
