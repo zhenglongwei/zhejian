@@ -20,6 +20,46 @@ function albumWithFlow(flowNodes) {
   }
 }
 
+test('单据已发给车主但节点仍 locked/pending：车主仍可见（送达状态为真源）', () => {
+  // 真实序列：报价在检测完成的同一会话里发出、商家未整页刷新 → quote 节点在库里仍是 locked
+  const view = buildOwnerFlowView(
+    albumWithFlow([
+      {
+        id: 'intake_1',
+        kind: 'intake',
+        title: '接车',
+        sortOrder: 1,
+        status: 'pending',
+        content: {
+          chiefComplaint: '到店检查异响',
+          pendingImages: [{ url: 'https://cdn.example.com/intake-front.jpg' }],
+        },
+        document: { docType: 'intake_confirm', status: 'delivered' },
+      },
+      {
+        id: 'quote_1',
+        kind: 'quote_confirm',
+        title: '方案确认',
+        sortOrder: 4,
+        status: 'locked',
+        document: {
+          docType: 'quote_confirm',
+          status: 'pending_confirm',
+          payload: { lines: [{ name: '更换前刹车片', amount: 480 }] },
+        },
+      },
+    ]),
+    [],
+  )
+  const intake = view.docs.find((row) => row && row.kind === 'intake')
+  assert.ok(intake)
+  assert.equal(intake.locked, false)
+  const quote = view.docs.find((row) => row && row.kind === 'quote_confirm')
+  assert.ok(quote)
+  assert.equal(quote.locked, false)
+  assert.equal(quote.needsConfirm, true)
+})
+
 test('车主维修工单：封存 workItems 为空时回落施工记录图和说明', () => {
   const view = buildOwnerFlowView(
     albumWithFlow([

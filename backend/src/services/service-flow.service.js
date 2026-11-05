@@ -1577,6 +1577,16 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       nextNode.status = 'completed'
       unlockNextNode(nodes, index)
       unlockedNext = true
+    } else if (
+      (prev.kind === 'intake' || prev.kind === 'intake_inspection') &&
+      ['delivered', 'pending_confirm', 'confirmed'].indexOf(
+        String((payload.document && payload.document.status) || ''),
+      ) >= 0
+    ) {
+      // 接车「发给车主」即本步完结动作：完结 + 解锁检测，同一笔写入（顺序：接车完结 → 解锁检测）
+      nextNode.status = 'completed'
+      unlockNextNode(nodes, index)
+      unlockedNext = true
     }
 
     nodes[index] = nextNode
@@ -1869,6 +1879,11 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           })
           list[quoteIdx] = {
             ...writeNodeContent(prevQuote, { content: quoteContent }),
+            // 检测完结同笔解锁报价节点（顺序：检测完结 → 解锁报价）；不得停在 locked
+            status:
+              prevQuote.status === 'locked' || prevQuote.status === 'pending'
+                ? 'in_progress'
+                : prevQuote.status,
             document: envelopeOnlyDocument({
               ...(prevQuote.document || emptyDocument('quote_confirm')),
               status: 'draft',
@@ -2474,30 +2489,37 @@ function isOwnerDocumentKind(kind) {
 /** 单据正文是否已对车主下发（可展开阅读） */
 function isOwnerDocContentReady(node = {}) {
   const status = String(node.status || '')
-  if (status === 'locked' || status === 'pending') return false
   const doc = node.document || {}
   const docStatus = String(doc.status || '')
+  // 车主可见性只认单据送达状态：只要这张单已经发给车主，
+  // 节点作业态（locked/pending）滞后也不拦车主——商家端发送只写单据信封，
+  // 不保证同步推进节点状态（如接车从车主页发出、报价在检测完成的同一会话里发出）。
+  if (
+    docStatus === 'delivered' ||
+    docStatus === 'pending_confirm' ||
+    docStatus === 'confirmed'
+  ) {
+    return true
+  }
+  if (status === 'locked' || status === 'pending') return false
   switch (node.kind) {
     case 'intake':
     case 'intake_inspection': {
-      if (docStatus === 'pending_confirm' || docStatus === 'confirmed' || docStatus === 'delivered') {
-        return true
-      }
       if (status !== 'completed') return false
       const payload = doc.payload || {}
       // 已完成只认报告 photos，不回落草稿
       return Array.isArray(payload.photos) && payload.photos.length > 0
     }
     case 'inspection_report':
-      return docStatus === 'delivered' || docStatus === 'confirmed'
+      return docStatus === 'confirmed'
     case 'quote_confirm':
     case 'addon_quote_confirm':
       if (docStatus === 'cancelled') {
         return String(doc.cancelledFromStatus || '') === 'pending_confirm'
       }
-      return docStatus === 'pending_confirm' || docStatus === 'confirmed'
+      return false
     case 'repair_report':
-      return docStatus === 'pending_confirm' || docStatus === 'confirmed'
+      return false
     case 'work':
       // 工单＝如实记录施工过程：一旦开始登记（有条目）车主即可见
       return (
