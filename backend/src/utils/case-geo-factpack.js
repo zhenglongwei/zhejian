@@ -156,18 +156,18 @@ function pickFinish(flowNodes) {
   return { conclusion: '', warrantyPeriod: '', warrantyNotes: '', deliveryPhotoCount: 0 }
 }
 
-/** 车型与里程：任一单据上写了都算 */
+/** 车型、年款与里程：跨单据聚合（任一单据写了都算，先到先得） */
 function pickVehicle(flowNodes) {
+  const vehicle = { brand: '', series: '', year: '', mileageText: '' }
   for (const node of flowNodes || []) {
     const payload = payloadOf(node)
-    const brand = String(payload.vehicleBrand || '').trim()
-    const series = String(payload.vehicleSeries || '').trim()
-    const mileageText = String(payload.mileageText || '').trim()
-    if (brand || series || mileageText) {
-      return { brand, series, mileageText }
-    }
+    if (!vehicle.brand) vehicle.brand = String(payload.vehicleBrand || '').trim()
+    if (!vehicle.series) vehicle.series = String(payload.vehicleSeries || '').trim()
+    if (!vehicle.year) vehicle.year = String(payload.vehicleYear || '').trim()
+    if (!vehicle.mileageText) vehicle.mileageText = String(payload.mileageText || '').trim()
+    if (vehicle.brand && vehicle.series && vehicle.year && vehicle.mileageText) break
   }
-  return { brand: '', series: '', mileageText: '' }
+  return vehicle
 }
 
 /**
@@ -208,7 +208,7 @@ function buildCaseFactPack(flowNodes) {
     return {
       hasFlow: false,
       chiefComplaint: '',
-      vehicle: { brand: '', series: '', mileageText: '' },
+      vehicle: { brand: '', series: '', year: '', mileageText: '' },
       findings: [],
       quoteItems: [],
       addonQuoteItems: [],
