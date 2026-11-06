@@ -48,6 +48,11 @@ function buildHowToSchema(data, nodes) {
 }
 
 function buildImageObjectSchemas(data, nodes, canonical) {
+  const captions = data.photoCaptions && typeof data.photoCaptions === 'object' ? data.photoCaptions : {}
+  const captionFor = (url) => {
+    const key = String(url || '').trim().split('?')[0].split('#')[0]
+    return String(captions[key] || '').trim()
+  }
   const schemas = []
   ;(nodes || []).forEach((node) => {
     const images = (node.imagesDesensitized || node.images || []).filter(Boolean)
@@ -58,6 +63,7 @@ function buildImageObjectSchemas(data, nodes, canonical) {
         contentUrl: absoluteUrl(url),
         name: `${node.title || '维修过程'} 图${index + 1}`,
         description:
+          captionFor(url) ||
           (data.article?.nodeNarratives || []).find((n) => n.nodeId === (node.id || node.nodeId))
             ?.imageCaptions?.[index]?.alt ||
           `${data.city || ''}${data.serviceName || ''}${node.title || ''}`.trim(),

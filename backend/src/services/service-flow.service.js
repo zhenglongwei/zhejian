@@ -240,6 +240,15 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}) {
   const delivery = (nodes || []).find((row) => row && row.kind === 'delivery_photos')
   const draft = delivery ? contentOfFlowNode(delivery) : {}
   const inspectionReport = (nodes || []).find((row) => row && row.kind === 'inspection_report')
+  // 公开图说：草稿里应用过的优先，其次交车 AI 意见里的（同一次看图产出）
+  const adviceCaptions =
+    delivery && delivery.deliveryAdvice && delivery.deliveryAdvice.publicCaptions &&
+    typeof delivery.deliveryAdvice.publicCaptions === 'object'
+      ? delivery.deliveryAdvice.publicCaptions
+      : {}
+  const draftCaptions =
+    draft.publicCaptions && typeof draft.publicCaptions === 'object' ? draft.publicCaptions : {}
+  const publicCaptions = { ...adviceCaptions, ...draftCaptions }
   return buildRepairReportPayload({
     chiefComplaint:
       (inspectionReport &&
@@ -249,7 +258,7 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}) {
       '',
     workItems: attachQuoteAmountsToWorkItems(collectAllWorkOrderItems(nodes), nodes),
     deliveryImages: [],
-    photoDraft: draft,
+    photoDraft: { ...draft, publicCaptions },
     totalAmount: collectConfirmedQuoteTotal(nodes),
     confirmCopy: REPAIR_CONFIRM_COPY,
   })

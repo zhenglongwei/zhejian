@@ -19,7 +19,7 @@ function normalizeFaqList(list) {
       return { q, a }
     })
     .filter(Boolean)
-    .slice(0, 5)
+    .slice(0, 8)
 }
 
 /** 交车报告定稿 → 兼容旧读侧 archiveCopy */

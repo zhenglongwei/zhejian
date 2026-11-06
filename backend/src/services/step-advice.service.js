@@ -296,7 +296,24 @@ function parseOwnerFaqSuggestions(list) {
       question: text(row && (row['问'] || row.question || row.q)),
       answer: text(row && (row['答'] || row.answer || row.a)),
     })),
-  ).slice(0, 5)
+  ).slice(0, 8)
+}
+
+/** 交车 AI 的公开图说：{"图":"图1","说":"…"} → { slot, note }（slot 1-based 对应本次附图） */
+function parsePublicCaptions(list) {
+  const { scrubPiiText } = require('../utils/scrub-pii-text')
+  const raw = Array.isArray(list) ? list : []
+  return raw
+    .map((row, index) => {
+      const label = row && (row.slot != null ? row.slot : row['图'])
+      const num = Number(String(label == null ? '' : label).match(/\d+/))
+      const slot = num || index + 1
+      const note = scrubPiiText(text(row && (row['说'] || row.note || row.caption))).slice(0, 60)
+      if (!note) return null
+      return { slot, note }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
 }
 
 function parseDeliveryAdvice(raw) {
@@ -306,6 +323,7 @@ function parseDeliveryAdvice(raw) {
       repairBrief: '',
       ownerFaqs: [],
       tips: [],
+      publicCaptions: [],
       // 兼容旧字段
       repair: null,
       warranty: null,
@@ -344,6 +362,7 @@ function parseDeliveryAdvice(raw) {
     repairBrief,
     ownerFaqs,
     tips,
+    publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
     repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 200) } : null,
     warranty: null,
     care: null,
@@ -1349,11 +1368,12 @@ function deliveryInstruction(ctx) {
     '你是修理厂的交车顾问。根据整单事实，写出本次维修简述和车主会问的问题。',
     '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
     '简述：一段话说这次做了什么，可放进车主报告抬头。不要写价格和隐私。',
-    '问答：1到5条。有需要持续注意的必须写成问答；没有就写和本案相关的常见问。',
+    '问答：3到8条，会随车主报告一起用于公开案例页（店员核对后公开）。问句尽量带上项目并含「这例」，脱离页面也知道问的是哪台车什么项目；答句先写这例事实，再接一句对车主的叮嘱。有需要持续注意的必须写成问答；事实不够 3 条时可以写和本案相关的常见问。',
+    '图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写看得到的，不写推测结论，不写车牌与人脸。',
     '提醒：只写本步还缺的，比如交车照、质保期限空。其它键留空。店员点应用才写入。',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"新胶套要注意什么？","答":"近期少过剧烈颠簸，磨合几天。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"更换了下摆臂胶套，并做了机油机滤保养。","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"}],"图说":[{"图":"图1","说":"举升后拆下的下摆臂胶套，胶体开裂明显。"}],"提醒":[{"类型":"","标题":"交车照","正文":"还缺整车外观。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1460,6 +1480,16 @@ async function runJob(albumId, kind, options = {}) {
             return rest
           })()
         : parsed
+    // 图说按本次附图槽位映射成 URL 键，确认交车时随报告带进公开图注
+    if (kind === 'delivery' && advicePayload && Array.isArray(advicePayload.publicCaptions)) {
+      const captionsByUrl = {}
+      ;(advicePayload.publicCaptions || []).forEach((row) => {
+        const url = (Array.isArray(urls) ? urls : [])[Number(row && row.slot) - 1]
+        const key = mediaBare(url)
+        if (key && row.note) captionsByUrl[key] = row.note
+      })
+      advicePayload.publicCaptions = captionsByUrl
+    }
     if (kind === 'inspect') {
       writeInspectAdviceDebug(albumId, {
         ok,

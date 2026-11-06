@@ -133,10 +133,10 @@ function buildHostedStorefrontFaq({
     const text = `${n.q}${n.a}`
     if (SLOGAN_PATTERN.test(text) || /一般来说|很多店|平时常见/.test(text)) return
     if (ENCYCLOPEDIA_QUESTION_PATTERN.test(n.q)) return
-    if (faq.length >= 6) return
+    if (faq.length >= 8) return
     faq.push({ q: n.q, a: n.a, needsAnswer: false })
   })
-  const withGap = appendGapReminder(faq, 6).map((row) => ({
+  const withGap = appendGapReminder(faq, 8).map((row) => ({
     q: row.q,
     a: row.a,
     needsAnswer: !row.a,

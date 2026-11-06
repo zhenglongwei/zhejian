@@ -1740,7 +1740,7 @@ function normalizeOwnerFaqs(list) {
       }
     })
     .filter(Boolean)
-    .slice(0, 5)
+    .slice(0, 8)
 }
 
 function buildRepairReportPayload({
@@ -1799,11 +1799,18 @@ function buildRepairReportPayload({
   const extras = Array.isArray(photoDraft.selectedDeliveryUrls)
     ? photoDraft.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
     : []
+  // 公开图说：交车 AI 看图产出，草稿应用或意见里带 URL 键映射；仅作为图注，不改变图本身
+  const captionsByUrl =
+    photoDraft.publicCaptions && typeof photoDraft.publicCaptions === 'object'
+      ? photoDraft.publicCaptions
+      : {}
+  const captionFor = (url) =>
+    String(captionsByUrl[mediaBare(url)] || captionsByUrl[mediaKey(url)] || '').trim().slice(0, 60)
   const refImages = []
-  if (exterior) refImages.push({ url: exterior, caption: '整车外观' })
+  if (exterior) refImages.push({ url: exterior, caption: captionFor(exterior) || '整车外观' })
   extras.forEach((url) => {
     if (url && url !== exterior && !refImages.some((row) => row.url === url)) {
-      refImages.push({ url, caption: '' })
+      refImages.push({ url, caption: captionFor(url) })
     }
   })
   const deliveryPhotos = refImages.length

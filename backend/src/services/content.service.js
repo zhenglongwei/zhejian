@@ -409,6 +409,10 @@ function mapPublicCaseRow(row, album, options = {}) {
     .map((chapter) => (chapter && chapter.chiefComplaint) || '')
     .find((value) => String(value || '').trim())
   layered.chiefComplaint = String(options.chiefComplaint || chapterComplaint || '').trim()
+  // 交车 AI 公开图说（URL 键 → 图注），供 ImageObject / alt 使用
+  if (rawContent.photoCaptions && typeof rawContent.photoCaptions === 'object') {
+    layered.photoCaptions = rawContent.photoCaptions
+  }
   return attachArchiveAttribution(applyPublicDisplayRules(layered), { hostMeta })
 }
 
