@@ -68,13 +68,36 @@ test('evaluateGateBRiskSync marks open dispute as high', () => {
 })
 
 test('evaluateGateBRiskSync returns low when no signals', () => {
+  // 有可公示过程图且无其他信号 → LOW；无可公示图会被 no_public_media 硬拦
+  const result = evaluateGateBRiskSync({
+    album: { id: 'alb_clean', templateId: 'brake' },
+    albumView: {
+      imageMeta: [
+        {
+          nodeId: 'n1',
+          idx: 0,
+          visibility: VISIBILITY.PUBLIC,
+          publicGateStatus: PUBLIC_GATE_STATUS.PASSED,
+        },
+      ],
+      nodes: [],
+      storeNote: '常规保养记录',
+    },
+    task: { rawAssets: [] },
+  })
+  assert.equal(result.risk, GATE_B_RISK.LOW)
+  assert.deepEqual(result.reasons, [])
+})
+
+test('evaluateGateBRiskSync marks empty public media as high', () => {
+  // 无可公示过程图的案例不允许托管公开（no_public_media 硬拦）
   const result = evaluateGateBRiskSync({
     album: { id: 'alb_clean', templateId: 'brake' },
     albumView: { imageMeta: [], nodes: [], storeNote: '常规保养记录' },
     task: { rawAssets: [] },
   })
-  assert.equal(result.risk, GATE_B_RISK.LOW)
-  assert.deepEqual(result.reasons, [])
+  assert.equal(result.risk, GATE_B_RISK.HIGH)
+  assert.ok(result.reasons.includes('privacy_block:no_public_media'))
 })
 
 test('shouldSpotCheckGateB is deterministic for same key', () => {
