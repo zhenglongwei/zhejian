@@ -401,10 +401,12 @@ function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
     answeredFaq: Array.isArray(parsed.faq) ? parsed.faq : base.faq || [],
   })
   const summary = String(parsed.summary || base.summary || '').trim()
+  const nodeStories = sanitizeHostedNodeStories(parsed.nodeStories)
   return {
     ...base,
     summary,
     highlights,
+    nodeStories: nodeStories.length ? nodeStories : sanitizeHostedNodeStories(base.nodeStories),
     faq: finalFaq.faq,
     faqCategoryId: finalFaq.categoryId,
     faqCategoryLabel: finalFaq.categoryLabel,
@@ -412,6 +414,14 @@ function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
     generatedAt: new Date().toISOString(),
     source: summary ? 'llm_v0' : base.source || 'rule',
   }
+}
+
+/** 维修实录：只收事实短段，宁缺勿滥 */
+function sanitizeHostedNodeStories(raw) {
+  return (Array.isArray(raw) ? raw : [])
+    .map((row) => String((row && typeof row === 'object' ? row.text : row) || '').trim())
+    .filter((text) => text.length >= 8 && text.length <= 200)
+    .slice(0, 5)
 }
 
 async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) {
@@ -922,6 +932,7 @@ async function confirmHostedPublicPublish(
     merchantId,
     summary,
     highlights,
+    nodeStories,
     faq,
     privacyAgreementAccepted,
     privacyAgreementVersion,
@@ -966,6 +977,11 @@ async function confirmHostedPublicPublish(
   const draft = prev.geoDraft || {}
   const { filterPublishableFaq } = require('../utils/hosted-storefront-faq')
   const rawFaq = Array.isArray(faq) ? faq : Array.isArray(draft.faq) ? draft.faq : []
+  const rawStories = Array.isArray(nodeStories)
+    ? nodeStories
+    : Array.isArray(draft.nodeStories)
+      ? draft.nodeStories
+      : []
   const geoLayer = {
     summary: String(summary != null ? summary : draft.summary || '').trim(),
     highlights: Array.isArray(highlights)
@@ -973,6 +989,7 @@ async function confirmHostedPublicPublish(
       : Array.isArray(draft.highlights)
         ? draft.highlights
         : [],
+    nodeStories: sanitizeHostedNodeStories(rawStories),
     faq: filterPublishableFaq(rawFaq),
     confirmedAt: new Date().toISOString(),
   }

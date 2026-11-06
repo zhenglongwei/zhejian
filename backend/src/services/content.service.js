@@ -365,6 +365,23 @@ function mapPublicCaseRow(row, album, options = {}) {
     }
   }
   const hostMeta = readHostMeta(album) || readHostMeta(rawContent)
+  const hostGeoLayer =
+    (rawContent && rawContent.hostGeoLayer && typeof rawContent.hostGeoLayer === 'object'
+      ? rawContent.hostGeoLayer
+      : null) ||
+    (hostMeta && hostMeta.geoLayer && typeof hostMeta.geoLayer === 'object'
+      ? hostMeta.geoLayer
+      : null)
+  if (hostGeoLayer) {
+    layered.hostGeoLayer = {
+      summary: String(hostGeoLayer.summary || '').trim(),
+      highlights: Array.isArray(hostGeoLayer.highlights) ? hostGeoLayer.highlights : [],
+      nodeStories: (Array.isArray(hostGeoLayer.nodeStories) ? hostGeoLayer.nodeStories : [])
+        .map((row) => String((row && typeof row === 'object' ? row.text : row) || '').trim())
+        .filter(Boolean)
+        .slice(0, 5),
+    }
+  }
   layered.faq = collectHostedCaseFaq({
     contentJson: rawContent,
     hostMeta,

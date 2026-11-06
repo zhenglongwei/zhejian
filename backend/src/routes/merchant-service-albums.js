@@ -775,6 +775,7 @@ router.post(
         merchantId: req.auth.merchantId,
         summary: body.summary,
         highlights: body.highlights,
+        nodeStories: body.nodeStories,
         faq: body.faq,
         privacyAgreementAccepted: Boolean(body.privacyAgreementAccepted),
         privacyAgreementVersion: body.privacyAgreementVersion,

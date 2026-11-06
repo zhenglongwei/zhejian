@@ -123,11 +123,28 @@ function renderFlowSection(data) {
   return `<section data-bot="process"><h2>维修过程</h2>${blocks.join('')}</section>`
 }
 
-/** 爬虫正文与人看到的页面一致：摘要、关键节点说明、问答。不含套话文章。 */
+function hostNodeStories(data) {
+  const layer = data.hostGeoLayer || (data.contentJson && data.contentJson.hostGeoLayer) || null
+  return (layer && Array.isArray(layer.nodeStories) ? layer.nodeStories : [])
+    .map((row) => String((row && typeof row === 'object' ? row.text : row) || '').trim())
+    .filter(Boolean)
+    .slice(0, 5)
+}
+
+function renderNodeStoriesSection(data) {
+  const stories = hostNodeStories(data)
+  if (!stories.length) return ''
+  return `<section data-bot="process-stories"><h2>维修实录</h2>${stories
+    .map((text) => `<p>${escapeHtml(text)}</p>`)
+    .join('')}</section>`
+}
+
+/** 爬虫正文与人看到的页面一致：摘要、维修实录、关键节点说明、问答。不含套话文章。 */
 function buildCrawlText(data) {
   const parts = []
   const summary = visibleSummary(data)
   if (summary) parts.push(summary)
+  hostNodeStories(data).forEach((text) => parts.push(text))
   ;((data.serviceFlow && data.serviceFlow.chapters) || []).forEach((chapter) => {
     const lines = chapterLines(chapter)
     if (!lines.length) return
@@ -148,6 +165,7 @@ function buildBotBodyHtml(data) {
     summary
       ? `<section data-bot="ai-summary"><h2>案例摘要</h2><p>${escapeHtml(summary)}</p></section>`
       : '',
+    renderNodeStoriesSection(data),
     renderFlowSection(data),
     renderFaqSection(data.faq || []),
     renderSiteBeianHtml(),
