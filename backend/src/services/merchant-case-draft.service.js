@@ -14,7 +14,11 @@ const {
   PUBLIC_GATE_STATUS,
   isAlwaysPrivateStage,
 } = require('../constants/album-public-visibility-policy')
-const { resolvePublicCaseMediaUrl, resolveDisplayMediaUrl } = require('../lib/media-url')
+const {
+  resolvePublicCaseMediaUrl,
+  resolveDisplayMediaUrl,
+  resolveStoreProcessedPublicUrl,
+} = require('../lib/media-url')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 const { extractJobFaqs, normalizeFaqItems } = require('../utils/merchant-case-job-faq')
@@ -492,20 +496,23 @@ function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
       const previewUrl =
         rewriteMediaUrlForCurrentBase(String(row.rawUrl || '').trim()) ||
         resolveDisplayMediaUrl(row.rawUrl || '')
-      const maskedUrl = resolveMaskedFromTask(
-        preMaskTask,
-        row.nodeId,
-        row.idx,
-        row.rawUrl,
-      )
-      if (requireMasked && !maskedUrl) return null
-      if (!maskedUrl && !previewUrl) return null
+      // 与 buildPublicView 同口径：节点写回的打码结论优先，任务行仅旧数据兜底；
+      // 都没有时放行持久化原图（责任在商家），不再因任务行缺产物丢图
+      const nodeMasked = resolvePublicCaseMediaUrl(String(row.maskedUrl || '').trim())
+      const taskMasked = nodeMasked
+        ? ''
+        : resolveMaskedFromTask(preMaskTask, row.nodeId, row.idx, row.rawUrl)
+      const fallbackUrl = resolveStoreProcessedPublicUrl(row.rawUrl || '')
+      const maskedUrl = nodeMasked || taskMasked
+      const displayUrl = maskedUrl || fallbackUrl
+      if (requireMasked && !displayUrl) return null
+      if (!maskedUrl && !previewUrl && !fallbackUrl) return null
       const texts = buildDraftMediaTexts(row, labelMap)
       return {
         nodeId: row.nodeId,
         idx: Number(row.idx || 0),
-        maskedUrl: maskedUrl || '',
-        previewUrl: requireMasked ? maskedUrl : previewUrl || maskedUrl || '',
+        maskedUrl: displayUrl || '',
+        previewUrl: requireMasked ? displayUrl : previewUrl || maskedUrl || '',
         caption: texts.caption,
         hint: texts.hint,
         sectionKey: MEDIA_SECTION_BY_NODE[row.nodeId] || 'process',
