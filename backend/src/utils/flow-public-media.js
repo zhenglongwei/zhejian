@@ -5,6 +5,7 @@
  */
 const { collectBagImageRefs } = require('./flow-photo-mask-writeback')
 const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
+const { stripUrlQuery } = require('../lib/media-signed-url')
 
 /** 接车 / 报价图仅留档，不上网（对标旧 always_private） */
 const PRIVATE_FLOW_KINDS = new Set([
@@ -43,8 +44,10 @@ function collectPublicizableFlowPhotos(album) {
     collectBagImageRefs(payload, refs)
     refs.forEach((ref) => {
       const url = String((ref && ref.url) || '').trim()
-      if (!url || seen.has(url)) return
-      seen.add(url)
+      // 同一张照片在节点各袋里可能带不同签名参数；按去查询串后的真源去重
+      const key = stripUrlQuery(url)
+      if (!url || !key || seen.has(key)) return
+      seen.add(key)
       out.push({
         nodeId: String(node.id || node.nodeId || kind || ''),
         kind,

@@ -79,7 +79,7 @@ test('差得不多就直接按定下的主题写，不再改题', async () => {
     model: fakeModel,
   })
   assert.equal(complete.calls.length, 3)
-  assert.match(complete.calls[0].system, /最出彩/)
+  assert.match(complete.calls[0].system, /消费者最关心/)
   assert.doesNotMatch(complete.calls[0].system, /类目规矩/)
   assert.match(complete.calls[1].system, /类目规矩/)
   assert.match(complete.calls[1].user, /事实/)

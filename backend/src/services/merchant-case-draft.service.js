@@ -519,7 +519,16 @@ function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
       }
     })
     .filter(Boolean)
-  return pickMappedMediaBySection(mapped, softCap)
+  // 发布图不允许重复：不同行解析出同一展示文件（仅签名参数不同）只留先到的一张
+  const seenDisplay = new Set()
+  const unique = mapped.filter((item) => {
+    const key = String(item.maskedUrl || '').split('?')[0]
+    if (!key) return true
+    if (seenDisplay.has(key)) return false
+    seenDisplay.add(key)
+    return true
+  })
+  return pickMappedMediaBySection(unique, softCap)
 }
 
 function firstUsefulSentence(text = '') {

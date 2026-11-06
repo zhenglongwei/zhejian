@@ -5,8 +5,8 @@
 
 const PLATFORMS = [
   { id: 'moments', label: '朋友圈', maxChars: 160 },
-  { id: 'xiaohongshu', label: '小红书', maxChars: 360 },
-  { id: 'douyin', label: '抖音', maxChars: 72 },
+  { id: 'xiaohongshu', label: '小红书', maxChars: 450 },
+  { id: 'douyin', label: '抖音', maxChars: 300 },
 ]
 
 const BANNED = [
@@ -112,14 +112,19 @@ function sanitizeFacts(raw = {}) {
 }
 
 function normalizeImages(images) {
-  const seen = new Set()
+  const seenId = new Set()
+  const seenUrl = new Set()
   const out = []
   ;(Array.isArray(images) ? images : []).forEach((item) => {
     if (!item) return
     const id = String(item.id || '').trim()
     const url = String(item.url || '').trim()
-    if (!id || !url || seen.has(id)) return
-    seen.add(id)
+    if (!id || !url || seenId.has(id)) return
+    // 不同 id 指向同一文件（URL 仅签名参数不同）也只保留一张
+    const urlKey = url.split('?')[0]
+    if (urlKey && seenUrl.has(urlKey)) return
+    seenId.add(id)
+    if (urlKey) seenUrl.add(urlKey)
     out.push({ id, url })
   })
   return out.slice(0, 9)
@@ -148,14 +153,14 @@ function buildSocialCardSet({ audience = 'owner', facts = {}, images = [] } = {}
       id: 'xiaohongshu',
       label: '小红书',
       text: '',
-      caption: clip(voice.xhs, 360),
+      caption: clip(voice.xhs, 450),
       slides: slidesFor(list, voice.slideLine, true),
     },
     {
       id: 'douyin',
       label: '抖音',
       text: '',
-      caption: clip(voice.douyin, 280),
+      caption: clip(voice.douyin, 300),
       slides: slidesFor(list, voice.slideLine, true),
     },
   ]

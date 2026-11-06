@@ -120,8 +120,8 @@ function parseSocialCardLlm(raw, images) {
   if (!json || typeof json !== 'object') return null
   const theme = cleanLine(json.theme, 40)
   const moments = cleanBlock(json.moments, 160)
-  const xBody = cleanBlock(json.xiaohongshuBody, 360)
-  const dBody = cleanBlock(json.douyinBody, 280)
+  const xBody = cleanBlock(json.xiaohongshuBody, 450)
+  const dBody = cleanBlock(json.douyinBody, 300)
   if (!theme || !moments || !xBody || !dBody) return null
   const known = new Set(
     (Array.isArray(images) ? images : [])
