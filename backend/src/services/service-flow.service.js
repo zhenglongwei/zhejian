@@ -2158,11 +2158,8 @@ async function proxyConfirmFlowDocument(
       throw err
     }
 
-    const prevDoc = nodes[index].document || emptyDocument('')
-    const mergedPayload = {
-      ...(prevDoc.payload || {}),
-      ...((payload.document && payload.document.payload) || {}),
-    }
+    // 信封模式：同车主确认——方案内容在节点 content
+    const mergedPayload = mergeConfirmPayload(nodes[index], prevDoc, payload.document && payload.document.payload)
 
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(mergedPayload)
@@ -2176,15 +2173,14 @@ async function proxyConfirmFlowDocument(
     nodes[index] = {
       ...nodes[index],
       status: intakeConfirm ? nodes[index].status : 'completed',
-      document: {
+      document: envelopeOnlyDocument({
         ...prevDoc,
         docType: prevDoc.docType || (intakeConfirm ? 'intake_confirm' : prevDoc.docType),
         status: 'confirmed',
         confirmedAt: new Date().toISOString(),
         confirmedBy: 'merchant_proxy',
         proxyProofImages: proofImages,
-        payload: mergedPayload,
-      },
+      }),
     }
 
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
@@ -3302,6 +3298,21 @@ async function tryCompleteAlbumAfterRepairConfirm(
   }
 }
 
+/**
+ * 确认动作的单据内容合并口径（车主确认与商家代确认共用）。
+ * 信封模式：单据业务内容在节点 content，document.payload 恒空（历史数据除外）。
+ * 确认不改方案内容：忽略传入 payload 里的 lines，防止前端空编辑行盖掉商家方案。
+ */
+function mergeConfirmPayload(node, prevDoc = {}, incoming = {}) {
+  const incomingPayload = { ...(incoming && typeof incoming === 'object' ? incoming : {}) }
+  delete incomingPayload.lines
+  return {
+    ...contentOfFlowNode(node),
+    ...(prevDoc.payload || {}),
+    ...incomingPayload,
+  }
+}
+
 /** 车主确认方案 / 完工 */
 async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
   const { loadAlbum, mapNodesForView } = require('./service-album.service')
@@ -3357,10 +3368,8 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
       err.status = 400
       throw err
     }
-    const mergedPayload = {
-      ...(prevDoc.payload || {}),
-      ...((payload.document && payload.document.payload) || {}),
-    }
+    // 信封模式：单据业务内容在节点 content，document.payload 恒空（历史数据除外）。
+    const mergedPayload = mergeConfirmPayload(nodes[index], prevDoc, payload.document && payload.document.payload)
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(mergedPayload)
       if (gaps.length) {
@@ -3372,14 +3381,13 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
     nodes[index] = {
       ...nodes[index],
       status: intakeConfirm ? nodes[index].status : 'completed',
-      document: {
+      document: envelopeOnlyDocument({
         ...prevDoc,
         docType: prevDoc.docType || (intakeConfirm ? 'intake_confirm' : prevDoc.docType),
         status: 'confirmed',
         confirmedAt: new Date().toISOString(),
         confirmedBy: 'owner',
-        payload: mergedPayload,
-      },
+      }),
     }
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       applyQuoteConfirmedSideEffects(nodes, index, id, mergedPayload)
@@ -3603,6 +3611,7 @@ module.exports = {
   deliverFlowDocument,
   proxyConfirmFlowDocument,
   ownerConfirmFlowDocument,
+  mergeConfirmPayload,
   ownerRejectFlowDocument,
   insertAddonPlan,
   cancelAddonPlan,

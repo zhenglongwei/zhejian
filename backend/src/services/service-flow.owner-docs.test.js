@@ -1,7 +1,16 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { buildOwnerFlowView, healFinishReportPackage, migrateFlowPackageOnce } = require('./service-flow.service')
-const { migrateNodeToSingleContent, contentOfFlowNode } = require('../../../utils/service-flow-docs')
+const {
+  buildOwnerFlowView,
+  healFinishReportPackage,
+  migrateFlowPackageOnce,
+  mergeConfirmPayload,
+} = require('./service-flow.service')
+const {
+  migrateNodeToSingleContent,
+  contentOfFlowNode,
+  collectQuoteConfirmGaps,
+} = require('../../../utils/service-flow-docs')
 const {
   buildOwnerPreviewDoc,
   previewAlbumOf,
@@ -472,6 +481,30 @@ test('落库迁移不得把交车报告摊成编辑袋', () => {
   assert.equal(repair.deliveryPhotos.length, 2)
   assert.equal(work.items.length, 1)
   assert.equal(work.items[0].images.length, 1)
+})
+
+test('信封模式下车主确认：方案在节点 content，确认校验能读到（回归：请至少填写一行方案项目）', () => {
+  // 真实序列：商家发送报价后 document.payload 被信封模式清空，方案只留在 content.lines
+  const node = {
+    id: 'quote_1',
+    kind: 'quote_confirm',
+    status: 'in_progress',
+    content: {
+      lines: [
+        { name: '拆检', amount: 0 },
+        { name: '刹车片更换', amount: 300 },
+      ],
+    },
+    document: { docType: 'quote_confirm', status: 'pending_confirm', payload: {} },
+  }
+  const merged = mergeConfirmPayload(node, node.document, {})
+  assert.equal(merged.lines.length, 2)
+  assert.deepEqual(collectQuoteConfirmGaps(merged), [])
+
+  // 确认动作不改方案内容：前端传来的空编辑行不得盖掉商家方案
+  const mergedWithBlank = mergeConfirmPayload(node, node.document, { lines: [{ name: '', amount: '' }] })
+  assert.equal(mergedWithBlank.lines.length, 2)
+  assert.deepEqual(collectQuoteConfirmGaps(mergedWithBlank), [])
 })
 
 test('旧册薄报告治愈后再迁移，交车正文仍在', () => {
