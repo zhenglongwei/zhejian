@@ -1172,22 +1172,40 @@ async function runAutoMask(taskId, options = {}) {
     String(task.taskId || '').startsWith('task_host_mask_') ||
     task.bizType === BIZ_TYPE.MERCHANT_HISTORY
   const { classifyHostMaskOutcome } = require('../utils/host-mask-outcome')
-  const { lookupHostMaskOutcomeRow, loadHostMaskOutcomeIndex } = require('./hosted-public-mask.service')
+  const {
+    lookupHostMaskOutcomeRow,
+    loadHostMaskOutcomeIndex,
+    loadHostNodeImageUrlKeys,
+  } = require('./hosted-public-mask.service')
 
   let nodeOutcomeIndex = new Map()
+  let nodeUrlKeys = new Set()
   if (hostPublic) {
     try {
       nodeOutcomeIndex = await loadHostMaskOutcomeIndex(task.bizId)
     } catch (_) {
       nodeOutcomeIndex = new Map()
     }
+    try {
+      nodeUrlKeys = await loadHostNodeImageUrlKeys(task.bizId)
+    } catch (_) {
+      nodeUrlKeys = new Set()
+    }
+  }
+
+  // 幽灵资产：任务行指向的 URL 在当前节点图集合里已不存在（旧引擎时代遗留行）。
+  // 重跑大模型也写不回节点，只会白烧模型拖慢每次对账 → 一律跳过。
+  const isGhostAsset = (url) => {
+    if (!nodeUrlKeys.size) return false
+    const { rawUrlLookupKeys } = require('../services/desensitize.constants')
+    return !rawUrlLookupKeys(url).some((key) => nodeUrlKeys.has(key))
   }
 
   const classifyAsset = (asset) => {
     const nodeRow = hostPublic
       ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
       : null
-    return classifyHostMaskOutcome(
+    const classified = classifyHostMaskOutcome(
       {
         status: asset.status,
         desensitizeStatus: nodeRow && nodeRow.desensitizeStatus,
@@ -1206,6 +1224,20 @@ async function runAutoMask(taskId, options = {}) {
       },
       hostPublic ? { nodeOnly: true } : {},
     )
+    if (
+      hostPublic &&
+      (classified.hostAction === 'rerun_llm' || classified.hostAction === 'restamp') &&
+      isGhostAsset(asset.rawUrl)
+    ) {
+      return {
+        ...classified,
+        hostAction: 'skip',
+        ghost: true,
+        maskSucceeded: false,
+        allowsOriginalPublish: false,
+      }
+    }
+    return classified
   }
 
   if (hostPublic) {
@@ -2140,7 +2172,7 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
   })
   const existingIndex = indexAssetsByRawUrl(existing && existing.assets)
   // 重建任务时：已结算托管行优先保留，禁止预脱敏空行把成功结论冲掉
-  const assetInputs = ((preMaskTask && preMaskTask.assets) || []).map((row) => {
+  let assetInputs = ((preMaskTask && preMaskTask.assets) || []).map((row) => {
     const mapped = mapPreMaskAssetToAuthorizeInput(row)
     const prev = lookupAssetByRawUrl(existingIndex, mapped.rawUrl)
     if (prev && assetMaskSettled(prev) && !assetMaskSettled(mapped)) {
@@ -2191,6 +2223,31 @@ async function ensureHostMerchantMaskTask(albumId, options = {}) {
       riskLevel: '',
     })
   })
+  // 幽灵行清理：预脱敏任务里遗留的旧资产（URL 在当前节点图集合与 flow 图里都不存在）
+  // 不再进托管任务 —— 它们重跑大模型也写不回节点，只会拖慢每次预览对账
+  try {
+    const { loadHostNodeImageUrlKeys } = require('./hosted-public-mask.service')
+    const nodeUrlKeys = await loadHostNodeImageUrlKeys(album.id)
+    if (nodeUrlKeys.size) {
+      const { rawUrlLookupKeys } = require('../services/desensitize.constants')
+      const flowKeySet = new Set()
+      flowUrls.forEach((u) => rawUrlLookupKeys(u).forEach((k) => k && flowKeySet.add(k)))
+      const keepAlive = (url) =>
+        rawUrlLookupKeys(url).some((k) => nodeUrlKeys.has(k) || flowKeySet.has(k))
+      const before = assetInputs.length
+      assetInputs = assetInputs.filter((row) => keepAlive(String((row && row.rawUrl) || '').trim()))
+      if (assetInputs.length !== before) {
+        console.info('[ensureHostMask] pruned ghost assets', {
+          albumId: album.id,
+          before,
+          after: assetInputs.length,
+        })
+      }
+    }
+  } catch (_) {
+    /* 节点集合拿不到时不剪，保守 */
+  }
+
   const missingFlow = flowUrls.filter((url) => !assetCoversUrl(existing && existing.assets, url))
   // 任务行无成功产物（无 maskedUrl）也视为未齐，避免早退漏打交车图
   const incompleteAssets = ((existing && existing.assets) || []).filter(

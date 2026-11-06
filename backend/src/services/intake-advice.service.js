@@ -227,9 +227,9 @@ async function runGenerateLlm(urls, albumId = '') {
           risks: Array.isArray(parsed.risks) ? parsed.risks.length : 0,
         })
         try {
-          const { voidApplyModelMasks } = require('./model-mask.service')
+          const { queueApplyModelMasks } = require('./model-mask.service')
           // 必须带 albumId，否则只写了媒体表、节点无 maskOutcome → 托管又整本重跑看图
-          voidApplyModelMasks(urls, result && result.text, {
+          queueApplyModelMasks(urls, result && result.text, {
             albumId: String(albumId || '').trim(),
           })
         } catch (_) {

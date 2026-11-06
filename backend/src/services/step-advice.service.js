@@ -1145,8 +1145,8 @@ async function runLlm(instruction, urls, label, options = {}) {
           rawLen: String(textOut).length,
         })
         try {
-          const { voidApplyModelMasks } = require('./model-mask.service')
-          voidApplyModelMasks(attached.map((row) => row.originalUrl), textOut, {
+          const { queueApplyModelMasks } = require('./model-mask.service')
+          queueApplyModelMasks(attached.map((row) => row.originalUrl), textOut, {
             albumId: options.albumId || '',
           })
         } catch (_) {
@@ -1510,8 +1510,8 @@ async function runJob(albumId, kind, options = {}) {
     // 与接车一致：看图返回的 masks 落到本批附图；只打一次，不挡意见正文
     if (ok && urls.length) {
       try {
-        const { voidApplyModelMasks } = require('./model-mask.service')
-        voidApplyModelMasks(urls, raw, { albumId })
+        const { queueApplyModelMasks } = require('./model-mask.service')
+        queueApplyModelMasks(urls, raw, { albumId })
       } catch (_) {
         /* 打码失败不影响出意见 */
       }

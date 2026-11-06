@@ -8,6 +8,78 @@ const { prisma } = require('../lib/prisma')
  * 节点图结论索引：打码结论只住节点。
  * 任务行 / 媒体表不参与判定（无节点结论 = not_analyzed）。
  */
+
+/** 遍历节点挂图的统一游走器（结论索引与全量 URL 集合共用同一口径） */
+function walkNodeImageSlots(pkg, visit) {
+  const walkBag = (bag) => {
+    if (!bag || typeof bag !== 'object') return
+    ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
+      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(visit)
+    })
+    ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
+      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
+        if (!row || typeof row !== 'object') return
+        visit(row)
+        ;(Array.isArray(row.images) ? row.images : []).forEach(visit)
+        if (row.evidenceUrl) {
+          visit({
+            url: row.evidenceUrl,
+            maskedUrl: row.evidenceMaskedUrl,
+            maskOutcome: row.evidenceMaskOutcome,
+            maskRegions: row.evidenceMaskRegions,
+          })
+        }
+      })
+    })
+    if (bag.deliveryExteriorUrl) {
+      visit({
+        url: bag.deliveryExteriorUrl,
+        maskedUrl: bag.deliveryExteriorMaskedUrl,
+        maskOutcome: bag.deliveryExteriorMaskOutcome,
+        maskRegions: bag.deliveryExteriorMaskRegions,
+      })
+    }
+  }
+  ;(Array.isArray(pkg && pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
+    if (!node) return
+    if (node.content) walkBag(node.content)
+    if (node.photoDraft) walkBag(node.photoDraft)
+    if (node.document && node.document.payload) walkBag(node.document.payload)
+  })
+}
+
+async function loadAlbumContentPackage(albumId) {
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: { contentPackageJson: true },
+  })
+  return album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+    ? album.contentPackageJson
+    : {}
+}
+
+/**
+ * 节点上全部图 URL 的查找键集合（无论有无打码结论）。
+ * 用于识别任务行里的「幽灵资产」：URL 在当前节点上已不存在的旧行，
+ * 重跑大模型也写不回，只会白烧模型拖慢每次对账。
+ */
+async function loadHostNodeImageUrlKeys(albumId) {
+  const { rawUrlLookupKeys } = require('./desensitize.constants')
+  const keys = new Set()
+  try {
+    const pkg = await loadAlbumContentPackage(albumId)
+    const add = (slot) => {
+      if (!slot || typeof slot !== 'object') return
+      const raw = String(slot.url || slot.src || slot.rawUrl || '').trim()
+      if (raw) rawUrlLookupKeys(raw).forEach((key) => key && keys.add(key))
+    }
+    walkNodeImageSlots(pkg, add)
+  } catch (_) {
+    /* node optional */
+  }
+  return keys
+}
+
 async function loadHostMaskOutcomeIndex(albumId) {
   const { rawUrlLookupKeys } = require('./desensitize.constants')
   const index = new Map()
@@ -17,10 +89,7 @@ async function loadHostMaskOutcomeIndex(albumId) {
     })
   }
   try {
-    const album = await prisma.album.findUnique({
-      where: { id: albumId },
-      select: { contentPackageJson: true },
-    })
+    const pkg = await loadAlbumContentPackage(albumId)
     const collect = (slot) => {
       if (!slot || typeof slot !== 'object') return
       const raw = String(slot.url || slot.src || slot.rawUrl || '').trim()
@@ -40,45 +109,7 @@ async function loadHostMaskOutcomeIndex(albumId) {
         desensitizeStatus: '',
       })
     }
-    const walkBag = (bag) => {
-      if (!bag || typeof bag !== 'object') return
-      ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
-        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(collect)
-      })
-      ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
-        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
-          if (!row || typeof row !== 'object') return
-          collect(row)
-          ;(Array.isArray(row.images) ? row.images : []).forEach(collect)
-          if (row.evidenceUrl) {
-            collect({
-              url: row.evidenceUrl,
-              maskedUrl: row.evidenceMaskedUrl,
-              maskOutcome: row.evidenceMaskOutcome,
-              maskRegions: row.evidenceMaskRegions,
-            })
-          }
-        })
-      })
-      if (bag.deliveryExteriorUrl) {
-        collect({
-          url: bag.deliveryExteriorUrl,
-          maskedUrl: bag.deliveryExteriorMaskedUrl,
-          maskOutcome: bag.deliveryExteriorMaskOutcome,
-          maskRegions: bag.deliveryExteriorMaskRegions,
-        })
-      }
-    }
-    const pkg =
-      album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
-        ? album.contentPackageJson
-        : {}
-    ;(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
-      if (!node) return
-      if (node.content) walkBag(node.content)
-      if (node.photoDraft) walkBag(node.photoDraft)
-      if (node.document && node.document.payload) walkBag(node.document.payload)
-    })
+    walkNodeImageSlots(pkg, collect)
   } catch (_) {
     /* node optional */
   }
@@ -100,43 +131,15 @@ function lookupHostMaskOutcomeRow(index, url) {
  */
 async function countUnanalyzedNodeImages(albumId, outcomeIndex) {
   try {
-    const album = await prisma.album.findUnique({
-      where: { id: albumId },
-      select: { contentPackageJson: true },
-    })
-    const pkg =
-      album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
-        ? album.contentPackageJson
-        : null
-    if (!pkg) return 0
+    const pkg = await loadAlbumContentPackage(albumId)
+    if (!pkg || !Object.keys(pkg).length) return 0
     const index =
       outcomeIndex instanceof Map ? outcomeIndex : await loadHostMaskOutcomeIndex(albumId)
     const urls = new Set()
-    const add = (slot) => {
+    walkNodeImageSlots(pkg, (slot) => {
       if (!slot || typeof slot !== 'object') return
       const raw = String(slot.url || slot.src || slot.rawUrl || '').trim()
       if (raw) urls.add(raw)
-    }
-    const walkBag = (bag) => {
-      if (!bag || typeof bag !== 'object') return
-      ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
-        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(add)
-      })
-      ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
-        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
-          if (!row || typeof row !== 'object') return
-          add(row)
-          ;(Array.isArray(row.images) ? row.images : []).forEach(add)
-          if (row.evidenceUrl) add({ url: row.evidenceUrl })
-        })
-      })
-      if (bag.deliveryExteriorUrl) add({ url: bag.deliveryExteriorUrl })
-    }
-    ;(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
-      if (!node) return
-      if (node.content) walkBag(node.content)
-      if (node.photoDraft) walkBag(node.photoDraft)
-      if (node.document && node.document.payload) walkBag(node.document.payload)
     })
     let pending = 0
     urls.forEach((raw) => {
@@ -154,4 +157,5 @@ module.exports = {
   loadHostMaskOutcomeIndex,
   lookupHostMaskOutcomeRow,
   countUnanalyzedNodeImages,
+  loadHostNodeImageUrlKeys,
 }
