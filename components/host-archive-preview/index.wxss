@@ -60,40 +60,64 @@
 
 .host-archive-preview__finding {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
 }
 
-.host-archive-preview__finding-media {
-  flex-shrink: 0;
+.host-archive-preview__finding-head {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: 6rpx;
-  max-width: 268rpx;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
 }
 
-.host-archive-preview__finding-img {
+.host-archive-preview__result {
   flex-shrink: 0;
-  width: 128rpx;
-  height: 96rpx;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-bg-muted);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  padding: 2rpx 14rpx;
+  border-radius: var(--radius-full);
   border: 1rpx solid var(--color-border);
 }
 
-.host-archive-preview__finding-img.is-empty {
-  display: block;
+.host-archive-preview__result.is-ok {
+  color: var(--color-success, #2e7d32);
+  border-color: currentColor;
 }
 
-.host-archive-preview__finding-text {
-  flex: 1;
-  min-width: 0;
+.host-archive-preview__result.is-action {
+  color: var(--color-warning, #c25705);
+  border-color: currentColor;
+}
+
+.host-archive-preview__finding-grid {
   display: flex;
-  flex-direction: column;
-  gap: 4rpx;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.host-archive-preview__grid-img {
+  width: calc(50% - 4rpx);
+  height: 240rpx;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+}
+
+.host-archive-preview__finding-img {
+  width: 100%;
+  height: 360rpx;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
 }
 
 .host-archive-preview__items {
@@ -131,14 +155,6 @@
   color: var(--color-text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.host-archive-preview__thumb {
-  width: 128rpx;
-  height: 96rpx;
-  margin-top: var(--space-xs);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-bg-muted);
 }
 
 .host-archive-preview__photos {

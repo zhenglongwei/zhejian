@@ -251,7 +251,7 @@ function mapFinding(row, lookup) {
   })
   const url = images[0] ? images[0].url : ''
   if (!url && !partName && !advice) return null
-  return { url, partName, advice, images }
+  return { url, partName, result: text(row.result), advice, images }
 }
 
 function collectWorkPhotos(node, lookup) {

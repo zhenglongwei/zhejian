@@ -80,7 +80,7 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   assert.equal(quote.items[0].amount, undefined)
   const report = flow.chapters.find((c) => c.kind === 'inspection_report')
   assert.equal(report.findings[0].partName, '阀体')
-  assert.equal(report.findings[0].result, undefined)
+  assert.equal(report.findings[0].result, '需处理')
   assert.equal(report.findings[0].url, MASK)
   const work = flow.chapters.find((c) => c.kind === 'work')
   assert.equal(work.photos[0].url, MASK)

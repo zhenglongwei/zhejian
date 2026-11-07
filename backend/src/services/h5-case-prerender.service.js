@@ -98,7 +98,7 @@ function chapterLines(chapter) {
   const lines = []
   if (chapter.chiefComplaint) lines.push(`进店主诉：${chapter.chiefComplaint}`)
   ;(chapter.findings || []).forEach((row) => {
-    const bits = [row && row.partName, row && row.advice].filter(Boolean)
+    const bits = [row && row.partName, row && row.result, row && row.advice].filter(Boolean)
     if (bits.length) lines.push(bits.join('：'))
   })
   ;(chapter.items || []).forEach((item) => {

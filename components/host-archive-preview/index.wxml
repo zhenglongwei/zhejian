@@ -23,34 +23,45 @@
           wx:key="fi"
           class="host-archive-preview__finding"
         >
-          <view class="host-archive-preview__finding-media">
-            <block wx:if="{{f.images && f.images.length}}">
+          <view class="host-archive-preview__finding-head">
+            <text class="host-archive-preview__item-name">{{f.partName}}</text>
+            <text
+              wx:if="{{f.result}}"
+              class="host-archive-preview__result {{f.result === '状态良好' ? 'is-ok' : (f.result === '需处理' ? 'is-action' : '')}}"
+            >{{f.result}}</text>
+          </view>
+          <block wx:if="{{f.images && f.images.length}}">
+            <view wx:if="{{f.images.length > 1}}" class="host-archive-preview__finding-grid">
               <image
                 wx:for="{{f.images}}"
                 wx:for-item="img"
                 wx:for-index="ii"
                 wx:key="ii"
-                class="host-archive-preview__finding-img image-placeholder"
+                class="host-archive-preview__grid-img image-placeholder"
                 src="{{img.url}}"
                 mode="aspectFill"
                 data-url="{{img.url}}"
                 bindtap="onImageTap"
               />
-            </block>
+            </view>
             <image
-              wx:elif="{{f.url}}"
+              wx:else
               class="host-archive-preview__finding-img image-placeholder"
-              src="{{f.url}}"
+              src="{{f.images[0].url}}"
               mode="aspectFill"
-              data-url="{{f.url}}"
+              data-url="{{f.images[0].url}}"
               bindtap="onImageTap"
             />
-            <view wx:else class="host-archive-preview__finding-img is-empty" />
-          </view>
-          <view class="host-archive-preview__finding-text">
-            <text class="host-archive-preview__item-name">{{f.partName}}</text>
-            <text wx:if="{{f.advice}}" class="host-archive-preview__note">{{f.advice}}</text>
-          </view>
+          </block>
+          <image
+            wx:elif="{{f.url}}"
+            class="host-archive-preview__finding-img image-placeholder"
+            src="{{f.url}}"
+            mode="aspectFill"
+            data-url="{{f.url}}"
+            bindtap="onImageTap"
+          />
+          <text wx:if="{{f.advice}}" class="host-archive-preview__note">{{f.advice}}</text>
         </view>
       </block>
 
@@ -61,7 +72,7 @@
           <text wx:if="{{row.note}}" class="host-archive-preview__note">{{row.note}}</text>
           <image
             wx:if="{{row.evidenceUrl}}"
-            class="host-archive-preview__thumb image-placeholder"
+            class="host-archive-preview__finding-img image-placeholder"
             src="{{row.evidenceUrl}}"
             mode="aspectFill"
             data-url="{{row.evidenceUrl}}"
