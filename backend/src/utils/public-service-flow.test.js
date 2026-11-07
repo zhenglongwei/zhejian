@@ -401,7 +401,8 @@ test('工单说明去掉方括号占位，检测建议不重复部位名', () =>
   const inspect = flow.chapters.find((c) => c.kind === 'inspection_report')
   assert.equal(inspect.findings[0].advice, '空气滤芯滤纸表面积尘较多')
   const work = flow.chapters.find((c) => c.kind === 'work')
-  assert.equal(work.items[0].note, '已更换全新机油及原厂机滤')
+  // 有图的工单项：说明文字只在图说展示，条目不重复一遍（避免一图两段）
+  assert.equal(work.items[0].note, '')
   assert.equal(work.photos[0].caption, '更换机油机滤 · 已更换全新机油及原厂机滤')
 })
 

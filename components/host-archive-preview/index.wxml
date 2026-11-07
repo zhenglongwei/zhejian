@@ -87,7 +87,10 @@
       </block>
 
       <block wx:if="{{ch.ownerFaqs && ch.ownerFaqs.length}}">
-        <text class="host-archive-preview__k">车主关心的问题</text>
+        <view class="host-archive-preview__k-head">
+          <text class="host-archive-preview__k">车主关心的问题</text>
+          <text class="host-archive-preview__k-note">根据本次服务记录生成，经店员核对</text>
+        </view>
         <view
           wx:for="{{ch.ownerFaqs}}"
           wx:for-item="faq"

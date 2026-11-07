@@ -481,6 +481,13 @@
   background: var(--color-bg-well, #f5f5f5);
 }
 
+.h5-flow-faq-note,
+.h5-faq-note {
+  margin: 0 0 var(--space-sm, 8px);
+  font-size: var(--font-caption, 12px);
+  color: var(--color-text-tertiary, #999);
+}
+
 .h5-faq-item {
   padding: var(--space-md) 0;
   border-bottom: 1px solid var(--color-border);

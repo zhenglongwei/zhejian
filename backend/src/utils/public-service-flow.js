@@ -287,18 +287,20 @@ function collectWorkPhotos(node, lookup) {
   return photos
 }
 
-/** 工单条目（公网版，去金额）：项目 + 用料/品牌/数量 + 说明 */
+/** 工单条目（公网版，去金额）：项目 + 用料/品牌/数量；说明文字只在图说展示，避免一图两段重复 */
 function collectWorkSheetPublicItems(node) {
   const draft = contentOfFlowNode(node)
   const rows = Array.isArray(draft.findings) ? draft.findings : []
   return rows
     .map((row) => {
-      const name = text(row && row.partName)
-      const note = [text(row && row.material), text(row && row.brand), text(row && row.qty), cleanPublicNote(row && row.caption)]
-        .filter(Boolean)
-        .join(' · ')
+      if (!row || typeof row !== 'object') return null
+      const name = text(row.partName)
+      const hasPhoto = Boolean(text(row.url)) || (Array.isArray(row.images) && row.images.length > 0)
+      const noteParts = [text(row.material), text(row.brand), text(row.qty)]
+      if (!hasPhoto) noteParts.push(cleanPublicNote(row.caption))
+      const note = noteParts.filter(Boolean).join(' · ')
       if (!name && !note) return null
-      return { name, brand: text(row && row.brand), note }
+      return { name, brand: text(row.brand), note }
     })
     .filter(Boolean)
 }

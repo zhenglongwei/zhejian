@@ -731,6 +731,7 @@
           if (ch.ownerFaqs && ch.ownerFaqs.length) {
             body +=
               '<p class="h5-flow-k">车主关心的问题</p>' +
+              '<p class="h5-flow-faq-note">根据本次服务记录生成，经店员核对</p>' +
               ch.ownerFaqs
                 .map(function (faq) {
                   return (
@@ -1641,6 +1642,7 @@
         .join('')
       html +=
         '<div class="h5-card" id="case-faq-inline"><h2 class="h5-section-title">常见问法</h2>' +
+        '<p class="h5-faq-note">根据本次服务记录与门店公开信息生成</p>' +
         inlineItems +
         '</div>'
     }
