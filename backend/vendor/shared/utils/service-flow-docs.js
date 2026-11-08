@@ -1462,6 +1462,13 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.deliveryExteriorUrl || '').trim()) {
     gaps.push('请指定整车外观（从施工图选择或补拍）')
   }
+  const acceptance = payload.acceptance && typeof payload.acceptance === 'object' ? payload.acceptance : {}
+  if (!String(acceptance.standard || '').trim()) {
+    gaps.push('请填写验收标准（按什么确认修好了）')
+  }
+  if (!String(acceptance.result || '').trim()) {
+    gaps.push('请填写验收结果（实际验下来如何）')
+  }
   return gaps
 }
 
@@ -1743,6 +1750,16 @@ function normalizeOwnerFaqs(list) {
     .slice(0, 8)
 }
 
+/** 验收说明：标准/过程/结果三段；全空返回 null 不占字段 */
+function normalizeAcceptance(raw) {
+  const obj = raw && typeof raw === 'object' ? raw : {}
+  const standard = String(obj.standard || '').trim().slice(0, 200)
+  const process = String(obj.process || '').trim().slice(0, 300)
+  const result = String(obj.result || '').trim().slice(0, 200)
+  if (!standard && !process && !result) return null
+  return { standard, process, result }
+}
+
 function buildRepairReportPayload({
   chiefComplaint = '',
   workItems = [],
@@ -1764,6 +1781,7 @@ function buildRepairReportPayload({
   const ownerFaqs = normalizeOwnerFaqs(
     photoDraft.ownerFaqs || photoDraft.faq || [],
   )
+  const acceptance = normalizeAcceptance(photoDraft.acceptance)
   const items = (workItems || []).map((item) => {
     const images = []
     const seen = {}
@@ -1823,6 +1841,7 @@ function buildRepairReportPayload({
     totalAmount: computedTotal == null ? 0 : computedTotal,
     deliveryPhotos,
     repairBrief,
+    acceptance,
     ownerFaqs,
     warrantyPeriod: period,
     warrantyNotes: notes,
@@ -2234,6 +2253,7 @@ module.exports = {
   stableLineId,
   buildRepairReportPayload,
   normalizeOwnerFaqs,
+  normalizeAcceptance,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
   addonDraftStillBlank,

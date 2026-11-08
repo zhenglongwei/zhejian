@@ -348,6 +348,13 @@ function buildOwnerPreviewDoc(input = {}) {
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
     const repairBrief = String(input.repairBrief || '').trim()
+    const acceptanceRaw =
+      input.acceptance && typeof input.acceptance === 'object' ? input.acceptance : {}
+    const acceptance = {
+      standard: String(acceptanceRaw.standard || '').trim(),
+      process: String(acceptanceRaw.process || '').trim(),
+      result: String(acceptanceRaw.result || '').trim(),
+    }
     const ownerFaqs = (Array.isArray(input.ownerFaqs) ? input.ownerFaqs : [])
       .map((row, index) => ({
         id: String((row && row.id) || `faq_${index + 1}`),
@@ -366,6 +373,7 @@ function buildOwnerPreviewDoc(input = {}) {
         styleVariant: 'document',
         storeName,
         repairBrief,
+        acceptance,
         workItems,
         deliveryPhotos,
         warrantyPeriod,

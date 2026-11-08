@@ -728,6 +728,28 @@
               escapeHtml(ch.repairBrief) +
               '</p>'
           }
+          if (ch.acceptance) {
+            var acceptanceRows = [
+              ch.acceptance.standard ? ['验收标准', ch.acceptance.standard] : null,
+              ch.acceptance.process ? ['验收过程', ch.acceptance.process] : null,
+              ch.acceptance.result ? ['验收结果', ch.acceptance.result] : null,
+            ].filter(Boolean)
+            if (acceptanceRows.length) {
+              body +=
+                '<p class="h5-flow-k">验收</p>' +
+                acceptanceRows
+                  .map(function (row) {
+                    return (
+                      '<p class="h5-flow-p"><span class="h5-flow-acceptance-label">' +
+                      escapeHtml(row[0]) +
+                      '</span>' +
+                      escapeHtml(row[1]) +
+                      '</p>'
+                    )
+                  })
+                  .join('')
+            }
+          }
           if (ch.ownerFaqs && ch.ownerFaqs.length) {
             body +=
               '<p class="h5-flow-k">车主关心的问题</p>' +

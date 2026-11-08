@@ -106,6 +106,15 @@ function chapterLines(chapter) {
     const line = [item && item.name, extra].filter(Boolean).join('：')
     if (line) lines.push(line)
   })
+  if (chapter.acceptance) {
+    const a = chapter.acceptance
+    const acceptanceBits = [
+      a.standard ? `验收标准：${a.standard}` : '',
+      a.process ? `验收过程：${a.process}` : '',
+      a.result ? `验收结果：${a.result}` : '',
+    ].filter(Boolean)
+    if (acceptanceBits.length) lines.push(acceptanceBits.join('；'))
+  }
   ;(chapter.photos || []).forEach((photo) => {
     if (photo && photo.caption) lines.push(photo.caption)
   })

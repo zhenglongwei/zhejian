@@ -362,6 +362,15 @@ function publicTitle(node) {
   return text(node && node.title) || '记录'
 }
 
+function mapAcceptance(raw) {
+  const obj = raw && typeof raw === 'object' ? raw : {}
+  const standard = cleanPublicNote(obj.standard)
+  const process = cleanPublicNote(obj.process)
+  const result = cleanPublicNote(obj.result)
+  if (!standard && !process && !result) return null
+  return { standard, process, result }
+}
+
 function mapRepairChapter(node, lookup) {
   const payload = contentOfFlowNode(node)
   return {
@@ -372,6 +381,7 @@ function mapRepairChapter(node, lookup) {
     items: [],
     photos: collectDeliveryPhotos({ deliveryPhotos: payload.deliveryPhotos }, lookup),
     repairBrief: text(payload.repairBrief),
+    acceptance: mapAcceptance(payload.acceptance),
     ownerFaqs: mapOwnerFaqs(payload),
     warrantyPeriod: text(payload.warrantyPeriod),
     warrantyNotes: publicWarrantyNotes({

@@ -94,6 +94,30 @@
       <text wx:elif="{{advice.briefApplied}}" class="merchant-flow-page__advice-state">已应用</text>
     </view>
   </view>
+  <view wx:if="{{advice.acceptance}}" class="merchant-flow-page__advice-sec">
+    <view class="merchant-flow-page__advice-row">
+      <text class="merchant-flow-page__advice-sec-title">验收（标准/过程/结果）</text>
+      <text
+        wx:if="{{advice.canApplyAcceptance}}"
+        class="merchant-flow-page__advice-apply"
+        data-kind="acceptance"
+        catchtap="onApplyDeliveryAdvice"
+      >应用</text>
+      <text wx:elif="{{advice.acceptanceApplied}}" class="merchant-flow-page__advice-state">已应用</text>
+    </view>
+    <view wx:if="{{advice.acceptance.standard}}" class="merchant-flow-page__advice-ask">
+      <text class="merchant-flow-page__advice-ask-title">标准</text>
+      <text class="merchant-flow-page__advice-ask-body">{{advice.acceptance.standard}}</text>
+    </view>
+    <view wx:if="{{advice.acceptance.process}}" class="merchant-flow-page__advice-ask">
+      <text class="merchant-flow-page__advice-ask-title">过程</text>
+      <text class="merchant-flow-page__advice-ask-body">{{advice.acceptance.process}}</text>
+    </view>
+    <view wx:if="{{advice.acceptance.result}}" class="merchant-flow-page__advice-ask">
+      <text class="merchant-flow-page__advice-ask-title">结果</text>
+      <text class="merchant-flow-page__advice-ask-body">{{advice.acceptance.result}}</text>
+    </view>
+  </view>
   <view wx:if="{{advice.ownerFaqs.length}}" class="merchant-flow-page__advice-sec">
     <view class="merchant-flow-page__advice-row">
       <text class="merchant-flow-page__advice-sec-title">车主关心的问题</text>
@@ -776,10 +800,10 @@
               >
                 <view class="merchant-flow-page__delivery-step">
                   <view class="merchant-flow-page__delivery-head">
-                    <text class="text-body merchant-flow-page__delivery-title">交车照</text>
+                    <text class="text-body merchant-flow-page__delivery-title">验收照片</text>
                     <text class="text-caption merchant-flow-page__delivery-flag">至少 1 张</text>
                   </view>
-                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">拍修好后的整车外观（车头或车尾，能看清车身）。修好的部位可再加几张。旧件特写不用传。</text>
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">拍验收的过程和结果：试车工况、仪表读数、修复部位运转状态。整车外观另加 1 张即可，不要只拍整车照充数。</text>
                   <view class="merchant-flow-page__delivery-pool">
                     <view
                       wx:for="{{deliveryPhotos}}"
@@ -811,7 +835,7 @@
                       bindtap="onUploadDeliveryPhotos"
                     >
                       <text class="merchant-flow-page__delivery-add-plus">+</text>
-                      <text class="text-caption merchant-flow-page__delivery-add-label">上传交车图</text>
+                      <text class="text-caption merchant-flow-page__delivery-add-label">上传验收照</text>
                     </view>
                   </view>
                 </view>
@@ -1202,6 +1226,52 @@
                         maxlength="500"
                         auto-height="{{true}}"
                         data-field="repairBrief"
+                        disabled="{{readOnly}}"
+                        bindinput="onWarrantyFieldInput"
+                      />
+                    </view>
+                    <view class="merchant-flow-page__key-fill-field">
+                      <view class="merchant-flow-page__key-fill-label-row">
+                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收标准</text>
+                        <text class="merchant-flow-page__key-fill-req">（按什么确认修好了）</text>
+                      </view>
+                      <textarea
+                        class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                        placeholder="例：低速过减速带无异响，底盘部件运转正常"
+                        value="{{acceptanceStandard}}"
+                        maxlength="200"
+                        auto-height="{{true}}"
+                        data-field="acceptanceStandard"
+                        disabled="{{readOnly}}"
+                        bindinput="onWarrantyFieldInput"
+                      />
+                    </view>
+                    <view class="merchant-flow-page__key-fill-field">
+                      <view class="merchant-flow-page__key-fill-label-row">
+                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收过程</text>
+                      </view>
+                      <textarea
+                        class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                        placeholder="例：完工后同工况路试，对照接车时的异响路段复验"
+                        value="{{acceptanceProcess}}"
+                        maxlength="300"
+                        auto-height="{{true}}"
+                        data-field="acceptanceProcess"
+                        disabled="{{readOnly}}"
+                        bindinput="onWarrantyFieldInput"
+                      />
+                    </view>
+                    <view class="merchant-flow-page__key-fill-field">
+                      <view class="merchant-flow-page__key-fill-label-row">
+                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收结果</text>
+                      </view>
+                      <textarea
+                        class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                        placeholder="例：异响消失，车主随车体验确认"
+                        value="{{acceptanceResult}}"
+                        maxlength="200"
+                        auto-height="{{true}}"
+                        data-field="acceptanceResult"
                         disabled="{{readOnly}}"
                         bindinput="onWarrantyFieldInput"
                       />

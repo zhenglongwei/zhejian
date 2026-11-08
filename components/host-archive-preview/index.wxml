@@ -86,6 +86,22 @@
         <text class="host-archive-preview__p">{{ch.repairBrief}}</text>
       </block>
 
+      <block wx:if="{{ch.acceptance}}">
+        <text class="host-archive-preview__k">验收</text>
+        <view wx:if="{{ch.acceptance.standard}}" class="host-archive-preview__acceptance-row">
+          <text class="host-archive-preview__acceptance-label">标准</text>
+          <text class="host-archive-preview__p">{{ch.acceptance.standard}}</text>
+        </view>
+        <view wx:if="{{ch.acceptance.process}}" class="host-archive-preview__acceptance-row">
+          <text class="host-archive-preview__acceptance-label">过程</text>
+          <text class="host-archive-preview__p">{{ch.acceptance.process}}</text>
+        </view>
+        <view wx:if="{{ch.acceptance.result}}" class="host-archive-preview__acceptance-row">
+          <text class="host-archive-preview__acceptance-label">结果</text>
+          <text class="host-archive-preview__p">{{ch.acceptance.result}}</text>
+        </view>
+      </block>
+
       <block wx:if="{{ch.ownerFaqs && ch.ownerFaqs.length}}">
         <view class="host-archive-preview__k-head">
           <text class="host-archive-preview__k">车主关心的问题</text>

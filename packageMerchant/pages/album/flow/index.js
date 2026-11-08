@@ -456,8 +456,8 @@ const SECTION_LABELS = {
     findingKind: 'work',
   },
   delivery_photos: {
-    title: '交车照',
-    tips: '拍修好后的整车外观；部位图可选',
+    title: '验收照片',
+    tips: '拍验收的过程与结果：试车、仪表读数、修复部位运转状态；整车外观另加 1 张',
     captionPlaceholder: '',
     findingMode: false,
     findingKind: '',
@@ -596,6 +596,9 @@ Page({
     warrantyPeriod: '',
     warrantyNotes: '',
     repairBrief: '',
+    acceptanceStandard: '',
+    acceptanceProcess: '',
+    acceptanceResult: '',
     ownerFaqs: [],
     allDone: false,
     needManualComplete: false,
@@ -1558,6 +1561,11 @@ Page({
         finishedAt: String(this.data.finishedAt || '').trim(),
         confirmCopy: REPAIR_CONFIRM_COPY,
         repairBrief: String(this.data.repairBrief || '').trim(),
+        acceptance: {
+          standard: String(this.data.acceptanceStandard || '').trim(),
+          process: String(this.data.acceptanceProcess || '').trim(),
+          result: String(this.data.acceptanceResult || '').trim(),
+        },
         ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
           .map((row, index) => ({
             id: String((row && row.id) || `faq_${index + 1}`),
@@ -1703,6 +1711,7 @@ Page({
       let warrantyPeriod = ''
       let warrantyNotes = ''
       let repairBrief = ''
+      let acceptanceDraft = null
       let ownerFaqs = []
       let sections = []
       let walkaround = []
@@ -1782,6 +1791,7 @@ Page({
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
           deliveryExteriorUrl = String(photoDraft.deliveryExteriorUrl || '').trim()
           repairBrief = String(photoDraft.repairBrief || '').trim()
+          acceptanceDraft = photoDraft.acceptance && typeof photoDraft.acceptance === 'object' ? photoDraft.acceptance : {}
           ownerFaqs = (Array.isArray(photoDraft.ownerFaqs) ? photoDraft.ownerFaqs : [])
             .map((row, index) => ({
               id: String((row && row.id) || `faq_${index + 1}`),
@@ -2240,6 +2250,9 @@ Page({
         warrantyPeriod,
         warrantyNotes,
         repairBrief,
+        acceptanceStandard: String((acceptanceDraft && acceptanceDraft.standard) || '').trim(),
+        acceptanceProcess: String((acceptanceDraft && acceptanceDraft.process) || '').trim(),
+        acceptanceResult: String((acceptanceDraft && acceptanceDraft.result) || '').trim(),
         ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
@@ -5482,6 +5495,25 @@ Page({
         () => this.commitAppliedPhotoDraft(),
       )
       wx.showToast({ title: '已写入问答', icon: 'none' })
+      return
+    }
+    if (kind === 'acceptance') {
+      if (!advice.canApplyAcceptance || !advice.acceptance) return
+      this.setData(
+        {
+          acceptanceStandard: advice.acceptance.standard || '',
+          acceptanceProcess: advice.acceptance.process || '',
+          acceptanceResult: advice.acceptance.result || '',
+          deliveryAdvice: {
+            ...advice,
+            canApplyAcceptance: false,
+            acceptanceApplied: true,
+          },
+          autoSaveLabel: '保存中…',
+        },
+        () => this.commitAppliedPhotoDraft(),
+      )
+      wx.showToast({ title: '已写入验收', icon: 'none' })
     }
   },
 
@@ -6182,12 +6214,15 @@ Page({
         isWaiting: false,
         hasContent: false,
         repairBrief: '',
+        acceptance: null,
         ownerFaqs: [],
         tips: [],
         canApplyBrief: false,
         canApplyFaqs: false,
+        canApplyAcceptance: false,
         briefApplied: false,
         faqsApplied: false,
+        acceptanceApplied: false,
       }
     }
     const status = String(raw.status || '')
@@ -6217,21 +6252,43 @@ Page({
     const liveFaqs = (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : []).filter(
       (row) => row && String(row.question || '').trim(),
     )
+    const acceptanceRaw =
+      raw.acceptance && typeof raw.acceptance === 'object' ? raw.acceptance : null
+    const acceptance =
+      acceptanceRaw &&
+      (String(acceptanceRaw.standard || '').trim() ||
+        String(acceptanceRaw.process || '').trim() ||
+        String(acceptanceRaw.result || '').trim())
+        ? {
+            standard: String(acceptanceRaw.standard || '').trim(),
+            process: String(acceptanceRaw.process || '').trim(),
+            result: String(acceptanceRaw.result || '').trim(),
+          }
+        : null
+    const liveAcceptanceFilled = Boolean(
+      String(this.data.acceptanceStandard || '').trim() ||
+        String(this.data.acceptanceProcess || '').trim() ||
+        String(this.data.acceptanceResult || '').trim(),
+    )
+    const canApplyAcceptance = Boolean(acceptance) && !liveAcceptanceFilled
     const canApplyBrief = Boolean(repairBrief) && !liveBrief
     const canApplyFaqs = ownerFaqs.length > 0 && !liveFaqs.length
     const briefApplied = Boolean(repairBrief) && Boolean(liveBrief)
     const faqsApplied = ownerFaqs.length > 0 && liveFaqs.length > 0
-    const hasContent = Boolean(repairBrief || ownerFaqs.length || tips.length)
+    const hasContent = Boolean(repairBrief || acceptance || ownerFaqs.length || tips.length)
     return {
       status,
       repairBrief,
+      acceptance,
       ownerFaqs,
       tips,
       hasTips: tips.length > 0,
       canApplyBrief,
       canApplyFaqs,
+      canApplyAcceptance,
       briefApplied,
       faqsApplied,
+      acceptanceApplied: Boolean(acceptance) && liveAcceptanceFilled,
       hasContent,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
@@ -7347,6 +7404,11 @@ Page({
       const gaps = collectDeliveryPhotoDraftGaps({
         repairBrief: this.data.repairBrief,
         ownerFaqs: this.data.ownerFaqs,
+        acceptance: {
+          standard: this.data.acceptanceStandard,
+          process: this.data.acceptanceProcess,
+          result: this.data.acceptanceResult,
+        },
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: this.data.delivererName,
@@ -7357,7 +7419,7 @@ Page({
       })
       if (gaps.length) {
         wx.showModal({
-          title: '请先补全交车信息',
+          title: '请先补全交车与验收信息',
           content: gaps.join('\n'),
           showCancel: false,
           confirmText: '去补全',

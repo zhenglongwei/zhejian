@@ -199,6 +199,13 @@ function keepFilledWorkPatch(prev = {}, incoming = {}) {
 
 function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
   const next = { ...incoming }
+  const acceptanceFilledText = (raw) => {
+    if (!raw || typeof raw !== 'object') return ''
+    return ['standard', 'process', 'result']
+      .map((key) => String(raw[key] || '').trim())
+      .filter(Boolean)
+      .join('')
+  }
   ;[
     'repairBrief',
     'warrantyPeriod',
@@ -225,6 +232,10 @@ function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
     prev.ownerFaqs.length
   ) {
     next.ownerFaqs = prev.ownerFaqs
+  }
+  // 空验收说明不得盖掉已填内容（对象字段：三段全空视为空）
+  if (!textHasValue(acceptanceFilledText(next.acceptance)) && prev.acceptance) {
+    next.acceptance = prev.acceptance
   }
   if (
     (!Array.isArray(next.pendingImages) || !next.pendingImages.length) &&
@@ -1688,6 +1699,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       : {}),
     ...(payload.repairBrief != null ? { repairBrief: payload.repairBrief } : {}),
     ...(payload.ownerFaqs != null ? { ownerFaqs: payload.ownerFaqs } : {}),
+    ...(payload.acceptance != null ? { acceptance: payload.acceptance } : {}),
   })
   // 交车：空简述/问答不得盖掉节点里已有内容（定稿前后都适用）
   if (node.kind === 'delivery_photos') {
@@ -2827,6 +2839,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
             totalAmount: payload.totalAmount,
             deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
             repairBrief: payload.repairBrief,
+            acceptance: payload.acceptance,
             ownerFaqs: payload.ownerFaqs,
             warrantyPeriod: payload.warrantyPeriod,
             warrantyNotes: resolveWarrantyNotes(payload),
