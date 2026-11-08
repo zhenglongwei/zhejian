@@ -102,6 +102,7 @@ Page({
     profileScore: 0,
     profileScoreLabel: '',
     profileGaps: [],
+    profileGapSummary: '',
     gapNote: {},
     photoTips: [],
     photoAdviceOn: false,
@@ -152,10 +153,18 @@ Page({
     ;(scored.gaps || []).forEach((item) => {
       gapNote[item.key] = item.note
     })
+    const missingItems = (scored.items || []).filter((item) => item.points < item.max)
+    const missingLabels = missingItems.map((item) => item.label)
+    const gapSummary = missingLabels.length
+      ? `还差 ${missingLabels.length} 项：${missingLabels
+          .slice(0, 3)
+          .join('、')}${missingLabels.length > 3 ? ' 等' : ''}`
+      : ''
     this.setData({
       profileScore: scored.score,
       profileScoreLabel: scored.label,
       profileGaps: scored.gaps || [],
+      profileGapSummary: gapSummary,
       gapNote,
     })
     this.probePhotos(form)

@@ -343,14 +343,21 @@
   line-height: var(--font-mch-kicker-lh);
 }
 
-.merchant-store-edit__score-title,
-.merchant-store-edit__score-gap {
+.merchant-store-edit__score-title {
   display: block;
   margin: 6rpx 0;
   font-size: var(--font-h3);
   line-height: var(--font-h3-lh);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-inverse);
+}
+
+.merchant-store-edit__score-gaps {
+  display: block;
+  margin-top: 6rpx;
+  color: var(--color-mch-hero-sub);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
 }
 
 .merchant-store-edit__gap {

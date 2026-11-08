@@ -94,10 +94,35 @@ function authorizeOnRolePage(page) {
   })
 }
 
+/**
+ * 把启动确认落到微信侧（治根）。
+ *
+ * 启动弹窗是产品自己主动弹的，用户点 open-type="agreePrivacyAuthorization"
+ * 时不在微信的授权流程里，微信不会记下这次同意 —— 第一次调隐私接口
+ * （选图、选地址）时还会再弹一次。这里在启动确认后主动触发一次
+ * requirePrivacyAuthorize：刚点过同意（5 秒放行窗口内）则直接应答；
+ * 老用户回到身份页时弹窗会本页可见地弹出，同意后微信侧才真正记下授权。
+ * @returns {Promise<boolean>} 微信侧是否已可调用隐私接口
+ */
+function confirmWechatPrivacy() {
+  if (typeof wx.getPrivacySetting !== 'function') return Promise.resolve(true)
+  return queryPrivacySetting().then((setting) => {
+    if (!setting.needAuthorization) return true
+    if (typeof wx.requirePrivacyAuthorize !== 'function') return true
+    return new Promise((resolve) => {
+      wx.requirePrivacyAuthorize({
+        success: () => resolve(true),
+        fail: () => resolve(false),
+      })
+    })
+  })
+}
+
 module.exports = {
   HOME_PRIVACY_COPY,
   LOCATION_PRIVACY_COPY,
   queryPrivacySetting,
   requestPrivacyAuthorization,
   authorizeOnRolePage,
+  confirmWechatPrivacy,
 }

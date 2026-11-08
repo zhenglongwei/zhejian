@@ -19,7 +19,7 @@
     <view class="merchant-store-edit__score-copy">
       <text class="merchant-store-edit__score-kicker">资料完善度</text>
       <text wx:if="{{profileScoreLabel}}" class="merchant-store-edit__score-title">{{profileScoreLabel}}</text>
-      <text wx:for="{{profileGaps}}" wx:key="key" class="merchant-store-edit__score-gap">{{item.note}}</text>
+      <text wx:if="{{profileGapSummary}}" class="merchant-store-edit__score-gaps">{{profileGapSummary}}</text>
     </view>
     <view class="merchant-store-edit__score-num">
       <text>{{profileScore}}</text>

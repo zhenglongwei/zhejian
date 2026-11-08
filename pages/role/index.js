@@ -1,6 +1,6 @@
 const { isLoggedIn, isMerchant, getSession } = require('../../utils/auth')
 const { hasAgreedLegalConsent, markLegalConsent } = require('../../utils/legal-consent')
-const { authorizeOnRolePage } = require('../../utils/privacy-authorize')
+const { authorizeOnRolePage, confirmWechatPrivacy } = require('../../utils/privacy-authorize')
 const { wechatLogin, fetchMineSummary, refreshSession } = require('../../services/user')
 const {
   ROLE_MERCHANT,
@@ -53,6 +53,13 @@ Page({
   },
 
   async bootstrap() {
+    // 启动确认后立即把同意落到微信侧：否则第一次选图/选地址时微信还会再弹一次。
+    // 新用户刚点过同意，requirePrivacyAuthorize 会被 5 秒放行窗口直接应答；
+    // 老用户微信侧授权被重置时，弹窗会在本页可见地弹出，同意后才继续。
+    const wechatAuthorized = await confirmWechatPrivacy()
+    if (!wechatAuthorized) {
+      console.warn('[role] 微信隐私授权未完成，后续隐私接口可能再弹授权')
+    }
     // 登录态先于角色：本机记住的角色不作数，先把身份确认/刷新一遍再跳。
     // 否则会带着失效的登录态进首页 —— 首页拉不到数据，还会被当成「没入驻」
     if (!isLoggedIn()) {

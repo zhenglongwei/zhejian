@@ -7,6 +7,7 @@
  */
 const { isLoggedIn } = require('../../utils/auth')
 const { hasAgreedLegalConsent, markLegalConsent } = require('../../utils/legal-consent')
+const { confirmWechatPrivacy } = require('../../utils/privacy-authorize')
 const { wechatLogin } = require('../../services/user')
 const { post } = require('../../services/request')
 
@@ -60,6 +61,8 @@ Page({
   },
 
   async prepare() {
+    // 与身份页同一口径：协议确认后把同意落到微信侧，避免后续隐私接口二次弹窗
+    await confirmWechatPrivacy()
     if (!isLoggedIn()) {
       try {
         await wechatLogin()
