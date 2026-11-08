@@ -1003,6 +1003,14 @@ function contextOf(album, extraNotes = {}) {
       : null,
     warrantyPeriod: text(draft.warrantyPeriod || reportPayload.warrantyPeriod),
     warrantyNotes: text(draft.warrantyNotes || reportPayload.warrantyNotes),
+    acceptance:
+      draft.acceptance && typeof draft.acceptance === 'object'
+        ? {
+            standard: text(draft.acceptance.standard),
+            process: text(draft.acceptance.process),
+            result: text(draft.acceptance.result),
+          }
+        : null,
     hasExterior: Boolean(text(draft.deliveryExteriorUrl)),
     selectedCount: Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls.length : 0,
     deliveryPhotoUrls: deliverySplit.fresh,
@@ -1043,6 +1051,7 @@ function fingerprintFor(kind, ctx) {
         workItems: ctx.workItems,
         warrantyPeriod: ctx.warrantyPeriod,
         warrantyNotes: ctx.warrantyNotes,
+        acceptance: ctx.acceptance || null,
         hasExterior: ctx.hasExterior,
         selectedCount: ctx.selectedCount,
         workAdviceAt: ctx.workAdviceAt,
@@ -1389,6 +1398,7 @@ function deliveryInstruction(ctx) {
     factPack: ctx.factPack || null,
     warrantyPeriod: ctx.warrantyPeriod,
     warrantyNotes: ctx.warrantyNotes,
+    acceptance: ctx.acceptance || null,
     hasExterior: ctx.hasExterior,
     selectedCount: ctx.selectedCount,
   })
@@ -1396,7 +1406,7 @@ function deliveryInstruction(ctx) {
     '你是修理厂的交车顾问。根据整单事实，写出本次维修简述和车主会问的问题。',
     '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
     '简述：120到200字的一段话，写进车主报告抬头，按自然顺序覆盖五件事——①车主为什么来（诉求）；②查出了什么（挑与诉求最相关的两三项检测结果并带结果状态，检测中「需关注」的项也要点到）；③怎么修的（关键工艺或用料特色，如原厂件、按规定力矩复紧、举升作业，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保（期限/范围，需关注但本次未处理的项怎么观察）。这是提炼不是流水账：不要逐节点复述全部内容，一句话能说清的不拆成几句。不要写价格和隐私，不编没做的事。',
-    '验收起草（重要）：根据整单事实起草「验收」三段，店员点应用才写入交车节点。标准=按什么确认修好了（对照车主诉求与检测发现，如「异响消失、部件运转正常」）；过程=实际怎么验的（试车工况、效果确认、仪表读数等，只写参考材料里有依据的）；结果=验下来如何（实测情况，写具体不写「一切正常」这类空话，表述避免「彻底解决」「根治」等绝对化说法）。参考材料不足以起草某段时留空，不要编。',
+    '验收起草（重要）：根据整单事实起草「验收」三段，店员点应用才写入交车节点。标准=按什么确认修好了（对照车主诉求与检测发现，如「异响消失、部件运转正常」）；过程=实际怎么验的（试车工况、效果确认、仪表读数等，只写参考材料里有依据的）；结果=验下来如何（实测情况，写具体不写「一切正常」这类空话，表述避免「彻底解决」「根治」等绝对化说法）。参考材料不足以起草某段时留空，不要编。参考材料里已有验收（acceptance）时照样起草，店员自行比对取舍；若已写的验收有绝对化表述或没有可验证依据的效果描述，在提醒里指出并给更稳妥的替代说法。',
     '问答：3到8条，随车主报告用于公开案例页（店员核对后公开），也是其他消费者向 AI 咨询时会被检索到的答案：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」，脱离页面也知道问的是哪台车什么项目。优先覆盖两类：①本次维修的注意事项——修后护理、复查时机、禁忌（含检测中「需关注」项的观察方法）和质保与返修（期限内出问题怎么找门店），这两条至少各写一条；②同类问题在修前怎么判断（出现什么症状该来检查、拖久会怎样）和由这例稍作延伸的普遍问题（这类部件一般多久老化、原厂件与副厂件差别等），用通用汽修常识回答，只讲常识、不编本案没有的检测结论，不制造焦虑推加项，答句末尾点明「具体以到店检测为准」。答句先写这例的具体事实（部位、状态、做了什么、结果如何，禁止「已正常处理」这类空话），再接一句叮嘱；延伸类问答写通用情况并说明是常识。参考材料里有车龄（年款）或里程时，可写一条「这车龄/公里数做这个有没有必要」式问答，只解释不推断。事实不够 3 条时可以写和本案相关的常见问。',
     '图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不描述无关背景（居民楼、行人、街景、地面等），不写推测结论，不写车牌与人脸。',
     '提醒：只写本步还缺的，比如交车照、质保期限空、验收方法与结果缺失。其它键留空。店员点应用才写入。',

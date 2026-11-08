@@ -842,6 +842,11 @@
   flex: none;
 }
 
+.merchant-flow-page__advice-stale {
+  display: block;
+  padding: 8rpx 32rpx 0;
+}
+
 .merchant-flow-page__advice-refresh {
   color: var(--color-primary);
 }
