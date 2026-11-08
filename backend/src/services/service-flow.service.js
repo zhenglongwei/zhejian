@@ -2178,6 +2178,7 @@ async function proxyConfirmFlowDocument(
       err.status = 400
       throw err
     }
+    const prevDoc = nodes[index].document || emptyDocument('')
 
     // 信封模式：同车主确认——方案内容在节点 content
     const mergedPayload = mergeConfirmPayload(nodes[index], prevDoc, payload.document && payload.document.payload)
