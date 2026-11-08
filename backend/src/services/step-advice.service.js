@@ -374,6 +374,7 @@ function parseDeliveryAdvice(raw) {
       repairBrief,
       ownerFaqs,
       acceptance: null,
+      schema: 2,
       tips,
       publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
       repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 300) } : null,
@@ -389,6 +390,7 @@ function parseDeliveryAdvice(raw) {
     repairBrief,
     ownerFaqs,
     acceptance,
+    schema: 2,
     tips,
     publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
     repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 300) } : null,
@@ -1665,12 +1667,14 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
   const status = text(advice.status)
   const fingerprint = text(advice.fingerprint)
   const contentFingerprint = text(options.contentFingerprint)
-  const hasBody = adviceHasContent(advice, kind)
-  const stale =
+  const contentStale =
     Boolean(fingerprint) &&
     Boolean(contentFingerprint) &&
-    fingerprint !== contentFingerprint &&
-    (status === 'ready' || hasBody)
+    fingerprint !== contentFingerprint
+  // 旧版提示词生成的交车意见（无验收起草）视为过时，引导店员刷新
+  const adviceOutdated = kind === 'delivery' && Number(advice.schema || 1) < 2
+  const hasBody = adviceHasContent(advice, kind)
+  const stale = (contentStale || adviceOutdated) && (status === 'ready' || hasBody)
   const isWaiting = status === 'queued' || status === 'running'
   const base = {
     status,
