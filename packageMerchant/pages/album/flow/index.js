@@ -6097,8 +6097,13 @@ Page({
       const advice = String((row && row.advice) || '').trim()
       const curName = String((current && current.partName) || '').trim()
       const curAdvice = String((current && current.advice) || '').trim()
-      const nextName = !curName ? partName : ''
-      const nextAdvice = !curAdvice ? advice : ''
+      const curResult = String((current && current.result) || '').trim()
+      const singleGroup = !wantSplit && groups.length === 1 ? groups[0] : null
+      const nextName = !curName ? (partName || String((singleGroup && singleGroup.partName) || '').trim()) : ''
+      const nextAdvice = !curAdvice
+        ? advice || String((singleGroup && (singleGroup.advice || singleGroup.note)) || '').trim()
+        : ''
+      const nextResult = singleGroup && !curResult ? String((singleGroup && singleGroup.result) || '').trim() : ''
       const stillThere = Boolean(current)
       const editId = String((row && row.id) || `edit_item_${findingId}`)
       if (!this._appliedInspectEditIds) this._appliedInspectEditIds = new Set()
@@ -6121,9 +6126,15 @@ Page({
         canApply = (!photosLanded && hasPhotoHost) || resultPending
         applied = photosLanded && !resultPending
       } else if (showGroups) {
-        // 一组只展示检测项目和描述，不改检测项
-        canApply = false
-        applied = false
+        // 一组（无需拆分）：AI 写的描述/检查结果还没落到检测项时，也可一键应用（不挪图）
+        const suggestedAdvice = String((singleGroup && (singleGroup.advice || singleGroup.note)) || '').trim()
+        const suggestedResult = String((singleGroup && singleGroup.result) || '').trim()
+        const adviceLanded = !suggestedAdvice || Boolean(curAdvice)
+        const resultLanded = !suggestedResult || Boolean(curResult)
+        canApply = Boolean(stillThere && (!adviceLanded || !resultLanded))
+        applied = Boolean(
+          markedApplied || (stillThere && (suggestedAdvice || suggestedResult) && adviceLanded && resultLanded),
+        )
       } else {
         canApply = Boolean(stillThere && (nextName || nextAdvice))
         applied = Boolean(
@@ -6171,6 +6182,7 @@ Page({
         findingId,
         partName: nextName,
         advice: nextAdvice,
+        result: nextResult,
         groups: shownGroups,
         hasGroups: shownGroups.length >= 1,
       })
@@ -8100,11 +8112,17 @@ Page({
           images: this.findingImagesFromRows(findings, this.data.odometerUrl),
         }
       }
+      const nextResult = String((line && line.result) || '').trim()
       const findings = list.map((row, fi) => {
         if (fi !== idx) return row
         const partName = String(row.partName || '').trim() || nextName
         const advice = String(row.advice || '').trim() || nextAdvice
-        if (partName === String(row.partName || '').trim() && advice === String(row.advice || '').trim()) {
+        const result = String(row.result || '').trim() || nextResult
+        if (
+          partName === String(row.partName || '').trim() &&
+          advice === String(row.advice || '').trim() &&
+          result === String(row.result || '').trim()
+        ) {
           return row
         }
         changed = true
@@ -8113,6 +8131,7 @@ Page({
           ...row,
           partName,
           advice,
+          result,
           aiApply: null,
         }
       })
