@@ -1739,12 +1739,9 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       err.status = 400
       throw err
     }
-  } else if (photoCount < 1) {
-    const err = new Error(
-      node.kind === 'delivery_photos'
-        ? '请指定整车外观（从施工图选择或补拍）'
-        : '请至少上传 1 张过程照片',
-    )
+  } else if (node.kind !== 'delivery_photos' && photoCount < 1) {
+    // 交车节点不强制上传照片：施工过程可能已有验收照，AI 会引用施工图观察做验收判断
+    const err = new Error('请至少上传 1 张过程照片')
     err.status = 400
     throw err
   }

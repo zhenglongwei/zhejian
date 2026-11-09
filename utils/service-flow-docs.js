@@ -1459,9 +1459,6 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.delivererName || '').trim()) {
     gaps.push('请填写交付人')
   }
-  if (!String(payload.deliveryExteriorUrl || '').trim()) {
-    gaps.push('请指定整车外观（从施工图选择或补拍）')
-  }
   return gaps
 }
 
