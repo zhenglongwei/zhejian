@@ -5513,11 +5513,17 @@ Page({
     }
     if (kind === 'acceptance') {
       if (!advice.canApplyAcceptance || !advice.acceptance) return
+      // 只写 AI 起草了且还没填的段；空段不覆盖店员已写内容
+      const patch = {}
+      ;['standard', 'process', 'result'].forEach((key) => {
+        const draftValue = String(advice.acceptance[key] || '').trim()
+        const liveValue = String(this.data[`acceptance${key[0].toUpperCase()}${key.slice(1)}`] || '').trim()
+        if (draftValue && !liveValue) patch[`acceptance${key[0].toUpperCase()}${key.slice(1)}`] = draftValue
+      })
+      if (!Object.keys(patch).length) return
       this.setData(
         {
-          acceptanceStandard: advice.acceptance.standard || '',
-          acceptanceProcess: advice.acceptance.process || '',
-          acceptanceResult: advice.acceptance.result || '',
+          ...patch,
           deliveryAdvice: {
             ...advice,
             canApplyAcceptance: false,
@@ -6291,17 +6297,23 @@ Page({
             result: String(acceptanceRaw.result || '').trim(),
           }
         : null
-    const liveAcceptanceFilled = Boolean(
-      String(this.data.acceptanceStandard || '').trim() ||
-        String(this.data.acceptanceProcess || '').trim() ||
-        String(this.data.acceptanceResult || '').trim(),
-    )
-    const canApplyAcceptance = Boolean(acceptance) && !liveAcceptanceFilled
+    // 验收按段判断：只有「有起草且该段还没写」才可应用；AI 只对有依据的段给起草
+    const liveAcceptance = {
+      standard: String(this.data.acceptanceStandard || '').trim(),
+      process: String(this.data.acceptanceProcess || '').trim(),
+      result: String(this.data.acceptanceResult || '').trim(),
+    }
+    const acceptanceDraftKeys = acceptance
+      ? ['standard', 'process', 'result'].filter((key) => String(acceptance[key] || '').trim())
+      : []
+    const canApplyAcceptance = acceptanceDraftKeys.some((key) => !liveAcceptance[key])
     const canApplyBrief = Boolean(repairBrief) && !liveBrief
     const canApplyFaqs = ownerFaqs.length > 0 && !liveFaqs.length
     const briefApplied = Boolean(repairBrief) && Boolean(liveBrief)
     const faqsApplied = ownerFaqs.length > 0 && liveFaqs.length > 0
-    const hasContent = Boolean(repairBrief || acceptance || ownerFaqs.length || tips.length)
+    const hasContent = Boolean(
+      repairBrief || acceptanceDraftKeys.length || ownerFaqs.length || tips.length,
+    )
     return {
       status,
       repairBrief,
@@ -6314,7 +6326,8 @@ Page({
       canApplyAcceptance,
       briefApplied,
       faqsApplied,
-      acceptanceApplied: Boolean(acceptance) && liveAcceptanceFilled,
+      acceptanceApplied:
+        acceptanceDraftKeys.length > 0 && acceptanceDraftKeys.every((key) => Boolean(liveAcceptance[key])),
       hasContent,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',

@@ -94,9 +94,12 @@
       <text wx:elif="{{advice.briefApplied}}" class="merchant-flow-page__advice-state">已应用</text>
     </view>
   </view>
-  <view wx:if="{{advice.acceptance}}" class="merchant-flow-page__advice-sec">
+  <view
+    wx:if="{{advice.acceptance && (advice.acceptance.standard || advice.acceptance.process || advice.acceptance.result)}}"
+    class="merchant-flow-page__advice-sec"
+  >
     <view class="merchant-flow-page__advice-row">
-      <text class="merchant-flow-page__advice-sec-title">验收（标准/过程/结果）</text>
+      <text class="merchant-flow-page__advice-sec-title">验收</text>
       <text
         wx:if="{{advice.canApplyAcceptance}}"
         class="merchant-flow-page__advice-apply"
