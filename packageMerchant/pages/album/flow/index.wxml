@@ -96,6 +96,7 @@
     <view wx:for="{{advice.acceptance.items}}" wx:key="index" class="merchant-flow-page__advice-ask">
       <text class="merchant-flow-page__advice-ask-title">{{item.project || '验收项'}}</text>
       <text wx:if="{{item.note}}" class="merchant-flow-page__advice-ask-body">{{item.note}}</text>
+      <text wx:else class="merchant-flow-page__advice-ask-body">还缺这个项目的验收画面——补传对应照片或填写验收情况后，点「刷新」会重新起草。</text>
     </view>
   </view>
   <view wx:if="{{advice.repairBrief}}" class="merchant-flow-page__advice-sec">
@@ -790,53 +791,6 @@
               </view>
 
               <view
-                wx:if="{{isDeliveryPhotoStep}}"
-                class="merchant-flow-page__doc-block merchant-flow-page__section merchant-flow-page__delivery"
-              >
-                <view class="merchant-flow-page__delivery-step">
-                  <view class="merchant-flow-page__delivery-head">
-                    <text class="text-body merchant-flow-page__delivery-title">验收照片</text>
-                    <text class="text-caption merchant-flow-page__delivery-flag">至少 1 张</text>
-                  </view>
-                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">拍验收的过程和结果：试车工况、仪表读数、修复部位运转状态。整车外观另加 1 张即可，不要只拍整车照充数。</text>
-                  <view class="merchant-flow-page__delivery-pool">
-                    <view
-                      wx:for="{{deliveryPhotos}}"
-                      wx:for-item="shot"
-                      wx:key="url"
-                      class="merchant-flow-page__delivery-pool-item {{shot.isExterior ? 'is-current' : ''}}"
-                    >
-                      <image
-                        class="merchant-flow-page__delivery-pool-img image-placeholder"
-                        src="{{shot.url}}"
-                        mode="aspectFill"
-                        data-url="{{shot.url}}"
-                        bindtap="onPreviewDeliveryPhoto"
-                      />
-                      <text
-                        wx:if="{{shot.isExterior}}"
-                        class="merchant-flow-page__delivery-pool-check"
-                      >外观</text>
-                      <text
-                        wx:if="{{!readOnly}}"
-                        class="merchant-flow-page__delivery-pool-remove"
-                        data-url="{{shot.url}}"
-                        catchtap="onRemoveDeliveryPhoto"
-                      >删除</text>
-                    </view>
-                    <view
-                      wx:if="{{!readOnly}}"
-                      class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
-                      bindtap="onUploadDeliveryPhotos"
-                    >
-                      <text class="merchant-flow-page__delivery-add-plus">+</text>
-                      <text class="text-caption merchant-flow-page__delivery-add-label">上传验收照</text>
-                    </view>
-                  </view>
-                </view>
-              </view>
-
-              <view
                 wx:for="{{sections}}"
                 wx:for-item="section"
                 wx:for-index="sectionIndex"
@@ -1228,7 +1182,7 @@
                     <view class="merchant-flow-page__key-fill-field">
                       <view class="merchant-flow-page__key-fill-label-row">
                         <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收</text>
-                        <text class="merchant-flow-page__key-fill-req">（按项目分：标准、结果必填，过程选填）</text>
+                        <text class="merchant-flow-page__key-fill-req">（按报价单项目，逐项填写验收情况）</text>
                       </view>
                       <view wx:for="{{acceptanceItems}}" wx:key="index" class="merchant-flow-page__owner-faq">
                         <view class="merchant-flow-page__owner-faq-head">
@@ -1265,6 +1219,52 @@
                         class="text-caption merchant-flow-page__owner-faq-remove"
                         bindtap="onAddAcceptanceItem"
                       >＋ 添加验收项目</text>
+                    </view>
+                    <view
+                      wx:if="{{isDeliveryPhotoStep}}"
+                      class="merchant-flow-page__doc-block merchant-flow-page__section merchant-flow-page__delivery"
+                    >
+                      <view class="merchant-flow-page__delivery-step">
+                        <view class="merchant-flow-page__delivery-head">
+                          <text class="text-body merchant-flow-page__delivery-title">验收照片</text>
+                          <text class="text-caption merchant-flow-page__delivery-flag">建议补充</text>
+                        </view>
+                        <text class="text-caption text-secondary merchant-flow-page__delivery-hint">施工里已有验收画面的可以不传。建议拍：举升检查、修复部位近景、试车工况；不要只拍整车照充数。</text>
+                        <view class="merchant-flow-page__delivery-pool">
+                          <view
+                            wx:for="{{deliveryPhotos}}"
+                            wx:for-item="shot"
+                            wx:key="url"
+                            class="merchant-flow-page__delivery-pool-item {{shot.isExterior ? 'is-current' : ''}}"
+                          >
+                            <image
+                              class="merchant-flow-page__delivery-pool-img image-placeholder"
+                              src="{{shot.url}}"
+                              mode="aspectFill"
+                              data-url="{{shot.url}}"
+                              bindtap="onPreviewDeliveryPhoto"
+                            />
+                            <text
+                              wx:if="{{shot.isExterior}}"
+                              class="merchant-flow-page__delivery-pool-check"
+                            >外观</text>
+                            <text
+                              wx:if="{{!readOnly}}"
+                              class="merchant-flow-page__delivery-pool-remove"
+                              data-url="{{shot.url}}"
+                              catchtap="onRemoveDeliveryPhoto"
+                            >删除</text>
+                          </view>
+                          <view
+                            wx:if="{{!readOnly}}"
+                            class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
+                            bindtap="onUploadDeliveryPhotos"
+                          >
+                            <text class="merchant-flow-page__delivery-add-plus">+</text>
+                            <text class="text-caption merchant-flow-page__delivery-add-label">上传验收照</text>
+                          </view>
+                        </view>
+                      </view>
                     </view>
                     <view class="merchant-flow-page__key-fill-field">
                       <view class="merchant-flow-page__key-fill-label-row">

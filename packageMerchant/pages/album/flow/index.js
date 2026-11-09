@@ -5551,7 +5551,10 @@ Page({
         })
         .filter((row) => row.project || row.note)
       if (!draftItems.length) return
-      const liveItems = (this.data.acceptanceItems || []).map((row) => ({ ...row }))
+      // 应用即以本次草稿为准：剔除无项目名的旧残留项（历史单组/旧格式遗留），避免追加出空白行
+      const liveItems = (this.data.acceptanceItems || [])
+        .filter((row) => String((row && row.project) || '').trim())
+        .map((row) => ({ ...row }))
       draftItems.forEach((item) => {
         const hit = liveItems.find((row) => (row.project || '') === item.project)
         if (hit) {
