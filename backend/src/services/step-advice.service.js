@@ -1712,6 +1712,7 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     ...base,
     repairBrief: text(advice.repairBrief),
     ownerFaqs: Array.isArray(advice.ownerFaqs) ? advice.ownerFaqs : [],
+    acceptance: advice.acceptance && typeof advice.acceptance === 'object' ? advice.acceptance : null,
     tips: Array.isArray(advice.tips) ? advice.tips : [],
     repair: advice.repair || null,
     warranty: advice.warranty || null,
