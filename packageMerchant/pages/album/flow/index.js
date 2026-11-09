@@ -242,6 +242,26 @@ function flowContentSave(bag) {
   return { content: next, photoDraft: next }
 }
 
+/** 节点验收（含 AI 起草与手填）统一转 items：按报价单项目分组 */
+function acceptanceItemsFromDraft(acc) {
+  if (!acc || typeof acc !== 'object') return []
+  if (Array.isArray(acc.items) && acc.items.length) {
+    return acc.items
+      .map((row) => ({
+        project: String((row && row.project) || '').trim(),
+        standard: String((row && row.standard) || '').trim(),
+        process: String((row && row.process) || '').trim(),
+        result: String((row && row.result) || '').trim(),
+      }))
+      .filter((row) => row.project || row.standard || row.process || row.result)
+  }
+  const standard = String(acc.standard || '').trim()
+  const process = String(acc.process || '').trim()
+  const result = String(acc.result || '').trim()
+  if (!standard && !process && !result) return []
+  return [{ project: '', standard, process, result }]
+}
+
 function quoteLinesOf(node) {
   const bag = nodeContentOf(node)
   const payload = (node && node.document && node.document.payload) || {}
@@ -599,6 +619,7 @@ Page({
     acceptanceStandard: '',
     acceptanceProcess: '',
     acceptanceResult: '',
+    acceptanceItems: [],
     ownerFaqs: [],
     allDone: false,
     needManualComplete: false,
@@ -1562,9 +1583,14 @@ Page({
         confirmCopy: REPAIR_CONFIRM_COPY,
         repairBrief: String(this.data.repairBrief || '').trim(),
         acceptance: {
-          standard: String(this.data.acceptanceStandard || '').trim(),
-          process: String(this.data.acceptanceProcess || '').trim(),
-          result: String(this.data.acceptanceResult || '').trim(),
+          items: (this.data.acceptanceItems || [])
+            .map((row) => ({
+              project: String((row && row.project) || '').trim(),
+              standard: String((row && row.standard) || '').trim(),
+              process: String((row && row.process) || '').trim(),
+              result: String((row && row.result) || '').trim(),
+            }))
+            .filter((row) => row.project || row.standard || row.process || row.result),
         },
         ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
           .map((row, index) => ({
@@ -2253,6 +2279,7 @@ Page({
         acceptanceStandard: String((acceptanceDraft && acceptanceDraft.standard) || '').trim(),
         acceptanceProcess: String((acceptanceDraft && acceptanceDraft.process) || '').trim(),
         acceptanceResult: String((acceptanceDraft && acceptanceDraft.result) || '').trim(),
+        acceptanceItems: acceptanceItemsFromDraft(acceptanceDraft),
         ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
@@ -3071,16 +3098,13 @@ Page({
       repairBrief: deliveryDraft.repairBrief || this.data.repairBrief || '',
       acceptance:
         (deliveryDraft.acceptance &&
-          (deliveryDraft.acceptance.standard ||
+          (deliveryDraft.acceptance.items ||
+            deliveryDraft.acceptance.standard ||
             deliveryDraft.acceptance.process ||
             deliveryDraft.acceptance.result) &&
           deliveryDraft.acceptance) ||
-        (this.data.acceptanceStandard || this.data.acceptanceProcess || this.data.acceptanceResult
-          ? {
-              standard: String(this.data.acceptanceStandard || '').trim(),
-              process: String(this.data.acceptanceProcess || '').trim(),
-              result: String(this.data.acceptanceResult || '').trim(),
-            }
+        (this.data.acceptanceItems && this.data.acceptanceItems.length
+          ? { items: this.data.acceptanceItems }
           : null),
       ownerFaqs:
         (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
@@ -5513,17 +5537,33 @@ Page({
     }
     if (kind === 'acceptance') {
       if (!advice.canApplyAcceptance || !advice.acceptance) return
-      // 只写 AI 起草了且还没填的段；空段不覆盖店员已写内容
-      const patch = {}
-      ;['standard', 'process', 'result'].forEach((key) => {
-        const draftValue = String(advice.acceptance[key] || '').trim()
-        const liveValue = String(this.data[`acceptance${key[0].toUpperCase()}${key.slice(1)}`] || '').trim()
-        if (draftValue && !liveValue) patch[`acceptance${key[0].toUpperCase()}${key.slice(1)}`] = draftValue
+      // 只写 AI 起草了且还没填的段；按项目合并，店员已写的不覆盖
+      const draftItems = (Array.isArray(advice.acceptance.items) && advice.acceptance.items.length
+        ? advice.acceptance.items
+        : [advice.acceptance]
+      )
+        .map((row) => ({
+          project: String((row && row.project) || '').trim(),
+          standard: String((row && row.standard) || '').trim(),
+          process: String((row && row.process) || '').trim(),
+          result: String((row && row.result) || '').trim(),
+        }))
+        .filter((row) => row.project || row.standard || row.process || row.result)
+      if (!draftItems.length) return
+      const liveItems = (this.data.acceptanceItems || []).map((row) => ({ ...row }))
+      draftItems.forEach((item) => {
+        const hit = liveItems.find((row) => (row.project || '') === item.project)
+        if (hit) {
+          ;['standard', 'process', 'result'].forEach((key) => {
+            if (item[key] && !hit[key]) hit[key] = item[key]
+          })
+        } else {
+          liveItems.push({ ...item })
+        }
       })
-      if (!Object.keys(patch).length) return
       this.setData(
         {
-          ...patch,
+          acceptanceItems: liveItems,
           deliveryAdvice: {
             ...advice,
             canApplyAcceptance: false,
@@ -5535,6 +5575,38 @@ Page({
       )
       wx.showToast({ title: '已写入验收', icon: 'none' })
     }
+  },
+
+  onAcceptanceItemInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    if (!Number.isFinite(index) || !['project', 'standard', 'process', 'result'].includes(field)) return
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
+      i === index ? { ...row, [field]: String(e.detail.value || '').trim() } : row,
+    )
+    this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDraftOnly()
+    })
+  },
+
+  onAddAcceptanceItem() {
+    if (this.data.readOnly) return
+    this.setData({
+      acceptanceItems: (this.data.acceptanceItems || []).concat([
+        { project: '', standard: '', process: '', result: '' },
+      ]),
+      autoSaveLabel: '保存中…',
+    })
+  },
+
+  onRemoveAcceptanceItem(e) {
+    if (this.data.readOnly) return
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const acceptanceItems = (this.data.acceptanceItems || []).filter((_, i) => i !== index)
+    this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDraftOnly()
+    })
   },
 
   onQuoteLineInput(e) {
@@ -6297,22 +6369,37 @@ Page({
             result: String(acceptanceRaw.result || '').trim(),
           }
         : null
-    // 验收按段判断：只有「有起草且该段还没写」才可应用；AI 只对有依据的段给起草
-    const liveAcceptance = {
-      standard: String(this.data.acceptanceStandard || '').trim(),
-      process: String(this.data.acceptanceProcess || '').trim(),
-      result: String(this.data.acceptanceResult || '').trim(),
-    }
-    const acceptanceDraftKeys = acceptance
-      ? ['standard', 'process', 'result'].filter((key) => String(acceptance[key] || '').trim())
+    // 验收按项目判断：只有「有起草且对应项目/段落还没写」才可应用
+    const liveItems = (this.data.acceptanceItems || []).map((row) => ({
+      project: String((row && row.project) || '').trim(),
+      standard: String((row && row.standard) || '').trim(),
+      process: String((row && row.process) || '').trim(),
+      result: String((row && row.result) || '').trim(),
+    }))
+    const acceptanceDraftItems = acceptance
+      ? (Array.isArray(acceptance.items) && acceptance.items.length
+          ? acceptance.items
+          : [acceptance]
+        )
+          .map((row) => ({
+            project: String((row && row.project) || '').trim(),
+            standard: String((row && row.standard) || '').trim(),
+            process: String((row && row.process) || '').trim(),
+            result: String((row && row.result) || '').trim(),
+          }))
+          .filter((row) => row.project || row.standard || row.process || row.result)
       : []
-    const canApplyAcceptance = acceptanceDraftKeys.some((key) => !liveAcceptance[key])
+    const canApplyAcceptance = acceptanceDraftItems.some((item) => {
+      const hit = liveItems.find((row) => (row.project || '') === item.project)
+      if (!hit) return true
+      return ['standard', 'process', 'result'].some((key) => item[key] && !hit[key])
+    })
     const canApplyBrief = Boolean(repairBrief) && !liveBrief
     const canApplyFaqs = ownerFaqs.length > 0 && !liveFaqs.length
     const briefApplied = Boolean(repairBrief) && Boolean(liveBrief)
     const faqsApplied = ownerFaqs.length > 0 && liveFaqs.length > 0
     const hasContent = Boolean(
-      repairBrief || acceptanceDraftKeys.length || ownerFaqs.length || tips.length,
+      repairBrief || acceptanceDraftItems.length || ownerFaqs.length || tips.length,
     )
     return {
       status,
@@ -6327,7 +6414,12 @@ Page({
       briefApplied,
       faqsApplied,
       acceptanceApplied:
-        acceptanceDraftKeys.length > 0 && acceptanceDraftKeys.every((key) => Boolean(liveAcceptance[key])),
+        acceptanceDraftItems.length > 0 &&
+        acceptanceDraftItems.every((item) => {
+          const hit = liveItems.find((row) => (row.project || '') === item.project)
+          if (!hit) return false
+          return ['standard', 'process', 'result'].every((key) => !item[key] || Boolean(hit[key]))
+        }),
       hasContent,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
@@ -7443,11 +7535,7 @@ Page({
       const gaps = collectDeliveryPhotoDraftGaps({
         repairBrief: this.data.repairBrief,
         ownerFaqs: this.data.ownerFaqs,
-        acceptance: {
-          standard: this.data.acceptanceStandard,
-          process: this.data.acceptanceProcess,
-          result: this.data.acceptanceResult,
-        },
+        acceptance: { items: this.data.acceptanceItems || [] },
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: this.data.delivererName,
@@ -7592,12 +7680,8 @@ Page({
         finishedAt: String(this.data.finishedAt || base.finishedAt || doc.signAt || '').trim(),
         repairBrief: String(this.data.repairBrief || base.repairBrief || doc.repairBrief || '').trim(),
         acceptance:
-          (this.data.acceptanceStandard || this.data.acceptanceProcess || this.data.acceptanceResult
-            ? {
-                standard: String(this.data.acceptanceStandard || '').trim(),
-                process: String(this.data.acceptanceProcess || '').trim(),
-                result: String(this.data.acceptanceResult || '').trim(),
-              }
+          (this.data.acceptanceItems && this.data.acceptanceItems.length
+            ? { items: this.data.acceptanceItems }
             : null) ||
           base.acceptance ||
           doc.acceptance ||

@@ -8,10 +8,28 @@ const filled = {
   warrantyPeriod: '6个月或1万公里',
   delivererName: '李店长',
   deliveryExteriorUrl: 'https://out.jpg',
+  acceptance: {
+    items: [
+      { project: '下摆臂胶套更换', standard: '无异响', process: '路试复验', result: '异响消失' },
+    ],
+  },
 }
 
-test('交车确认：四项与整车外观齐则无缺口', () => {
+test('交车确认：四项+验收齐则无缺口（整车外观不再强制）', () => {
   assert.deepEqual(collectDeliveryPhotoDraftGaps(filled), [])
+})
+
+test('交车确认：验收按项目逐项提示，未填验收给入口提示', () => {
+  assert.ok(
+    collectDeliveryPhotoDraftGaps({ ...filled, acceptance: { items: [{ project: '护板', standard: '', result: '' }] } }).some(
+      (gap) => gap.includes('护板') && gap.includes('验收标准'),
+    ),
+  )
+  assert.ok(
+    collectDeliveryPhotoDraftGaps({ ...filled, acceptance: null }).some((gap) =>
+      gap.includes('请填写验收'),
+    ),
+  )
 })
 
 test('交车确认：缺简述 / 问答 / 质保 / 交付人分别提示', () => {

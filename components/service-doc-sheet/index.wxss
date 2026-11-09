@@ -410,6 +410,11 @@
   color: var(--color-text-secondary);
 }
 
+/* 验收按项目分组 */
+.service-doc-sheet__acc-group {
+  margin-bottom: var(--space-xs);
+}
+
 /* 验收三段：标签 + 内容 */
 .service-doc-sheet__kv {
   display: flex;

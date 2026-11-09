@@ -1459,6 +1459,16 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.delivererName || '').trim()) {
     gaps.push('请填写交付人')
   }
+  const acc = normalizeAcceptance(payload.acceptance)
+  if (!acc) {
+    gaps.push('请填写验收（标准+结果，可先用 AI 起草再应用）')
+  } else {
+    acc.items.forEach((item, index) => {
+      const label = item.project ? `「${item.project}」` : acc.items.length > 1 ? `第 ${index + 1} 项` : ''
+      if (!item.standard) gaps.push(`${label}请填写验收标准（按什么确认修好了）`)
+      if (!item.result) gaps.push(`${label}请填写验收结果（实际验下来如何）`)
+    })
+  }
   return gaps
 }
 
@@ -1740,6 +1750,42 @@ function normalizeOwnerFaqs(list) {
     .slice(0, 5)
 }
 
+/** 验收 items：按报价单项目分组，每项 项目/标准/过程/结果 */
+function normalizeAcceptanceItems(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((row) => {
+      const obj = row && typeof row === 'object' ? row : {}
+      const project = String(obj.project || obj['项目'] || '').trim().slice(0, 60)
+      const standard = String(obj.standard || obj['标准'] || '').trim().slice(0, 200)
+      const process = String(obj.process || obj['过程'] || '').trim().slice(0, 300)
+      const result = String(obj.result || obj['结果'] || '').trim().slice(0, 200)
+      if (!project && !standard && !process && !result) return null
+      return { project, standard, process, result }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+}
+
+/** 验收：items 按项目分组为主形态；旧三段字段保留＝第一项内容，兼容旧读点；全空返回 null */
+function normalizeAcceptance(raw) {
+  const obj = raw && typeof raw === 'object' ? raw : {}
+  const items = normalizeAcceptanceItems(obj.items)
+  const standard = String(obj.standard || '').trim().slice(0, 200)
+  const process = String(obj.process || '').trim().slice(0, 300)
+  const result = String(obj.result || '').trim().slice(0, 200)
+  if (items.length) {
+    return {
+      items,
+      standard: standard || items[0].standard,
+      process: process || items[0].process,
+      result: result || items[0].result,
+    }
+  }
+  if (!standard && !process && !result) return null
+  return { items: [{ project: '', standard, process, result }], standard, process, result }
+}
+
 function buildRepairReportPayload({
   chiefComplaint = '',
   workItems = [],
@@ -1896,14 +1942,7 @@ function normalizePhotoDraft(raw = {}) {
       : [],
     deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
     repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
-    acceptance:
-      raw.acceptance && typeof raw.acceptance === 'object'
-        ? {
-            standard: String(raw.acceptance.standard || '').trim().slice(0, 200),
-            process: String(raw.acceptance.process || '').trim().slice(0, 300),
-            result: String(raw.acceptance.result || '').trim().slice(0, 200),
-          }
-        : null,
+    acceptance: normalizeAcceptance(raw.acceptance),
     ownerFaqs: normalizeOwnerFaqs(raw.ownerFaqs || raw.faq || []),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
@@ -1990,11 +2029,7 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     )
   }
   if (patch.acceptance != null && typeof patch.acceptance === 'object') {
-    next.acceptance = {
-      standard: String(patch.acceptance.standard || '').trim().slice(0, 200),
-      process: String(patch.acceptance.process || '').trim().slice(0, 300),
-      result: String(patch.acceptance.result || '').trim().slice(0, 200),
-    }
+    next.acceptance = normalizeAcceptance(patch.acceptance)
   }
   if (patch.reportGeneratedAt != null) {
     next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()

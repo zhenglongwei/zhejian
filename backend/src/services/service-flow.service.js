@@ -142,7 +142,13 @@ function textHasValue(value) {
 
 function acceptanceHasBody(raw) {
   if (!raw || typeof raw !== 'object') return false
-  return ['standard', 'process', 'result'].some((key) => textHasValue(raw[key]))
+  const items = Array.isArray(raw.items) && raw.items.length ? raw.items : [raw]
+  return items.some(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      ['standard', 'process', 'result'].some((key) => textHasValue(item[key])),
+  )
 }
 
 function finishReportHasDeliveryFields(payload = {}) {

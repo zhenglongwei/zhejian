@@ -95,11 +95,11 @@
     </view>
   </view>
   <view
-    wx:if="{{advice.acceptance && (advice.acceptance.standard || advice.acceptance.process || advice.acceptance.result)}}"
+    wx:if="{{advice.acceptance && (advice.acceptance.items.length || advice.acceptance.standard || advice.acceptance.process || advice.acceptance.result)}}"
     class="merchant-flow-page__advice-sec"
   >
     <view class="merchant-flow-page__advice-row">
-      <text class="merchant-flow-page__advice-sec-title">验收</text>
+      <text class="merchant-flow-page__advice-sec-title">验收（按报价单项目）</text>
       <text
         wx:if="{{advice.canApplyAcceptance}}"
         class="merchant-flow-page__advice-apply"
@@ -108,17 +108,18 @@
       >应用</text>
       <text wx:elif="{{advice.acceptanceApplied}}" class="merchant-flow-page__advice-state">已应用</text>
     </view>
-    <view wx:if="{{advice.acceptance.standard}}" class="merchant-flow-page__advice-ask">
+    <view
+      wx:if="{{!advice.acceptance.items.length && (advice.acceptance.standard || advice.acceptance.process || advice.acceptance.result)}}"
+      class="merchant-flow-page__advice-ask"
+    >
       <text class="merchant-flow-page__advice-ask-title">标准</text>
       <text class="merchant-flow-page__advice-ask-body">{{advice.acceptance.standard}}</text>
     </view>
-    <view wx:if="{{advice.acceptance.process}}" class="merchant-flow-page__advice-ask">
-      <text class="merchant-flow-page__advice-ask-title">过程</text>
-      <text class="merchant-flow-page__advice-ask-body">{{advice.acceptance.process}}</text>
-    </view>
-    <view wx:if="{{advice.acceptance.result}}" class="merchant-flow-page__advice-ask">
-      <text class="merchant-flow-page__advice-ask-title">结果</text>
-      <text class="merchant-flow-page__advice-ask-body">{{advice.acceptance.result}}</text>
+    <view wx:for="{{advice.acceptance.items}}" wx:key="index" class="merchant-flow-page__advice-ask">
+      <text class="merchant-flow-page__advice-ask-title">{{item.project || '验收项'}}</text>
+      <text wx:if="{{item.standard}}" class="merchant-flow-page__advice-ask-body">标准：{{item.standard}}</text>
+      <text wx:if="{{item.process}}" class="merchant-flow-page__advice-ask-body">过程：{{item.process}}</text>
+      <text wx:if="{{item.result}}" class="merchant-flow-page__advice-ask-body">结果：{{item.result}}</text>
     </view>
   </view>
   <view wx:if="{{advice.ownerFaqs.length}}" class="merchant-flow-page__advice-sec">
@@ -1235,49 +1236,66 @@
                     </view>
                     <view class="merchant-flow-page__key-fill-field">
                       <view class="merchant-flow-page__key-fill-label-row">
-                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收标准</text>
-                        <text class="merchant-flow-page__key-fill-req">（按什么确认修好了）</text>
+                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收</text>
+                        <text class="merchant-flow-page__key-fill-req">（按项目分：标准、结果必填，过程选填）</text>
                       </view>
-                      <textarea
-                        class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
-                        placeholder="例：低速过减速带无异响，底盘部件运转正常"
-                        value="{{acceptanceStandard}}"
-                        maxlength="200"
-                        auto-height="{{true}}"
-                        data-field="acceptanceStandard"
-                        disabled="{{readOnly}}"
-                        bindinput="onWarrantyFieldInput"
-                      />
-                    </view>
-                    <view class="merchant-flow-page__key-fill-field">
-                      <view class="merchant-flow-page__key-fill-label-row">
-                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收过程</text>
+                      <view wx:for="{{acceptanceItems}}" wx:key="index" class="merchant-flow-page__owner-faq">
+                        <view class="merchant-flow-page__owner-faq-head">
+                          <input
+                            class="st-field merchant-flow-page__owner-faq-q"
+                            placeholder="项目名，例：底盘护板安装"
+                            value="{{item.project}}"
+                            data-index="{{index}}"
+                            data-field="project"
+                            disabled="{{readOnly}}"
+                            bindinput="onAcceptanceItemInput"
+                          />
+                          <text
+                            wx:if="{{!readOnly && acceptanceItems.length > 1}}"
+                            class="text-caption merchant-flow-page__owner-faq-remove"
+                            data-index="{{index}}"
+                            bindtap="onRemoveAcceptanceItem"
+                          >删除</text>
+                        </view>
+                        <textarea
+                          class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                          placeholder="验收标准（必填，例：护板安装到位无松动）"
+                          value="{{item.standard}}"
+                          maxlength="200"
+                          auto-height="{{true}}"
+                          data-index="{{index}}"
+                          data-field="standard"
+                          disabled="{{readOnly}}"
+                          bindinput="onAcceptanceItemInput"
+                        />
+                        <textarea
+                          class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                          placeholder="验收过程（选填，例：举升检查力矩，路试复验）"
+                          value="{{item.process}}"
+                          maxlength="300"
+                          auto-height="{{true}}"
+                          data-index="{{index}}"
+                          data-field="process"
+                          disabled="{{readOnly}}"
+                          bindinput="onAcceptanceItemInput"
+                        />
+                        <textarea
+                          class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                          placeholder="验收结果（必填，例：护板牢固，外观无缝隙色差）"
+                          value="{{item.result}}"
+                          maxlength="200"
+                          auto-height="{{true}}"
+                          data-index="{{index}}"
+                          data-field="result"
+                          disabled="{{readOnly}}"
+                          bindinput="onAcceptanceItemInput"
+                        />
                       </view>
-                      <textarea
-                        class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
-                        placeholder="例：完工后同工况路试，对照接车时的异响路段复验"
-                        value="{{acceptanceProcess}}"
-                        maxlength="300"
-                        auto-height="{{true}}"
-                        data-field="acceptanceProcess"
-                        disabled="{{readOnly}}"
-                        bindinput="onWarrantyFieldInput"
-                      />
-                    </view>
-                    <view class="merchant-flow-page__key-fill-field">
-                      <view class="merchant-flow-page__key-fill-label-row">
-                        <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收结果</text>
-                      </view>
-                      <textarea
-                        class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
-                        placeholder="例：异响消失，车主随车体验确认"
-                        value="{{acceptanceResult}}"
-                        maxlength="200"
-                        auto-height="{{true}}"
-                        data-field="acceptanceResult"
-                        disabled="{{readOnly}}"
-                        bindinput="onWarrantyFieldInput"
-                      />
+                      <text
+                        wx:if="{{!readOnly}}"
+                        class="text-caption merchant-flow-page__owner-faq-remove"
+                        bindtap="onAddAcceptanceItem"
+                      >＋ 添加验收项目</text>
                     </view>
                     <view class="merchant-flow-page__key-fill-field">
                       <view class="merchant-flow-page__key-fill-label-row">
