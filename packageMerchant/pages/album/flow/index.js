@@ -3039,6 +3039,7 @@ Page({
         totalAmount: repairPayload.totalAmount,
         deliveryPhotos: Array.isArray(repairPayload.deliveryPhotos) ? repairPayload.deliveryPhotos : [],
         repairBrief: repairPayload.repairBrief,
+        acceptance: repairPayload.acceptance,
         ownerFaqs: repairPayload.ownerFaqs,
         warrantyPeriod: repairPayload.warrantyPeriod,
         warrantyNotes: repairPayload.warrantyNotes,
@@ -3068,6 +3069,19 @@ Page({
         extras: liveExtras,
       }),
       repairBrief: deliveryDraft.repairBrief || this.data.repairBrief || '',
+      acceptance:
+        (deliveryDraft.acceptance &&
+          (deliveryDraft.acceptance.standard ||
+            deliveryDraft.acceptance.process ||
+            deliveryDraft.acceptance.result) &&
+          deliveryDraft.acceptance) ||
+        (this.data.acceptanceStandard || this.data.acceptanceProcess || this.data.acceptanceResult
+          ? {
+              standard: String(this.data.acceptanceStandard || '').trim(),
+              process: String(this.data.acceptanceProcess || '').trim(),
+              result: String(this.data.acceptanceResult || '').trim(),
+            }
+          : null),
       ownerFaqs:
         (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
           ? deliveryDraft.ownerFaqs
@@ -7564,6 +7578,17 @@ Page({
         delivererName: String(this.data.delivererName || base.delivererName || doc.signName || '').trim(),
         finishedAt: String(this.data.finishedAt || base.finishedAt || doc.signAt || '').trim(),
         repairBrief: String(this.data.repairBrief || base.repairBrief || doc.repairBrief || '').trim(),
+        acceptance:
+          (this.data.acceptanceStandard || this.data.acceptanceProcess || this.data.acceptanceResult
+            ? {
+                standard: String(this.data.acceptanceStandard || '').trim(),
+                process: String(this.data.acceptanceProcess || '').trim(),
+                result: String(this.data.acceptanceResult || '').trim(),
+              }
+            : null) ||
+          base.acceptance ||
+          doc.acceptance ||
+          null,
         ownerFaqs: faqs,
         workItems,
         deliveryPhotos,

@@ -718,6 +718,7 @@ function contentBagHasSubstance(raw) {
     'photos',
     'deliveryPhotos',
     'repairBrief',
+    'acceptance',
     'ownerFaqs',
     'warrantyPeriod',
     'warrantyNotes',
@@ -1925,6 +1926,14 @@ function normalizePhotoDraft(raw = {}) {
       : [],
     deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
     repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
+    acceptance:
+      raw.acceptance && typeof raw.acceptance === 'object'
+        ? {
+            standard: String(raw.acceptance.standard || '').trim().slice(0, 200),
+            process: String(raw.acceptance.process || '').trim().slice(0, 300),
+            result: String(raw.acceptance.result || '').trim().slice(0, 200),
+          }
+        : null,
     ownerFaqs: normalizeOwnerFaqs(raw.ownerFaqs || raw.faq || []),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
@@ -2009,6 +2018,13 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     next.ownerFaqs = normalizeOwnerFaqs(
       patch.ownerFaqs != null ? patch.ownerFaqs : patch.faq,
     )
+  }
+  if (patch.acceptance != null && typeof patch.acceptance === 'object') {
+    next.acceptance = {
+      standard: String(patch.acceptance.standard || '').trim().slice(0, 200),
+      process: String(patch.acceptance.process || '').trim().slice(0, 300),
+      result: String(patch.acceptance.result || '').trim().slice(0, 200),
+    }
   }
   if (patch.reportGeneratedAt != null) {
     next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()

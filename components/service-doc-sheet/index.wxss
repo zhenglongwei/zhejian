@@ -410,6 +410,22 @@
   color: var(--color-text-secondary);
 }
 
+/* 验收三段：标签 + 内容 */
+.service-doc-sheet__kv {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.service-doc-sheet__kv-label {
+  flex-shrink: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
 /* 费用/施工行内的品牌、用料等附注：缩进加细竖线，体现从属关系 */
 .service-doc-sheet__table-row .service-doc-sheet__note {
   padding-left: var(--space-xs);

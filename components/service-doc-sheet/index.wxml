@@ -203,6 +203,24 @@
       <text class="service-doc-sheet__section">本次维修简述</text>
       <text class="service-doc-sheet__note">{{doc.repairBrief}}</text>
     </view>
+    <view
+      wx:if="{{doc.acceptance && (doc.acceptance.standard || doc.acceptance.process || doc.acceptance.result)}}"
+      class="service-doc-sheet__block"
+    >
+      <text class="service-doc-sheet__section">验收</text>
+      <view wx:if="{{doc.acceptance.standard}}" class="service-doc-sheet__kv">
+        <text class="service-doc-sheet__kv-label">验收标准</text>
+        <text class="service-doc-sheet__note">{{doc.acceptance.standard}}</text>
+      </view>
+      <view wx:if="{{doc.acceptance.process}}" class="service-doc-sheet__kv">
+        <text class="service-doc-sheet__kv-label">验收过程</text>
+        <text class="service-doc-sheet__note">{{doc.acceptance.process}}</text>
+      </view>
+      <view wx:if="{{doc.acceptance.result}}" class="service-doc-sheet__kv">
+        <text class="service-doc-sheet__kv-label">验收结果</text>
+        <text class="service-doc-sheet__note">{{doc.acceptance.result}}</text>
+      </view>
+    </view>
     <view class="service-doc-sheet__block">
       <text class="service-doc-sheet__section">已施工</text>
       <view class="service-doc-sheet__table-head">

@@ -140,9 +140,15 @@ function textHasValue(value) {
   return Boolean(String(value || '').trim())
 }
 
+function acceptanceHasBody(raw) {
+  if (!raw || typeof raw !== 'object') return false
+  return ['standard', 'process', 'result'].some((key) => textHasValue(raw[key]))
+}
+
 function finishReportHasDeliveryFields(payload = {}) {
   return Boolean(
     textHasValue(payload.repairBrief) ||
+      acceptanceHasBody(payload.acceptance) ||
       textHasValue(payload.warrantyPeriod) ||
       textHasValue(payload.warrantyNotes) ||
       (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
@@ -153,6 +159,7 @@ function finishReportHasDeliveryFields(payload = {}) {
 function frozenDeliveryHasBody(draft = {}) {
   return Boolean(
     textHasValue(draft.repairBrief) ||
+      acceptanceHasBody(draft.acceptance) ||
       textHasValue(draft.warrantyPeriod) ||
       textHasValue(draft.warrantyNotes) ||
       textHasValue(draft.deliveryExteriorUrl) ||
@@ -168,6 +175,14 @@ function deliveryFieldsFromReport(payload = {}) {
     .filter(Boolean)
   return {
     repairBrief: String(payload.repairBrief || '').trim(),
+    acceptance:
+      payload.acceptance && typeof payload.acceptance === 'object'
+        ? {
+            standard: String(payload.acceptance.standard || '').trim(),
+            process: String(payload.acceptance.process || '').trim(),
+            result: String(payload.acceptance.result || '').trim(),
+          }
+        : null,
     ownerFaqs: Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [],
     warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
     warrantyNotes: String(payload.warrantyNotes || '').trim(),
@@ -281,6 +296,7 @@ function finishReportMissingFrozenFields(payload = {}, draft = {}, nodes = []) {
     (textHasValue(draft.deliveryExteriorUrl) ||
       (Array.isArray(draft.selectedDeliveryUrls) && draft.selectedDeliveryUrls.length))
   const missingBrief = !textHasValue(payload.repairBrief) && textHasValue(draft.repairBrief)
+  const missingAcceptance = !acceptanceHasBody(payload.acceptance) && acceptanceHasBody(draft.acceptance)
   const missingWarranty =
     !textHasValue(payload.warrantyPeriod) && textHasValue(draft.warrantyPeriod)
   const missingFaqs =
@@ -290,7 +306,7 @@ function finishReportMissingFrozenFields(payload = {}, draft = {}, nodes = []) {
   const missingWork =
     !(Array.isArray(payload.workItems) && payload.workItems.length) &&
     collectAllWorkOrderItems(nodes).length > 0
-  return missingPhotos || missingBrief || missingWarranty || missingFaqs || missingWork
+  return missingPhotos || missingBrief || missingAcceptance || missingWarranty || missingFaqs || missingWork
 }
 
 function pendingImagesFromReportPhotos(payload = {}) {
@@ -360,6 +376,7 @@ function healFinishReportPackage(pkg = {}, album = {}) {
     const fromReport = deliveryFieldsFromReport(reportBody)
     const needFull = !frozenDeliveryHasBody(draft)
     const needBrief = !textHasValue(draft.repairBrief) && textHasValue(fromReport.repairBrief)
+    const needAcceptance = !acceptanceHasBody(draft.acceptance) && acceptanceHasBody(fromReport.acceptance)
     const needFaqs =
       !(Array.isArray(draft.ownerFaqs) && draft.ownerFaqs.length) &&
       Array.isArray(fromReport.ownerFaqs) &&
@@ -367,10 +384,11 @@ function healFinishReportPackage(pkg = {}, album = {}) {
     if (needFull) {
       list[deliveryIdx] = writeNodeContent(delivery, { content: fromReport })
       changed = true
-    } else if (needBrief || needFaqs) {
+    } else if (needBrief || needAcceptance || needFaqs) {
       list[deliveryIdx] = writeNodeContent(delivery, {
         content: {
           ...(needBrief ? { repairBrief: fromReport.repairBrief } : {}),
+          ...(needAcceptance ? { acceptance: fromReport.acceptance } : {}),
           ...(needFaqs ? { ownerFaqs: fromReport.ownerFaqs } : {}),
         },
       })
