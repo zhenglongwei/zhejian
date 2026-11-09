@@ -219,17 +219,9 @@
             <text class="service-doc-sheet__kv-label">项目</text>
             <text class="service-doc-sheet__note">{{acc.project}}</text>
           </view>
-          <view wx:if="{{acc.standard}}" class="service-doc-sheet__kv">
-            <text class="service-doc-sheet__kv-label">标准</text>
-            <text class="service-doc-sheet__note">{{acc.standard}}</text>
-          </view>
-          <view wx:if="{{acc.process}}" class="service-doc-sheet__kv">
-            <text class="service-doc-sheet__kv-label">过程</text>
-            <text class="service-doc-sheet__note">{{acc.process}}</text>
-          </view>
-          <view wx:if="{{acc.result}}" class="service-doc-sheet__kv">
-            <text class="service-doc-sheet__kv-label">结果</text>
-            <text class="service-doc-sheet__note">{{acc.result}}</text>
+          <view wx:if="{{acc.note}}" class="service-doc-sheet__kv">
+            <text class="service-doc-sheet__kv-label">验收</text>
+            <text class="service-doc-sheet__note">{{acc.note}}</text>
           </view>
         </view>
       </block>

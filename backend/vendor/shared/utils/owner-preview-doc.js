@@ -352,21 +352,28 @@ function buildOwnerPreviewDoc(input = {}) {
       input.acceptance && typeof input.acceptance === 'object' ? input.acceptance : {}
     const acceptanceItems = (Array.isArray(acceptanceRaw.items) && acceptanceRaw.items.length
       ? acceptanceRaw.items
-      : acceptanceRaw.standard || acceptanceRaw.process || acceptanceRaw.result
+      : acceptanceRaw.standard || acceptanceRaw.process || acceptanceRaw.result || acceptanceRaw.note
         ? [acceptanceRaw]
         : []
     )
       .map((row) => ({
         project: String((row && (row.project || row['项目'])) || '').trim(),
-        standard: String((row && (row.standard || row['标准'])) || '').trim(),
-        process: String((row && (row.process || row['过程'])) || '').trim(),
-        result: String((row && (row.result || row['结果'])) || '').trim(),
+        note:
+          String((row && (row.note || row['验收'])) || '').trim() ||
+          [
+            String((row && (row.process || row['过程'])) || '').trim(),
+            String((row && (row.result || row['结果'])) || '').trim(),
+          ]
+            .filter(Boolean)
+            .join('；')
+            .trim() ||
+          String((row && (row.standard || row['标准'])) || '').trim(),
       }))
-      .filter((row) => row.project || row.standard || row.process || row.result)
+      .filter((row) => row.project || row.note)
     const acceptance = {
-      standard: String(acceptanceRaw.standard || (acceptanceItems[0] && acceptanceItems[0].standard) || '').trim(),
-      process: String(acceptanceRaw.process || (acceptanceItems[0] && acceptanceItems[0].process) || '').trim(),
-      result: String(acceptanceRaw.result || (acceptanceItems[0] && acceptanceItems[0].result) || '').trim(),
+      standard: String(acceptanceRaw.standard || (acceptanceItems[0] && acceptanceItems[0].note) || '').trim(),
+      process: String(acceptanceRaw.process || '').trim(),
+      result: String(acceptanceRaw.result || '').trim(),
     }
     const ownerFaqs = (Array.isArray(input.ownerFaqs) ? input.ownerFaqs : [])
       .map((row, index) => ({

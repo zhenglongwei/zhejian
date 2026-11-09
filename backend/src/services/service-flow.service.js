@@ -147,7 +147,7 @@ function acceptanceHasBody(raw) {
     (item) =>
       item &&
       typeof item === 'object' &&
-      ['standard', 'process', 'result'].some((key) => textHasValue(item[key])),
+      ['note', 'standard', 'process', 'result'].some((key) => textHasValue(item[key])),
   )
 }
 

@@ -1462,12 +1462,11 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   }
   const acc = normalizeAcceptance(payload.acceptance)
   if (!acc) {
-    gaps.push('请填写验收（标准+结果，可先用 AI 起草再应用）')
+    gaps.push('请填写验收（可先用 AI 起草再应用）')
   } else {
     acc.items.forEach((item, index) => {
       const label = item.project ? `「${item.project}」` : acc.items.length > 1 ? `第 ${index + 1} 项` : ''
-      if (!item.standard) gaps.push(`${label}请填写验收标准（按什么确认修好了）`)
-      if (!item.result) gaps.push(`${label}请填写验收结果（实际验下来如何）`)
+      if (!item.note) gaps.push(`${label}请填写验收情况（做了什么验收、结果如何）`)
     })
   }
   return gaps
@@ -1751,40 +1750,34 @@ function normalizeOwnerFaqs(list) {
     .slice(0, 8)
 }
 
-/** 验收 items：按报价单项目分组，每项 项目/标准/过程/结果 */
+/** 验收 items：按报价单项目分组，每项 项目名+验收说明一段；兼容旧三段（过程+结果合并） */
 function normalizeAcceptanceItems(list) {
   if (!Array.isArray(list)) return []
   return list
     .map((row) => {
       const obj = row && typeof row === 'object' ? row : {}
       const project = String(obj.project || obj['项目'] || '').trim().slice(0, 60)
-      const standard = String(obj.standard || obj['标准'] || '').trim().slice(0, 200)
-      const process = String(obj.process || obj['过程'] || '').trim().slice(0, 300)
-      const result = String(obj.result || obj['结果'] || '').trim().slice(0, 200)
-      if (!project && !standard && !process && !result) return null
-      return { project, standard, process, result }
+      const note =
+        String(obj.note || obj['验收'] || '').trim().slice(0, 300) ||
+        [String(obj.process || obj['过程'] || '').trim(), String(obj.result || obj['结果'] || '').trim()]
+          .filter(Boolean)
+          .join('；')
+          .slice(0, 300) ||
+        String(obj.standard || obj['标准'] || '').trim().slice(0, 300)
+      if (!project && !note) return null
+      return { project, note }
     })
     .filter(Boolean)
     .slice(0, 8)
 }
 
-/** 验收：items 按项目分组为主形态；旧三段字段保留＝第一项内容，兼容旧读点；全空返回 null */
+/** 验收：items 按项目分组（项目名+验收说明一段）；旧单组三段转单项；全空返回 null */
 function normalizeAcceptance(raw) {
   const obj = raw && typeof raw === 'object' ? raw : {}
   const items = normalizeAcceptanceItems(obj.items)
-  const standard = String(obj.standard || '').trim().slice(0, 200)
-  const process = String(obj.process || '').trim().slice(0, 300)
-  const result = String(obj.result || '').trim().slice(0, 200)
-  if (items.length) {
-    return {
-      items,
-      standard: standard || items[0].standard,
-      process: process || items[0].process,
-      result: result || items[0].result,
-    }
-  }
-  if (!standard && !process && !result) return null
-  return { items: [{ project: '', standard, process, result }], standard, process, result }
+  if (items.length) return { items }
+  const legacy = normalizeAcceptanceItems([{ ...obj }])
+  return legacy.length ? { items: legacy } : null
 }
 
 function buildRepairReportPayload({

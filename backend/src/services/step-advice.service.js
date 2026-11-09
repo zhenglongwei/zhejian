@@ -358,7 +358,7 @@ function parseDeliveryAdvice(raw) {
     })
     .filter(Boolean)
     .slice(0, 4)
-  // 验收：按报价单项目逐项起草；「证据」不完备的项，硬闸门强制清空编造的结果
+  // 验收：按报价单项目逐项，一段式（项目+验收说明）；「证据」不完备的项，硬闸门强制清空编造内容
   const accSource = parsed['验收'] || parsed.acceptance
   const accList = Array.isArray(accSource)
     ? accSource
@@ -369,29 +369,26 @@ function parseDeliveryAdvice(raw) {
     .map((row) => {
       const obj = row && typeof row === 'object' ? row : {}
       const project = text(obj['项目'] || obj.project).slice(0, 60)
-      const standard = text(obj['标准'] || obj.standard).slice(0, 200)
-      const process = text(obj['过程'] || obj.process).slice(0, 300)
-      let result = text(obj['结果'] || obj.result).slice(0, 200)
-      if (/不完备|无|缺乏/.test(text(obj['证据'] || obj.evidence))) result = ''
-      if (!project && !standard && !process && !result) return null
-      return { project, standard, process, result }
+      let note = text(obj['验收'] || obj.note).slice(0, 300)
+      if (!note) {
+        // 兼容旧三段输出：过程+结果合并为一段
+        const process = text(obj['过程'] || obj.process)
+        const result = text(obj['结果'] || obj.result)
+        note = [process, result].filter(Boolean).join('；').slice(0, 300)
+      }
+      if (/不完备|无|缺乏/.test(text(obj['证据'] || obj.evidence))) note = ''
+      if (!project && !note) return null
+      return { project, note }
     })
     .filter(Boolean)
     .slice(0, 8)
-  const acceptance = accItems.length
-    ? {
-        items: accItems,
-        standard: accItems[0].standard,
-        process: accItems[0].process,
-        result: accItems[0].result,
-      }
-    : null
-  if (acceptance && !acceptance.standard && !acceptance.process && !acceptance.result) {
+  const acceptance = accItems.length ? { items: accItems } : null
+  if (!acceptance) {
     return {
       repairBrief,
       ownerFaqs,
       acceptance: null,
-      schema: 3,
+      schema: 4,
       tips,
       publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
       repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 300) } : null,
@@ -407,7 +404,7 @@ function parseDeliveryAdvice(raw) {
     repairBrief,
     ownerFaqs,
     acceptance,
-    schema: 3,
+    schema: 4,
     tips,
     publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
     repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 300) } : null,
@@ -1029,13 +1026,8 @@ function contextOf(album, extraNotes = {}) {
               .slice(0, 8)
               .map((row) => ({
                 project: text(row && row.project),
-                standard: text(row && row.standard).slice(0, 80),
-                process: text(row && row.process).slice(0, 80),
-                result: text(row && row.result).slice(0, 80),
+                note: text(row && (row.note || row['验收'])).slice(0, 120),
               })),
-            standard: text(draft.acceptance.standard).slice(0, 80),
-            process: text(draft.acceptance.process).slice(0, 80),
-            result: text(draft.acceptance.result).slice(0, 80),
           }
         : null,
     hasExterior: Boolean(text(draft.deliveryExteriorUrl)),
@@ -1442,13 +1434,13 @@ function deliveryInstruction(ctx) {
     '你是修理厂的交车顾问。根据整单事实，写出本次维修简述和车主会问的问题。',
     '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
     '简述：120到200字的一段话，写进车主报告抬头，按自然顺序覆盖五件事——①车主为什么来（诉求）；②查出了什么（挑与诉求最相关的两三项检测结果并带结果状态，检测中「需关注」的项也要点到）；③怎么修的（关键工艺或用料特色，如原厂件、按规定力矩复紧、举升作业，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保（期限/范围，需关注但本次未处理的项怎么观察）。这是提炼不是流水账：不要逐节点复述全部内容，一句话能说清的不拆成几句。不要写价格和隐私，不编没做的事。',
-    '验收起草（重要）：验收按报价单项目逐项起草，「验收」是数组，报价单里有几个维修项目就写几组，每组带「项目」（用报价单里的项目名）和「标准」「过程」「结果」「证据」五个键。标准=该项目验收合格的口径（对照车主诉求与检测发现）；过程=该项目怎么验收（检查什么部位、什么工况、看哪些画面），这两层不需要看照片，报价单加诉求就能定。「结果」=该项目实际验下来如何，必须有证据才写：证据=已上传照片的画面观察（参考材料里的施工图与交车图看图结论）能覆盖该项目的验收画面、或店员已写的验收文字；该项证据完备时「证据」填"完备"并基于画面与文字写结果（写实测情况，避免「彻底解决」「根治」等绝对化说法）；证据不完备时「证据」填"不完备"、「结果」写空字符串——系统会在代码层校验清空，不要凭维修事实脑补成「已验合格」。不完备的项目在「提醒」里给缺口建议（还缺哪类验收照片、验收文字该怎么写），只给建议不代写。参考材料里已有验收（acceptance）时照样起草，店员自行比对取舍；有绝对化表述或无可验证依据的效果描述，在提醒里指出并给更稳妥替代说法。',
+    '验收起草（重要）：验收按报价单项目逐项起草，「验收」是数组，报价单里有几个维修项目就写几组，每组带「项目」（用报价单里的项目名）、「验收」、「证据」三个键，不写标准段。「验收」=该项目的验收情况，一段话，用专业汽修视角写：做了哪些验收作业（举升复查、力矩复紧、试车工况、修复面检查等）+ 验下来的实际状态，像技师交接时写的验收记录，不要用「车主体验确认」「效果满意」这类消费话术。必须有画面证据才起草：证据=已上传照片的画面里直接可见、且与该项目对应的验收画面（举升下的维修部位、修复面细节等；外观类维修如划痕漆面修复的修复后整车照也算），或店员已写的验收文字。铁律：只写画面里能直接看到的状态，画面证明不了的结论不写——例如画面只有车尾整车照，就不能写底盘项目；画面看的是刹车盘悬挂，就不能推「护板安装到位、力矩符合规定」；看不到力矩数值就不要写力矩合格。该项目证据完备时「证据」填"完备"并起草验收段；证据不完备（没有该项目对应的验收画面、或画面拍不到维修部位）时「证据」填"不完备"、「验收」写空字符串——系统会在代码层校验清空，不要凭维修事实脑补成「已验合格」。不完备的项目在「提醒」里给缺口建议（该项目该补传哪类验收照片、验收文字该怎么写），只给建议不代写。参考材料里已有验收（acceptance）时照样起草，店员自行比对取舍；有画面证明不了的效果描述，在提醒里指出并给更稳妥替代说法。',
     '问答：3到8条，随车主报告用于公开案例页（店员核对后公开），也是其他消费者向 AI 咨询时会被检索到的答案：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」，脱离页面也知道问的是哪台车什么项目。优先覆盖两类：①本次维修的注意事项——修后护理、复查时机、禁忌（含检测中「需关注」项的观察方法）和质保与返修（期限内出问题怎么找门店），这两条至少各写一条；②同类问题在修前怎么判断（出现什么症状该来检查、拖久会怎样）和由这例稍作延伸的普遍问题（这类部件一般多久老化、原厂件与副厂件差别等），用通用汽修常识回答，只讲常识、不编本案没有的检测结论，不制造焦虑推加项，答句末尾点明「具体以到店检测为准」。答句先写这例的具体事实（部位、状态、做了什么、结果如何，禁止「已正常处理」这类空话），再接一句叮嘱；延伸类问答写通用情况并说明是常识。参考材料里有车龄（年款）或里程时，可写一条「这车龄/公里数做这个有没有必要」式问答，只解释不推断。事实不够 3 条时可以写和本案相关的常见问。',
     '图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不描述无关背景（居民楼、行人、街景、地面等），不写推测结论，不写车牌与人脸。',
     '提醒：只写本步还缺的，比如交车照、质保期限空；验收过程/结果缺依据时，给该补传哪类照片、文字怎么写的一般性建议（这类建议只是引导，不需要应用）。其它键留空。店员点应用才写入。',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON（「验收」是数组按报价单项目逐项，每项「证据」如实填“完备”或“不完备”，“不完备”该项的结果写空字符串）：{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"车主反映过减速带左前异响，检查确认左下摆臂胶套老化开裂，其余底盘件状态良好。更换原厂下摆臂胶套总成，按规定力矩复紧，并顺带举升检查了球头与衬套。完工后低速过减速带路试，异响消失。近期少过剧烈颠簸；右前衬套有轻微老化，暂无需处理，日常留意即可。质保 12 个月，同部位出问题免费复检。","验收":[{"项目":"左下摆臂胶套更换","标准":"低速过减速带无异响，摆臂与副车架连接无松旷。","过程":"举升检查螺丝力矩，完工后同工况路试对照接车时的异响路段复验。","结果":"路试异响消失，举升复查胶套安装到位。","证据":"完备"}],"问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"},{"问":"这例质保怎么算？","答":"这例质保 12 个月，同部位出问题可免费复检。"},{"问":"车底盘有异响拖着不修会怎么样？","答":"衬套这类橡胶件开裂后一般会逐渐加重，异响变大还可能连带轮胎偏磨，建议出现就检查，具体以到店检测为准，这是通用情况。"}],"图说":[{"图":"图1","说":"举升后拆下的下摆臂胶套，胶体开裂明显。"}],"提醒":[{"类型":"","标题":"","正文":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON（「验收」是数组按报价单项目逐项，每组带「项目」「验收」「证据」，「证据」如实填“完备”或“不完备”，“不完备”该项的验收写空字符串）：{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"车主反映过减速带左前异响，检查确认左下摆臂胶套老化开裂，其余底盘件状态良好。更换原厂下摆臂胶套总成，按规定力矩复紧，并顺带举升检查了球头与衬套。完工后低速过减速带路试，异响消失。近期少过剧烈颠簸；右前衬套有轻微老化，暂无需处理，日常留意即可。质保 12 个月，同部位出问题免费复检。","验收":[{"项目":"左下摆臂胶套更换","验收":"举升复查胶套安装到位，副车架侧螺栓按规定力矩复紧无渗油干涉；低速过减速带路试异响消失。","证据":"完备"}],"问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"},{"问":"这例质保怎么算？","答":"这例质保 12 个月，同部位出问题可免费复检。"},{"问":"车底盘有异响拖着不修会怎么样？","答":"衬套这类橡胶件开裂后一般会逐渐加重，异响变大还可能连带轮胎偏磨，建议出现就检查，具体以到店检测为准，这是通用情况。"}],"图说":[{"图":"图1","说":"举升后拆下的下摆臂胶套，胶体开裂明显。"}],"提醒":[{"类型":"","标题":"","正文":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1706,7 +1698,7 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     Boolean(contentFingerprint) &&
     fingerprint !== contentFingerprint
   // 旧版提示词生成的交车意见（无验收起草）视为过时，引导店员刷新
-  const adviceOutdated = kind === 'delivery' && Number(advice.schema || 1) < 3
+  const adviceOutdated = kind === 'delivery' && Number(advice.schema || 1) < 4
   const hasBody = adviceHasContent(advice, kind)
   const stale = (contentStale || adviceOutdated) && (status === 'ready' || hasBody)
   const isWaiting = status === 'queued' || status === 'running'

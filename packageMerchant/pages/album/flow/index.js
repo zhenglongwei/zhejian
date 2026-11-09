@@ -242,24 +242,26 @@ function flowContentSave(bag) {
   return { content: next, photoDraft: next }
 }
 
-/** 节点验收（含 AI 起草与手填）统一转 items：按报价单项目分组 */
+/** 节点验收（含 AI 起草与手填）统一转 items：按报价单项目分组，一段式 项目名+验收说明 */
 function acceptanceItemsFromDraft(acc) {
   if (!acc || typeof acc !== 'object') return []
-  if (Array.isArray(acc.items) && acc.items.length) {
-    return acc.items
-      .map((row) => ({
-        project: String((row && row.project) || '').trim(),
-        standard: String((row && row.standard) || '').trim(),
-        process: String((row && row.process) || '').trim(),
-        result: String((row && row.result) || '').trim(),
-      }))
-      .filter((row) => row.project || row.standard || row.process || row.result)
+  const toNote = (row) => {
+    const obj = row && typeof row === 'object' ? row : {}
+    const project = String(obj.project || '').trim()
+    const note =
+      String(obj.note || '').trim() ||
+      [String(obj.process || '').trim(), String(obj.result || '').trim()]
+        .filter(Boolean)
+        .join('；')
+        .trim() ||
+      String(obj.standard || '').trim()
+    return { project, note }
   }
-  const standard = String(acc.standard || '').trim()
-  const process = String(acc.process || '').trim()
-  const result = String(acc.result || '').trim()
-  if (!standard && !process && !result) return []
-  return [{ project: '', standard, process, result }]
+  if (Array.isArray(acc.items) && acc.items.length) {
+    return acc.items.map(toNote).filter((row) => row.project || row.note)
+  }
+  const legacy = toNote(acc)
+  return legacy.project || legacy.note ? [legacy] : []
 }
 
 function quoteLinesOf(node) {
@@ -616,9 +618,6 @@ Page({
     warrantyPeriod: '',
     warrantyNotes: '',
     repairBrief: '',
-    acceptanceStandard: '',
-    acceptanceProcess: '',
-    acceptanceResult: '',
     acceptanceItems: [],
     ownerFaqs: [],
     allDone: false,
@@ -1586,11 +1585,9 @@ Page({
           items: (this.data.acceptanceItems || [])
             .map((row) => ({
               project: String((row && row.project) || '').trim(),
-              standard: String((row && row.standard) || '').trim(),
-              process: String((row && row.process) || '').trim(),
-              result: String((row && row.result) || '').trim(),
+              note: String((row && row.note) || '').trim(),
             }))
-            .filter((row) => row.project || row.standard || row.process || row.result),
+            .filter((row) => row.project || row.note),
         },
         ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
           .map((row, index) => ({
@@ -2276,9 +2273,6 @@ Page({
         warrantyPeriod,
         warrantyNotes,
         repairBrief,
-        acceptanceStandard: String((acceptanceDraft && acceptanceDraft.standard) || '').trim(),
-        acceptanceProcess: String((acceptanceDraft && acceptanceDraft.process) || '').trim(),
-        acceptanceResult: String((acceptanceDraft && acceptanceDraft.result) || '').trim(),
         acceptanceItems: acceptanceItemsFromDraft(acceptanceDraft),
         ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
@@ -5542,21 +5536,26 @@ Page({
         ? advice.acceptance.items
         : [advice.acceptance]
       )
-        .map((row) => ({
-          project: String((row && row.project) || '').trim(),
-          standard: String((row && row.standard) || '').trim(),
-          process: String((row && row.process) || '').trim(),
-          result: String((row && row.result) || '').trim(),
-        }))
-        .filter((row) => row.project || row.standard || row.process || row.result)
+        .map((row) => {
+          const obj = row && typeof row === 'object' ? row : {}
+          return {
+            project: String(obj.project || '').trim(),
+            note:
+              String(obj.note || '').trim() ||
+              [String(obj.process || '').trim(), String(obj.result || '').trim()]
+                .filter(Boolean)
+                .join('；')
+                .trim() ||
+              String(obj.standard || '').trim(),
+          }
+        })
+        .filter((row) => row.project || row.note)
       if (!draftItems.length) return
       const liveItems = (this.data.acceptanceItems || []).map((row) => ({ ...row }))
       draftItems.forEach((item) => {
         const hit = liveItems.find((row) => (row.project || '') === item.project)
         if (hit) {
-          ;['standard', 'process', 'result'].forEach((key) => {
-            if (item[key] && !hit[key]) hit[key] = item[key]
-          })
+          if (item.note && !hit.note) hit.note = item.note
         } else {
           liveItems.push({ ...item })
         }
@@ -5580,7 +5579,7 @@ Page({
   onAcceptanceItemInput(e) {
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
-    if (!Number.isFinite(index) || !['project', 'standard', 'process', 'result'].includes(field)) return
+    if (!Number.isFinite(index) || !['project', 'note'].includes(field)) return
     const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
       i === index ? { ...row, [field]: String(e.detail.value || '').trim() } : row,
     )
@@ -5592,9 +5591,7 @@ Page({
   onAddAcceptanceItem() {
     if (this.data.readOnly) return
     this.setData({
-      acceptanceItems: (this.data.acceptanceItems || []).concat([
-        { project: '', standard: '', process: '', result: '' },
-      ]),
+      acceptanceItems: (this.data.acceptanceItems || []).concat([{ project: '', note: '' }]),
       autoSaveLabel: '保存中…',
     })
   },
@@ -6358,41 +6355,19 @@ Page({
     )
     const acceptanceRaw =
       raw.acceptance && typeof raw.acceptance === 'object' ? raw.acceptance : null
-    const acceptance =
-      acceptanceRaw &&
-      (String(acceptanceRaw.standard || '').trim() ||
-        String(acceptanceRaw.process || '').trim() ||
-        String(acceptanceRaw.result || '').trim())
-        ? {
-            standard: String(acceptanceRaw.standard || '').trim(),
-            process: String(acceptanceRaw.process || '').trim(),
-            result: String(acceptanceRaw.result || '').trim(),
-          }
-        : null
+    const acceptance = acceptanceItemsFromDraft(acceptanceRaw).length
+      ? { items: acceptanceItemsFromDraft(acceptanceRaw) }
+      : null
     // 验收按项目判断：只有「有起草且对应项目/段落还没写」才可应用
     const liveItems = (this.data.acceptanceItems || []).map((row) => ({
       project: String((row && row.project) || '').trim(),
-      standard: String((row && row.standard) || '').trim(),
-      process: String((row && row.process) || '').trim(),
-      result: String((row && row.result) || '').trim(),
+      note: String((row && row.note) || '').trim(),
     }))
-    const acceptanceDraftItems = acceptance
-      ? (Array.isArray(acceptance.items) && acceptance.items.length
-          ? acceptance.items
-          : [acceptance]
-        )
-          .map((row) => ({
-            project: String((row && row.project) || '').trim(),
-            standard: String((row && row.standard) || '').trim(),
-            process: String((row && row.process) || '').trim(),
-            result: String((row && row.result) || '').trim(),
-          }))
-          .filter((row) => row.project || row.standard || row.process || row.result)
-      : []
+    const acceptanceDraftItems = acceptance ? acceptance.items : []
     const canApplyAcceptance = acceptanceDraftItems.some((item) => {
       const hit = liveItems.find((row) => (row.project || '') === item.project)
       if (!hit) return true
-      return ['standard', 'process', 'result'].some((key) => item[key] && !hit[key])
+      return item.note && !hit.note
     })
     const canApplyBrief = Boolean(repairBrief) && !liveBrief
     const canApplyFaqs = ownerFaqs.length > 0 && !liveFaqs.length
@@ -6418,7 +6393,7 @@ Page({
         acceptanceDraftItems.every((item) => {
           const hit = liveItems.find((row) => (row.project || '') === item.project)
           if (!hit) return false
-          return ['standard', 'process', 'result'].every((key) => !item[key] || Boolean(hit[key]))
+          return !item.note || Boolean(hit.note)
         }),
       hasContent,
       stale: Boolean(raw.stale),
