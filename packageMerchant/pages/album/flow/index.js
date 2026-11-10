@@ -6261,6 +6261,9 @@ Page({
         adviceId: `acc_adv_${index + 1}`,
         canApply,
         resultLabel,
+        // 结果色调，用于卡片左侧色条与结果标签配色
+        tone:
+          ({ pass: 'ok', observe: 'warn', rework: 'bad' }[String(item.result || '').trim()] || ''),
         unbuilt,
         standard: String((item && item.standard) || '').trim(),
         method: String((item && item.method) || '').trim(),
@@ -6269,6 +6272,15 @@ Page({
       }
     })
     const canApplyAcceptance = acceptanceDraftItems.some((item) => item.canApply)
+    const acceptancePendingCount = acceptanceDraftItems.filter((item) => item.canApply).length
+    const acceptanceUnbuiltCount = acceptanceDraftItems.filter((item) => item.unbuilt).length
+    const acceptanceSummaryText = [
+      `共 ${acceptanceDraftItems.length} 项`,
+      acceptancePendingCount ? `待写入 ${acceptancePendingCount} 项` : '',
+      acceptanceUnbuiltCount ? `未施工 ${acceptanceUnbuiltCount} 项` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
     // 拆分建议：验收图挂错行，挪图
     const splitGroups = (Array.isArray(raw.groups) ? raw.groups : [])
       .map((row, index) => {
@@ -6309,6 +6321,7 @@ Page({
       repairBrief,
       ownerFaqs,
       acceptance: acceptanceDraftItems.length ? { items: acceptanceDraftItems } : null,
+      acceptanceSummaryText,
       splitGroups,
       hasSplitGroups: splitGroups.length > 0,
       tips,

@@ -1148,6 +1148,130 @@
   color: var(--color-text-secondary);
 }
 
+/* 交车验收建议：逐项卡片，项目多时也能一眼分清 */
+.merchant-flow-page__accept-summary {
+  flex-shrink: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__accept-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__accept-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  overflow: hidden;
+}
+
+.merchant-flow-page__accept-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background-color: var(--color-border-strong);
+}
+
+.merchant-flow-page__accept-card--ok::before {
+  background-color: var(--color-success);
+}
+
+.merchant-flow-page__accept-card--warn::before {
+  background-color: var(--color-warning);
+}
+
+.merchant-flow-page__accept-card--bad::before {
+  background-color: var(--color-danger);
+}
+
+.merchant-flow-page__accept-card--unbuilt {
+  border-style: dashed;
+  background-color: var(--color-bg-page);
+}
+
+.merchant-flow-page__accept-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__accept-title-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__accept-name {
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__accept-badge {
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-muted);
+  font-size: 20rpx;
+  line-height: 28rpx;
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__accept-badge--ok {
+  color: var(--color-success);
+  background-color: var(--color-success-light);
+}
+
+.merchant-flow-page__accept-badge--warn {
+  color: var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.merchant-flow-page__accept-badge--bad {
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
+}
+
+.merchant-flow-page__accept-line {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__accept-label {
+  flex-shrink: 0;
+  width: 96rpx;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-flow-page__accept-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
 .merchant-flow-page__advice-chips {
   display: flex;
   flex-wrap: wrap;
