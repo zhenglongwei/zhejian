@@ -999,6 +999,21 @@
   box-sizing: border-box;
 }
 
+/* 交车验收编辑区：每项蓝色描边，项目多时逐项分明 */
+.merchant-flow-page__acc-row {
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  border: 2rpx solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  box-shadow: 0 2rpx 10rpx rgba(18, 105, 242, 0.08);
+}
+
+.merchant-flow-page__acc-name {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
 .merchant-flow-page__owner-faq-head {
   display: flex;
   flex-direction: row;
