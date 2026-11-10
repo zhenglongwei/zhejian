@@ -92,6 +92,39 @@ function pickGenerateEngines() {
   return resolveConfiguredNodeAiReviewEngines()
 }
 
+/**
+ * 报价 AI 的检测依据：
+ * 1) 检测报告已生成 → 直接用 report.payload.findings
+ * 2) 报告还没生成（status=in_progress，payload 为空）→ 回落到检测节点的 items
+ * 3) items 也为空（inspect_v2 目前恒空）→ 用 suggestOrder（建议补充检测）当待报价项
+ */
+function resolveQuoteFindings(payload, inspectionAdvice) {
+  const reportRows = Array.isArray(payload && payload.findings) ? payload.findings : []
+  if (reportRows.length) return { source: 'report', rows: reportRows }
+
+  const items = Array.isArray(inspectionAdvice && inspectionAdvice.items) ? inspectionAdvice.items : []
+  const fromItems = items
+    .map((row) => ({
+      partName: text(row && (row.partName || row.name || row.title)),
+      result: text(row && (row.result || row.status)),
+      advice: text(row && (row.advice || row.body || row.note)),
+    }))
+    .filter((row) => row.partName || row.result)
+  if (fromItems.length) return { source: 'inspection_items', rows: fromItems }
+
+  const order = Array.isArray(inspectionAdvice && inspectionAdvice.inspectOrder)
+    ? inspectionAdvice.inspectOrder
+    : []
+  const fromOrder = order
+    .map((row) => ({
+      partName: text(typeof row === 'string' ? row : row && (row.partName || row.name || row.title)),
+      result: '',
+      advice: '',
+    }))
+    .filter((row) => row.partName)
+  return { source: fromOrder.length ? 'inspect_order' : 'none', rows: fromOrder }
+}
+
 async function runGenerateLlm(facts, category) {
   const engines = pickGenerateEngines()
   if (!engines.length) return null
@@ -102,7 +135,10 @@ async function runGenerateLlm(facts, category) {
     'Goal: using inspectionAdvice + current quote lines, produce per-line quote reference (market bands + reason) and supplements. The reason field IS the necessity analysis (answers why the owner should do it). Do NOT output separate objections/FAQ/photoPlan blocks.',
     'Hard rules:',
     '- Use inspectionAdvice as context. Do not restate intake photo-coverage.',
-    '- If quote.lines is non-empty: one suggestedLines row per existing line (same name). If empty: propose lines from inspection findings (deal amount stays empty).',
+    '- If quote.lines is non-empty: one suggestedLines row per existing line (same name).',
+    '- If quote.lines is EMPTY: suggestedLines MUST be the proposed quote rows (one row = one concrete billable service, name + market bands + reason). Do NOT leave suggestedLines empty and dump everything into omissions — an empty suggestedLines makes the whole suggestion invalid.',
+    '- findingsSource tells you where findings came from: "report" = confirmed inspection results; "inspection_items"/"inspect_order" = the report is not generated yet, so these are inspection-backed items still to be quoted. Never invent confirmed defects when findingsSource is not "report"; phrase reason as 需拆检确认/检测已列入.',
+    '- inspectionAdvice.imageNotes are per-photo findings from the inspection step; use them for reason text but never mention 图1/画面/图中.',
     '- Every suggestedLines row: name, short note, kind=parts|labor, reason (报价原因), optional boolean.',
     '- kind=parts (parts OR materials: oil, paint, filters, bushings, etc.): oem/brand/economy ranges like "约800-1500"; leave dealer/indie empty.',
     '- kind=labor (teardown, diagnosis, labor-hour, alignment — no part brand): dealer (4S) and indie (修理厂) ranges; leave oem/brand/economy empty.',
@@ -139,13 +175,28 @@ async function runGenerateLlm(facts, category) {
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
       })
       const parsed = parseQuoteAssistPayload(result && result.text, { category })
-      if (!parsed.suggestedLines.length) continue
+      // 报价表为空时，模型会把建议项放进 omissions（表里没有任何行可对齐），
+      // 这时 omissions 就是「要新建的报价行」，不能因为 suggestedLines 为空就判失败。
+      const bandRows = parsed.suggestedLines.length ? parsed.suggestedLines : parsed.omissions
+      if (!bandRows.length) {
+        console.warn('[quote-assist] 模型未给出任何建议行', { engine: engine.id })
+        continue
+      }
       // 有建议行但全无参考区间时换下一家，避免「市场参考价」空壳
-      const hasBand = parsed.suggestedLines.some((row) => lineHasMarketBand(row))
-      if (!hasBand) continue
+      const hasBand = bandRows.some((row) => lineHasMarketBand(row))
+      if (!hasBand) {
+        console.warn('[quote-assist] 建议行全部缺少参考区间', {
+          engine: engine.id,
+          count: bandRows.length,
+        })
+        continue
+      }
       return { parsed, engineId: engine.id }
-    } catch (_) {
-      /* 换下一家 */
+    } catch (err) {
+      console.warn('[quote-assist] 引擎调用失败', {
+        engine: engine.id,
+        message: text(err && err.message).slice(0, 200),
+      })
     }
   }
   return null
@@ -183,8 +234,17 @@ async function runQuoteAssistJob(albumId, merchantId) {
     const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
     const quotePayload = (quote && quote.document && quote.document.payload) || {}
     const quoteLines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
+    const findingsResolved = resolveQuoteFindings(payload, inspectionAdvice)
+    const findings = findingsResolved.rows
+    if (findingsResolved.source !== 'report') {
+      console.warn('[quote-assist] 检测报告未生成，检测依据回落到', {
+        albumId,
+        source: findingsResolved.source,
+        count: findings.length,
+      })
+    }
     const draft = buildQuoteDraft({
-      findings: payload.findings || [],
+      findings,
       templateId: album.templateId,
       serviceName: album.serviceName,
     })
@@ -209,6 +269,10 @@ async function runQuoteAssistJob(albumId, merchantId) {
                 .filter(Boolean),
             )
             .slice(0, 6),
+          imageNotes: (Array.isArray(inspectionAdvice.imageNotes) ? inspectionAdvice.imageNotes : [])
+            .map((row) => text(row && row.note))
+            .filter(Boolean)
+            .slice(0, 8),
           edits: Array.isArray(inspectionAdvice.edits)
             ? inspectionAdvice.edits
                 .map((row) => ({
@@ -219,7 +283,9 @@ async function runQuoteAssistJob(albumId, merchantId) {
                 .slice(0, 8)
             : [],
         },
-        findings: (payload.findings || []).map((row, index) => ({
+        // 报告未生成时这里由 resolveQuoteFindings 从检测节点回落填充
+        findingsSource: findingsResolved.source,
+        findings: findings.map((row, index) => ({
           index,
           partName: text(row && row.partName),
           result: text(row && row.result),
@@ -252,7 +318,17 @@ async function runQuoteAssistJob(albumId, merchantId) {
         parsed = fromModel.parsed
         engineId = fromModel.engineId
         status = 'ready'
+      } else {
+        console.warn('[quote-assist] 全部引擎均未产出可用建议，置为失败', {
+          albumId,
+          engines: pickGenerateEngines().map((engine) => engine.id),
+          quoteLines: quoteLines.length,
+          findings: findings.length,
+          findingsSource: findingsResolved.source,
+        })
       }
+    } else {
+      console.warn('[quote-assist] 当前商户未开通大模型，跳过生成', { albumId })
     }
 
     await prisma.album.findUnique({ where: { id: albumId } }).then(async (row) => {
