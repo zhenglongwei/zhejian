@@ -217,7 +217,7 @@ async function main() {
   const albumId = albumArg ? albumArg.split('=')[1] : ''
 
   const albums = await prisma.album.findMany({
-    where: { deletedAt: null, ...(albumId ? { id: albumId } : {}) },
+    where: { ...(albumId ? { id: albumId } : {}) },
     select: { id: true, contentPackageJson: true },
     take: limit,
     orderBy: { updatedAt: 'desc' },
