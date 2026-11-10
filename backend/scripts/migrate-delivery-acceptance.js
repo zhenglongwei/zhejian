@@ -107,7 +107,16 @@ function migrateBag(bag, patch) {
   if (Array.isArray(bag.selectedDeliveryUrls)) legacyPhotos.push(...bag.selectedDeliveryUrls)
   if (bag.deliveryExteriorUrl) legacyPhotos.unshift(bag.deliveryExteriorUrl)
   const hasAcceptance = Boolean(bag.acceptance)
-  if (!hasAcceptance && !legacyPhotos.length && !bag.deliveryPhotos) return false
+  const LEGACY_KEYS = [
+    'acceptance',
+    'selectedDeliveryUrls',
+    'deliveryExteriorUrl',
+    'deliveryExteriorMaskedUrl',
+    'deliveryExteriorMaskOutcome',
+    'deliveryExteriorMaskRegions',
+  ]
+  const hasLegacyKeys = LEGACY_KEYS.some((key) => key in bag)
+  if (!hasAcceptance && !legacyPhotos.length && !bag.deliveryPhotos && !hasLegacyKeys) return false
 
   if (hasAcceptance) {
     const rows = normalizeAcceptanceRows(bag.acceptance)
