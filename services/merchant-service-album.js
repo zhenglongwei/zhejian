@@ -346,8 +346,10 @@ async function fetchMerchantAlbumFlow(albumId) {
               : []
         shots.forEach(push)
       })
-      if (String(draft.deliveryExteriorUrl || '').trim()) push(draft.deliveryExteriorUrl)
-      ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
+      ;(Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos : []).forEach(push)
+      ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
+        ;(Array.isArray(item && item.images) ? item.images : []).forEach(push)
+      })
       return out
     }
     const flowNodes = (album.flowNodes && album.flowNodes.length

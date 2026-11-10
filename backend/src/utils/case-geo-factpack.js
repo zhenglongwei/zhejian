@@ -141,19 +141,37 @@ function pickWorkItems(flowNodes) {
   return out
 }
 
-/** 完工确认：复查结论 + 质保 + 使用注意 */
+/** 完工确认：复查结论 + 验收事实句 + 质保 + 使用注意 */
 function pickFinish(flowNodes) {
   for (const node of nodesOfKind(flowNodes, 'repair_report')) {
     const payload = payloadOf(node)
     const deliveryPhotos = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
+    // 验收项（2026-11-10）：事实句进提炼层（验收项+合格标准+结果），不改快照事实
+    const acceptanceItems = (Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [])
+      .map((row) => {
+        const obj = row && typeof row === 'object' ? row : {}
+        const name = String(obj.name || '').trim()
+        const standard = String(obj.standard || '').trim()
+        const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
+        if (!name) return null
+        return { name, standard, result }
+      })
+      .filter(Boolean)
     return {
       conclusion: String(payload.conclusion || '').trim(),
+      acceptanceItems,
       warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
       warrantyNotes: String(payload.warrantyNotes || '').trim(),
       deliveryPhotoCount: deliveryPhotos.length,
     }
   }
-  return { conclusion: '', warrantyPeriod: '', warrantyNotes: '', deliveryPhotoCount: 0 }
+  return {
+    conclusion: '',
+    acceptanceItems: [],
+    warrantyPeriod: '',
+    warrantyNotes: '',
+    deliveryPhotoCount: 0,
+  }
 }
 
 /** 车型、年款与里程：跨单据聚合（任一单据写了都算，先到先得） */
@@ -213,7 +231,13 @@ function buildCaseFactPack(flowNodes) {
       quoteItems: [],
       addonQuoteItems: [],
       workItems: [],
-      finish: { conclusion: '', warrantyPeriod: '', warrantyNotes: '', deliveryPhotoCount: 0 },
+      finish: {
+        conclusion: '',
+        acceptanceItems: [],
+        warrantyPeriod: '',
+        warrantyNotes: '',
+        deliveryPhotoCount: 0,
+      },
       analyzedImageKeys: [],
       missing: ['flowNodes'],
     }

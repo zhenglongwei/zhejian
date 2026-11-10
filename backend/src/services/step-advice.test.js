@@ -694,12 +694,24 @@ test('交车认统一中文信封：简述、问答、提醒', () => {
   assert.equal(got.tips.length, 1)
 })
 
-test('交车兼容旧 repair/care 字段', () => {
+test('交车只出逐项验收与质保建议；简述问答静默、不进面板', () => {
   const got = parseDeliveryAdvice({
-    repair: { title: '这次维修', body: '换了下摆臂胶套。' },
-    care: { title: '用车', body: '过坎时听一下还有没有响。' },
+    简述: '换了下摆臂胶套并做过路试。',
+    验收: [
+      { 项目: '下摆臂胶套更换', 标准: '安装到位无渗油', 怎么验: '举升目视', 建议结果: '合格', 依据: '图1' },
+      { 项目: '路试', 标准: '无异响', 怎么验: '路试', 建议结果: '瞎写', 依据: '' },
+    ],
+    质保: '12 个月或 2 万公里',
+    问答: [{ 问: '多久复查？', 答: '500 公里后。' }],
   })
+  assert.equal(got.acceptance.items.length, 2)
+  assert.equal(got.acceptance.items[0].result, 'pass')
+  assert.equal(got.acceptance.items[0].basis, '图1')
+  // 非法结果不写入
+  assert.equal(got.acceptance.items[1].result, '')
+  assert.equal(got.warranty.body, '12 个月或 2 万公里')
   assert.match(got.repairBrief, /下摆臂胶套/)
+  assert.equal(got.ownerFaqs.length, 1)
 })
 
 test('AI 上下文从节点 content 读主诉、检测项和图', () => {

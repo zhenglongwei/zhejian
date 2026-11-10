@@ -1019,6 +1019,42 @@
   padding: var(--space-xs) 0;
 }
 
+/* 交车验收项（2026-11-10）：标准 / 怎么验 / 三档结果 */
+.merchant-flow-page__acc-input {
+  margin-top: var(--space-xs);
+}
+
+.merchant-flow-page__acc-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.merchant-flow-page__acc-result-label {
+  flex-shrink: 0;
+}
+
+.merchant-flow-page__acc-result-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__acc-result-opt {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.merchant-flow-page__acc-result-opt--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
 .merchant-flow-page__key-fill-add {
   display: flex;
   align-items: center;

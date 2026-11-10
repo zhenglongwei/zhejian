@@ -8,6 +8,9 @@ const {
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
   INTAKE_RECORD_CATEGORIES,
+  ACCEPTANCE_RESULT,
+  ACCEPTANCE_EXTERIOR_MAX,
+  isValidAcceptanceResult,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../constants/service-flow-nodes')
@@ -721,8 +724,7 @@ function contentBagHasSubstance(raw) {
     'ownerFaqs',
     'warrantyPeriod',
     'warrantyNotes',
-    'deliveryExteriorUrl',
-    'selectedDeliveryUrls',
+    'acceptanceItems',
     'workerName',
     'receiverName',
     'inspectorName',
@@ -1438,17 +1440,8 @@ function resolveWarrantyNotes(source = {}) {
 
 function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
-  if (!String(payload.repairBrief || '').trim()) {
-    gaps.push('请填写本次维修简述')
-  }
-  const faqs = (Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : []).filter(
-    (row) =>
-      row &&
-      String(row.question || '').trim() &&
-      String(row.answer || '').trim(),
-  )
-  if (!faqs.length) {
-    gaps.push('请至少填写 1 条车主关心的问题（问+答）')
+  if (!normalizeDeliveryPhotos(payload.deliveryPhotos).length) {
+    gaps.push('请至少上传 1 张整车外观照')
   }
   const period = String(payload.warrantyPeriod || '').trim()
   if (!period) {
@@ -1459,13 +1452,17 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.delivererName || '').trim()) {
     gaps.push('请填写交付人')
   }
-  const acc = normalizeAcceptance(payload.acceptance)
-  if (!acc) {
-    gaps.push('请填写验收（可先用 AI 起草再应用）')
+  // 验收按施工项目逐项：图与文字选填，结果必选；简答题不在门禁内
+  const accItems = resolveAcceptanceItems(payload)
+  if (!accItems.length) {
+    gaps.push('还没有验收项：请先在施工节点确认施工项目')
   } else {
-    acc.items.forEach((item, index) => {
-      const label = item.project ? `「${item.project}」` : acc.items.length > 1 ? `第 ${index + 1} 项` : ''
-      if (!item.note) gaps.push(`${label}请填写验收情况（做了什么验收、结果如何）`)
+    accItems.forEach((item) => {
+      const label = `「${item.name}」`
+      if (!item.result) gaps.push(`${label}请选择验收结果`)
+      else if (item.result === ACCEPTANCE_RESULT.REWORK) {
+        gaps.push(`${label}需返工，处理完重验后才能交车`)
+      }
     })
   }
   return gaps
@@ -1749,34 +1746,49 @@ function normalizeOwnerFaqs(list) {
     .slice(0, 5)
 }
 
-/** 验收 items：按报价单项目分组，每项 项目名+验收说明一段；兼容旧三段（过程+结果合并） */
+/** 验收项（acceptanceItems · 2026-11-10 定稿）：一项自包含 {id,name,standard,method,images,note,result}，按施工项目一行一项 */
+function normalizeAcceptanceItemObj(raw, index) {
+  const obj = raw && typeof raw === 'object' ? raw : {}
+  const name = String(obj.name || '').trim().slice(0, 60)
+  if (!name) return null
+  return {
+    id: String(obj.id || '').trim() || `acc_${index + 1}`,
+    name,
+    standard: String(obj.standard || '').trim().slice(0, 200),
+    method: String(obj.method || '').trim().slice(0, 60),
+    images: normalizePendingImages(obj.images).slice(0, 6),
+    note: String(obj.note || '').trim().slice(0, 300),
+    result: isValidAcceptanceResult(obj.result) ? obj.result : '',
+  }
+}
+
 function normalizeAcceptanceItems(list) {
   if (!Array.isArray(list)) return []
   return list
-    .map((row) => {
-      const obj = row && typeof row === 'object' ? row : {}
-      const project = String(obj.project || obj['项目'] || '').trim().slice(0, 60)
-      const note =
-        String(obj.note || obj['验收'] || '').trim().slice(0, 300) ||
-        [String(obj.process || obj['过程'] || '').trim(), String(obj.result || obj['结果'] || '').trim()]
-          .filter(Boolean)
-          .join('；')
-          .slice(0, 300) ||
-        String(obj.standard || obj['标准'] || '').trim().slice(0, 300)
-      if (!project && !note) return null
-      return { project, note }
-    })
+    .map((row, index) => normalizeAcceptanceItemObj(row, index))
     .filter(Boolean)
-    .slice(0, 8)
+    .slice(0, 20)
 }
 
-/** 验收：items 按项目分组（项目名+验收说明一段）；旧单组三段转单项；全空返回 null */
-function normalizeAcceptance(raw) {
-  const obj = raw && typeof raw === 'object' ? raw : {}
-  const items = normalizeAcceptanceItems(obj.items)
-  if (items.length) return { items }
-  const legacy = normalizeAcceptanceItems([{ ...obj }])
-  return legacy.length ? { items: legacy } : null
+/** 内容袋读侧：只认 acceptanceItems（旧结构由迁移脚本搬完，读侧不做兼容） */
+function resolveAcceptanceItems(raw = {}) {
+  return normalizeAcceptanceItems(raw.acceptanceItems)
+}
+
+/** 外观照（交车页单独一块）：1~3 张，首张为整车外观 */
+function normalizeDeliveryPhotos(raw) {
+  const list = Array.isArray(raw) ? raw : []
+  const seen = {}
+  const rows = []
+  list.forEach((row) => {
+    const url = String(
+      (row && typeof row === 'object' ? row.url || row.rawUrl || row.src : row) || '',
+    ).trim()
+    if (!url || seen[url]) return
+    seen[url] = true
+    rows.push({ url })
+  })
+  return rows.slice(0, ACCEPTANCE_EXTERIOR_MAX)
 }
 
 function buildRepairReportPayload({
@@ -1830,21 +1842,13 @@ function buildRepairReportPayload({
       ? parseAmount(totalAmount)
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
 
-  // 交车图只认本步草稿引用（外观 + 勾选）；deliveryImages 仅兼容存量空草稿
-  const exterior = String(photoDraft.deliveryExteriorUrl || '').trim()
-  const extras = Array.isArray(photoDraft.selectedDeliveryUrls)
-    ? photoDraft.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
-    : []
-  const refImages = []
-  if (exterior) refImages.push({ url: exterior, caption: '整车外观' })
-  extras.forEach((url) => {
-    if (url && url !== exterior && !refImages.some((row) => row.url === url)) {
-      refImages.push({ url, caption: '' })
-    }
-  })
-  const deliveryPhotos = refImages.length
-    ? mapPhotoRows(refImages)
-    : mapPhotoRows(deliveryImages)
+  void deliveryImages
+  // 外观照单独一块（1~3 张）；逐项验收自带走本项验收图
+  const deliveryPhotos = mapPhotoRows(normalizeDeliveryPhotos(photoDraft.deliveryPhotos))
+  const acceptanceItems = resolveAcceptanceItems(photoDraft).map((item) => ({
+    ...item,
+    images: mapPhotoRows(item.images),
+  }))
 
   return {
     chiefComplaint: String(chiefComplaint || '').trim(),
@@ -1853,6 +1857,7 @@ function buildRepairReportPayload({
     deliveryPhotos,
     repairBrief,
     ownerFaqs,
+    acceptanceItems,
     warrantyPeriod: period,
     warrantyNotes: notes,
     // 兼容旧读侧：不再写入空话默认；存量字段置空
@@ -1922,20 +1927,9 @@ function normalizePhotoDraft(raw = {}) {
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
     warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
-    selectedDeliveryUrls: Array.isArray(raw.selectedDeliveryUrls)
-      ? raw.selectedDeliveryUrls
-          .map((url) => {
-            // 兼容误写成 { url, maskedUrl } 的写回；禁止 String(object)→[object Object]
-            if (url && typeof url === 'object') {
-              return String(url.url || url.rawUrl || url.src || '').trim()
-            }
-            return String(url || '').trim()
-          })
-          .filter(Boolean)
-      : [],
-    deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
+    deliveryPhotos: normalizeDeliveryPhotos(raw.deliveryPhotos),
     repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
-    acceptance: normalizeAcceptance(raw.acceptance),
+    acceptanceItems: resolveAcceptanceItems(raw),
     ownerFaqs: normalizeOwnerFaqs(raw.ownerFaqs || raw.faq || []),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
@@ -2001,13 +1995,8 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     })
   }
   if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
-  if (patch.selectedDeliveryUrls != null) {
-    next.selectedDeliveryUrls = Array.isArray(patch.selectedDeliveryUrls)
-      ? patch.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
-      : []
-  }
-  if (patch.deliveryExteriorUrl != null) {
-    next.deliveryExteriorUrl = String(patch.deliveryExteriorUrl || '').trim()
+  if (patch.deliveryPhotos != null) {
+    next.deliveryPhotos = normalizeDeliveryPhotos(patch.deliveryPhotos)
   }
   if (patch.repairBrief != null || patch.summary != null) {
     next.repairBrief = String(
@@ -2021,8 +2010,8 @@ function mergePhotoDraft(prev = {}, patch = {}) {
       patch.ownerFaqs != null ? patch.ownerFaqs : patch.faq,
     )
   }
-  if (patch.acceptance != null && typeof patch.acceptance === 'object') {
-    next.acceptance = normalizeAcceptance(patch.acceptance)
+  if (patch.acceptanceItems != null) {
+    next.acceptanceItems = normalizeAcceptanceItems(patch.acceptanceItems)
   }
   if (patch.reportGeneratedAt != null) {
     next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()
@@ -2267,6 +2256,9 @@ module.exports = {
   stableLineId,
   buildRepairReportPayload,
   normalizeOwnerFaqs,
+  normalizeAcceptanceItems,
+  normalizeDeliveryPhotos,
+  resolveAcceptanceItems,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
   addonDraftStillBlank,

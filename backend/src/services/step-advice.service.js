@@ -5,7 +5,20 @@
  */
 const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
-const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
+const {
+  FLOW_VERSION,
+  isValidAcceptanceResult,
+} = require('../../vendor/shared/constants/service-flow-nodes')
+
+/** 模型输出中文结果 → 枚举 */
+const ACCEPTANCE_RESULT_TEXT = {
+  合格: 'pass',
+  通过: 'pass',
+  建议观察: 'observe',
+  观察: 'observe',
+  需返工: 'rework',
+  返工: 'rework',
+}
 const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
@@ -322,30 +335,21 @@ function parseDeliveryAdvice(raw) {
     return {
       repairBrief: '',
       ownerFaqs: [],
+      acceptance: null,
+      warranty: null,
       tips: [],
       publicCaptions: [],
-      // 兼容旧字段
-      repair: null,
-      warranty: null,
-      care: null,
       processIssues: [],
       fill: null,
       archiveCopy: null,
     }
   }
-  const legacyCopy = parseArchiveCopyFromDelivery(parsed)
-  const repairBrief = text(
-    parsed['简述'] ||
-      parsed.repairBrief ||
-      (parsed.repair && parsed.repair.body) ||
-      (parsed.talk && parsed.talk.repair) ||
-      (legacyCopy && legacyCopy.summary),
-  ).slice(0, 500)
+  // 简述/问答不再进面板：只静默写入节点内容，供托管预览与公网完工章
+  const repairBrief = text(parsed['简述'] || parsed.repairBrief).slice(0, 500)
   const ownerFaqs = parseOwnerFaqSuggestions(
     (Array.isArray(parsed['问答']) && parsed['问答'].length ? parsed['问答'] : null) ||
       parsed.ownerFaqs ||
       parsed.faqs ||
-      (legacyCopy && legacyCopy.faq) ||
       [],
   )
   const tipSource = Array.isArray(parsed['提醒']) ? parsed['提醒'] : parsed.tips
@@ -358,7 +362,8 @@ function parseDeliveryAdvice(raw) {
     })
     .filter(Boolean)
     .slice(0, 4)
-  // 验收：按报价单项目逐项，一段式（项目+验收说明）；「证据」不完备的项，硬闸门强制清空编造内容
+  // 验收（2026-11-10 定稿）：按本单施工项目逐项给 {项目,标准,怎么验,建议结果,依据}。
+  // 项目名必须是本单已有施工项目（应用侧只填空行，不新增）；建议结果只是建议，点「应用」才写入。
   const accSource = parsed['验收'] || parsed.acceptance
   const accList = Array.isArray(accSource)
     ? accSource
@@ -368,48 +373,37 @@ function parseDeliveryAdvice(raw) {
   const accItems = accList
     .map((row) => {
       const obj = row && typeof row === 'object' ? row : {}
-      const project = text(obj['项目'] || obj.project).slice(0, 60)
-      let note = text(obj['验收'] || obj.note).slice(0, 300)
-      if (!note) {
-        // 兼容旧三段输出：过程+结果合并为一段
-        const process = text(obj['过程'] || obj.process)
-        const result = text(obj['结果'] || obj.result)
-        note = [process, result].filter(Boolean).join('；').slice(0, 300)
+      const name = text(obj['项目'] || obj['验收项'] || obj.name).slice(0, 60)
+      if (!name) return null
+      const resultText = text(obj['建议结果'] || obj.result).slice(0, 20)
+      const resultEnum =
+        ACCEPTANCE_RESULT_TEXT[resultText] && isValidAcceptanceResult(ACCEPTANCE_RESULT_TEXT[resultText])
+          ? ACCEPTANCE_RESULT_TEXT[resultText]
+          : isValidAcceptanceResult(resultText)
+            ? resultText
+            : ''
+      return {
+        name,
+        standard: text(obj['标准'] || obj.standard).slice(0, 200),
+        method: text(obj['怎么验'] || obj.method).slice(0, 60),
+        result: resultEnum,
+        basis: text(obj['依据'] || obj.basis).slice(0, 150),
       }
-      if (/不完备|无|缺乏/.test(text(obj['证据'] || obj.evidence))) note = ''
-      if (!project && !note) return null
-      return { project, note }
     })
     .filter(Boolean)
-    .slice(0, 8)
+    .slice(0, 20)
   const acceptance = accItems.length ? { items: accItems } : null
-  if (!acceptance) {
-    return {
-      repairBrief,
-      ownerFaqs,
-      acceptance: null,
-      schema: 4,
-      tips,
-      publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
-      repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 300) } : null,
-      warranty: null,
-      care: null,
-      processIssues: [],
-      fill: null,
-      imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
-      archiveCopy: null,
-    }
-  }
+  const warrantyPeriod = text(parsed['质保'] || parsed.warrantyPeriod).slice(0, 60)
   return {
     repairBrief,
     ownerFaqs,
     acceptance,
-    schema: 4,
+    warranty: warrantyPeriod
+      ? { title: '质保期限', body: warrantyPeriod }
+      : null,
+    schema: 5,
     tips,
     publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
-    repair: repairBrief ? { title: '本次维修简述', body: repairBrief.slice(0, 300) } : null,
-    warranty: null,
-    care: null,
     processIssues: [],
     fill: null,
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
@@ -438,12 +432,10 @@ function adviceHasContent(advice, kind) {
       (Array.isArray(advice.shop) && advice.shop.length > 0)
   }
   return Boolean(
-    text(advice.repairBrief) ||
-      (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0) ||
-      (Array.isArray(advice.tips) && advice.tips.length > 0) ||
-      filled(advice.repair) ||
+    (advice.acceptance && Array.isArray(advice.acceptance.items) && advice.acceptance.items.length > 0) ||
       filled(advice.warranty) ||
-      filled(advice.care),
+      text(advice.repairBrief) ||
+      (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0),
   )
 }
 
@@ -919,17 +911,26 @@ function inspectPhotoSlots(inspection) {
   return slots
 }
 
-function deliveryPhotoUrls(delivery) {
+/** 交车步图片：外观照 + 各验收项验收图，统一给 slot 与所属项目名（供 AI 引用「图N」） */
+function deliveryPhotoSlots(delivery) {
   const draft = contentOfFlowNode(delivery)
-  const urls = []
-  const push = (raw) => {
+  const slots = []
+  const seen = {}
+  const push = (raw, partName) => {
     const url = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl || raw.maskedUrl : raw)
-    if (!/^https?:\/\//.test(url) || urls.includes(url) || urls.length >= 6) return
-    urls.push(url)
+    if (!/^https?:\/\//.test(url) || seen[url] || slots.length >= 12) return
+    seen[url] = true
+    slots.push({ slot: slots.length + 1, url, partName: text(partName).slice(0, 40) })
   }
-  if (draft.deliveryExteriorUrl) push(draft.deliveryExteriorUrl)
-  ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
-  return urls
+  ;(Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos : []).forEach((row) =>
+    push(row, '整车外观'),
+  )
+  ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
+    ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) =>
+      push(img, text(item && item.name)),
+    )
+  })
+  return slots
 }
 
 /** 旧意见里的部件参考并进建议补充检测，下游不再单看一块 */
@@ -967,7 +968,8 @@ function contextOf(album, extraNotes = {}) {
   const inspectSlots = inspectPhotoSlots(inspection)
   const inspectUrls = inspectSlots.map((row) => row.url)
   const workSlots = workPhotoSlots(works)
-  const deliveryUrls = deliveryPhotoUrls(delivery)
+  const deliverySlots = deliveryPhotoSlots(delivery)
+  const deliveryUrls = deliverySlots.map((row) => row.url)
   const intakeSplit = splitNewAndNotedUrls(intakeUrls, imageNotesMap)
   const inspectSplit = splitNewAndNotedUrls(inspectUrls, imageNotesMap)
   const workFreshSlots = (workSlots || []).filter((row) => !noteForUrl(row.url, imageNotesMap))
@@ -1019,19 +1021,33 @@ function contextOf(album, extraNotes = {}) {
       : null,
     warrantyPeriod: text(draft.warrantyPeriod || reportPayload.warrantyPeriod),
     warrantyNotes: text(draft.warrantyNotes || reportPayload.warrantyNotes),
+    // 本单施工项目（验收行）与已填内容：AI 只对已有项目给建议，不得新增项目
+    workItemNames: works
+      .reduce((all, node) => all.concat(workRows(node)), [])
+      .map((row) => text(row && row.name))
+      .filter(Boolean)
+      .slice(0, 20),
     acceptance:
-      draft.acceptance && typeof draft.acceptance === 'object'
+      Array.isArray(draft.acceptanceItems) && draft.acceptanceItems.length
         ? {
-            items: (Array.isArray(draft.acceptance.items) ? draft.acceptance.items : [])
-              .slice(0, 8)
-              .map((row) => ({
-                project: text(row && row.project),
-                note: text(row && (row.note || row['验收'])).slice(0, 120),
-              })),
+            items: draft.acceptanceItems.slice(0, 20).map((row) => ({
+              name: text(row && row.name),
+              standard: text(row && row.standard).slice(0, 120),
+              method: text(row && row.method).slice(0, 40),
+              note: text(row && row.note).slice(0, 120),
+              result: text(row && row.result).slice(0, 20),
+              imageSlots: (Array.isArray(row && row.images) ? row.images : [])
+                .map((img) => {
+                  const url = text(img && (img.url || img.rawUrl))
+                  const hit = deliverySlots.find((slot) => slot.url === url)
+                  return hit ? hit.slot : null
+                })
+                .filter((slot) => slot != null),
+            })),
           }
         : null,
-    hasExterior: Boolean(text(draft.deliveryExteriorUrl)),
-    selectedCount: Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls.length : 0,
+    exteriorCount: Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos.length : 0,
+    deliveryPhotoSlots: deliverySlots.filter((row) => !noteForUrl(row.url, imageNotesMap)),
     deliveryPhotoUrls: deliverySplit.fresh,
     deliveryNoted: deliverySplit.noted,
     workAdviceAt: text(workAdvice.updatedAt),
@@ -1427,20 +1443,20 @@ function deliveryInstruction(ctx) {
       note: String((row && row.note) || '').slice(0, 60),
     })),
     newPhotoCount: (ctx.deliverySplit && ctx.deliverySplit.fresh ? ctx.deliverySplit.fresh.length : 0) || 0,
-    hasExterior: ctx.hasExterior,
-    selectedCount: ctx.selectedCount,
+    exteriorCount: ctx.exteriorCount,
+    deliveryPhotoSlots: ctx.deliveryPhotoSlots,
   })
   return [
-    '你是修理厂的交车顾问。根据整单事实，写出本次维修简述和车主会问的问题。',
+    '你是修理厂的交车顾问。根据整单事实、本单施工项目，以及商家实际传的验收图和写的验收文字，逐项给出验收建议。',
     '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
-    '简述：120到200字的一段话，写进车主报告抬头，按自然顺序覆盖五件事——①车主为什么来（诉求）；②查出了什么（挑与诉求最相关的两三项检测结果并带结果状态，检测中「需关注」的项也要点到）；③怎么修的（关键工艺或用料特色，如原厂件、按规定力矩复紧、举升作业，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保（期限/范围，需关注但本次未处理的项怎么观察）。这是提炼不是流水账：不要逐节点复述全部内容，一句话能说清的不拆成几句。不要写价格和隐私，不编没做的事。',
-    '验收起草（重要）：验收按报价单项目逐项起草，「验收」是数组，报价单里有几个维修项目就写几组，每组带「项目」（用报价单里的项目名）、「验收」、「证据」三个键，不写标准段。「验收」=该项目的验收情况，一段话，用专业汽修视角写：做了哪些验收作业（举升复查、力矩复紧、试车工况、修复面检查等）+ 验下来的实际状态，像技师交接时写的验收记录，不要用「车主体验确认」「效果满意」这类消费话术。必须有画面证据才起草：证据=已上传照片的画面里直接可见、且与该项目对应的验收画面（举升下的维修部位、修复面细节等；外观类维修如划痕漆面修复的修复后整车照也算），或店员已写的验收文字。铁律：只写画面里能直接看到的状态，画面证明不了的结论不写——例如画面只有车尾整车照，就不能写底盘项目；画面看的是刹车盘悬挂，就不能推「护板安装到位、力矩符合规定」；看不到力矩数值就不要写力矩合格。该项目证据完备时「证据」填"完备"并起草验收段；证据不完备（没有该项目对应的验收画面、或画面拍不到维修部位）时「证据」填"不完备"、「验收」写空字符串——系统会在代码层校验清空，不要凭维修事实脑补成「已验合格」。不完备的项目在「提醒」里给缺口建议（该项目该补传哪类验收照片、验收文字该怎么写），只给建议不代写。参考材料里已有验收（acceptance）时照样起草，店员自行比对取舍；有画面证明不了的效果描述，在提醒里指出并给更稳妥替代说法。',
-    '问答：3到8条，随车主报告用于公开案例页（店员核对后公开），也是其他消费者向 AI 咨询时会被检索到的答案：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」，脱离页面也知道问的是哪台车什么项目。优先覆盖两类：①本次维修的注意事项——修后护理、复查时机、禁忌（含检测中「需关注」项的观察方法）和质保与返修（期限内出问题怎么找门店），这两条至少各写一条；②同类问题在修前怎么判断（出现什么症状该来检查、拖久会怎样）和由这例稍作延伸的普遍问题（这类部件一般多久老化、原厂件与副厂件差别等），用通用汽修常识回答，只讲常识、不编本案没有的检测结论，不制造焦虑推加项，答句末尾点明「具体以到店检测为准」。答句先写这例的具体事实（部位、状态、做了什么、结果如何，禁止「已正常处理」这类空话），再接一句叮嘱；延伸类问答写通用情况并说明是常识。参考材料里有车龄（年款）或里程时，可写一条「这车龄/公里数做这个有没有必要」式问答，只解释不推断。事实不够 3 条时可以写和本案相关的常见问。',
-    '图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不描述无关背景（居民楼、行人、街景、地面等），不写推测结论，不写车牌与人脸。',
-    '提醒：只写本步还缺的，比如交车照、质保期限空；验收过程/结果缺依据时，给该补传哪类照片、文字怎么写的一般性建议（这类建议只是引导，不需要应用）。其它键留空。店员点应用才写入。',
+    '验收建议（最重要）：只针对参考材料里的施工项目（workItemNames，以及 acceptance.items 里已有的行），一项一条，不得新增项目、不得改写项目名。「验收」是数组，每条带「项目」「标准」「怎么验」「建议结果」「依据」五个键。「标准」=怎样算合格，一句普通人看得懂的判断句（如「踏板回弹正常，脚感不软不硬」）；「怎么验」=目视/实车操作/路试/仪表确认/检测仪读数，越短越好；「建议结果」只能是「合格」「建议观察」「需返工」之一；「依据」写本项的实际依据：引用「图N」（deliveryPhotoSlots 里有 slot 与所属项目名）或商家已写的验收文字，说清看到什么状态。行业惯例只能用来定「标准」和「怎么验」，不能用来推断这台车的结果；画面只拍到别的部位、或该项没有图也没有文字时，「建议结果」留空字符串，「依据」写还缺什么（如「还没有路试画面或文字」）。不写「已验合格」这类没有依据的结论，不写承诺句。店员点该项「应用」才写入，你不代点。',
+    '简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖五件事——①车主为什么来；②查出了什么（挑与诉求最相关的两三项，含「需关注」）；③怎么修的（关键工艺/用料，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保。提炼不流水账，不写价格和隐私，不编没做的事。',
+    '质保（静默建议）：「质保」只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
+    '问答：3到8条，用于公开案例页与托管预览（不展示在交车页）：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」，脱离页面也知道问的是哪台车什么项目。优先覆盖两类：①本次维修的注意事项——修后护理、复查时机、禁忌（含「需关注」项的观察方法）和质保与返修，这两条至少各写一条；②同类问题在修前怎么判断和由这例稍作延伸的普遍问题，用通用汽修常识回答，只讲常识、不编本案没有的检测结论，不制造焦虑推加项，答句末尾点明「具体以到店检测为准」。答句先写这例的具体事实，再接一句叮嘱。',
+    '图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不描述无关背景，不写推测结论，不写车牌与人脸。',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON（「验收」是数组按报价单项目逐项，每组带「项目」「验收」「证据」，「证据」如实填“完备”或“不完备”，“不完备”该项的验收写空字符串）：{"故障分析":"","建议补充检测":[],"拆分建议":[],"填写建议":[],"简述":"车主反映过减速带左前异响，检查确认左下摆臂胶套老化开裂，其余底盘件状态良好。更换原厂下摆臂胶套总成，按规定力矩复紧，并顺带举升检查了球头与衬套。完工后低速过减速带路试，异响消失。近期少过剧烈颠簸；右前衬套有轻微老化，暂无需处理，日常留意即可。质保 12 个月，同部位出问题免费复检。","验收":[{"项目":"左下摆臂胶套更换","验收":"举升复查胶套安装到位，副车架侧螺栓按规定力矩复紧无渗油干涉；低速过减速带路试异响消失。","证据":"完备"}],"问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"},{"问":"这例质保怎么算？","答":"这例质保 12 个月，同部位出问题可免费复检。"},{"问":"车底盘有异响拖着不修会怎么样？","答":"衬套这类橡胶件开裂后一般会逐渐加重，异响变大还可能连带轮胎偏磨，建议出现就检查，具体以到店检测为准，这是通用情况。"}],"图说":[{"图":"图1","说":"举升后拆下的下摆臂胶套，胶体开裂明显。"}],"提醒":[{"类型":"","标题":"","正文":""}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"简述":"…120到200字…","验收":[{"项目":"左下摆臂胶套更换","标准":"胶套安装到位，螺栓按规定力矩复紧，无干涉渗油","怎么验":"举升目视","建议结果":"合格","依据":"图1 举升下胶套安装到位，无渗油"},{"项目":"底盘异响","标准":"低速过减速带无异响","怎么验":"路试","建议结果":"","依据":"还没有路试画面或文字，建议补路试结果"}],"质保":"12 个月或 2 万公里，以先到为准","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"},{"问":"这例质保怎么算？","答":"这例质保 12 个月，同部位出问题可免费复检。"},{"问":"车底盘有异响拖着不修会怎么样？","答":"衬套这类橡胶件开裂后一般会逐渐加重，异响变大还可能连带轮胎偏磨，建议出现就检查，具体以到店检测为准，这是通用情况。"}],"图说":[{"图":"图1","说":"举升后拆下的下摆臂胶套，胶体开裂明显。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 

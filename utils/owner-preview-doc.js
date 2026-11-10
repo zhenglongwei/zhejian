@@ -120,28 +120,18 @@ function finishWorkItemsFromFindingsList(findingsList = [], quoteByName = {}) {
   return workItems
 }
 
+/** 外观照（交车页单独一块）：草稿/实时都以 deliveryPhotos 为准 */
 function deliveryPhotosFromDraft(draft = {}, live = {}) {
-  const liveExterior = String((live && live.exterior) || '').trim()
-  const liveExtras = Array.isArray(live && live.extras) ? live.extras : []
-  const useLive = Boolean(live && live.useLive && (liveExterior || liveExtras.length))
-  const exterior = useLive
-    ? liveExterior
-    : String((draft && draft.deliveryExteriorUrl) || liveExterior || '').trim()
-  const extras = useLive
-    ? liveExtras
-    : Array.isArray(draft && draft.selectedDeliveryUrls)
-      ? draft.selectedDeliveryUrls
-      : []
+  const useLive = Boolean(live && live.useLive && Array.isArray(live.photos) && live.photos.length)
+  const list = useLive ? live.photos : Array.isArray(draft && draft.deliveryPhotos) ? draft.deliveryPhotos : []
   const deliveryPhotos = []
   const seen = {}
-  const push = (url) => {
-    const text = String(url || '').trim()
+  list.forEach((row) => {
+    const text = String((row && (row.url || row.rawUrl)) || row || '').trim()
     if (!text || seen[text]) return
     seen[text] = true
     deliveryPhotos.push({ url: text })
-  }
-  push(exterior)
-  extras.forEach(push)
+  })
   return deliveryPhotos
 }
 
@@ -347,42 +337,28 @@ function buildOwnerPreviewDoc(input = {}) {
     const deliveryPhotos = photoRows(input.deliveryPhotos)
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
-    const repairBrief = String(input.repairBrief || '').trim()
-    const acceptanceRaw =
-      input.acceptance && typeof input.acceptance === 'object' ? input.acceptance : {}
-    const acceptanceItems = (Array.isArray(acceptanceRaw.items) && acceptanceRaw.items.length
-      ? acceptanceRaw.items
-      : acceptanceRaw.standard || acceptanceRaw.process || acceptanceRaw.result || acceptanceRaw.note
-        ? [acceptanceRaw]
-        : []
-    )
-      .map((row) => ({
-        project: String((row && (row.project || row['项目'])) || '').trim(),
-        note:
-          String((row && (row.note || row['验收'])) || '').trim() ||
-          [
-            String((row && (row.process || row['过程'])) || '').trim(),
-            String((row && (row.result || row['结果'])) || '').trim(),
-          ]
-            .filter(Boolean)
-            .join('；')
-            .trim() ||
-          String((row && (row.standard || row['标准'])) || '').trim(),
-      }))
-      .filter((row) => row.project || row.note)
-    const acceptance = {
-      standard: String(acceptanceRaw.standard || (acceptanceItems[0] && acceptanceItems[0].note) || '').trim(),
-      process: String(acceptanceRaw.process || '').trim(),
-      result: String(acceptanceRaw.result || '').trim(),
-    }
-    const ownerFaqs = (Array.isArray(input.ownerFaqs) ? input.ownerFaqs : [])
-      .map((row, index) => ({
-        id: String((row && row.id) || `faq_${index + 1}`),
-        question: String((row && (row.question || row.q)) || '').trim(),
-        answer: String((row && (row.answer || row.a)) || '').trim(),
-      }))
-      .filter((row) => row.question)
-      .slice(0, 5)
+    // 验收项（2026-11-10 定稿）：按施工项目逐项；不做旧结构兼容（旧数据由迁移脚本搬完）
+    const acceptanceLabels = { pass: '合格', observe: '建议观察', rework: '需返工' }
+    const acceptanceTones = { pass: 'pass', observe: 'observe', rework: 'rework' }
+    const acceptanceItems = (Array.isArray(input.acceptanceItems) ? input.acceptanceItems : [])
+      .map((row, index) => {
+        const obj = row && typeof row === 'object' ? row : {}
+        const name = String(obj.name || '').trim()
+        if (!name) return null
+        const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
+        return {
+          id: String(obj.id || `acc_${index + 1}`),
+          name,
+          standard: String(obj.standard || '').trim(),
+          method: String(obj.method || '').trim(),
+          note: String(obj.note || '').trim(),
+          images: photoRows(obj.images),
+          result,
+          resultLabel: result ? acceptanceLabels[result] : '',
+          resultTone: result ? acceptanceTones[result] : '',
+        }
+      })
+      .filter(Boolean)
     const lineTotal = moneySum(workItems)
     const quoted = Number(input.totalAmount)
     const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
@@ -392,14 +368,11 @@ function buildOwnerPreviewDoc(input = {}) {
         title: '交车报告',
         styleVariant: 'document',
         storeName,
-        repairBrief,
-        acceptance,
         acceptanceItems,
         workItems,
         deliveryPhotos,
         warrantyPeriod,
         warrantyNotes,
-        ownerFaqs,
         totalAmountLabel: workItems.length ? `合计 ¥${total.toFixed(2)}` : '',
         confirmCopy: REPAIR_CONFIRM_COPY,
         needsConfirm: false,
@@ -411,15 +384,11 @@ function buildOwnerPreviewDoc(input = {}) {
       },
       quoteLines: [],
       hasBody: Boolean(
-        repairBrief ||
-          acceptance.standard ||
-          acceptance.process ||
-          acceptance.result ||
+        acceptanceItems.length ||
           workItems.length ||
           deliveryPhotos.length ||
           warrantyPeriod ||
-          warrantyNotes ||
-          ownerFaqs.length,
+          warrantyNotes,
       ),
     }
   }

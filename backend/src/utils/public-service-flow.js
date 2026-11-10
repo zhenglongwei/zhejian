@@ -1,7 +1,7 @@
 /**
  * 公开档案页服务流转（只读、脱敏、无金额）
  * 口径：15_ §7.9 / 设计体系 §10.8.2
- * 完工章：简述 + 车主关心问答 + 交车图 + 质保（禁止再列方案/工单项目）
+ * 完工章：简述 + 车主关心问答 + 外观照片 + 逐项验收（含验收图）+ 质保（禁止再列方案/工单项目）
  * 施工图：只读工单节点 content 挂图（禁止 stage_* / 标题兜底拼章）
  */
 
@@ -112,10 +112,7 @@ function harvestFlowNodeMaskedUrls(lookup, flowNodes) {
     ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
       ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(harvestSlot)
     })
-    if (text(bag.deliveryExteriorUrl) && text(bag.deliveryExteriorMaskedUrl)) {
-      rememberUrl(lookup, bag.deliveryExteriorUrl, bag.deliveryExteriorMaskedUrl)
-    }
-    ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
+    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
       ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
         if (!row || typeof row !== 'object') return
         harvestSlot(row)
@@ -346,6 +343,7 @@ function chapterHasContent(chapter) {
   if (Array.isArray(chapter.items) && chapter.items.length) return true
   if (Array.isArray(chapter.photos) && chapter.photos.length) return true
   if (Array.isArray(chapter.ownerFaqs) && chapter.ownerFaqs.length) return true
+  if (Array.isArray(chapter.acceptanceItems) && chapter.acceptanceItems.length) return true
   return false
 }
 
@@ -362,13 +360,39 @@ function publicTitle(node) {
   return text(node && node.title) || '记录'
 }
 
-function mapAcceptance(raw) {
-  const obj = raw && typeof raw === 'object' ? raw : {}
-  const standard = cleanPublicNote(obj.standard)
-  const process = cleanPublicNote(obj.process)
-  const result = cleanPublicNote(obj.result)
-  if (!standard && !process && !result) return null
-  return { standard, process, result }
+const ACCEPTANCE_RESULT_LABELS = { pass: '合格', observe: '建议观察', rework: '需返工' }
+
+/**
+ * 公网完工章验收（2026-11-10 定稿）：按施工项目逐项原样展示（含「建议观察」），带验收图（走脱敏映射）。
+ * 只认 acceptanceItems；旧结构由迁移脚本搬完，读侧不做兼容。
+ */
+function mapAcceptanceItems(payload = {}, lookup) {
+  return (Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [])
+    .map((row, index) => {
+      const obj = row && typeof row === 'object' ? row : {}
+      const name = text(obj.name)
+      if (!name) return null
+      const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
+      const images = (Array.isArray(obj.images) ? obj.images : [])
+        .map((img) => {
+          const url = text(img && (img.url || img.rawUrl || img.maskedUrl))
+          if (!url) return ''
+          return resolvePhotoDisplayUrl(img, lookup) || publicizeUrl(url, lookup)
+        })
+        .filter(Boolean)
+        .map((url) => ({ url }))
+      return {
+        id: text(obj.id) || `acc_${index + 1}`,
+        name,
+        standard: cleanPublicNote(obj.standard),
+        method: cleanPublicNote(obj.method),
+        note: cleanPublicNote(obj.note),
+        result,
+        resultLabel: result ? ACCEPTANCE_RESULT_LABELS[result] : '',
+        images,
+      }
+    })
+    .filter(Boolean)
 }
 
 function mapRepairChapter(node, lookup) {
@@ -381,7 +405,7 @@ function mapRepairChapter(node, lookup) {
     items: [],
     photos: collectDeliveryPhotos({ deliveryPhotos: payload.deliveryPhotos }, lookup),
     repairBrief: text(payload.repairBrief),
-    acceptance: mapAcceptance(payload.acceptance),
+    acceptanceItems: mapAcceptanceItems(payload, lookup),
     ownerFaqs: mapOwnerFaqs(payload),
     warrantyPeriod: text(payload.warrantyPeriod),
     warrantyNotes: publicWarrantyNotes({

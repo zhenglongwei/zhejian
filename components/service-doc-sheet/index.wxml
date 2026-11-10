@@ -199,47 +199,6 @@
   </block>
 
   <block wx:elif="{{doc.kind === 'repair_report'}}">
-    <view wx:if="{{doc.repairBrief}}" class="service-doc-sheet__block">
-      <text class="service-doc-sheet__section">本次维修简述</text>
-      <text class="service-doc-sheet__note">{{doc.repairBrief}}</text>
-    </view>
-    <view
-      wx:if="{{(doc.acceptanceItems && doc.acceptanceItems.length) || (doc.acceptance && (doc.acceptance.standard || doc.acceptance.process || doc.acceptance.result))}}"
-      class="service-doc-sheet__block"
-    >
-      <text class="service-doc-sheet__section">验收</text>
-      <block wx:if="{{doc.acceptanceItems && doc.acceptanceItems.length}}">
-        <view
-          wx:for="{{doc.acceptanceItems}}"
-          wx:for-item="acc"
-          wx:key="index"
-          class="service-doc-sheet__acc-group"
-        >
-          <view wx:if="{{acc.project}}" class="service-doc-sheet__kv">
-            <text class="service-doc-sheet__kv-label">项目</text>
-            <text class="service-doc-sheet__note">{{acc.project}}</text>
-          </view>
-          <view wx:if="{{acc.note}}" class="service-doc-sheet__kv">
-            <text class="service-doc-sheet__kv-label">验收</text>
-            <text class="service-doc-sheet__note">{{acc.note}}</text>
-          </view>
-        </view>
-      </block>
-      <block wx:else>
-        <view wx:if="{{doc.acceptance.standard}}" class="service-doc-sheet__kv">
-          <text class="service-doc-sheet__kv-label">验收标准</text>
-          <text class="service-doc-sheet__note">{{doc.acceptance.standard}}</text>
-        </view>
-        <view wx:if="{{doc.acceptance.process}}" class="service-doc-sheet__kv">
-          <text class="service-doc-sheet__kv-label">验收过程</text>
-          <text class="service-doc-sheet__note">{{doc.acceptance.process}}</text>
-        </view>
-        <view wx:if="{{doc.acceptance.result}}" class="service-doc-sheet__kv">
-          <text class="service-doc-sheet__kv-label">验收结果</text>
-          <text class="service-doc-sheet__note">{{doc.acceptance.result}}</text>
-        </view>
-      </block>
-    </view>
     <view class="service-doc-sheet__block">
       <text class="service-doc-sheet__section">已施工</text>
       <view class="service-doc-sheet__table-head">
@@ -262,7 +221,7 @@
       </view>
     </view>
     <view wx:if="{{doc.deliveryPhotos && doc.deliveryPhotos.length}}" class="service-doc-sheet__block">
-      <text class="service-doc-sheet__section">交车照片</text>
+      <text class="service-doc-sheet__section">外观照片</text>
       <view class="service-doc-sheet__photos">
         <image
           wx:for="{{doc.deliveryPhotos}}"
@@ -277,6 +236,39 @@
         />
       </view>
     </view>
+    <view wx:if="{{doc.acceptanceItems && doc.acceptanceItems.length}}" class="service-doc-sheet__block">
+      <text class="service-doc-sheet__section">验收</text>
+      <view
+        wx:for="{{doc.acceptanceItems}}"
+        wx:for-item="acc"
+        wx:key="id"
+        class="service-doc-sheet__acc-group"
+      >
+        <view class="service-doc-sheet__acc-head">
+          <text class="service-doc-sheet__line-name">{{acc.name}}</text>
+          <text
+            wx:if="{{acc.resultLabel}}"
+            class="service-doc-sheet__acc-result service-doc-sheet__acc-result--{{acc.resultTone}}"
+          >{{acc.resultLabel}}</text>
+        </view>
+        <text wx:if="{{acc.standard}}" class="service-doc-sheet__note">合格标准：{{acc.standard}}</text>
+        <text wx:if="{{acc.method}}" class="service-doc-sheet__note">怎么验：{{acc.method}}</text>
+        <text wx:if="{{acc.note}}" class="service-doc-sheet__note">{{acc.note}}</text>
+        <view wx:if="{{acc.images && acc.images.length}}" class="service-doc-sheet__finding-photos">
+          <image
+            wx:for="{{acc.images}}"
+            wx:for-item="shot"
+            wx:key="url"
+            class="service-doc-sheet__finding-img image-placeholder"
+            src="{{shot.url}}"
+            mode="aspectFill"
+            data-url="{{shot.url}}"
+            data-urls="{{acc.images}}"
+            bindtap="onPreviewImage"
+          />
+        </view>
+      </view>
+    </view>
     <view
       wx:if="{{doc.warrantyPeriod || doc.warrantyNotes || doc.warrantyScope || doc.warrantyExclusions}}"
       class="service-doc-sheet__block"
@@ -288,13 +280,6 @@
         <text wx:if="{{doc.warrantyScope}}" class="service-doc-sheet__note">范围：{{doc.warrantyScope}}</text>
         <text wx:if="{{doc.warrantyExclusions}}" class="service-doc-sheet__note">除外：{{doc.warrantyExclusions}}</text>
       </block>
-    </view>
-    <view wx:if="{{doc.ownerFaqs && doc.ownerFaqs.length}}" class="service-doc-sheet__block">
-      <text class="service-doc-sheet__section">您可能关心的问题</text>
-      <view wx:for="{{doc.ownerFaqs}}" wx:for-item="faq" wx:key="id" class="service-doc-sheet__faq">
-        <text class="service-doc-sheet__faq-q">{{faq.question}}</text>
-        <text wx:if="{{faq.answer}}" class="service-doc-sheet__note">{{faq.answer}}</text>
-      </view>
     </view>
   </block>
 

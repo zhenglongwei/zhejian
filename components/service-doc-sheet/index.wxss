@@ -415,6 +415,31 @@
   margin-bottom: var(--space-xs);
 }
 
+/* 验收项：名称 + 结果档（合格 / 建议观察 / 需返工） */
+.service-doc-sheet__acc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.service-doc-sheet__acc-result {
+  flex-shrink: 0;
+  font-size: var(--font-size-caption);
+}
+
+.service-doc-sheet__acc-result--pass {
+  color: var(--color-success);
+}
+
+.service-doc-sheet__acc-result--observe {
+  color: var(--color-warning);
+}
+
+.service-doc-sheet__acc-result--rework {
+  color: var(--color-danger);
+}
+
 /* 验收三段：标签 + 内容 */
 .service-doc-sheet__kv {
   display: flex;

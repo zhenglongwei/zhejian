@@ -596,6 +596,22 @@
   line-height: var(--line-height-article);
 }
 
+/* 验收图（公网完工章）：小图并排，点开看大图 */
+.h5-flow-imgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.h5-flow-img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
 .h5-aside-addr {
   display: block;
   margin: 0 0 var(--space-md);

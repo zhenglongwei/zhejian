@@ -16,29 +16,23 @@ function walkNodeImageSlots(pkg, visit) {
     ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
       ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(visit)
     })
-    ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
-      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
-        if (!row || typeof row !== 'object') return
-        visit(row)
-        ;(Array.isArray(row.images) ? row.images : []).forEach(visit)
-        if (row.evidenceUrl) {
-          visit({
-            url: row.evidenceUrl,
-            maskedUrl: row.evidenceMaskedUrl,
-            maskOutcome: row.evidenceMaskOutcome,
-            maskRegions: row.evidenceMaskRegions,
-          })
-        }
-      })
-    })
-    if (bag.deliveryExteriorUrl) {
-      visit({
-        url: bag.deliveryExteriorUrl,
-        maskedUrl: bag.deliveryExteriorMaskedUrl,
-        maskOutcome: bag.deliveryExteriorMaskOutcome,
-        maskRegions: bag.deliveryExteriorMaskRegions,
-      })
-    }
+    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems', 'deliveryPhotos'].forEach(
+      (key) => {
+        ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
+          if (!row || typeof row !== 'object') return
+          visit(row)
+          ;(Array.isArray(row.images) ? row.images : []).forEach(visit)
+          if (row.evidenceUrl) {
+            visit({
+              url: row.evidenceUrl,
+              maskedUrl: row.evidenceMaskedUrl,
+              maskOutcome: row.evidenceMaskOutcome,
+              maskRegions: row.evidenceMaskRegions,
+            })
+          }
+        })
+      },
+    )
   }
   ;(Array.isArray(pkg && pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
     if (!node) return

@@ -83,12 +83,16 @@ function collectNodeImageEntries(node = {}) {
     if (trimmed) entries.push({ url: trimmed, label: text(label) })
   }
   const draft = contentOfFlowNode(node)
-  push(draft.deliveryExteriorUrl, '全车外观')
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
     push(img, '留证')
   })
-  ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach((url) => {
-    push(url, '交车图')
+  ;(Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos : []).forEach((row) => {
+    push(row, '全车外观')
+  })
+  ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
+    ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) => {
+      push(img, `验收图 ${text(item && item.name)}`.trim())
+    })
   })
   const pushFindings = (list) => {
     ;(Array.isArray(list) ? list : []).forEach((row, index) => {
@@ -271,15 +275,16 @@ function buildReviewContext(album, node, extra = {}) {
       if (!item || item.kind !== 'delivery_photos') return
       const draftDelivery = contentOfFlowNode(item)
       const urls = []
-      const exterior = text(draftDelivery.deliveryExteriorUrl)
-      if (exterior) urls.push(exterior)
-      ;(Array.isArray(draftDelivery.selectedDeliveryUrls)
-        ? draftDelivery.selectedDeliveryUrls
-        : []
-      ).forEach((url) => {
-        const trimmed = text(url)
+      const pushUrl = (raw) => {
+        const trimmed = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl : raw)
         if (trimmed && urls.indexOf(trimmed) < 0) urls.push(trimmed)
-      })
+      }
+      ;(Array.isArray(draftDelivery.deliveryPhotos) ? draftDelivery.deliveryPhotos : []).forEach(
+        pushUrl,
+      )
+      ;(Array.isArray(draftDelivery.acceptanceItems) ? draftDelivery.acceptanceItems : []).forEach(
+        (row) => (Array.isArray(row && row.images) ? row.images : []).forEach(pushUrl),
+      )
       if (!urls.length) return
       findings = findings.concat([
         {

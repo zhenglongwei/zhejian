@@ -37,6 +37,9 @@ const {
   REPAIR_CONFIRM_COPY,
   INTAKE_CONFIRM_COPY,
   INTAKE_RECORD_CATEGORIES,
+  ACCEPTANCE_RESULT_OPTIONS,
+  ACCEPTANCE_EXTERIOR_MAX,
+  emptyAcceptanceItem,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
@@ -91,6 +94,7 @@ const {
   parseMileageKm,
   pickOdometerSlot,
   isOdometerFinding,
+  resolveAcceptanceItems,
   applyInspectionSuggestion,
   foldInspectionPendingDraft,
   collectConfirmedQuoteNames,
@@ -242,26 +246,21 @@ function flowContentSave(bag) {
   return { content: next, photoDraft: next }
 }
 
-/** 节点验收（含 AI 起草与手填）统一转 items：按报价单项目分组，一段式 项目名+验收说明 */
+/** 节点验收 rows：只认 acceptanceItems 新结构（旧数据由迁移脚本搬完） */
 function acceptanceItemsFromDraft(acc) {
-  if (!acc || typeof acc !== 'object') return []
-  const toNote = (row) => {
-    const obj = row && typeof row === 'object' ? row : {}
-    const project = String(obj.project || '').trim()
-    const note =
-      String(obj.note || '').trim() ||
-      [String(obj.process || '').trim(), String(obj.result || '').trim()]
-        .filter(Boolean)
-        .join('；')
-        .trim() ||
-      String(obj.standard || '').trim()
-    return { project, note }
-  }
-  if (Array.isArray(acc.items) && acc.items.length) {
-    return acc.items.map(toNote).filter((row) => row.project || row.note)
-  }
-  const legacy = toNote(acc)
-  return legacy.project || legacy.note ? [legacy] : []
+  if (!acc) return []
+  const rows = resolveAcceptanceItems(
+    Array.isArray(acc) ? { acceptanceItems: acc } : acc,
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    standard: row.standard,
+    method: row.method,
+    images: Array.isArray(row.images) ? row.images : [],
+    result: row.result,
+    note: row.note,
+  }))
 }
 
 function quoteLinesOf(node) {
@@ -619,6 +618,8 @@ Page({
     warrantyNotes: '',
     repairBrief: '',
     acceptanceItems: [],
+    acceptanceResultOptions: ACCEPTANCE_RESULT_OPTIONS,
+    acceptanceExteriorMax: ACCEPTANCE_EXTERIOR_MAX,
     ownerFaqs: [],
     allDone: false,
     needManualComplete: false,
@@ -628,11 +629,7 @@ Page({
     hostVisibility: 'private',
     onPublicWeb: undefined,
     publicGate: null,
-    workImagePool: [],
     deliveryPhotos: [],
-    deliveryExtraCount: 0,
-    deliveryExteriorUrl: '',
-    deliveryPickMode: '',
     aiReview: null,
     aiReviewBusy: false,
     aiReviewTimedOut: false,
@@ -1096,26 +1093,13 @@ Page({
 
     if (node && node.kind === 'delivery_photos') {
       const meta = SECTION_LABELS.delivery_photos
-      const exterior = String(photoDraft.deliveryExteriorUrl || '').trim()
       const images = []
-      const push = (url, caption) => {
-        const u = String(url || '').trim()
-        const key = mediaKey(u)
-        if (!u || !key || images.some((row) => mediaKey(row.url) === key)) return
-        images.push({ url: u, caption: String(caption || '').trim() })
-      }
-      if (exterior) push(exterior, '整车外观')
-      ;(Array.isArray(photoDraft.selectedDeliveryUrls) ? photoDraft.selectedDeliveryUrls : []).forEach(
-        (row) => {
-          const url =
-            typeof row === 'string'
-              ? row
-              : row && typeof row === 'object'
-                ? row.url || row.rawUrl || ''
-                : ''
-          push(url, '交车图')
-        },
-      )
+      ;(Array.isArray(photoDraft.deliveryPhotos) ? photoDraft.deliveryPhotos : []).forEach((row) => {
+        const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
+        const key = mediaKey(url)
+        if (!url || !key || images.some((item) => mediaKey(item.url) === key)) return
+        images.push({ url, caption: '' })
+      })
       return [
         {
           stageId: 'delivery_photos',
@@ -1569,26 +1553,34 @@ Page({
       }
     }
     if (kind === 'delivery_photos') {
-      const exterior = String(this.data.deliveryExteriorUrl || '').trim()
-      const photos = this.data.deliveryPhotos || this.data.workImagePool || []
-      const selectedDeliveryUrls = photos
-        .filter((row) => row && row.url && row.url !== exterior)
-        .map((row) => row.url)
-      const deliverySave = {
+      const deliveryPhotos = (this.data.deliveryPhotos || [])
+        .map((row) => String((row && row.url) || '').trim())
+        .filter(Boolean)
+        .slice(0, ACCEPTANCE_EXTERIOR_MAX)
+        .map((url) => ({ url }))
+      return {
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: String(this.data.delivererName || '').trim(),
         finishedAt: String(this.data.finishedAt || '').trim(),
         confirmCopy: REPAIR_CONFIRM_COPY,
+        deliveryPhotos,
+        // 简述/问答不在界面展示；此处只负责把 AI 静默写入的内容一起落库
         repairBrief: String(this.data.repairBrief || '').trim(),
-        acceptance: {
-          items: (this.data.acceptanceItems || [])
-            .map((row) => ({
-              project: String((row && row.project) || '').trim(),
-              note: String((row && row.note) || '').trim(),
-            }))
-            .filter((row) => row.project || row.note),
-        },
+        acceptanceItems: (this.data.acceptanceItems || [])
+          .map((row) => ({
+            id: String((row && row.id) || '').trim(),
+            name: String((row && row.name) || '').trim(),
+            standard: String((row && row.standard) || '').trim(),
+            method: String((row && row.method) || '').trim(),
+            images: (Array.isArray(row && row.images) ? row.images : [])
+              .map((img) => String((img && img.url) || '').trim())
+              .filter(Boolean)
+              .map((url) => ({ url })),
+            result: String((row && row.result) || '').trim(),
+            note: String((row && row.note) || '').trim(),
+          }))
+          .filter((row) => row.name),
         ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
           .map((row, index) => ({
             id: String((row && row.id) || `faq_${index + 1}`),
@@ -1598,9 +1590,6 @@ Page({
           .filter((row) => row.question)
           .slice(0, 5),
       }
-      if (exterior) deliverySave.deliveryExteriorUrl = exterior
-      if (selectedDeliveryUrls.length) deliverySave.selectedDeliveryUrls = selectedDeliveryUrls
-      return deliverySave
     }
     return {}
   },
@@ -1682,14 +1671,18 @@ Page({
             delete bag.pendingImages
           }
           if (
-            !(Array.isArray(bag.selectedDeliveryUrls) && bag.selectedDeliveryUrls.length) &&
-            Array.isArray(photoDraft.selectedDeliveryUrls) &&
-            photoDraft.selectedDeliveryUrls.length
+            !(Array.isArray(bag.deliveryPhotos) && bag.deliveryPhotos.length) &&
+            Array.isArray(photoDraft.deliveryPhotos) &&
+            photoDraft.deliveryPhotos.length
           ) {
-            delete bag.selectedDeliveryUrls
+            delete bag.deliveryPhotos
           }
-          if (!String(bag.deliveryExteriorUrl || '').trim() && String(photoDraft.deliveryExteriorUrl || '').trim()) {
-            delete bag.deliveryExteriorUrl
+          if (
+            !(Array.isArray(bag.acceptanceItems) && bag.acceptanceItems.length) &&
+            Array.isArray(photoDraft.acceptanceItems) &&
+            photoDraft.acceptanceItems.length
+          ) {
+            delete bag.acceptanceItems
           }
           // 本地草稿空简述/问答不得盖掉节点里已有内容（定稿后反复丢字的漏口）
           if (!String(bag.repairBrief || '').trim() && String(photoDraft.repairBrief || '').trim()) {
@@ -1741,11 +1734,7 @@ Page({
       let quoteLines = [{ name: '', amount: '', note: '' }]
       this._quoteDraftHint = ''
       let expandedFindingKey = ''
-      let workImagePool = []
       let deliveryPhotos = []
-      let deliveryExteriorUrl = ''
-      let deliveryPickMode = ''
-      let deliveryExtraCount = 0
 
       if (activeIsPhoto && active) {
         if (active.kind === 'inspection') {
@@ -1812,9 +1801,8 @@ Page({
           warrantyNotes = resolveWarrantyNotes(photoDraft)
           confirmCopy =
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
-          deliveryExteriorUrl = String(photoDraft.deliveryExteriorUrl || '').trim()
           repairBrief = String(photoDraft.repairBrief || '').trim()
-          acceptanceDraft = photoDraft.acceptance && typeof photoDraft.acceptance === 'object' ? photoDraft.acceptance : {}
+          acceptanceDraft = photoDraft
           ownerFaqs = (Array.isArray(photoDraft.ownerFaqs) ? photoDraft.ownerFaqs : [])
             .map((row, index) => ({
               id: String((row && row.id) || `faq_${index + 1}`),
@@ -1823,41 +1811,9 @@ Page({
             }))
             .filter((row) => row.question)
             .slice(0, 5)
-          // 旧 archiveCopy 迁一次并落库
-          let migratedArchiveCopy = false
-          if (!repairBrief || !ownerFaqs.length) {
-            const pkgCopy =
-              (album &&
-                album.contentPackageJson &&
-                album.contentPackageJson.archiveCopy) ||
-              null
-            if (pkgCopy) {
-              if (!repairBrief && String(pkgCopy.summary || '').trim()) {
-                repairBrief = String(pkgCopy.summary || '').trim()
-                migratedArchiveCopy = true
-              }
-              if (!ownerFaqs.length && Array.isArray(pkgCopy.faq)) {
-                const migratedFaqs = pkgCopy.faq
-                  .map((row, index) => ({
-                    id: `faq_${index + 1}`,
-                    question: String((row && (row.q || row.question)) || '').trim(),
-                    answer: String((row && (row.a || row.answer)) || '').trim(),
-                  }))
-                  .filter((row) => row.question)
-                  .slice(0, 5)
-                if (migratedFaqs.length) {
-                  ownerFaqs = migratedFaqs
-                  migratedArchiveCopy = true
-                }
-              }
-            }
-          }
-          this._migratedArchiveCopy = migratedArchiveCopy
-          const packed = this.hydrateDeliveryGallery(album, photoDraft, deliveryExteriorUrl)
-          workImagePool = packed.workImagePool
+          // 旧 archiveCopy 的迁出由后端迁移脚本一次性完成，页面不做兼容
+          const packed = this.hydrateDeliveryGallery(photoDraft)
           deliveryPhotos = packed.deliveryPhotos
-          deliveryExtraCount = packed.deliveryExtraCount
-          deliveryExteriorUrl = packed.deliveryExteriorUrl || deliveryExteriorUrl
         }
         const keepKey = this.data.expandedFindingKey
         const parts = String(keepKey || '').split(':')
@@ -2053,12 +2009,7 @@ Page({
         repairBrief = filled.repairBrief || repairBrief
         if (filled.ownerFaqs.length) ownerFaqs = filled.ownerFaqs
         confirmCopy = filled.confirmCopy || confirmCopy
-        if (filled.deliveryExteriorUrl) deliveryExteriorUrl = filled.deliveryExteriorUrl
-        if (filled.deliveryPhotos.length) {
-          deliveryPhotos = filled.deliveryPhotos
-          workImagePool = filled.workImagePool
-          deliveryExtraCount = filled.deliveryExtraCount
-        }
+        if (filled.deliveryPhotos.length) deliveryPhotos = filled.deliveryPhotos
       }
       const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
       const face = quoteFace({
@@ -2273,7 +2224,10 @@ Page({
         warrantyPeriod,
         warrantyNotes,
         repairBrief,
-        acceptanceItems: acceptanceItemsFromDraft(acceptanceDraft),
+        acceptanceItems: this.resolveInitialAcceptanceItems(
+          this.collectDeliveryWorkItems(flowNodes),
+          acceptanceItemsFromDraft(acceptanceDraft),
+        ),
         ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
@@ -2298,11 +2252,7 @@ Page({
         hostVisibility: (album.hostMeta && album.hostMeta.visibility) || 'private',
         onPublicWeb: album.hostMeta ? album.hostMeta.onPublicWeb : undefined,
         publicGate: album.publicGate || null,
-        workImagePool,
         deliveryPhotos,
-        deliveryExtraCount,
-        deliveryExteriorUrl,
-        deliveryPickMode,
         overview: buildMerchantAlbumOverview(album, flowNodes),
         workOpen: stageOpen ? true : this.data.workOpen,
         stageKey: openStageBoard ? openStageBoard.selectedKey : this.data.stageKey,
@@ -2327,10 +2277,6 @@ Page({
       this.resumeAiReviewFromNode(active)
       this.resumeQuoteAssistPoll()
       if (isWorkPhotoStep && !this.data.readOnly && !options.silent) {
-        this.scheduleAutoSavePhotos()
-      }
-      if (this._migratedArchiveCopy && isDeliveryPhotoStep && !this.data.readOnly) {
-        this._migratedArchiveCopy = false
         this.scheduleAutoSavePhotos()
       }
 
@@ -3045,10 +2991,9 @@ Page({
       })
     }
     const reportReady = Boolean(
-      String(repairPayload.repairBrief || '').trim() ||
-        String(repairPayload.warrantyPeriod || '').trim() ||
+      String(repairPayload.warrantyPeriod || '').trim() ||
         (Array.isArray(repairPayload.deliveryPhotos) && repairPayload.deliveryPhotos.length) ||
-        (Array.isArray(repairPayload.ownerFaqs) && repairPayload.ownerFaqs.length) ||
+        (Array.isArray(repairPayload.acceptanceItems) && repairPayload.acceptanceItems.length) ||
         (Array.isArray(repairPayload.workItems) && repairPayload.workItems.length),
     )
     if (reportReady && String((delivery && delivery.status) || '') === 'completed') {
@@ -3059,9 +3004,7 @@ Page({
         workItems: Array.isArray(repairPayload.workItems) ? repairPayload.workItems : [],
         totalAmount: repairPayload.totalAmount,
         deliveryPhotos: Array.isArray(repairPayload.deliveryPhotos) ? repairPayload.deliveryPhotos : [],
-        repairBrief: repairPayload.repairBrief,
-        acceptance: repairPayload.acceptance,
-        ownerFaqs: repairPayload.ownerFaqs,
+        acceptanceItems: repairPayload.acceptanceItems,
         warrantyPeriod: repairPayload.warrantyPeriod,
         warrantyNotes: repairPayload.warrantyNotes,
         signName: repairPayload.delivererName,
@@ -3074,10 +3017,6 @@ Page({
       works.map((node) => this.nodeDraft(node).findings || []),
       quoteByName,
     )
-    const liveExterior = String(this.data.deliveryExteriorUrl || '').trim()
-    const liveExtras = (this.data.deliveryPhotos || this.data.workImagePool || [])
-      .filter((row) => row && row.url && row.url !== liveExterior)
-      .map((row) => row.url)
     return buildOwnerPreviewDoc({
       family: 'finish',
       album: previewAlbumOf(album),
@@ -3086,26 +3025,12 @@ Page({
       totalAmount: quoteTotal,
       deliveryPhotos: deliveryPhotosFromDraft(deliveryDraft, {
         useLive: Boolean(this.data.isDeliveryPhotoStep),
-        exterior: liveExterior,
-        extras: liveExtras,
+        photos: this.data.deliveryPhotos || [],
       }),
-      repairBrief: deliveryDraft.repairBrief || this.data.repairBrief || '',
-      acceptance:
-        (deliveryDraft.acceptance &&
-          (deliveryDraft.acceptance.items ||
-            deliveryDraft.acceptance.standard ||
-            deliveryDraft.acceptance.process ||
-            deliveryDraft.acceptance.result) &&
-          deliveryDraft.acceptance) ||
-        (this.data.acceptanceItems && this.data.acceptanceItems.length
-          ? { items: this.data.acceptanceItems }
-          : null),
-      ownerFaqs:
-        (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
-          ? deliveryDraft.ownerFaqs
-          : null) ||
-        this.data.ownerFaqs ||
-        [],
+      acceptanceItems:
+        resolveAcceptanceItems(deliveryDraft).length
+          ? resolveAcceptanceItems(deliveryDraft)
+          : this.data.acceptanceItems || [],
       warrantyPeriod: deliveryDraft.warrantyPeriod || this.data.warrantyPeriod,
       warrantyNotes: deliveryDraft.warrantyNotes || this.data.warrantyNotes,
       signName: deliveryDraft.delivererName,
@@ -4074,6 +3999,49 @@ Page({
     this.scheduleParkDetachedPhotos()
   },
 
+  /**
+   * 验收项初始值（2026-11-10 定稿）：行=本单施工项目，只读不可增删。
+   * 已有内容按原行回读（自包含，不跨数组配对）；首次进入按施工项目逐行生成，结果留空待店员实查。
+   */
+  resolveInitialAcceptanceItems(workItems = [], savedRows = []) {
+    const saved = Array.isArray(savedRows) ? savedRows : []
+    if (saved.length) return saved.map((row) => ({ ...emptyAcceptanceItem(), ...row }))
+    const rows = []
+    ;(workItems || []).forEach((item, index) => {
+      const name = String((item && item.name) || '').trim()
+      if (!name) return
+      rows.push({ ...emptyAcceptanceItem(), id: `acc_${index + 1}`, name })
+    })
+    return rows
+  },
+
+  /** 本单施工项目（交车验收的行使）：工单节点 findings → 已定稿 workItems */
+  collectDeliveryWorkItems(flowNodes = []) {
+    const works = (flowNodes || []).filter((node) => node && node.kind === 'work')
+    const fromDraft = works.flatMap((node) => {
+      const draft = nodeContentOf(node)
+      return workItemsFromFindings(
+        Array.isArray(draft.findings) ? draft.findings : [],
+      )
+    })
+    if (fromDraft.length) return fromDraft
+    const sealed = works.flatMap((node) => {
+      const payload =
+        (node && node.document && node.document.payload) || {}
+      return Array.isArray(payload.workItems) ? payload.workItems : []
+    })
+    return workItemsFromFindings(
+      sealed.map((row) => ({
+        partName: (row && (row.partName || row.name)) || '',
+        caption: (row && (row.caption || row.note)) || '',
+        brand: (row && row.brand) || '',
+        material: (row && row.material) || '',
+        qty: (row && row.qty) || '',
+        amount: row && row.amount != null ? row.amount : '',
+      })),
+    )
+  },
+
   deliveryFormFromNodes(album, flowNodes = [], photoDraft = {}) {
     const deliveryNode = (flowNodes || []).find((node) => node && node.kind === 'delivery_photos')
     const repairNode = (flowNodes || []).find((node) => node && node.kind === 'repair_report')
@@ -4090,25 +4058,8 @@ Page({
         ? repairDraft.ownerFaqs
         : null) ||
       []
-    const selected =
-      (Array.isArray(deliveryDraft.selectedDeliveryUrls) &&
-      deliveryDraft.selectedDeliveryUrls.length
-        ? deliveryDraft.selectedDeliveryUrls
-        : null) ||
-      (Array.isArray(photoDraft.selectedDeliveryUrls) && photoDraft.selectedDeliveryUrls.length
-        ? photoDraft.selectedDeliveryUrls
-        : null) ||
-      []
-    const exterior = String(
-      deliveryDraft.deliveryExteriorUrl || photoDraft.deliveryExteriorUrl || '',
-    ).trim()
-    const source = {
-      ...photoDraft,
-      ...deliveryDraft,
-      selectedDeliveryUrls: selected,
-      deliveryExteriorUrl: exterior,
-    }
-    const packed = this.hydrateDeliveryGallery(album, source, exterior)
+    const source = { ...photoDraft, ...deliveryDraft }
+    const packed = this.hydrateDeliveryGallery(source)
     return {
       warrantyPeriod: String(
         deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || repairDraft.warrantyPeriod || '',
@@ -4117,6 +4068,7 @@ Page({
         resolveWarrantyNotes(deliveryDraft) ||
         resolveWarrantyNotes(photoDraft) ||
         resolveWarrantyNotes(repairDraft),
+      // 简述/问答不在界面展示；仍回读以便与 AI 静默写入的内容共存
       repairBrief: String(
         deliveryDraft.repairBrief || photoDraft.repairBrief || repairDraft.repairBrief || '',
       ).trim(),
@@ -4133,81 +4085,38 @@ Page({
         photoDraft.confirmCopy ||
         REPAIR_CONFIRM_COPY,
       deliveryPhotos: packed.deliveryPhotos,
-      workImagePool: packed.workImagePool,
-      deliveryExtraCount: packed.deliveryExtraCount,
-      deliveryExteriorUrl: packed.deliveryExteriorUrl || exterior,
     }
   },
 
-  packDeliveryGallery(photos = [], exteriorUrl = '') {
-    let exterior = String(exteriorUrl || '').trim()
+  /** 外观照（交车页单独一块）：1~3 张，首张为整车外观；去重、限张 */
+  packDeliveryGallery(photos = []) {
     const list = []
     const seen = {}
     ;(photos || []).forEach((row) => {
-      const url = String((row && row.url) || '').trim()
+      const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
       const key = mediaKey(url)
       if (!url || !key || seen[key]) return
+      if (list.length >= ACCEPTANCE_EXTERIOR_MAX) return
       seen[key] = true
-      list.push({
-        url,
-        partName: String((row && row.partName) || '').trim(),
-        selected: true,
-        captured: true,
-      })
+      list.push({ url })
     })
-    if (!exterior && list.length) exterior = list[0].url
-    const deliveryPhotos = list.map((row) => ({
-      ...row,
-      isExterior: row.url === exterior,
-    }))
-    return {
-      deliveryPhotos,
-      // 兼容旧路径仍读 workImagePool
-      workImagePool: deliveryPhotos,
-      deliveryExteriorUrl: exterior,
-      deliveryExtraCount: deliveryPhotos.filter((row) => row.url && row.url !== exterior).length,
-      deliveryPickMode: '',
-    }
+    return { deliveryPhotos: list }
   },
 
-  hydrateDeliveryGallery(album = {}, photoDraft = {}, exteriorUrl = '') {
-    let exterior = String(exteriorUrl || '').trim()
-    const photos = []
-    const seen = {}
-    const push = (url, partName = '') => {
-      const u = String(url || '').trim()
-      const key = mediaKey(u)
-      if (!u || !key || seen[key]) return
-      seen[key] = true
-      photos.push({ url: u, partName: String(partName || '').trim() })
-    }
-    if (exterior) push(exterior, '整车外观')
-    ;(Array.isArray(photoDraft.selectedDeliveryUrls) ? photoDraft.selectedDeliveryUrls : []).forEach(
-      (row) => {
-        const url =
-          typeof row === 'string'
-            ? row
-            : row && typeof row === 'object'
-              ? row.url || row.rawUrl || ''
-              : ''
-        push(url)
-      },
+  hydrateDeliveryGallery(photoDraft = {}) {
+    return this.packDeliveryGallery(
+      Array.isArray(photoDraft.deliveryPhotos) ? photoDraft.deliveryPhotos : [],
     )
-    return this.packDeliveryGallery(photos, exterior)
   },
 
-  applyDeliveryGallery(photos, exteriorUrl) {
-    const packed = this.packDeliveryGallery(photos, exteriorUrl)
-    const exterior = packed.deliveryExteriorUrl
+  applyDeliveryGallery(photos) {
+    const packed = this.packDeliveryGallery(photos)
     const sections = (this.data.sections || []).map((section) => {
       if (section.stageId !== 'delivery_photos') return section
-      const images = []
-      if (exterior) images.push({ url: exterior, caption: '整车外观' })
-      ;(packed.deliveryPhotos || []).forEach((row) => {
-        if (!row || !row.url || row.url === exterior) return
-        images.push({ url: row.url, caption: row.partName || '交车图' })
-      })
-      return { ...section, images }
+      return {
+        ...section,
+        images: (packed.deliveryPhotos || []).map((row) => ({ url: row.url, caption: '' })),
+      }
     })
     this.setData({
       ...packed,
@@ -4220,7 +4129,11 @@ Page({
   onUploadDeliveryPhotos() {
     if (this.data.readOnly) return
     const current = (this.data.deliveryPhotos || []).slice()
-    const remain = Math.max(1, 9 - current.length)
+    const remain = Math.max(0, ACCEPTANCE_EXTERIOR_MAX - current.length)
+    if (!remain) {
+      wx.showToast({ title: `外观照最多 ${ACCEPTANCE_EXTERIOR_MAX} 张`, icon: 'none' })
+      return
+    }
     pickLocalImages({
       count: remain,
       mediaType: ['image'],
@@ -4232,7 +4145,6 @@ Page({
           wx.showLoading({ title: '上传中' })
           const uploadedList = await this.uploadPickedFiles(files)
           if (!uploadedList.length) throw new Error('上传失败')
-          let exterior = String(this.data.deliveryExteriorUrl || '').trim()
           const photos = current.slice()
           const seen = {}
           photos.forEach((row) => {
@@ -4243,15 +4155,11 @@ Page({
             const url = String((row && row.url) || '').trim()
             const key = mediaKey(url)
             if (!url || !key || seen[key]) return
+            if (photos.length >= ACCEPTANCE_EXTERIOR_MAX) return
             seen[key] = true
-            if (!exterior) {
-              exterior = url
-              photos.unshift({ url, partName: '整车外观' })
-            } else {
-              photos.push({ url, partName: '交车图' })
-            }
+            photos.push({ url })
           })
-          this.applyDeliveryGallery(photos, exterior)
+          this.applyDeliveryGallery(photos)
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -4265,15 +4173,10 @@ Page({
     if (this.data.readOnly) return
     const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
     if (!url) return
-    const exterior = String(this.data.deliveryExteriorUrl || '').trim()
     const photos = (this.data.deliveryPhotos || []).filter(
       (row) => row && row.url && mediaKey(row.url) !== mediaKey(url),
     )
-    const nextExterior =
-      mediaKey(url) === mediaKey(exterior)
-        ? String((photos[0] && photos[0].url) || '').trim()
-        : exterior
-    this.applyDeliveryGallery(photos, nextExterior)
+    this.applyDeliveryGallery(photos)
   },
 
   onPreviewDeliveryPhoto(e) {
@@ -4283,34 +4186,83 @@ Page({
     wx.previewImage({ current: url || urls[0], urls })
   },
 
-  // AI 建议补图：仍走本机上传
-  onCaptureDeliveryExtra() {
-    this.onUploadDeliveryPhotos()
-  },
-
-  captureDeliveryExtraPhoto() {
-    this.onUploadDeliveryPhotos()
-  },
-
-  onCaptureExterior() {
-    this.onUploadDeliveryPhotos()
-  },
-
-  onClearExterior() {
+  // 验收项图片（每项自包含，选填，最多 6 张）
+  onUploadAcceptanceImages(e) {
     if (this.data.readOnly) return
-    this.applyDeliveryGallery([], '')
+    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const row = (this.data.acceptanceItems || [])[index] || {}
+    const current = Array.isArray(row.images) ? row.images : []
+    const remain = Math.max(0, 6 - current.length)
+    if (!remain) {
+      wx.showToast({ title: '每项最多 6 张', icon: 'none' })
+      return
+    }
+    pickLocalImages({
+      count: remain,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const files = res.tempFiles || []
+        if (!files.length) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploadedList = await this.uploadPickedFiles(files)
+          if (!uploadedList.length) throw new Error('上传失败')
+          const images = current.slice()
+          const seen = {}
+          images.forEach((img) => {
+            const key = mediaKey(img && img.url)
+            if (key) seen[key] = true
+          })
+          uploadedList.forEach((item) => {
+            const url = String((item && item.url) || '').trim()
+            const key = mediaKey(url)
+            if (!url || !key || seen[key]) return
+            if (images.length >= 6) return
+            seen[key] = true
+            images.push({ url })
+          })
+          this.applyAcceptanceImages(index, images)
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
   },
 
-  onPreviewExterior() {
-    const url = String(this.data.deliveryExteriorUrl || '').trim()
-    if (!url) return
-    this.onPreviewDeliveryPhoto({ currentTarget: { dataset: { url } } })
+  onRemoveAcceptanceImage(e) {
+    if (this.data.readOnly) return
+    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    if (!Number.isFinite(index) || !url) return
+    const row = (this.data.acceptanceItems || [])[index] || {}
+    const images = (Array.isArray(row.images) ? row.images : []).filter(
+      (img) => mediaKey(img && img.url) !== mediaKey(url),
+    )
+    this.applyAcceptanceImages(index, images)
   },
 
-  onToggleDeliveryWorkImage() {},
-  onStartPickExterior() {},
-  onCancelPickExterior() {
-    this.setData({ deliveryPickMode: '' })
+  onPreviewAcceptanceImage(e) {
+    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
+    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    const row = (this.data.acceptanceItems || [])[index] || {}
+    const urls = (Array.isArray(row.images) ? row.images : [])
+      .map((img) => img && img.url)
+      .filter(Boolean)
+    if (!urls.length) return
+    wx.previewImage({ current: url || urls[0], urls })
+  },
+
+  applyAcceptanceImages(index, images) {
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
+      i === index ? { ...row, images: images || [] } : row,
+    )
+    this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDraftOnly()
+    })
   },
 
   async uploadPickedFiles(files) {
@@ -5445,144 +5397,54 @@ Page({
     })
   },
 
-  onOwnerFaqInput(e) {
-    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
-    const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
-    const field = String((e.currentTarget.dataset && e.currentTarget.dataset.field) || '')
-    if (!id || (field !== 'question' && field !== 'answer')) return
-    const ownerFaqs = (this.data.ownerFaqs || []).map((row) =>
-      row && row.id === id ? { ...row, [field]: e.detail.value } : row,
-    )
-    this.setData({ ownerFaqs, autoSaveLabel: '保存中…' }, () => {
-      this.setData({ deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) })
-      this.scheduleAutoSavePhotos()
-    })
-  },
-
-  onAddOwnerFaq() {
-    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
-    const list = Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs.slice() : []
-    if (list.length >= 5) {
-      wx.showToast({ title: '最多 5 条', icon: 'none' })
-      return
-    }
-    list.push({
-      id: `faq_${Date.now()}_${list.length + 1}`,
-      question: '',
-      answer: '',
-    })
-    this.setData({ ownerFaqs: list, autoSaveLabel: '保存中…' }, () => this.scheduleAutoSavePhotos())
-  },
-
-  onRemoveOwnerFaq(e) {
-    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
-    const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
-    if (!id) return
-    const ownerFaqs = (this.data.ownerFaqs || []).filter((row) => row && row.id !== id)
-    this.setData({ ownerFaqs, autoSaveLabel: '保存中…' }, () => {
-      this.setData({ deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) })
-      this.scheduleAutoSavePhotos()
-    })
-  },
-
+  /** 交车 AI 建议：逐项验收/质保，点哪行写哪行（只填空栏，不覆盖已写、不批量替换） */
   onApplyDeliveryAdvice(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
-    const kind = String((e.currentTarget.dataset && e.currentTarget.dataset.kind) || '')
+    const dataset = (e.currentTarget && e.currentTarget.dataset) || {}
+    const kind = String(dataset.kind || '')
     const advice = this.data.deliveryAdvice
     if (!advice) return
-    if (kind === 'brief') {
-      if (!advice.canApplyBrief || !advice.repairBrief) return
+    if (kind === 'warranty') {
+      if (!advice.canApplyWarranty || !advice.warrantyText) return
       this.setData(
-        {
-          repairBrief: advice.repairBrief,
-          deliveryAdvice: {
-            ...advice,
-            canApplyBrief: false,
-            briefApplied: true,
-          },
-          autoSaveLabel: '保存中…',
+        { warrantyPeriod: advice.warrantyText, autoSaveLabel: '保存中…' },
+        () => {
+          this.setData(
+            { deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) },
+            () => this.commitAppliedPhotoDraft(),
+          )
         },
-        () => this.commitAppliedPhotoDraft(),
       )
-      wx.showToast({ title: '已写入简述', icon: 'none' })
+      wx.showToast({ title: '已写入质保期限', icon: 'none' })
       return
     }
-    if (kind === 'faqs') {
-      if (!advice.canApplyFaqs || !(advice.ownerFaqs || []).length) return
-      const ownerFaqs = (advice.ownerFaqs || []).map((row, index) => ({
-        id: String((row && row.id) || `faq_${index + 1}`),
-        question: String((row && row.question) || '').trim(),
-        answer: String((row && row.answer) || '').trim(),
-      }))
+    if (kind !== 'acceptance') return
+    const adviceId = String(dataset.adviceId || '')
+    if (!adviceId || !advice.acceptance) return
+    const target = (advice.acceptance.items || []).find((row) => row.adviceId === adviceId)
+    if (!target || !target.canApply) return
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row) => {
+      if (String((row && row.name) || '').trim() !== target.name) return row
+      return {
+        ...row,
+        standard: row.standard || target.standard || '',
+        method: row.method || target.method || '',
+        result: row.result || target.result || '',
+      }
+    })
+    this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.setData(
-        {
-          ownerFaqs,
-          deliveryAdvice: {
-            ...advice,
-            canApplyFaqs: false,
-            faqsApplied: true,
-          },
-          autoSaveLabel: '保存中…',
-        },
+        { deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) },
         () => this.commitAppliedPhotoDraft(),
       )
-      wx.showToast({ title: '已写入问答', icon: 'none' })
-      return
-    }
-    if (kind === 'acceptance') {
-      if (!advice.canApplyAcceptance || !advice.acceptance) return
-      // 只写 AI 起草了且还没填的段；按项目合并，店员已写的不覆盖
-      const draftItems = (Array.isArray(advice.acceptance.items) && advice.acceptance.items.length
-        ? advice.acceptance.items
-        : [advice.acceptance]
-      )
-        .map((row) => {
-          const obj = row && typeof row === 'object' ? row : {}
-          return {
-            project: String(obj.project || '').trim(),
-            note:
-              String(obj.note || '').trim() ||
-              [String(obj.process || '').trim(), String(obj.result || '').trim()]
-                .filter(Boolean)
-                .join('；')
-                .trim() ||
-              String(obj.standard || '').trim(),
-          }
-        })
-        .filter((row) => row.project || row.note)
-      if (!draftItems.length) return
-      // 应用即以本次草稿为准：剔除无项目名的旧残留项（历史单组/旧格式遗留），避免追加出空白行
-      const liveItems = (this.data.acceptanceItems || [])
-        .filter((row) => String((row && row.project) || '').trim())
-        .map((row) => ({ ...row }))
-      draftItems.forEach((item) => {
-        const hit = liveItems.find((row) => (row.project || '') === item.project)
-        if (hit) {
-          if (item.note && !hit.note) hit.note = item.note
-        } else {
-          liveItems.push({ ...item })
-        }
-      })
-      this.setData(
-        {
-          acceptanceItems: liveItems,
-          deliveryAdvice: {
-            ...advice,
-            canApplyAcceptance: false,
-            acceptanceApplied: true,
-          },
-          autoSaveLabel: '保存中…',
-        },
-        () => this.commitAppliedPhotoDraft(),
-      )
-      wx.showToast({ title: '已写入验收', icon: 'none' })
-    }
+    })
+    wx.showToast({ title: '已写入该项', icon: 'none' })
   },
 
   onAcceptanceItemInput(e) {
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
-    if (!Number.isFinite(index) || !['project', 'note'].includes(field)) return
+    if (!Number.isFinite(index) || !['name', 'standard', 'method', 'note'].includes(field)) return
     const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
       i === index ? { ...row, [field]: String(e.detail.value || '').trim() } : row,
     )
@@ -5591,19 +5453,16 @@ Page({
     })
   },
 
-  onAddAcceptanceItem() {
-    if (this.data.readOnly) return
-    this.setData({
-      acceptanceItems: (this.data.acceptanceItems || []).concat([{ project: '', note: '' }]),
-      autoSaveLabel: '保存中…',
-    })
-  },
-
-  onRemoveAcceptanceItem(e) {
+  /** 验收结果只有店员实查后能点（三档：合格 / 建议观察 / 需返工），AI 不代点 */
+  onAcceptanceResultTap(e) {
     if (this.data.readOnly) return
     const index = Number(e.currentTarget.dataset.index)
+    const value = String(e.currentTarget.dataset.value || '')
     if (!Number.isFinite(index)) return
-    const acceptanceItems = (this.data.acceptanceItems || []).filter((_, i) => i !== index)
+    if (!ACCEPTANCE_RESULT_OPTIONS.some((row) => row.value === value)) return
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
+      i === index ? { ...row, result: row.result === value ? '' : value } : row,
+    )
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDraftOnly()
     })
@@ -6319,20 +6178,19 @@ Page({
         hasContent: false,
         repairBrief: '',
         acceptance: null,
-        ownerFaqs: [],
-        tips: [],
-        canApplyBrief: false,
-        canApplyFaqs: false,
+        warrantyText: '',
         canApplyAcceptance: false,
-        briefApplied: false,
-        faqsApplied: false,
+        canApplyWarranty: false,
         acceptanceApplied: false,
-      }
-    }
-    const status = String(raw.status || '')
-    const repairBrief = String(raw.repairBrief || (raw.repair && raw.repair.body) || '').trim()
-    const ownerFaqs = (Array.isArray(raw.ownerFaqs) ? raw.ownerFaqs : [])
-      .map((row, index) => {
+        // 简述/问答只静默使用，不进面板
+        repairBrief: '',
+        ownerFaqs: [],
+        }
+        }
+        const status = String(raw.status || '')
+        const repairBrief = String(raw.repairBrief || '').trim()
+        const ownerFaqs = (Array.isArray(raw.ownerFaqs) ? raw.ownerFaqs : [])
+        .map((row, index) => {
         const question = String((row && (row.question || row.q)) || '').trim()
         const answer = String((row && (row.answer || row.a)) || '').trim()
         if (!question) return null
@@ -6341,75 +6199,69 @@ Page({
           question,
           answer,
         }
-      })
-      .filter(Boolean)
-      .slice(0, 5)
-    const tips = (Array.isArray(raw.tips) ? raw.tips : [])
-      .map((row, index) => {
-        const title = String((row && row.title) || '').trim()
-        const body = String((row && row.body) || '').trim()
-        if (!title && !body) return null
-        return { id: String((row && row.id) || `tip_${index + 1}`), title, body, hasTitle: Boolean(title), hasBody: Boolean(body) }
-      })
-      .filter(Boolean)
-    const liveBrief = String(this.data.repairBrief || '').trim()
-    const liveFaqs = (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : []).filter(
-      (row) => row && String(row.question || '').trim(),
-    )
-    const acceptanceRaw =
-      raw.acceptance && typeof raw.acceptance === 'object' ? raw.acceptance : null
-    const acceptance = acceptanceItemsFromDraft(acceptanceRaw).length
-      ? { items: acceptanceItemsFromDraft(acceptanceRaw) }
-      : null
-    // 验收按项目判断：只有「有起草且对应项目/段落还没写」才可应用
-    const liveItems = (this.data.acceptanceItems || []).map((row) => ({
-      project: String((row && row.project) || '').trim(),
-      note: String((row && row.note) || '').trim(),
-    }))
-    const acceptanceDraftItems = acceptance ? acceptance.items : []
-    const canApplyAcceptance = acceptanceDraftItems.some((item) => {
-      const hit = liveItems.find((row) => (row.project || '') === item.project)
-      if (!hit) return true
-      return item.note && !hit.note
-    })
-    const canApplyBrief = Boolean(repairBrief) && !liveBrief
-    const canApplyFaqs = ownerFaqs.length > 0 && !liveFaqs.length
-    const briefApplied = Boolean(repairBrief) && Boolean(liveBrief)
-    const faqsApplied = ownerFaqs.length > 0 && liveFaqs.length > 0
-    const hasContent = Boolean(
-      repairBrief || acceptanceDraftItems.length || ownerFaqs.length || tips.length,
-    )
-    return {
-      status,
-      repairBrief,
-      acceptance,
-      ownerFaqs,
-      tips,
-      hasTips: tips.length > 0,
-      canApplyBrief,
-      canApplyFaqs,
-      canApplyAcceptance,
-      briefApplied,
-      faqsApplied,
-      acceptanceApplied:
-        acceptanceDraftItems.length > 0 &&
-        acceptanceDraftItems.every((item) => {
-          const hit = liveItems.find((row) => (row.project || '') === item.project)
-          if (!hit) return false
-          return !item.note || Boolean(hit.note)
-        }),
-      hasContent,
-      stale: Boolean(raw.stale),
-      isWaiting: status === 'queued' || status === 'running',
-      waitHint:
+        })
+        .filter(Boolean)
+        .slice(0, 5)
+        const acceptanceRaw =
+        raw.acceptance && typeof raw.acceptance === 'object' ? raw.acceptance : null
+        const acceptance = acceptanceItemsFromDraft(acceptanceRaw).length
+        ? { items: acceptanceItemsFromDraft(acceptanceRaw) }
+        : null
+        // 逐项判断：该项有标准/怎么验/结果建议且本行还空着，才可应用；点了才写入
+        const liveItems = (this.data.acceptanceItems || []).map((row) => ({
+        name: String((row && row.name) || '').trim(),
+        standard: String((row && row.standard) || '').trim(),
+        method: String((row && row.method) || '').trim(),
+        result: String((row && row.result) || '').trim(),
+        }))
+        const acceptanceDraftItems = (acceptance ? acceptance.items : []).map((item, index) => {
+        const hit = liveItems.find((row) => (row.name || '') === item.name)
+        const canApply = Boolean(
+          hit &&
+            ((item.standard && !hit.standard) ||
+              (item.method && !hit.method) ||
+              (item.result && !hit.result)),
+        )
+        const resultLabel =
+          (ACCEPTANCE_RESULT_OPTIONS.find((opt) => opt.value === item.result) || {}).label || ''
+        return { ...item, adviceId: `acc_adv_${index + 1}`, canApply, resultLabel }
+        })
+        const canApplyAcceptance = acceptanceDraftItems.some((item) => item.canApply)
+        const appliedItems = acceptanceDraftItems.filter((item) => {
+        const hit = liveItems.find((row) => (row.name || '') === item.name)
+        if (!hit) return false
+        return (
+        (!item.standard || Boolean(hit.standard)) &&
+        (!item.method || Boolean(hit.method)) &&
+        (!item.result || Boolean(hit.result))
+        )
+        })
+        const warrantyText = String((raw.warranty && raw.warranty.body) || '').trim()
+        const liveWarranty = String(this.data.warrantyPeriod || '').trim()
+        const canApplyWarranty = Boolean(warrantyText) && !liveWarranty
+        const hasContent = Boolean(acceptanceDraftItems.length || warrantyText)
+        return {
+        status,
+        repairBrief,
+        ownerFaqs,
+        acceptance: acceptance ? { items: acceptanceDraftItems } : null,
+        warrantyText,
+        canApplyAcceptance,
+        canApplyWarranty,
+        acceptanceApplied:
+        acceptanceDraftItems.length > 0 && appliedItems.length === acceptanceDraftItems.length,
+        hasContent,
+        stale: Boolean(raw.stale),
+        isWaiting: status === 'queued' || status === 'running',
+        waitHint:
         raw.waitHint ||
         (status === 'queued' || status === 'running'
           ? hasContent
             ? '正在更新'
             : '正在出意见'
           : ''),
-    }
-  },
+        }
+        },
 
   mergeAskPicksIntoComplaint(askOwner) {
     const base = String(this._askComplaintBase || this.data.chiefComplaint || '').trim()
@@ -7159,8 +7011,34 @@ Page({
         this.syncAdviceChrome()
         this.settleAdvicePaintWaiting()
         this.resumeQuoteAssistPoll()
+        this.autoAdoptDeliveryCopy()
       },
     )
+  },
+
+  /** 简述/问答不在界面展示：AI 已生成时静默写入本单内容（只供托管预览与公网），已有字不覆盖 */
+  autoAdoptDeliveryCopy() {
+    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
+    const advice = this.data.deliveryAdvice || {}
+    const patch = {}
+    if (!String(this.data.repairBrief || '').trim() && String(advice.repairBrief || '').trim()) {
+      patch.repairBrief = String(advice.repairBrief).trim()
+    }
+    if (
+      !(Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : []).filter(
+        (row) => row && String(row.question || '').trim(),
+      ).length &&
+      Array.isArray(advice.ownerFaqs) &&
+      advice.ownerFaqs.length
+    ) {
+      patch.ownerFaqs = advice.ownerFaqs.map((row, index) => ({
+        id: String((row && row.id) || `faq_${index + 1}`),
+        question: String((row && row.question) || '').trim(),
+        answer: String((row && row.answer) || '').trim(),
+      }))
+    }
+    if (!Object.keys(patch).length) return
+    this.setData({ ...patch, autoSaveLabel: '保存中…' }, () => this.scheduleAutoSaveDraftOnly())
   },
 
   applyInspectionProposal(id) {
@@ -7511,16 +7389,11 @@ Page({
     }
     if (kind === 'delivery_photos') {
       const gaps = collectDeliveryPhotoDraftGaps({
-        repairBrief: this.data.repairBrief,
-        ownerFaqs: this.data.ownerFaqs,
-        acceptance: { items: this.data.acceptanceItems || [] },
+        acceptanceItems: this.data.acceptanceItems || [],
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: this.data.delivererName,
-        deliveryExteriorUrl: this.data.deliveryExteriorUrl,
-        selectedDeliveryUrls: (this.data.workImagePool || [])
-          .filter((row) => row && row.selected)
-          .map((row) => row.url),
+        deliveryPhotos: this.data.deliveryPhotos || [],
       })
       if (gaps.length) {
         wx.showModal({
@@ -7657,13 +7530,13 @@ Page({
         delivererName: String(this.data.delivererName || base.delivererName || doc.signName || '').trim(),
         finishedAt: String(this.data.finishedAt || base.finishedAt || doc.signAt || '').trim(),
         repairBrief: String(this.data.repairBrief || base.repairBrief || doc.repairBrief || '').trim(),
-        acceptance:
+        acceptanceItems:
           (this.data.acceptanceItems && this.data.acceptanceItems.length
-            ? { items: this.data.acceptanceItems }
+            ? this.data.acceptanceItems
             : null) ||
-          base.acceptance ||
-          doc.acceptance ||
-          null,
+          base.acceptanceItems ||
+          doc.acceptanceItems ||
+          [],
         ownerFaqs: faqs,
         workItems,
         deliveryPhotos,

@@ -728,27 +728,45 @@
               escapeHtml(ch.repairBrief) +
               '</p>'
           }
-          if (ch.acceptance) {
-            var acceptanceRows = [
-              ch.acceptance.standard ? ['验收标准', ch.acceptance.standard] : null,
-              ch.acceptance.process ? ['验收过程', ch.acceptance.process] : null,
-              ch.acceptance.result ? ['验收结果', ch.acceptance.result] : null,
-            ].filter(Boolean)
-            if (acceptanceRows.length) {
-              body +=
-                '<p class="h5-flow-k">验收</p>' +
-                acceptanceRows
-                  .map(function (row) {
-                    return (
-                      '<p class="h5-flow-p"><span class="h5-flow-acceptance-label">' +
-                      escapeHtml(row[0]) +
-                      '</span>' +
-                      escapeHtml(row[1]) +
-                      '</p>'
-                    )
-                  })
-                  .join('')
-            }
+          if (ch.acceptanceItems && ch.acceptanceItems.length) {
+            body += '<p class="h5-flow-k">验收</p>'
+            body += ch.acceptanceItems
+              .map(function (acc) {
+                var head =
+                  '<p class="h5-flow-p"><span class="h5-flow-acceptance-label">' +
+                  escapeHtml(acc.name || '验收项') +
+                  (acc.resultLabel
+                    ? ' · ' + escapeHtml(acc.resultLabel)
+                    : '') +
+                  '</span>' +
+                  (acc.standard
+                    ? escapeHtml('　合格标准：' + acc.standard)
+                    : '') +
+                  '</p>'
+                var method = acc.method
+                  ? '<p class="h5-flow-item-note">怎么验：' + escapeHtml(acc.method) + '</p>'
+                  : ''
+                var note = acc.note ? '<p class="h5-flow-item-note">' + escapeHtml(acc.note) + '</p>' : ''
+                var shots =
+                  Array.isArray(acc.images) && acc.images.length
+                    ? '<div class="h5-flow-imgs">' +
+                      acc.images
+                        .map(function (img) {
+                          var url = (img && (img.url || img)) || ''
+                          return url
+                            ? '<img class="h5-flow-img" src="' +
+                                escapeHtml(url) +
+                                '" alt="' +
+                                escapeHtml(acc.name || '验收图') +
+                                '" loading="lazy" />'
+                            : ''
+                        })
+                        .join('') +
+                      '</div>'
+                    : ''
+                return head + method + note + shots
+              })
+              .join('')
           }
           if (ch.ownerFaqs && ch.ownerFaqs.length) {
             body +=

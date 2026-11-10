@@ -30,6 +30,44 @@ const FINDING_RESULT_OPTIONS = [
 const FINDING_ADVICE_NONE = '无需处理'
 
 /**
+ * 交车验收项（2026-11-10 定稿）
+ * 真源：docs/04_维修过程相册/26_ §6.2 acceptanceItems
+ * 一项 = 查什么(name) + 合格标准(standard) + 怎么验(method) + 结果(result) + 可选佐证图/补充
+ * 结果只有店员实查后能点；AI 只起草，不代点结果。有 rework 硬拦交车定稿。
+ */
+const ACCEPTANCE_RESULT = {
+  PASS: 'pass',
+  OBSERVE: 'observe',
+  REWORK: 'rework',
+}
+
+const ACCEPTANCE_RESULT_OPTIONS = [
+  { value: ACCEPTANCE_RESULT.PASS, label: '合格' },
+  { value: ACCEPTANCE_RESULT.OBSERVE, label: '建议观察' },
+  { value: ACCEPTANCE_RESULT.REWORK, label: '需返工' },
+]
+
+/** 外观照上限（交车页单独一块，首张为整车外观） */
+const ACCEPTANCE_EXTERIOR_MAX = 3
+
+function isValidAcceptanceResult(value) {
+  return ACCEPTANCE_RESULT_OPTIONS.some((row) => row.value === value)
+}
+
+/** 验收项草稿工厂：产出全部业务字段，不留半空对象（行由施工项目带出，name 由调用方填入） */
+function emptyAcceptanceItem() {
+  return {
+    id: '',
+    name: '',
+    standard: '',
+    method: '',
+    result: '',
+    images: [],
+    note: '',
+  }
+}
+
+/**
  * 接车 · 环车清单（存量只读兼容）
  * 新单不再作为拍前勾选，改用 INTAKE_RECORD_CATEGORIES。
  */
@@ -198,10 +236,10 @@ function emptyPhotoDraft() {
     warrantyPeriod: '',
     warrantyNotes: '',
     confirmCopy: '',
-    selectedDeliveryUrls: [],
-    deliveryExteriorUrl: '',
+    deliveryPhotos: [],
     repairBrief: '',
     ownerFaqs: [],
+    acceptanceItems: [],
   }
 }
 
@@ -283,6 +321,11 @@ module.exports = {
   FINDING_ADVICE_NONE,
   WALKAROUND_PARTS,
   INTAKE_RECORD_CATEGORIES,
+  ACCEPTANCE_RESULT,
+  ACCEPTANCE_RESULT_OPTIONS,
+  ACCEPTANCE_EXTERIOR_MAX,
+  isValidAcceptanceResult,
+  emptyAcceptanceItem,
   QUOTE_CONFIRM_COPY,
   QUOTE_CONFIRM_COPY_TEARDOWN,
   REPAIR_CONFIRM_COPY,

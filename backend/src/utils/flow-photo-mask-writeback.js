@@ -194,18 +194,7 @@ function patchPayloadOrDraft(bag, rawKeys, meta) {
 
   ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach(patchArr)
 
-  if (text(next.deliveryExteriorUrl) && urlsMatch(next.deliveryExteriorUrl, rawKeys)) {
-    const product = text(meta.maskedUrl)
-    if (product && text(next.deliveryExteriorMaskedUrl) !== product) {
-      next = { ...next, deliveryExteriorMaskedUrl: product }
-      changed = true
-    } else if (text(meta.maskOutcome) === 'ok_no_privacy' && text(next.deliveryExteriorMaskedUrl)) {
-      next = { ...next, deliveryExteriorMaskedUrl: '' }
-      changed = true
-    }
-  }
-
-  ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
+  ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
     if (!Array.isArray(next[key])) return
     let rowChanged = false
     const rows = next[key].map((row) => {
@@ -330,14 +319,7 @@ function collectBagImageRefs(bag, list) {
   ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages', 'images'].forEach((key) => {
     ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((slot) => pushImageRef(list, slot))
   })
-  if (text(bag.deliveryExteriorUrl)) {
-    list.push({
-      url: text(bag.deliveryExteriorUrl),
-      maskedUrl: text(bag.deliveryExteriorMaskedUrl),
-      maskOutcome: '',
-    })
-  }
-  ;['findings', 'workItems', 'items', 'lines'].forEach((key) => {
+  ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
     ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
       if (!row) return
       pushImageRef(list, row)

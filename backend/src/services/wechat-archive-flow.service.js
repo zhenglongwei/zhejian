@@ -471,14 +471,16 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
         return { ...node, content, photoDraft: content }
       }
       if (node.kind === 'delivery_photos' && groups.delivery.length) {
-        const urls = groups.delivery.map((row) => row.url)
-        const content = {
-          ...bag,
-          deliveryExteriorUrl: bag.deliveryExteriorUrl || urls[0] || '',
-          selectedDeliveryUrls: Array.from(
-            new Set([].concat(bag.selectedDeliveryUrls || [], urls.slice(1))),
-          ),
-        }
+        const seen = {}
+        const deliveryPhotos = []
+        ;[].concat(bag.deliveryPhotos || [], groups.delivery.map((row) => ({ url: row.url })))
+          .forEach((row) => {
+            const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
+            if (!url || seen[url]) return
+            seen[url] = true
+            deliveryPhotos.push({ url })
+          })
+        const content = { ...bag, deliveryPhotos: deliveryPhotos.slice(0, 3) }
         return { ...node, content, photoDraft: content }
       }
       return node
