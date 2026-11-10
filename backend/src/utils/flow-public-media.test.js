@@ -38,7 +38,17 @@ test('接车/报价图不算可公示；施工/交车算', () => {
     {
       id: 'n4',
       kind: 'delivery_photos',
-      content: { deliveryExteriorUrl: 'https://x/out.jpg', deliveryPhotos: [{ url: 'https://x/d2.jpg' }] },
+      content: {
+        acceptanceItems: [
+          {
+            id: 'exterior',
+            kind: 'exterior',
+            name: '外观',
+            result: 'pass',
+            images: [{ url: 'https://x/out.jpg' }, { url: 'https://x/d2.jpg' }],
+          },
+        ],
+      },
     },
   ])
   const list = collectPublicizableFlowPhotos(album)

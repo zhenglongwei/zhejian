@@ -29,8 +29,19 @@ test('定稿工单图在 content.findings 时仍可收进可公示清单', () =>
           status: 'completed',
           document: { status: 'pending_confirm', payload: {} },
           content: {
-            deliveryExteriorUrl: 'https://cdn.example.com/out.jpg',
-            deliveryPhotos: [{ url: 'https://cdn.example.com/d2.jpg' }],
+            // 外观已并入验收清单最后一行：整车外观 + 部位图都挂在这一行
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [
+                  { url: 'https://cdn.example.com/out.jpg' },
+                  { url: 'https://cdn.example.com/d2.jpg' },
+                ],
+              },
+            ],
           },
         },
       ],

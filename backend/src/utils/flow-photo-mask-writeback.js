@@ -192,7 +192,7 @@ function patchPayloadOrDraft(bag, rawKeys, meta) {
     }
   }
 
-  ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach(patchArr)
+  ;['photos', 'discoveryImages', 'pendingImages'].forEach(patchArr)
 
   ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
     if (!Array.isArray(next[key])) return
@@ -316,7 +316,7 @@ function pushImageRef(list, raw) {
 
 function collectBagImageRefs(bag, list) {
   if (!bag || typeof bag !== 'object') return
-  ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages', 'images'].forEach((key) => {
+  ;['photos', 'discoveryImages', 'pendingImages', 'images'].forEach((key) => {
     ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((slot) => pushImageRef(list, slot))
   })
   ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {

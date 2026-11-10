@@ -557,17 +557,23 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
         contentJson.faq = hostMeta.geoLayer.faq
       }
     }
-    // 公开图说：交车 AI 看图产出、随完工报告 caption 走；按去签名 URL 供 ImageObject/alt 使用
+    // 公开图说：按完工报告验收清单逐行取（行描述优先、行名兜底），按去签名 URL 供 ImageObject/alt 使用
     const reportNode = (nodesWithMask || []).find((n) => n && n.kind === 'repair_report')
-    const reportPhotos =
-      (reportNode && reportNode.document && reportNode.document.payload &&
-        reportNode.document.payload.deliveryPhotos) || []
+    const reportPayload =
+      (reportNode && reportNode.document && reportNode.document.payload) || {}
     const captionsByUrl = {}
-    reportPhotos.forEach((photo) => {
-      const cap = String((photo && (photo.caption || photo.note)) || '').trim()
-      const key = String((photo && photo.url) || '').trim().split('?')[0].split('#')[0]
-      if (cap && key) captionsByUrl[key] = cap.slice(0, 60)
-    })
+    ;(Array.isArray(reportPayload.acceptanceItems) ? reportPayload.acceptanceItems : []).forEach(
+      (row) => {
+        const name = String((row && row.name) || '').trim()
+        const note = String((row && row.note) || '').trim()
+        const cap = (note || name).slice(0, 60)
+        if (!cap) return
+        ;(Array.isArray(row && row.images) ? row.images : []).forEach((img) => {
+          const key = String((img && img.url) || '').trim().split('?')[0].split('#')[0]
+          if (key) captionsByUrl[key] = cap
+        })
+      },
+    )
     if (Object.keys(captionsByUrl).length) {
       contentJson.photoCaptions = captionsByUrl
     }

@@ -107,11 +107,7 @@ function chapterLines(chapter) {
     if (line) lines.push(line)
   })
   ;(chapter.acceptanceItems || []).forEach((row) => {
-    const bits = [
-      row && row.name,
-      row && row.resultLabel,
-      row && row.standard ? `标准：${row.standard}` : '',
-    ].filter(Boolean)
+    const bits = [row && row.name, row && row.resultLabel, row && row.note].filter(Boolean)
     if (bits.length) lines.push(`验收：${bits.join(' · ')}`)
   })
   ;(chapter.photos || []).forEach((photo) => {

@@ -13,10 +13,10 @@ const { prisma } = require('../lib/prisma')
 function walkNodeImageSlots(pkg, visit) {
   const walkBag = (bag) => {
     if (!bag || typeof bag !== 'object') return
-    ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
+    ;['photos', 'discoveryImages', 'pendingImages'].forEach((key) => {
       ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(visit)
     })
-    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems', 'deliveryPhotos'].forEach(
+    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach(
       (key) => {
         ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
           if (!row || typeof row !== 'object') return

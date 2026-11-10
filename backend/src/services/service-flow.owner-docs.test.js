@@ -135,11 +135,18 @@ test('车主交车报告：只读已生成正文', () => {
     repairBrief: '右前门补漆完成，饰条已换新。',
     ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
     acceptanceItems: [
-      { id: 'acc_1', name: '右前门', standard: '自然光下无明显色差', method: '目视', result: 'pass' },
-    ],
-    deliveryPhotos: [
-      { url: 'https://cdn.example.com/finish-front.jpg' },
-      { url: 'https://cdn.example.com/finish-side.jpg' },
+      { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
+      {
+        id: 'exterior',
+        kind: 'exterior',
+        name: '外观',
+        note: '整车外观无磕碰，漆面干净',
+        result: 'pass',
+        images: [
+          { url: 'https://cdn.example.com/finish-front.jpg' },
+          { url: 'https://cdn.example.com/finish-side.jpg' },
+        ],
+      },
     ],
     workItems: [{ name: '右前门', note: '补漆并更换饰条', amount: 800 }],
     warrantyPeriod: '12 个月',
@@ -169,13 +176,16 @@ test('车主交车报告：只读已生成正文', () => {
   // 交车报告不展示简述/问答，只展示逐项验收与外观照
   assert.equal(repair.repairBrief, undefined)
   assert.equal(repair.ownerFaqs, undefined)
-  assert.equal(repair.acceptanceItems.length, 1)
+  assert.equal(repair.acceptanceItems.length, 2)
   assert.equal(repair.acceptanceItems[0].name, '右前门')
   assert.equal(repair.acceptanceItems[0].resultLabel, '合格')
+  // 外观固定最后一行，图挂在这一行上
+  assert.equal(repair.acceptanceItems[1].name, '外观')
+  assert.equal(repair.acceptanceItems[1].kind, 'exterior')
+  assert.equal(repair.acceptanceItems[1].images.length, 2)
   assert.equal(repair.workItems.length, 1)
   assert.equal(repair.workItems[0].name, '右前门')
   assert.equal(Number(repair.workItems[0].amount), 800)
-  assert.equal(repair.deliveryPhotos.length, 2)
   assert.equal(repair.warrantyNotes, '不含事故损伤')
   assert.equal(repair.signName, '李店长')
 
@@ -184,7 +194,6 @@ test('车主交车报告：只读已生成正文', () => {
     album: previewAlbumOf(albumWithFlow([])),
     workItems: payload.workItems,
     totalAmount: 800,
-    deliveryPhotos: payload.deliveryPhotos,
     acceptanceItems: payload.acceptanceItems,
     warrantyPeriod: payload.warrantyPeriod,
     warrantyNotes: payload.warrantyNotes,
@@ -195,8 +204,8 @@ test('车主交车报告：只读已生成正文', () => {
     expected.acceptanceItems.map((row) => row.name),
   )
   assert.deepEqual(
-    repair.deliveryPhotos.map((row) => row.url),
-    expected.deliveryPhotos.map((row) => row.url),
+    repair.acceptanceItems.map((row) => row.images.map((img) => img.url)),
+    expected.acceptanceItems.map((row) => row.images.map((img) => img.url)),
   )
 })
 
@@ -220,11 +229,17 @@ test('旧册薄报告：用冻住的交车节点重生成一次', () => {
           repairBrief: '右前门补漆完成，饰条已换新。',
           ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
           acceptanceItems: [
-            { id: 'acc_1', name: '右前门', standard: '自然光下无明显色差', result: 'pass' },
-          ],
-          deliveryPhotos: [
-            { url: 'https://cdn.example.com/finish-front.jpg' },
-            { url: 'https://cdn.example.com/finish-side.jpg' },
+            { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
+            {
+              id: 'exterior',
+              kind: 'exterior',
+              name: '外观',
+              result: 'pass',
+              images: [
+                { url: 'https://cdn.example.com/finish-front.jpg' },
+                { url: 'https://cdn.example.com/finish-side.jpg' },
+              ],
+            },
           ],
           warrantyPeriod: '12 个月',
           warrantyNotes: '不含事故损伤',
@@ -248,7 +263,8 @@ test('旧册薄报告：用冻住的交车节点重生成一次', () => {
   const body = contentOfFlowNode(report)
   assert.equal(body.repairBrief, '右前门补漆完成，饰条已换新。')
   assert.equal(body.warrantyPeriod, '12 个月')
-  assert.ok(body.deliveryPhotos.length >= 1)
+  const exterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
+  assert.ok(exterior && exterior.images.length >= 1)
   assert.equal(body.ownerFaqs.length, 1)
   assert.equal(body.delivererName, '李店长')
 })
@@ -385,7 +401,15 @@ test('旧册空节点：从已生成报告找回交车内容', () => {
           payload: {
             repairBrief: '右前门补漆完成',
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: 'https://cdn.example.com/finish-front.jpg' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: 'https://cdn.example.com/finish-front.jpg' }],
+              },
+            ],
           },
         },
       },
@@ -396,7 +420,8 @@ test('旧册空节点：从已生成报告找回交车内容', () => {
   const delivery = next.flowNodes.find((row) => row.kind === 'delivery_photos')
   assert.equal(delivery.content.repairBrief, '右前门补漆完成')
   assert.equal(delivery.content.warrantyPeriod, '12 个月')
-  assert.equal(delivery.content.deliveryPhotos[0].url, 'https://cdn.example.com/finish-front.jpg')
+  const exterior = delivery.content.acceptanceItems.find((row) => row.kind === 'exterior')
+  assert.equal(exterior.images[0].url, 'https://cdn.example.com/finish-front.jpg')
 })
 
 test('定稿后只丢简述问答：仍从交车报告收回', () => {
@@ -409,7 +434,6 @@ test('定稿后只丢简述问答：仍从交车报告收回', () => {
         status: 'completed',
         content: {
           warrantyPeriod: '12 个月',
-          deliveryPhotos: [{ url: 'https://cdn.example.com/finish-front.jpg' }],
           repairBrief: '',
           ownerFaqs: [],
         },
@@ -421,7 +445,6 @@ test('定稿后只丢简述问答：仍从交车报告收回', () => {
           repairBrief: '更换下摆臂并做了机油机滤',
           ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
           warrantyPeriod: '12 个月',
-          deliveryPhotos: [{ url: 'https://cdn.example.com/finish-front.jpg' }],
         },
         document: { status: 'pending_confirm', payload: {} },
       },
@@ -441,11 +464,17 @@ test('落库迁移不得把交车报告摊成编辑袋', () => {
     repairBrief: '右前门补漆完成，饰条已换新。',
     ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
     acceptanceItems: [
-      { id: 'acc_1', name: '右前门', standard: '自然光下无明显色差', method: '目视', result: 'pass' },
-    ],
-    deliveryPhotos: [
-      { url: 'https://cdn.example.com/finish-front.jpg' },
-      { url: 'https://cdn.example.com/finish-side.jpg' },
+      { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
+      {
+        id: 'exterior',
+        kind: 'exterior',
+        name: '外观',
+        result: 'pass',
+        images: [
+          { url: 'https://cdn.example.com/finish-front.jpg' },
+          { url: 'https://cdn.example.com/finish-side.jpg' },
+        ],
+      },
     ],
     workItems: [{ name: '右前门', note: '补漆并更换饰条', amount: 800 }],
     warrantyPeriod: '12 个月',
@@ -468,7 +497,8 @@ test('落库迁移不得把交车报告摊成编辑袋', () => {
   assert.equal(folded.workItems.length, 1)
   assert.equal(folded.workItems[0].partName || folded.workItems[0].name, '右前门')
   assert.equal(migrated.document.payload && Object.keys(migrated.document.payload).length, 0)
-  assert.ok(folded.deliveryPhotos.length >= 2)
+  const foldedExterior = folded.acceptanceItems.find((row) => row.kind === 'exterior')
+  assert.ok(foldedExterior && foldedExterior.images.length >= 2)
   assert.equal(Number(folded.totalAmount), 800)
 
   const view = buildOwnerFlowView(
@@ -493,10 +523,11 @@ test('落库迁移不得把交车报告摊成编辑袋', () => {
   )
   const repair = view.docs.find((row) => row && row.kind === 'repair_report')
   const work = view.docs.find((row) => row && row.kind === 'work')
-  assert.equal(repair.acceptanceItems.length, 1)
+  assert.equal(repair.acceptanceItems.length, 2)
   assert.equal(repair.acceptanceItems[0].name, '右前门')
+  assert.equal(repair.acceptanceItems[1].name, '外观')
+  assert.equal(repair.acceptanceItems[1].images.length, 2)
   assert.equal(repair.workItems.length, 1)
-  assert.equal(repair.deliveryPhotos.length, 2)
   assert.equal(work.items.length, 1)
   assert.equal(work.items[0].images.length, 1)
 })
@@ -545,11 +576,17 @@ test('旧册薄报告治愈后再迁移，交车正文仍在', () => {
           repairBrief: '右前门补漆完成，饰条已换新。',
           ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
           acceptanceItems: [
-            { id: 'acc_1', name: '右前门', standard: '自然光下无明显色差', result: 'pass' },
-          ],
-          deliveryPhotos: [
-            { url: 'https://cdn.example.com/finish-front.jpg' },
-            { url: 'https://cdn.example.com/finish-side.jpg' },
+            { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
+            {
+              id: 'exterior',
+              kind: 'exterior',
+              name: '外观',
+              result: 'pass',
+              images: [
+                { url: 'https://cdn.example.com/finish-front.jpg' },
+                { url: 'https://cdn.example.com/finish-side.jpg' },
+              ],
+            },
           ],
           warrantyPeriod: '12 个月',
           warrantyNotes: '不含事故损伤',
@@ -571,7 +608,8 @@ test('旧册薄报告治愈后再迁移，交车正文仍在', () => {
   assert.equal(changed, true)
   const body = contentOfFlowNode(next.flowNodes.find((row) => row.kind === 'repair_report'))
   assert.equal(body.repairBrief, '右前门补漆完成，饰条已换新。')
-  assert.ok(body.deliveryPhotos.length >= 1)
+  const bodyExterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
+  assert.ok(bodyExterior && bodyExterior.images.length >= 1)
   assert.equal(body.workItems.length, 1)
   assert.equal(body.workItems[0].partName || body.workItems[0].name, '右前门')
   assert.equal(body.ownerFaqs.length, 1)

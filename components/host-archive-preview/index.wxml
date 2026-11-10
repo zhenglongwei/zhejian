@@ -86,19 +86,46 @@
         <text class="host-archive-preview__p">{{ch.repairBrief}}</text>
       </block>
 
-      <block wx:if="{{ch.acceptance}}">
-        <text class="host-archive-preview__k">验收</text>
-        <view wx:if="{{ch.acceptance.standard}}" class="host-archive-preview__acceptance-row">
-          <text class="host-archive-preview__acceptance-label">标准</text>
-          <text class="host-archive-preview__p">{{ch.acceptance.standard}}</text>
-        </view>
-        <view wx:if="{{ch.acceptance.process}}" class="host-archive-preview__acceptance-row">
-          <text class="host-archive-preview__acceptance-label">过程</text>
-          <text class="host-archive-preview__p">{{ch.acceptance.process}}</text>
-        </view>
-        <view wx:if="{{ch.acceptance.result}}" class="host-archive-preview__acceptance-row">
-          <text class="host-archive-preview__acceptance-label">结果</text>
-          <text class="host-archive-preview__p">{{ch.acceptance.result}}</text>
+      <block wx:if="{{ch.acceptanceItems && ch.acceptanceItems.length}}">
+        <text class="host-archive-preview__k">交车验收</text>
+        <view
+          wx:for="{{ch.acceptanceItems}}"
+          wx:for-item="acc"
+          wx:for-index="ai"
+          wx:key="id"
+          class="host-archive-preview__finding"
+        >
+          <view class="host-archive-preview__finding-head">
+            <text class="host-archive-preview__item-name">{{acc.name}}</text>
+            <text
+              wx:if="{{acc.resultLabel}}"
+              class="host-archive-preview__result {{acc.result === 'pass' ? 'is-ok' : (acc.result === 'rework' ? 'is-action' : '')}}"
+            >{{acc.resultLabel}}</text>
+          </view>
+          <block wx:if="{{acc.images && acc.images.length}}">
+            <view wx:if="{{acc.images.length > 1}}" class="host-archive-preview__finding-grid">
+              <image
+                wx:for="{{acc.images}}"
+                wx:for-item="img"
+                wx:for-index="ii"
+                wx:key="ii"
+                class="host-archive-preview__grid-img image-placeholder"
+                src="{{img.url}}"
+                mode="aspectFill"
+                data-url="{{img.url}}"
+                bindtap="onImageTap"
+              />
+            </view>
+            <image
+              wx:else
+              class="host-archive-preview__finding-img image-placeholder"
+              src="{{acc.images[0].url}}"
+              mode="aspectFill"
+              data-url="{{acc.images[0].url}}"
+              bindtap="onImageTap"
+            />
+          </block>
+          <text wx:if="{{acc.note}}" class="host-archive-preview__note">{{acc.note}}</text>
         </view>
       </block>
 

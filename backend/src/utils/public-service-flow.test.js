@@ -61,7 +61,15 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
           payload: {
             workItems: [{ name: '阀体', amount: 2800 }],
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW, caption: '交车外观' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: RAW, caption: '交车外观' }],
+              },
+            ],
           },
         },
       },
@@ -89,7 +97,8 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   assert.equal(work.items[0].name, '阀体')
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.deepEqual(done.items, [])
-  assert.ok(done.photos.length >= 1)
+  assert.ok(done.acceptanceItems.length >= 1)
+  assert.ok(done.acceptanceItems[done.acceptanceItems.length - 1].images.length >= 1)
   assert.match(work.items[0].note, /阀体总成/)
   assert.match(work.items[0].note, /原厂/)
   assert.equal(work.items[0].amount, undefined)
@@ -124,7 +133,15 @@ test('交车图经 maskLookup 换成打码图，不回落原图', () => {
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW, caption: '交车外观' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: RAW, caption: '交车外观' }],
+              },
+            ],
           },
         },
       },
@@ -134,7 +151,7 @@ test('交车图经 maskLookup 换成打码图，不回落原图', () => {
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.ok(done)
-  assert.equal(done.photos[0].url, MASK)
+  assert.equal(done.acceptanceItems[0].images[0].url, MASK)
 })
 
 test('maskLookup 产物 URL 非标准脱敏路径时仍写入映射', () => {
@@ -149,7 +166,9 @@ test('maskLookup 产物 URL 非标准脱敏路径时仍写入映射', () => {
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW }],
+            acceptanceItems: [
+              { id: 'exterior', kind: 'exterior', name: '外观', result: 'pass', images: [{ url: RAW }] },
+            ],
           },
         },
       },
@@ -158,7 +177,7 @@ test('maskLookup 产物 URL 非标准脱敏路径时仍写入映射', () => {
     allowPrivateFallback: true,
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
-  assert.equal(done.photos[0].url, oddMasked)
+  assert.equal(done.acceptanceItems[0].images[0].url, oddMasked)
 })
 
 test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
@@ -172,7 +191,15 @@ test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW, caption: '交车' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: RAW, caption: '交车' }],
+              },
+            ],
           },
         },
       },
@@ -182,7 +209,7 @@ test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
     allowPrivateFallback: true,
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
-  assert.equal(done.photos[0].url, MASK)
+  assert.equal(done.acceptanceItems[0].images[0].url, MASK)
 })
 
 test('工单图与交车图不同原图时互不串码', () => {
@@ -208,7 +235,15 @@ test('工单图与交车图不同原图时互不串码', () => {
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: DEL_RAW, maskedUrl: DEL_MASK, caption: '交车' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: DEL_RAW, maskedUrl: DEL_MASK, caption: '交车' }],
+              },
+            ],
           },
         },
       },
@@ -219,8 +254,8 @@ test('工单图与交车图不同原图时互不串码', () => {
   const work = flow.chapters.find((c) => c.kind === 'work')
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.equal(work.photos[0].url, WORK_MASK)
-  assert.equal(done.photos[0].url, DEL_MASK)
-  assert.notEqual(work.photos[0].url, done.photos[0].url)
+  assert.equal(done.acceptanceItems[0].images[0].url, DEL_MASK)
+  assert.notEqual(work.photos[0].url, done.acceptanceItems[0].images[0].url)
 })
 
 test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => {
@@ -234,7 +269,15 @@ test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => 
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW, maskedUrl: MASK, caption: '交车' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: RAW, maskedUrl: MASK, caption: '交车' }],
+              },
+            ],
           },
         },
       },
@@ -243,7 +286,7 @@ test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => 
     allowPrivateFallback: true,
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
-  assert.equal(done.photos[0].url, MASK)
+  assert.equal(done.acceptanceItems[0].images[0].url, MASK)
 })
 
 test('托管完工章只读已生成的交车报告', () => {
@@ -259,7 +302,9 @@ test('托管完工章只读已生成的交车报告', () => {
             repairBrief: '右前门补漆完成',
             warrantyPeriod: '12 个月',
             warrantyNotes: '不含事故损伤',
-            deliveryPhotos: [{ url: RAW }],
+            acceptanceItems: [
+              { id: 'exterior', kind: 'exterior', name: '外观', result: 'pass', images: [{ url: RAW }] },
+            ],
           },
         },
       },
@@ -273,7 +318,7 @@ test('托管完工章只读已生成的交车报告', () => {
   assert.equal(done.repairBrief, '右前门补漆完成')
   assert.equal(done.warrantyPeriod, '12 个月')
   assert.match(done.warrantyNotes, /事故/)
-  assert.ok(done.photos.length >= 1)
+  assert.ok(done.acceptanceItems[0].images.length >= 1)
 })
 
 test('托管完工章：报告为空时不从交车底稿拼', () => {
@@ -417,7 +462,15 @@ test('requireDesensitized 时无映射不得回落原图', () => {
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW, caption: '交车外观' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: RAW, caption: '交车外观' }],
+              },
+            ],
           },
         },
       },
@@ -427,7 +480,7 @@ test('requireDesensitized 时无映射不得回落原图', () => {
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.ok(done)
-  assert.equal((done.photos || []).length, 0)
+  assert.equal(done.acceptanceItems[0].images.length, 0)
 })
 
 test('requireDesensitized 时有映射只出打码图', () => {
@@ -441,7 +494,9 @@ test('requireDesensitized 时有映射只出打码图', () => {
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW }],
+            acceptanceItems: [
+              { id: 'exterior', kind: 'exterior', name: '外观', result: 'pass', images: [{ url: RAW }] },
+            ],
           },
         },
       },
@@ -451,7 +506,7 @@ test('requireDesensitized 时有映射只出打码图', () => {
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.ok(done)
-  assert.equal(done.photos[0].url, MASK)
+  assert.equal(done.acceptanceItems[0].images[0].url, MASK)
 })
 
 test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', () => {
@@ -474,7 +529,15 @@ test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', 
           status: 'confirmed',
           payload: {
             warrantyPeriod: '12 个月',
-            deliveryPhotos: [{ url: RAW, maskOutcome: 'ok_no_privacy' }],
+            acceptanceItems: [
+              {
+                id: 'exterior',
+                kind: 'exterior',
+                name: '外观',
+                result: 'pass',
+                images: [{ url: RAW, maskOutcome: 'ok_no_privacy' }],
+              },
+            ],
           },
         },
       },
@@ -483,7 +546,7 @@ test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', 
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.ok(done)
-  assert.equal(done.photos[0].url, RAW)
+  assert.equal(done.acceptanceItems[0].images[0].url, RAW)
 })
 
 test('llm_failed / not_analyzed 公开预览允许原图上网', () => {

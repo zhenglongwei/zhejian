@@ -9,8 +9,13 @@ const {
   FINDING_ADVICE_NONE,
   INTAKE_RECORD_CATEGORIES,
   ACCEPTANCE_RESULT,
+  ACCEPTANCE_KIND,
+  ACCEPTANCE_EXTERIOR_ID,
+  ACCEPTANCE_EXTERIOR_NAME,
   ACCEPTANCE_EXTERIOR_MAX,
+  ACCEPTANCE_ITEM_MAX_IMAGES,
   isValidAcceptanceResult,
+  emptyAcceptanceItem,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../constants/service-flow-nodes')
@@ -656,8 +661,9 @@ function normalizeNodeContent(raw = {}) {
   if (raw.repairBrief != null && !base.repairBrief) {
     base.repairBrief = String(raw.repairBrief || '').trim().slice(0, 500)
   }
+  // 存量外观照读侧并入「外观」行，不产出旧字段
   if (Array.isArray(raw.deliveryPhotos)) {
-    base.deliveryPhotos = mapPhotoRows(raw.deliveryPhotos)
+    base.acceptanceItems = foldLegacyDeliveryPhotos(base.acceptanceItems, raw.deliveryPhotos)
   }
   if (raw.totalAmount != null && raw.totalAmount !== '') {
     base.totalAmount = raw.totalAmount
@@ -700,9 +706,6 @@ function mergeNodeContent(prev = {}, patch = {}) {
   if (patch.archiveCopy != null) {
     next.archiveCopy =
       patch.archiveCopy && typeof patch.archiveCopy === 'object' ? patch.archiveCopy : {}
-  }
-  if (patch.deliveryPhotos != null) {
-    next.deliveryPhotos = mapPhotoRows(patch.deliveryPhotos)
   }
   if (patch.totalAmount != null && patch.totalAmount !== '') {
     next.totalAmount = patch.totalAmount
@@ -786,7 +789,7 @@ function preserveGeneratedReportFields(content = {}, payload = {}) {
   }
   ;[
     'workItems',
-    'deliveryPhotos',
+    'acceptanceItems',
     'repairBrief',
     'warrantyPeriod',
     'warrantyNotes',
@@ -1440,7 +1443,13 @@ function resolveWarrantyNotes(source = {}) {
 
 function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
-  if (!normalizeDeliveryPhotos(payload.deliveryPhotos).length) {
+  const accItems = resolveAcceptanceItems(payload)
+  const workRows = accItems.filter((item) => item.kind !== ACCEPTANCE_KIND.EXTERIOR)
+  const exteriorRow = accItems.find((item) => item.kind === ACCEPTANCE_KIND.EXTERIOR)
+  if (!workRows.length) {
+    gaps.push('还没有施工项目：请先在施工节点完成施工项，再回来逐项验收')
+  }
+  if (!exteriorRow || !exteriorRow.images.length) {
     gaps.push('请至少上传 1 张整车外观照')
   }
   const period = String(payload.warrantyPeriod || '').trim()
@@ -1452,19 +1461,14 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.delivererName || '').trim()) {
     gaps.push('请填写交付人')
   }
-  // 验收按施工项目逐项：图与文字选填，结果必选；简答题不在门禁内
-  const accItems = resolveAcceptanceItems(payload)
-  if (!accItems.length) {
-    gaps.push('还没有验收项：请先在施工节点确认施工项目')
-  } else {
-    accItems.forEach((item) => {
-      const label = `「${item.name}」`
-      if (!item.result) gaps.push(`${label}请选择验收结果`)
-      else if (item.result === ACCEPTANCE_RESULT.REWORK) {
-        gaps.push(`${label}需返工，处理完重验后才能交车`)
-      }
-    })
-  }
+  // 清单一列到底：每行（含外观行）都要选结果；施工项图与描述选填
+  accItems.forEach((item) => {
+    const label = `「${item.name}」`
+    if (!item.result) gaps.push(`${label}请选择验收结果`)
+    else if (item.result === ACCEPTANCE_RESULT.REWORK) {
+      gaps.push(`${label}需返工，处理完重验后才能交车`)
+    }
+  })
   return gaps
 }
 
@@ -1746,28 +1750,49 @@ function normalizeOwnerFaqs(list) {
     .slice(0, 5)
 }
 
-/** 验收项（acceptanceItems · 2026-11-10 定稿）：一项自包含 {id,name,standard,method,images,note,result}，按施工项目一行一项 */
+/**
+ * 验收项（acceptanceItems · 2026-11-10 二次收敛定稿）：一项自包含
+ * { id, kind: 'work'|'exterior', name, images[], result, note }
+ * 只有图片 / 结果 / 验收描述；kind=exterior 为「外观」行，固定排在清单最后一行。
+ */
 function normalizeAcceptanceItemObj(raw, index) {
   const obj = raw && typeof raw === 'object' ? raw : {}
-  const name = String(obj.name || '').trim().slice(0, 60)
+  const isExterior = obj.kind === ACCEPTANCE_KIND.EXTERIOR
+  const name = String(obj.name || (isExterior ? ACCEPTANCE_EXTERIOR_NAME : ''))
+    .trim()
+    .slice(0, 60)
   if (!name) return null
+  const maxImages = isExterior ? ACCEPTANCE_EXTERIOR_MAX : ACCEPTANCE_ITEM_MAX_IMAGES
   return {
-    id: String(obj.id || '').trim() || `acc_${index + 1}`,
+    id: isExterior
+      ? ACCEPTANCE_EXTERIOR_ID
+      : String(obj.id || '').trim() || `acc_${index + 1}`,
+    kind: isExterior ? ACCEPTANCE_KIND.EXTERIOR : ACCEPTANCE_KIND.WORK,
     name,
-    standard: String(obj.standard || '').trim().slice(0, 200),
-    method: String(obj.method || '').trim().slice(0, 60),
-    images: normalizePendingImages(obj.images).slice(0, 6),
-    note: String(obj.note || '').trim().slice(0, 300),
+    images: normalizePendingImages(obj.images).slice(0, maxImages),
     result: isValidAcceptanceResult(obj.result) ? obj.result : '',
+    note: String(obj.note || '').trim().slice(0, 300),
   }
 }
 
+/** 归一化并按「施工项目在前、外观最后一行」排序；id 去重（外观只留一条） */
 function normalizeAcceptanceItems(list) {
   if (!Array.isArray(list)) return []
-  return list
-    .map((row, index) => normalizeAcceptanceItemObj(row, index))
-    .filter(Boolean)
-    .slice(0, 20)
+  const seen = {}
+  const rows = []
+  list.forEach((row, index) => {
+    const item = normalizeAcceptanceItemObj(row, index)
+    if (!item) return
+    if (seen[item.id]) return
+    seen[item.id] = true
+    rows.push(item)
+  })
+  // 稳定排序：外观看作 1，施工项 0；保持各自原有顺序
+  rows.sort(
+    (a, b) =>
+      (a.kind === ACCEPTANCE_KIND.EXTERIOR ? 1 : 0) - (b.kind === ACCEPTANCE_KIND.EXTERIOR ? 1 : 0),
+  )
+  return rows.slice(0, 20)
 }
 
 /** 内容袋读侧：只认 acceptanceItems（旧结构由迁移脚本搬完，读侧不做兼容） */
@@ -1775,7 +1800,70 @@ function resolveAcceptanceItems(raw = {}) {
   return normalizeAcceptanceItems(raw.acceptanceItems)
 }
 
-/** 外观照（交车页单独一块）：1~3 张，首张为整车外观 */
+/**
+ * 交车清单的「行」= 本单施工项目（2026-11-10 定稿）。
+ * 逐项生成行，已填的图 / 结果 / 描述按**行名**回填（行名即施工项目名）；
+ * 旧结构里没有逐项信息（例如首轮迁移压成的一行「整体验收」）不参与配对、也不硬塞进某一项，
+ * 只有本单确实还没有施工项目时才保留旧行，避免清单空白。
+ */
+function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = []) {
+  const saved = normalizeAcceptanceItems(savedRows)
+  const exterior = saved.find((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
+  const savedWork = saved.filter((row) => row.kind === ACCEPTANCE_KIND.WORK)
+  const byName = {}
+  savedWork.forEach((row) => {
+    if (!byName[row.name]) byName[row.name] = row
+  })
+  const rows = []
+  const seen = {}
+  ;(Array.isArray(workItems) ? workItems : []).forEach((item) => {
+    const name = String((item && item.name) || '').trim().slice(0, 60)
+    if (!name || seen[name] || rows.length >= 19) return
+    seen[name] = true
+    const hit = byName[name]
+    rows.push(
+      emptyAcceptanceItem({
+        id: hit ? hit.id : `acc_${rows.length + 1}`,
+        name,
+        images: hit ? hit.images : [],
+        result: hit ? hit.result : '',
+        note: hit ? hit.note : '',
+      }),
+    )
+  })
+  const exteriorRow = emptyAcceptanceItem({
+    kind: ACCEPTANCE_KIND.EXTERIOR,
+    images: exterior ? exterior.images : [],
+    result: exterior ? exterior.result : '',
+    note: exterior ? exterior.note : '',
+  })
+  if (!rows.length) return withExteriorAcceptanceRow(savedWork.concat([exteriorRow]))
+  return rows.concat([exteriorRow])
+}
+
+/** 编辑/保存/校验用：保证清单里有一条「外观」行，且排最后一行（展示层不调用） */
+function withExteriorAcceptanceRow(rows) {
+  const list = normalizeAcceptanceItems(rows)
+  if (list.some((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)) return list
+  return list.concat([emptyAcceptanceItem({ kind: ACCEPTANCE_KIND.EXTERIOR })])
+}
+
+/** 读侧兼容：旧 `deliveryPhotos` 并入「外观」行（新写入不再产生旧字段） */
+function foldLegacyDeliveryPhotos(rows, legacyPhotos) {
+  const list = normalizeAcceptanceItems(rows)
+  const photos = normalizeDeliveryPhotos(legacyPhotos)
+  if (!photos.length) return list
+  const idx = list.findIndex((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
+  if (idx < 0) {
+    return list.concat([emptyAcceptanceItem({ kind: ACCEPTANCE_KIND.EXTERIOR, images: photos })])
+  }
+  if (list[idx].images && list[idx].images.length) return list
+  const next = list.slice()
+  next[idx] = { ...list[idx], images: photos }
+  return next
+}
+
+/** 存量外观照归一（只给 foldLegacyDeliveryPhotos 用）：1~3 张，首张为整车外观 */
 function normalizeDeliveryPhotos(raw) {
   const list = Array.isArray(raw) ? raw : []
   const seen = {}
@@ -1843,9 +1931,8 @@ function buildRepairReportPayload({
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
 
   void deliveryImages
-  // 外观照单独一块（1~3 张）；逐项验收自带走本项验收图
-  const deliveryPhotos = mapPhotoRows(normalizeDeliveryPhotos(photoDraft.deliveryPhotos))
-  const acceptanceItems = resolveAcceptanceItems(photoDraft).map((item) => ({
+  // 外观已并入验收清单最后一行（kind=exterior），不再单独存外观照；每行自带本项图片
+  const acceptanceItems = withExteriorAcceptanceRow(photoDraft.acceptanceItems).map((item) => ({
     ...item,
     images: mapPhotoRows(item.images),
   }))
@@ -1854,7 +1941,6 @@ function buildRepairReportPayload({
     chiefComplaint: String(chiefComplaint || '').trim(),
     workItems: items,
     totalAmount: computedTotal == null ? 0 : computedTotal,
-    deliveryPhotos,
     repairBrief,
     ownerFaqs,
     acceptanceItems,
@@ -1927,9 +2013,8 @@ function normalizePhotoDraft(raw = {}) {
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
     warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
-    deliveryPhotos: normalizeDeliveryPhotos(raw.deliveryPhotos),
     repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
-    acceptanceItems: resolveAcceptanceItems(raw),
+    acceptanceItems: foldLegacyDeliveryPhotos(resolveAcceptanceItems(raw), raw.deliveryPhotos),
     ownerFaqs: normalizeOwnerFaqs(raw.ownerFaqs || raw.faq || []),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
@@ -1995,8 +2080,21 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     })
   }
   if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
+  // 旧调用方仍可能传 deliveryPhotos：只转成「外观」行写入，不再落旧字段
   if (patch.deliveryPhotos != null) {
-    next.deliveryPhotos = normalizeDeliveryPhotos(patch.deliveryPhotos)
+    const photos = normalizeDeliveryPhotos(patch.deliveryPhotos)
+    const rows = normalizeAcceptanceItems(next.acceptanceItems)
+    const idx = rows.findIndex((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
+    const prev = idx >= 0 ? rows[idx] : null
+    const exterior = emptyAcceptanceItem({
+      kind: ACCEPTANCE_KIND.EXTERIOR,
+      images: photos,
+      result: prev ? prev.result : '',
+      note: prev ? prev.note : '',
+    })
+    if (idx >= 0) rows[idx] = exterior
+    else rows.push(exterior)
+    next.acceptanceItems = rows
   }
   if (patch.repairBrief != null || patch.summary != null) {
     next.repairBrief = String(
@@ -2259,6 +2357,8 @@ module.exports = {
   normalizeAcceptanceItems,
   normalizeDeliveryPhotos,
   resolveAcceptanceItems,
+  withExteriorAcceptanceRow,
+  buildAcceptanceRowsFromWorkItems,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
   addonDraftStillBlank,

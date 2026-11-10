@@ -220,22 +220,6 @@
         <text class="service-doc-sheet__total-amount">{{totalAmountText}}</text>
       </view>
     </view>
-    <view wx:if="{{doc.deliveryPhotos && doc.deliveryPhotos.length}}" class="service-doc-sheet__block">
-      <text class="service-doc-sheet__section">外观照片</text>
-      <view class="service-doc-sheet__photos">
-        <image
-          wx:for="{{doc.deliveryPhotos}}"
-          wx:for-item="photo"
-          wx:key="url"
-          class="service-doc-sheet__photo image-placeholder"
-          src="{{photo.url || photo}}"
-          mode="aspectFill"
-          data-url="{{photo.url || photo}}"
-          data-urls="{{doc.deliveryPhotos}}"
-          bindtap="onPreviewImage"
-        />
-      </view>
-    </view>
     <view wx:if="{{doc.acceptanceItems && doc.acceptanceItems.length}}" class="service-doc-sheet__block">
       <text class="service-doc-sheet__section">验收</text>
       <view
@@ -251,8 +235,6 @@
             class="service-doc-sheet__acc-result service-doc-sheet__acc-result--{{acc.resultTone}}"
           >{{acc.resultLabel}}</text>
         </view>
-        <text wx:if="{{acc.standard}}" class="service-doc-sheet__note">合格标准：{{acc.standard}}</text>
-        <text wx:if="{{acc.method}}" class="service-doc-sheet__note">怎么验：{{acc.method}}</text>
         <text wx:if="{{acc.note}}" class="service-doc-sheet__note">{{acc.note}}</text>
         <view wx:if="{{acc.images && acc.images.length}}" class="service-doc-sheet__finding-photos">
           <image

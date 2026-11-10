@@ -215,11 +215,11 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
     ownerFaqs: [{ id: 'faq1', question: '多久复查？', answer: '建议 500 公里后再看底盘异响。' }],
     warrantyPeriod: '6个月或1万公里',
     delivererName: '李店长',
-    deliveryPhotos: [{ url: 'out.jpg' }],
     acceptanceItems: [
-      { id: 'a1', name: '故障现象', standard: '底盘异响已消除', method: '路试', result: 'pass' },
-      { id: 'a2', name: '渗漏检查', standard: '无油液渗漏', method: '目视', result: 'pass' },
-      { id: 'a3', name: '仪表故障灯', standard: '无新增故障灯', method: '仪表确认', result: 'pass' },
+      { id: 'a1', kind: 'work', name: '故障现象', note: '路试底盘异响已消除', result: 'pass' },
+      { id: 'a2', kind: 'work', name: '渗漏检查', note: '举升目视无油液渗漏', result: 'pass' },
+      { id: 'a3', kind: 'work', name: '仪表故障灯', note: '仪表无新增故障灯', result: 'pass' },
+      { id: 'exterior', kind: 'exterior', name: '外观', note: '整车外观正常', result: 'pass', images: [{ url: 'out.jpg' }] },
     ],
   }
   assert.equal(collectDeliveryPhotoDraftGaps(delivery.photoDraft).length, 0)

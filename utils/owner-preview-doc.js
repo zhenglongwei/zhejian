@@ -120,21 +120,6 @@ function finishWorkItemsFromFindingsList(findingsList = [], quoteByName = {}) {
   return workItems
 }
 
-/** 外观照（交车页单独一块）：草稿/实时都以 deliveryPhotos 为准 */
-function deliveryPhotosFromDraft(draft = {}, live = {}) {
-  const useLive = Boolean(live && live.useLive && Array.isArray(live.photos) && live.photos.length)
-  const list = useLive ? live.photos : Array.isArray(draft && draft.deliveryPhotos) ? draft.deliveryPhotos : []
-  const deliveryPhotos = []
-  const seen = {}
-  list.forEach((row) => {
-    const text = String((row && (row.url || row.rawUrl)) || row || '').trim()
-    if (!text || seen[text]) return
-    seen[text] = true
-    deliveryPhotos.push({ url: text })
-  })
-  return deliveryPhotos
-}
-
 function formatClerkAtForDoc(value) {
   const raw = String(value || '').trim()
   if (!raw) return ''
@@ -334,23 +319,22 @@ function buildOwnerPreviewDoc(input = {}) {
         amount: row && row.amount != null ? row.amount : '',
       }))
       .filter((row) => row.name)
-    const deliveryPhotos = photoRows(input.deliveryPhotos)
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
-    // 验收项（2026-11-10 定稿）：按施工项目逐项；不做旧结构兼容（旧数据由迁移脚本搬完）
+    // 验收项（2026-11-10 二次收敛）：一行一项（施工项目 + 外观末行），只有图片/结果/描述
     const acceptanceLabels = { pass: '合格', observe: '建议观察', rework: '需返工' }
     const acceptanceTones = { pass: 'pass', observe: 'observe', rework: 'rework' }
-    const acceptanceItems = (Array.isArray(input.acceptanceItems) ? input.acceptanceItems : [])
+    const acceptanceRows = (Array.isArray(input.acceptanceItems) ? input.acceptanceItems : [])
       .map((row, index) => {
         const obj = row && typeof row === 'object' ? row : {}
-        const name = String(obj.name || '').trim()
+        const isExterior = obj.kind === 'exterior'
+        const name = String(obj.name || (isExterior ? '外观' : '')).trim()
         if (!name) return null
         const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
         return {
-          id: String(obj.id || `acc_${index + 1}`),
+          id: String(obj.id || (isExterior ? 'exterior' : `acc_${index + 1}`)),
+          kind: isExterior ? 'exterior' : 'work',
           name,
-          standard: String(obj.standard || '').trim(),
-          method: String(obj.method || '').trim(),
           note: String(obj.note || '').trim(),
           images: photoRows(obj.images),
           result,
@@ -359,6 +343,9 @@ function buildOwnerPreviewDoc(input = {}) {
         }
       })
       .filter(Boolean)
+    const acceptanceItems = acceptanceRows
+      .slice()
+      .sort((a, b) => (a.kind === 'exterior' ? 1 : 0) - (b.kind === 'exterior' ? 1 : 0))
     const lineTotal = moneySum(workItems)
     const quoted = Number(input.totalAmount)
     const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
@@ -370,7 +357,6 @@ function buildOwnerPreviewDoc(input = {}) {
         storeName,
         acceptanceItems,
         workItems,
-        deliveryPhotos,
         warrantyPeriod,
         warrantyNotes,
         totalAmountLabel: workItems.length ? `合计 ¥${total.toFixed(2)}` : '',
@@ -384,11 +370,7 @@ function buildOwnerPreviewDoc(input = {}) {
       },
       quoteLines: [],
       hasBody: Boolean(
-        acceptanceItems.length ||
-          workItems.length ||
-          deliveryPhotos.length ||
-          warrantyPeriod ||
-          warrantyNotes,
+        acceptanceItems.length || workItems.length || warrantyPeriod || warrantyNotes,
       ),
     }
   }
@@ -403,6 +385,5 @@ module.exports = {
   workItemsFromFindings,
   quoteTotalsFromNodes,
   finishWorkItemsFromFindingsList,
-  deliveryPhotosFromDraft,
   formatClerkAtForDoc,
 }

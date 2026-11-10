@@ -26,29 +26,29 @@ test('施工对不上时优先用模型写的实质意见', () => {
   assert.match(got.gaps[1].body, /补充报价|没有/)
 })
 
-test('分组建议只保留已经有的另一项', () => {
+test('拆分建议按已有施工项归组，可拆成多张', () => {
   const slots = [
-    { slot: 1, url: 'https://cdn.example/a.jpg', partName: '钣喷' },
-    { slot: 2, url: 'https://cdn.example/b.jpg', partName: '钣喷' },
+    { slot: 1, url: 'https://cdn.example/a.jpg', partName: '钣喷', findingId: 'a' },
+    { slot: 2, url: 'https://cdn.example/b.jpg', partName: '钣喷', findingId: 'a' },
   ]
   const got = parseWorkAdvice({
     gaps: [],
     items: [],
-    groups: [
-      { slot: 1, partName: '维修发动机' },
-      { slot: 2, partName: '钣喷' },
-      { slot: 1, partName: '维修发动机' },
-      { slot: 3, partName: '轮胎' },
-      { slot: 2, partName: '不存在的项' },
+    拆分建议: [
+      { 项目: '维修发动机', 图片: ['图1'], 描述: '这张是发动机。' },
+      { 项目: '钣喷', 图片: ['图2'], 描述: '这张是钣喷。' },
+      { 项目: '不存在的项', 图片: ['图1'], 描述: '忽略。' },
     ],
   }, [
     { id: 'a', name: '钣喷', note: '', photos: 2 },
     { id: 'b', name: '维修发动机', note: '', photos: 0 },
   ], slots)
   assert.equal(got.groups.length, 1)
-  assert.equal(got.groups[0].url, 'https://cdn.example/a.jpg')
-  assert.equal(got.groups[0].partName, '维修发动机')
-  assert.equal(got.groups[0].body, '这张更像是维修发动机。')
+  assert.equal(got.groups[0].findingId, 'a')
+  assert.equal(got.groups[0].groups.length, 2)
+  assert.equal(got.groups[0].groups[0].partName, '维修发动机')
+  assert.equal(got.groups[0].groups[1].partName, '钣喷')
+  assert.equal(got.groups[0].canApply, true)
 })
 
 test('空说明才给车主向的描述，看图复述和已写说明都不出', () => {
@@ -641,8 +641,8 @@ test('故障诊断按看见的问题分行，换行保留', () => {
 
 test('施工意见认统一中文信封：提醒、填写建议、拆分建议', () => {
   const slots = [
-    { slot: 1, url: 'https://cdn.example/a.jpg', partName: '钣喷' },
-    { slot: 2, url: 'https://cdn.example/b.jpg', partName: '钣喷' },
+    { slot: 1, url: 'https://cdn.example/a.jpg', partName: '钣喷', findingId: 'a' },
+    { slot: 2, url: 'https://cdn.example/b.jpg', partName: '钣喷', findingId: 'a' },
   ]
   const got = parseWorkAdvice({
     提醒: [
@@ -650,7 +650,7 @@ test('施工意见认统一中文信封：提醒、填写建议、拆分建议',
       { 类型: '留证', 标题: '旧件', 正文: '再拍一张拆下的旧件。' },
     ],
     填写建议: [{ 项目: '下摆臂胶套', 描述: '更换了已经开裂的下摆臂胶套。' }],
-    拆分建议: [{ 检测项目: '维修发动机', 图片: ['图1'], 描述: '这张更像这一项。' }],
+    拆分建议: [{ 项目: '维修发动机', 图片: ['图1'], 描述: '这张更像这一项。' }],
   }, [
     { id: 'a', name: '钣喷', note: '', photos: 2 },
     { id: 'b', name: '维修发动机', note: '', photos: 0 },
@@ -663,8 +663,9 @@ test('施工意见认统一中文信封：提醒、填写建议、拆分建议',
   assert.equal(got.items.length, 1)
   assert.equal(got.items[0].partName, '下摆臂胶套')
   assert.equal(got.groups.length, 1)
-  assert.equal(got.groups[0].partName, '维修发动机')
-  assert.equal(got.groups[0].url, 'https://cdn.example/a.jpg')
+  assert.equal(got.groups[0].findingId, 'a')
+  assert.equal(got.groups[0].groups[0].partName, '维修发动机')
+  assert.equal(got.groups[0].groups[0].images[0].url, 'https://cdn.example/a.jpg')
 })
 
 test('交车出简述与车主关心的问题', () => {

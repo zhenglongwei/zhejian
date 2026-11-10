@@ -738,14 +738,7 @@
                   (acc.resultLabel
                     ? ' · ' + escapeHtml(acc.resultLabel)
                     : '') +
-                  '</span>' +
-                  (acc.standard
-                    ? escapeHtml('　合格标准：' + acc.standard)
-                    : '') +
-                  '</p>'
-                var method = acc.method
-                  ? '<p class="h5-flow-item-note">怎么验：' + escapeHtml(acc.method) + '</p>'
-                  : ''
+                  '</span></p>'
                 var note = acc.note ? '<p class="h5-flow-item-note">' + escapeHtml(acc.note) + '</p>' : ''
                 var shots =
                   Array.isArray(acc.images) && acc.images.length
@@ -764,7 +757,7 @@
                         .join('') +
                       '</div>'
                     : ''
-                return head + method + note + shots
+                return head + note + shots
               })
               .join('')
           }

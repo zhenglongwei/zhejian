@@ -121,7 +121,17 @@ function fullFlowNodes() {
       document: {
         status: 'confirmed',
         payload: {
-          deliveryPhotos: [{ url: 'https://x/deliv1.jpg' }],
+          acceptanceItems: [
+            { id: 'acc_1', kind: 'work', name: '更换右前小吊杆', note: '复紧到位无旷量', result: 'pass' },
+            {
+              id: 'exterior',
+              kind: 'exterior',
+              name: '外观',
+              note: '车身外观正常',
+              result: 'pass',
+              images: [{ url: 'https://x/deliv1.jpg' }],
+            },
+          ],
           warrantyPeriod: '12个月或2万公里',
           warrantyNotes: '含更换配件的质保，人为损坏除外',
           conclusion: '异响消除，方向盘抖动消失',
@@ -144,7 +154,9 @@ function testFullFlowExtractsAllFacts() {
   assert.equal(pack.workItems.length, 2)
   assert.equal(pack.finish.conclusion, '异响消除，方向盘抖动消失')
   assert.equal(pack.finish.warrantyPeriod, '12个月或2万公里')
-  assert.equal(pack.finish.deliveryPhotoCount, 1)
+  assert.equal(pack.finish.acceptanceItems.length, 2)
+  assert.equal(pack.finish.acceptanceItems[1].kind, 'exterior')
+  assert.equal(pack.finish.acceptancePhotoCount, 1)
 }
 
 /** 状态良好、仅记录 不喂：写进去等于刷屏 */

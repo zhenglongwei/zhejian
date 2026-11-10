@@ -38,8 +38,10 @@ const {
   INTAKE_CONFIRM_COPY,
   INTAKE_RECORD_CATEGORIES,
   ACCEPTANCE_RESULT_OPTIONS,
+  ACCEPTANCE_KIND,
+  ACCEPTANCE_EXTERIOR_NAME,
   ACCEPTANCE_EXTERIOR_MAX,
-  emptyAcceptanceItem,
+  ACCEPTANCE_ITEM_MAX_IMAGES,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
@@ -63,7 +65,6 @@ const {
   workItemsFromFindings,
   quoteTotalsFromNodes,
   finishWorkItemsFromFindingsList,
-  deliveryPhotosFromDraft,
 } = require('../../../../utils/owner-preview-doc')
 const {
   buildMerchantStageBoard,
@@ -95,6 +96,8 @@ const {
   pickOdometerSlot,
   isOdometerFinding,
   resolveAcceptanceItems,
+  withExteriorAcceptanceRow,
+  buildAcceptanceRowsFromWorkItems,
   applyInspectionSuggestion,
   foldInspectionPendingDraft,
   collectConfirmedQuoteNames,
@@ -246,21 +249,13 @@ function flowContentSave(bag) {
   return { content: next, photoDraft: next }
 }
 
-/** 节点验收 rows：只认 acceptanceItems 新结构（旧数据由迁移脚本搬完） */
+/** 节点验收 rows：只认 acceptanceItems 新结构（旧数据由迁移脚本搬完），并保证有「外观」末行 */
 function acceptanceItemsFromDraft(acc) {
-  if (!acc) return []
+  if (!acc) return withExteriorAcceptanceRow([])
   const rows = resolveAcceptanceItems(
     Array.isArray(acc) ? { acceptanceItems: acc } : acc,
   )
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    standard: row.standard,
-    method: row.method,
-    images: Array.isArray(row.images) ? row.images : [],
-    result: row.result,
-    note: row.note,
-  }))
+  return withExteriorAcceptanceRow(rows)
 }
 
 function quoteLinesOf(node) {
@@ -434,7 +429,6 @@ function mapCompletedStepPreview(step, node, album = {}) {
         repairBrief: String(bag.repairBrief || '').trim(),
         workItems: mapped,
         totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
-        deliveryPhotos: Array.isArray(bag.deliveryPhotos) ? bag.deliveryPhotos : [],
         warrantyPeriod: String(bag.warrantyPeriod || ''),
         warrantyNotes: resolveWarrantyNotes(bag),
         ownerFaqs: (Array.isArray(bag.ownerFaqs) ? bag.ownerFaqs : [])
@@ -620,6 +614,8 @@ Page({
     acceptanceItems: [],
     acceptanceResultOptions: ACCEPTANCE_RESULT_OPTIONS,
     acceptanceExteriorMax: ACCEPTANCE_EXTERIOR_MAX,
+    acceptanceItemMaxImages: ACCEPTANCE_ITEM_MAX_IMAGES,
+    acceptanceWorkCount: 0,
     ownerFaqs: [],
     allDone: false,
     needManualComplete: false,
@@ -629,7 +625,6 @@ Page({
     hostVisibility: 'private',
     onPublicWeb: undefined,
     publicGate: null,
-    deliveryPhotos: [],
     aiReview: null,
     aiReviewBusy: false,
     aiReviewTimedOut: false,
@@ -1094,7 +1089,10 @@ Page({
     if (node && node.kind === 'delivery_photos') {
       const meta = SECTION_LABELS.delivery_photos
       const images = []
-      ;(Array.isArray(photoDraft.deliveryPhotos) ? photoDraft.deliveryPhotos : []).forEach((row) => {
+      const exteriorRow = resolveAcceptanceItems(photoDraft).find(
+        (row) => row.kind === 'exterior',
+      )
+      ;(exteriorRow ? exteriorRow.images : []).forEach((row) => {
         const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
         const key = mediaKey(url)
         if (!url || !key || images.some((item) => mediaKey(item.url) === key)) return
@@ -1553,26 +1551,20 @@ Page({
       }
     }
     if (kind === 'delivery_photos') {
-      const deliveryPhotos = (this.data.deliveryPhotos || [])
-        .map((row) => String((row && row.url) || '').trim())
-        .filter(Boolean)
-        .slice(0, ACCEPTANCE_EXTERIOR_MAX)
-        .map((url) => ({ url }))
       return {
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: String(this.data.delivererName || '').trim(),
         finishedAt: String(this.data.finishedAt || '').trim(),
         confirmCopy: REPAIR_CONFIRM_COPY,
-        deliveryPhotos,
         // 简述/问答不在界面展示；此处只负责把 AI 静默写入的内容一起落库
         repairBrief: String(this.data.repairBrief || '').trim(),
-        acceptanceItems: (this.data.acceptanceItems || [])
+        // 一列到底：施工项目行 + 外观行（kind=exterior，最后一行）
+        acceptanceItems: withExteriorAcceptanceRow(this.data.acceptanceItems || [])
           .map((row) => ({
             id: String((row && row.id) || '').trim(),
+            kind: row && row.kind === 'exterior' ? 'exterior' : 'work',
             name: String((row && row.name) || '').trim(),
-            standard: String((row && row.standard) || '').trim(),
-            method: String((row && row.method) || '').trim(),
             images: (Array.isArray(row && row.images) ? row.images : [])
               .map((img) => String((img && img.url) || '').trim())
               .filter(Boolean)
@@ -1671,13 +1663,6 @@ Page({
             delete bag.pendingImages
           }
           if (
-            !(Array.isArray(bag.deliveryPhotos) && bag.deliveryPhotos.length) &&
-            Array.isArray(photoDraft.deliveryPhotos) &&
-            photoDraft.deliveryPhotos.length
-          ) {
-            delete bag.deliveryPhotos
-          }
-          if (
             !(Array.isArray(bag.acceptanceItems) && bag.acceptanceItems.length) &&
             Array.isArray(photoDraft.acceptanceItems) &&
             photoDraft.acceptanceItems.length
@@ -1734,7 +1719,6 @@ Page({
       let quoteLines = [{ name: '', amount: '', note: '' }]
       this._quoteDraftHint = ''
       let expandedFindingKey = ''
-      let deliveryPhotos = []
 
       if (activeIsPhoto && active) {
         if (active.kind === 'inspection') {
@@ -1811,9 +1795,7 @@ Page({
             }))
             .filter((row) => row.question)
             .slice(0, 5)
-          // 旧 archiveCopy 的迁出由后端迁移脚本一次性完成，页面不做兼容
-          const packed = this.hydrateDeliveryGallery(photoDraft)
-          deliveryPhotos = packed.deliveryPhotos
+          // 外观已并入验收清单最后一行；旧 archiveCopy / 旧外观照由迁移脚本一次性完成
         }
         const keepKey = this.data.expandedFindingKey
         const parts = String(keepKey || '').split(':')
@@ -2009,7 +1991,6 @@ Page({
         repairBrief = filled.repairBrief || repairBrief
         if (filled.ownerFaqs.length) ownerFaqs = filled.ownerFaqs
         confirmCopy = filled.confirmCopy || confirmCopy
-        if (filled.deliveryPhotos.length) deliveryPhotos = filled.deliveryPhotos
       }
       const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
       const face = quoteFace({
@@ -2081,6 +2062,10 @@ Page({
 
       this._inspectionAiKey =
         nodeContentOf(active).inspectionAiKey || ''
+      const initialAcceptanceItems = this.resolveInitialAcceptanceItems(
+        this.collectDeliveryWorkItems(flowNodes),
+        acceptanceItemsFromDraft(acceptanceDraft),
+      )
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
@@ -2224,10 +2209,8 @@ Page({
         warrantyPeriod,
         warrantyNotes,
         repairBrief,
-        acceptanceItems: this.resolveInitialAcceptanceItems(
-          this.collectDeliveryWorkItems(flowNodes),
-          acceptanceItemsFromDraft(acceptanceDraft),
-        ),
+        acceptanceItems: initialAcceptanceItems,
+        acceptanceWorkCount: initialAcceptanceItems.filter((row) => row.kind !== 'exterior').length,
         ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
@@ -2252,7 +2235,6 @@ Page({
         hostVisibility: (album.hostMeta && album.hostMeta.visibility) || 'private',
         onPublicWeb: album.hostMeta ? album.hostMeta.onPublicWeb : undefined,
         publicGate: album.publicGate || null,
-        deliveryPhotos,
         overview: buildMerchantAlbumOverview(album, flowNodes),
         workOpen: stageOpen ? true : this.data.workOpen,
         stageKey: openStageBoard ? openStageBoard.selectedKey : this.data.stageKey,
@@ -2992,7 +2974,6 @@ Page({
     }
     const reportReady = Boolean(
       String(repairPayload.warrantyPeriod || '').trim() ||
-        (Array.isArray(repairPayload.deliveryPhotos) && repairPayload.deliveryPhotos.length) ||
         (Array.isArray(repairPayload.acceptanceItems) && repairPayload.acceptanceItems.length) ||
         (Array.isArray(repairPayload.workItems) && repairPayload.workItems.length),
     )
@@ -3003,7 +2984,6 @@ Page({
         mileageText,
         workItems: Array.isArray(repairPayload.workItems) ? repairPayload.workItems : [],
         totalAmount: repairPayload.totalAmount,
-        deliveryPhotos: Array.isArray(repairPayload.deliveryPhotos) ? repairPayload.deliveryPhotos : [],
         acceptanceItems: repairPayload.acceptanceItems,
         warrantyPeriod: repairPayload.warrantyPeriod,
         warrantyNotes: repairPayload.warrantyNotes,
@@ -3023,10 +3003,6 @@ Page({
       mileageText,
       workItems,
       totalAmount: quoteTotal,
-      deliveryPhotos: deliveryPhotosFromDraft(deliveryDraft, {
-        useLive: Boolean(this.data.isDeliveryPhotoStep),
-        photos: this.data.deliveryPhotos || [],
-      }),
       acceptanceItems:
         resolveAcceptanceItems(deliveryDraft).length
           ? resolveAcceptanceItems(deliveryDraft)
@@ -4001,18 +3977,11 @@ Page({
 
   /**
    * 验收项初始值（2026-11-10 定稿）：行=本单施工项目，只读不可增删。
-   * 已有内容按原行回读（自包含，不跨数组配对）；首次进入按施工项目逐行生成，结果留空待店员实查。
+   * 逐项生成，已填的图/结果/描述按行名回填；旧数据里没有逐项信息（如「整体验收」那一行）
+   * 不再整段回读，避免旧汇总行挡住逐项清单。
    */
   resolveInitialAcceptanceItems(workItems = [], savedRows = []) {
-    const saved = Array.isArray(savedRows) ? savedRows : []
-    if (saved.length) return saved.map((row) => ({ ...emptyAcceptanceItem(), ...row }))
-    const rows = []
-    ;(workItems || []).forEach((item, index) => {
-      const name = String((item && item.name) || '').trim()
-      if (!name) return
-      rows.push({ ...emptyAcceptanceItem(), id: `acc_${index + 1}`, name })
-    })
-    return rows
+    return buildAcceptanceRowsFromWorkItems(workItems, savedRows)
   },
 
   /** 本单施工项目（交车验收的行使）：工单节点 findings → 已定稿 workItems */
@@ -4058,8 +4027,6 @@ Page({
         ? repairDraft.ownerFaqs
         : null) ||
       []
-    const source = { ...photoDraft, ...deliveryDraft }
-    const packed = this.hydrateDeliveryGallery(source)
     return {
       warrantyPeriod: String(
         deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || repairDraft.warrantyPeriod || '',
@@ -4084,118 +4051,24 @@ Page({
         deliveryDraft.confirmCopy ||
         photoDraft.confirmCopy ||
         REPAIR_CONFIRM_COPY,
-      deliveryPhotos: packed.deliveryPhotos,
     }
   },
 
-  /** 外观照（交车页单独一块）：1~3 张，首张为整车外观；去重、限张 */
-  packDeliveryGallery(photos = []) {
-    const list = []
-    const seen = {}
-    ;(photos || []).forEach((row) => {
-      const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
-      const key = mediaKey(url)
-      if (!url || !key || seen[key]) return
-      if (list.length >= ACCEPTANCE_EXTERIOR_MAX) return
-      seen[key] = true
-      list.push({ url })
-    })
-    return { deliveryPhotos: list }
-  },
-
-  hydrateDeliveryGallery(photoDraft = {}) {
-    return this.packDeliveryGallery(
-      Array.isArray(photoDraft.deliveryPhotos) ? photoDraft.deliveryPhotos : [],
-    )
-  },
-
-  applyDeliveryGallery(photos) {
-    const packed = this.packDeliveryGallery(photos)
-    const sections = (this.data.sections || []).map((section) => {
-      if (section.stageId !== 'delivery_photos') return section
-      return {
-        ...section,
-        images: (packed.deliveryPhotos || []).map((row) => ({ url: row.url, caption: '' })),
-      }
-    })
-    this.setData({
-      ...packed,
-      sections,
-      autoSaveLabel: '保存中…',
-    })
-    this.scheduleAutoSavePhotos()
-  },
-
-  onUploadDeliveryPhotos() {
-    if (this.data.readOnly) return
-    const current = (this.data.deliveryPhotos || []).slice()
-    const remain = Math.max(0, ACCEPTANCE_EXTERIOR_MAX - current.length)
-    if (!remain) {
-      wx.showToast({ title: `外观照最多 ${ACCEPTANCE_EXTERIOR_MAX} 张`, icon: 'none' })
-      return
-    }
-    pickLocalImages({
-      count: remain,
-      mediaType: ['image'],
-      sourceType: ['album', 'camera'],
-      success: async (res) => {
-        const files = res.tempFiles || []
-        if (!files.length) return
-        try {
-          wx.showLoading({ title: '上传中' })
-          const uploadedList = await this.uploadPickedFiles(files)
-          if (!uploadedList.length) throw new Error('上传失败')
-          const photos = current.slice()
-          const seen = {}
-          photos.forEach((row) => {
-            const key = mediaKey(row && row.url)
-            if (key) seen[key] = true
-          })
-          uploadedList.forEach((row) => {
-            const url = String((row && row.url) || '').trim()
-            const key = mediaKey(url)
-            if (!url || !key || seen[key]) return
-            if (photos.length >= ACCEPTANCE_EXTERIOR_MAX) return
-            seen[key] = true
-            photos.push({ url })
-          })
-          this.applyDeliveryGallery(photos)
-        } catch (err) {
-          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
-        } finally {
-          wx.hideLoading()
-        }
-      },
-    })
-  },
-
-  onRemoveDeliveryPhoto(e) {
-    if (this.data.readOnly) return
-    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
-    if (!url) return
-    const photos = (this.data.deliveryPhotos || []).filter(
-      (row) => row && row.url && mediaKey(row.url) !== mediaKey(url),
-    )
-    this.applyDeliveryGallery(photos)
-  },
-
-  onPreviewDeliveryPhoto(e) {
-    const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
-    const urls = (this.data.deliveryPhotos || []).map((row) => row && row.url).filter(Boolean)
-    if (!urls.length) return
-    wx.previewImage({ current: url || urls[0], urls })
-  },
-
-  // 验收项图片（每项自包含，选填，最多 6 张）
+  // 验收项图片（每项自包含；施工项选填最多 6 张，外观行 1~3 张）
   onUploadAcceptanceImages(e) {
     if (this.data.readOnly) return
-    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
-    if (!Number.isFinite(index)) return
-    const row = (this.data.acceptanceItems || [])[index] || {}
+    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
+    const row = (this.data.acceptanceItems || []).find((item) => item && item.id === rowId)
+    if (!row) return
+    const isExterior = row.kind === 'exterior'
+    const maxImages = isExterior ? ACCEPTANCE_EXTERIOR_MAX : ACCEPTANCE_ITEM_MAX_IMAGES
     const current = Array.isArray(row.images) ? row.images : []
-    const remain = Math.max(0, 6 - current.length)
+    const remain = Math.max(0, maxImages - current.length)
     if (!remain) {
-      wx.showToast({ title: '每项最多 6 张', icon: 'none' })
+      wx.showToast({
+        title: isExterior ? `外观最多 ${maxImages} 张` : `每项最多 ${maxImages} 张`,
+        icon: 'none',
+      })
       return
     }
     pickLocalImages({
@@ -4219,11 +4092,11 @@ Page({
             const url = String((item && item.url) || '').trim()
             const key = mediaKey(url)
             if (!url || !key || seen[key]) return
-            if (images.length >= 6) return
+            if (images.length >= maxImages) return
             seen[key] = true
             images.push({ url })
           })
-          this.applyAcceptanceImages(index, images)
+          this.applyAcceptanceImages(row.id, images)
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -4235,20 +4108,22 @@ Page({
 
   onRemoveAcceptanceImage(e) {
     if (this.data.readOnly) return
-    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
+    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
     const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
-    if (!Number.isFinite(index) || !url) return
-    const row = (this.data.acceptanceItems || [])[index] || {}
+    if (!rowId || !url) return
+    const row = (this.data.acceptanceItems || []).find((item) => item && item.id === rowId)
+    if (!row) return
     const images = (Array.isArray(row.images) ? row.images : []).filter(
       (img) => mediaKey(img && img.url) !== mediaKey(url),
     )
-    this.applyAcceptanceImages(index, images)
+    this.applyAcceptanceImages(rowId, images)
   },
 
   onPreviewAcceptanceImage(e) {
-    const index = Number(e.currentTarget.dataset && e.currentTarget.dataset.index)
+    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
     const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
-    const row = (this.data.acceptanceItems || [])[index] || {}
+    const row = (this.data.acceptanceItems || []).find((item) => item && item.id === rowId)
+    if (!row) return
     const urls = (Array.isArray(row.images) ? row.images : [])
       .map((img) => img && img.url)
       .filter(Boolean)
@@ -4256,9 +4131,9 @@ Page({
     wx.previewImage({ current: url || urls[0], urls })
   },
 
-  applyAcceptanceImages(index, images) {
-    const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
-      i === index ? { ...row, images: images || [] } : row,
+  applyAcceptanceImages(rowId, images) {
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row) =>
+      row && row.id === rowId ? { ...row, images: images || [] } : row,
     )
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDraftOnly()
@@ -5418,18 +5293,51 @@ Page({
       wx.showToast({ title: '已写入质保期限', icon: 'none' })
       return
     }
+    if (kind === 'split') {
+      const adviceId = String(dataset.adviceId || '')
+      const group = (advice.splitGroups || []).find((row) => row && row.id === adviceId && row.canApply)
+      if (!group) return
+      this.applyDeliveryPhotoSplit(group)
+      return
+    }
     if (kind !== 'acceptance') return
     const adviceId = String(dataset.adviceId || '')
     if (!adviceId || !advice.acceptance) return
     const target = (advice.acceptance.items || []).find((row) => row.adviceId === adviceId)
     if (!target || !target.canApply) return
+    // 未施工项：草稿里没有，新建一行并写备注
+    if (target.unbuilt) {
+      const newRow = {
+        id: `acc_unbuilt_${Date.now()}`,
+        kind: 'work',
+        name: String(target.name || '').trim(),
+        images: [],
+        result: '',
+        note: String(target.note || target.basis || '本项未施工').trim(),
+      }
+      const acceptanceItems = [...(this.data.acceptanceItems || []), newRow]
+      this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
+        this.setData(
+          { deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) },
+          () => this.commitAppliedPhotoDraft(),
+        )
+      })
+      wx.showToast({ title: '已标记未施工', icon: 'none' })
+      return
+    }
     const acceptanceItems = (this.data.acceptanceItems || []).map((row) => {
+      if (row && row.id && target.id && row.id === target.id) {
+        return {
+          ...row,
+          result: row.result || target.result || '',
+          note: row.note || target.note || '',
+        }
+      }
       if (String((row && row.name) || '').trim() !== target.name) return row
       return {
         ...row,
-        standard: row.standard || target.standard || '',
-        method: row.method || target.method || '',
         result: row.result || target.result || '',
+        note: row.note || target.note || '',
       }
     })
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
@@ -5441,12 +5349,86 @@ Page({
     wx.showToast({ title: '已写入该项', icon: 'none' })
   },
 
+  /** 交车拆图：把挂错行的验收图挪到目标行。 */
+  applyDeliveryPhotoSplit(group) {
+    const targetId = String(group && group.targetId || '')
+    const imageUrls = new Set(
+      (group.images || []).map((img) => mediaKey(img && img.url)).filter(Boolean),
+    )
+    if (!targetId || !imageUrls.size) {
+      wx.showToast({ title: '对不上验收行', icon: 'none' })
+      return
+    }
+    let moved = false
+    let full = false
+    const items = (this.data.acceptanceItems || []).map((row) => {
+      if (!row) return row
+      // 目标行：追加图片
+      if (String(row.id || '') === targetId) {
+        const have = new Set((row.images || []).map((img) => mediaKey(img && img.url)).filter(Boolean))
+        const add = []
+        imageUrls.forEach((key) => {
+          if (!have.has(key)) add.push(key)
+        })
+        if (!add.length) return row
+        // 从其他行找到这些图
+        return row
+      }
+      return row
+    })
+    // 先收集要挪的图对象（从其他行）
+    const moving = []
+    const stripped = items.map((row) => {
+      if (!row || String(row.id || '') === targetId) return row
+      const images = (row.images || []).filter((img) => {
+        const key = mediaKey(img && img.url)
+        if (imageUrls.has(key)) {
+          moving.push(img)
+          return false
+        }
+        return true
+      })
+      return images.length === (row.images || []).length ? row : { ...row, images }
+    })
+    if (!moving.length) {
+      wx.showToast({ title: '没找到要挪的图', icon: 'none' })
+      return
+    }
+    const next = stripped.map((row) => {
+      if (!row || String(row.id || '') !== targetId) return row
+      const have = new Set((row.images || []).map((img) => mediaKey(img && img.url)).filter(Boolean))
+      const add = moving.filter((img) => !have.has(mediaKey(img && img.url)))
+      const maxImages = row.kind === 'exterior' ? ACCEPTANCE_EXTERIOR_MAX : ACCEPTANCE_ITEM_MAX_IMAGES
+      if ((row.images || []).length + add.length > maxImages) {
+        full = true
+        return row
+      }
+      moved = true
+      return { ...row, images: (row.images || []).concat(add) }
+    })
+    if (full) {
+      wx.showToast({ title: '目标行图片已满', icon: 'none' })
+      return
+    }
+    if (!moved) {
+      wx.showToast({ title: '对不上验收行', icon: 'none' })
+      return
+    }
+    this.setData({ acceptanceItems: next, autoSaveLabel: '保存中…' }, () => {
+      this.setData(
+        { deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) },
+        () => this.commitAppliedPhotoDraft(),
+      )
+    })
+    wx.showToast({ title: '已挪到对应验收项', icon: 'none' })
+  },
+
   onAcceptanceItemInput(e) {
-    const index = Number(e.currentTarget.dataset.index)
+    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
     const field = e.currentTarget.dataset.field
-    if (!Number.isFinite(index) || !['name', 'standard', 'method', 'note'].includes(field)) return
-    const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
-      i === index ? { ...row, [field]: String(e.detail.value || '').trim() } : row,
+    if (!rowId || !['name', 'note'].includes(field)) return
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row) =>
+      row && row.id === rowId ? { ...row, [field]: String(e.detail.value || '').trim() } : row,
     )
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDraftOnly()
@@ -5456,12 +5438,12 @@ Page({
   /** 验收结果只有店员实查后能点（三档：合格 / 建议观察 / 需返工），AI 不代点 */
   onAcceptanceResultTap(e) {
     if (this.data.readOnly) return
-    const index = Number(e.currentTarget.dataset.index)
+    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
     const value = String(e.currentTarget.dataset.value || '')
-    if (!Number.isFinite(index)) return
+    if (!rowId) return
     if (!ACCEPTANCE_RESULT_OPTIONS.some((row) => row.value === value)) return
-    const acceptanceItems = (this.data.acceptanceItems || []).map((row, i) =>
-      i === index ? { ...row, result: row.result === value ? '' : value } : row,
+    const acceptanceItems = (this.data.acceptanceItems || []).map((row) =>
+      row && row.id === rowId ? { ...row, result: row.result === value ? '' : value } : row,
     )
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDraftOnly()
@@ -5851,7 +5833,7 @@ Page({
 
   decorateWorkAdvice(raw, sections) {
     if (!raw || typeof raw !== 'object') {
-      return { status: '', isWaiting: false, hasContent: false, hasLines: false, lines: [], items: [] }
+      return { status: '', isWaiting: false, hasContent: false, hasLines: false, lines: [], items: [], sequence: [], splitGroups: [], newItems: [] }
     }
     const status = String(raw.status || '')
     const findings = this.collectFindingsFromSections(sections)
@@ -5870,6 +5852,16 @@ Page({
     gaps.forEach((row) => {
       lines.push({ id: row.id, body: row.body, canApply: false })
     })
+    // 施工顺序：只读
+    const sequence = (Array.isArray(raw.sequence) ? raw.sequence : [])
+      .map((row, index) => {
+        const name = String((row && row.name) || '').trim()
+        const how = String((row && row.how) || '').trim()
+        const photo = String((row && row.photo) || '').trim()
+        if (!name && !how && !photo) return null
+        return { id: `seq_${index}`, name, how, photo }
+      })
+      .filter(Boolean)
     const items = (Array.isArray(raw.items) ? raw.items : []).map((row, index) => {
       const findingId = String((row && (row.findingId || row.id)) || '')
       const partName = String((row && row.partName) || '').trim()
@@ -5903,32 +5895,49 @@ Page({
         lines.push({ id: row.id, body: display, canApply: row.canApply, applied: row.applied })
       }
     })
-    const groups = (Array.isArray(raw.groups) ? raw.groups : [])
-      .map((row, index) => {
-        const url = String((row && row.url) || '').trim()
-        const partName = String((row && row.partName) || '').trim()
-        const key = mediaKey(url)
-        const host = findings.find((item) =>
-          (item.images || []).some((img) => mediaKey(img && img.url) === key),
-        )
-        const hostName = String((host && host.partName) || '').trim()
-        const targets = findings.filter((item) => String((item && item.partName) || '').trim() === partName)
-        const body = String((row && row.body) || '').trim() || (partName ? `这张更像是${partName}。` : '')
-        const placed = Boolean(host && hostName === partName)
-        if (!key || !partName || !body) return null
-        if (!placed && (!host || targets.length !== 1)) return null
-        return { id: `grp_${index}`, url, partName, body, canApply: !placed, applied: placed }
+    // 拆分建议：把一张施工项拆成多张（后端已按 findingId 归组）
+    const splitGroups = (Array.isArray(raw.groups) ? raw.groups : [])
+      .map((row) => {
+        const id = String((row && row.id) || '')
+        const findingId = String((row && row.findingId) || '')
+        const groupList = Array.isArray(row && row.groups) ? row.groups : []
+        if (!groupList.length) return null
+        const body = String((row && row.body) || '').trim()
+        const canApply = Boolean(row && row.canApply)
+        return {
+          id,
+          findingId,
+          body,
+          canApply,
+          hasGroups: groupList.length >= 2,
+          groups: groupList.map((g, i) => ({
+            id: `${id}_g${i}`,
+            partName: String((g && g.partName) || '').trim(),
+            advice: String((g && g.advice) || '').trim(),
+            imageLabel: String((g && g.imageLabel) || '').trim(),
+            images: (Array.isArray(g && g.images) ? g.images : [])
+              .map((img) => ({ url: String((img && img.url) || '') }))
+              .filter((img) => img.url),
+          })),
+        }
       })
       .filter(Boolean)
-    groups.forEach((row) => {
-      lines.push({
-        id: row.id,
-        body: row.body,
-        url: row.url,
-        canApply: row.canApply,
-        applied: row.applied,
+    // 新增项：不属于任何报价行的图
+    const newItems = (Array.isArray(raw.newItems) ? raw.newItems : [])
+      .map((row, index) => {
+        const name = String((row && row.name) || '').trim()
+        const description = String((row && row.description) || '').trim()
+        const images = Array.isArray(row && row.images) ? row.images : []
+        if (!images.length && !name && !description) return null
+        return {
+          id: `new_${index}`,
+          name,
+          description,
+          images: images.map((img) => ({ url: String((img && img.url) || '') })),
+          canApply: images.length > 0,
+        }
       })
-    })
+      .filter(Boolean)
     const photoPlan = (Array.isArray(raw.photoPlan) ? raw.photoPlan : [])
       .map((row, index) => {
         const title = String((row && row.title) || '').trim()
@@ -5947,23 +5956,34 @@ Page({
       const note = String(raw.note || '').trim()
       if (note) lines.push({ id: 'note', body: note, canApply: false })
     }
+    const hasContent =
+      lines.length > 0 ||
+      photoPlan.length > 0 ||
+      sequence.length > 0 ||
+      splitGroups.length > 0 ||
+      newItems.length > 0
     return {
       status,
       scope: String(raw.scope || ''),
       lines,
       gaps,
+      sequence,
       items,
-      groups,
+      splitGroups,
+      newItems,
       photoPlan,
       hasPhotoPlan: photoPlan.length > 0,
+      hasSequence: sequence.length > 0,
+      hasSplitGroups: splitGroups.length > 0,
+      hasNewItems: newItems.length > 0,
       hasLines: lines.length > 0 || photoPlan.length > 0,
-      hasContent: lines.length > 0 || photoPlan.length > 0,
+      hasContent,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
       waitHint:
         raw.waitHint ||
         (status === 'queued' || status === 'running'
-          ? lines.length > 0 || photoPlan.length > 0
+          ? hasContent
             ? '正在更新'
             : '正在出意见'
           : ''),
@@ -6171,26 +6191,28 @@ Page({
   },
 
   decorateDeliveryAdvice(raw) {
-    if (!raw || typeof raw !== 'object') {
-      return {
-        status: '',
-        isWaiting: false,
-        hasContent: false,
-        repairBrief: '',
-        acceptance: null,
-        warrantyText: '',
-        canApplyAcceptance: false,
-        canApplyWarranty: false,
-        acceptanceApplied: false,
-        // 简述/问答只静默使用，不进面板
-        repairBrief: '',
-        ownerFaqs: [],
-        }
-        }
-        const status = String(raw.status || '')
-        const repairBrief = String(raw.repairBrief || '').trim()
-        const ownerFaqs = (Array.isArray(raw.ownerFaqs) ? raw.ownerFaqs : [])
-        .map((row, index) => {
+    // 简述/问答只静默写库、不进面板；面板只用验收逐行建议与质保
+    const empty = {
+      status: '',
+      isWaiting: false,
+      hasContent: false,
+      repairBrief: '',
+      ownerFaqs: [],
+      acceptance: null,
+      splitGroups: [],
+      hasSplitGroups: false,
+      tips: [],
+      hasTips: false,
+      warrantyText: '',
+      canApplyAcceptance: false,
+      canApplyWarranty: false,
+      acceptanceApplied: false,
+    }
+    if (!raw || typeof raw !== 'object') return empty
+    const status = String(raw.status || '')
+    const repairBrief = String(raw.repairBrief || '').trim()
+    const ownerFaqs = (Array.isArray(raw.ownerFaqs) ? raw.ownerFaqs : [])
+      .map((row, index) => {
         const question = String((row && (row.question || row.q)) || '').trim()
         const answer = String((row && (row.answer || row.a)) || '').trim()
         if (!question) return null
@@ -6199,69 +6221,114 @@ Page({
           question,
           answer,
         }
-        })
-        .filter(Boolean)
-        .slice(0, 5)
-        const acceptanceRaw =
-        raw.acceptance && typeof raw.acceptance === 'object' ? raw.acceptance : null
-        const acceptance = acceptanceItemsFromDraft(acceptanceRaw).length
-        ? { items: acceptanceItemsFromDraft(acceptanceRaw) }
-        : null
-        // 逐项判断：该项有标准/怎么验/结果建议且本行还空着，才可应用；点了才写入
-        const liveItems = (this.data.acceptanceItems || []).map((row) => ({
-        name: String((row && row.name) || '').trim(),
-        standard: String((row && row.standard) || '').trim(),
-        method: String((row && row.method) || '').trim(),
-        result: String((row && row.result) || '').trim(),
-        }))
-        const acceptanceDraftItems = (acceptance ? acceptance.items : []).map((item, index) => {
-        const hit = liveItems.find((row) => (row.name || '') === item.name)
-        const canApply = Boolean(
-          hit &&
-            ((item.standard && !hit.standard) ||
-              (item.method && !hit.method) ||
-              (item.result && !hit.result)),
+      })
+      .filter(Boolean)
+      .slice(0, 5)
+    const rawItems =
+      raw.acceptance && Array.isArray(raw.acceptance.items) ? raw.acceptance.items : []
+    // AI 建议行：补齐类别（名字叫「外观」或 kind=exterior 即外观行）
+    const draftRows = resolveAcceptanceItems({
+      acceptanceItems: rawItems.map((row) => {
+        const rawName = String((row && row.name) || '').trim()
+        const kind =
+          (row && row.kind === 'exterior') || rawName === ACCEPTANCE_EXTERIOR_NAME
+            ? 'exterior'
+            : 'work'
+        const name = rawName || (kind === 'exterior' ? ACCEPTANCE_EXTERIOR_NAME : '')
+        return { ...(row || {}), kind, name }
+      }),
+    })
+    const liveItems = (this.data.acceptanceItems || []).map((row) => ({
+      id: String((row && row.id) || '').trim(),
+      name: String((row && row.name) || '').trim(),
+      result: String((row && row.result) || '').trim(),
+      note: String((row && row.note) || '').trim(),
+    }))
+    // 逐行判断：AI 给了结果或描述、且本行还空着，才可应用；点了才写入，写入后仍可改
+    const acceptanceDraftItems = draftRows.map((item, index) => {
+      const hit = liveItems.find(
+        (row) => (item.id && row.id === item.id) || (item.name && row.name === item.name),
+      )
+      const unbuilt = Boolean(item && item.unbuilt)
+      // 未施工项：草稿里不存在，应用时新建并写入备注
+      const canApply = unbuilt
+        ? true
+        : Boolean(hit && ((item.result && !hit.result) || (item.note && !hit.note)))
+      const resultLabel =
+        (ACCEPTANCE_RESULT_OPTIONS.find((opt) => opt.value === item.result) || {}).label || ''
+      return {
+        ...item,
+        adviceId: `acc_adv_${index + 1}`,
+        canApply,
+        resultLabel,
+        unbuilt,
+        standard: String((item && item.standard) || '').trim(),
+        method: String((item && item.method) || '').trim(),
+        photoAdvice: String((item && item.photoAdvice) || '').trim(),
+        basis: String((item && item.basis) || '').trim(),
+      }
+    })
+    const canApplyAcceptance = acceptanceDraftItems.some((item) => item.canApply)
+    // 拆分建议：验收图挂错行，挪图
+    const splitGroups = (Array.isArray(raw.groups) ? raw.groups : [])
+      .map((row, index) => {
+        const partName = String((row && row.partName) || '').trim()
+        const slots = Array.isArray(row && row.slots) ? row.slots : []
+        const images = Array.isArray(row && row.images) ? row.images : []
+        const body = String((row && row.body) || '').trim()
+        if (!partName || !slots.length) return null
+        // 找目标验收行
+        const target = (this.data.acceptanceItems || []).find(
+          (r) => String((r && r.name) || '').trim() === partName,
         )
-        const resultLabel =
-          (ACCEPTANCE_RESULT_OPTIONS.find((opt) => opt.value === item.result) || {}).label || ''
-        return { ...item, adviceId: `acc_adv_${index + 1}`, canApply, resultLabel }
-        })
-        const canApplyAcceptance = acceptanceDraftItems.some((item) => item.canApply)
-        const appliedItems = acceptanceDraftItems.filter((item) => {
-        const hit = liveItems.find((row) => (row.name || '') === item.name)
-        if (!hit) return false
-        return (
-        (!item.standard || Boolean(hit.standard)) &&
-        (!item.method || Boolean(hit.method)) &&
-        (!item.result || Boolean(hit.result))
-        )
-        })
-        const warrantyText = String((raw.warranty && raw.warranty.body) || '').trim()
-        const liveWarranty = String(this.data.warrantyPeriod || '').trim()
-        const canApplyWarranty = Boolean(warrantyText) && !liveWarranty
-        const hasContent = Boolean(acceptanceDraftItems.length || warrantyText)
         return {
-        status,
-        repairBrief,
-        ownerFaqs,
-        acceptance: acceptance ? { items: acceptanceDraftItems } : null,
-        warrantyText,
-        canApplyAcceptance,
-        canApplyWarranty,
-        acceptanceApplied:
-        acceptanceDraftItems.length > 0 && appliedItems.length === acceptanceDraftItems.length,
-        hasContent,
-        stale: Boolean(raw.stale),
-        isWaiting: status === 'queued' || status === 'running',
-        waitHint:
+          id: `dsplit_${index}`,
+          partName,
+          slots,
+          images: images.map((img) => ({ url: String((img && img.url) || '') })).filter((i) => i.url),
+          body,
+          targetId: target ? String(target.id || '') : '',
+          canApply: Boolean(target),
+        }
+      })
+      .filter(Boolean)
+    const warrantyText = String((raw.warranty && raw.warranty.body) || '').trim()
+    const liveWarranty = String(this.data.warrantyPeriod || '').trim()
+    const canApplyWarranty = Boolean(warrantyText) && !liveWarranty
+    const tips = (Array.isArray(raw.tips) ? raw.tips : [])
+      .map((row, index) => {
+        const title = String((row && row.title) || '').trim()
+        const body = String((row && row.body) || '').trim()
+        if (!title && !body) return null
+        return { id: `tip_${index}`, title, body, hasTitle: Boolean(title), hasBody: Boolean(body) }
+      })
+      .filter(Boolean)
+    const hasContent = Boolean(acceptanceDraftItems.length || warrantyText || splitGroups.length || tips.length)
+    return {
+      status,
+      repairBrief,
+      ownerFaqs,
+      acceptance: acceptanceDraftItems.length ? { items: acceptanceDraftItems } : null,
+      splitGroups,
+      hasSplitGroups: splitGroups.length > 0,
+      tips,
+      hasTips: tips.length > 0,
+      warrantyText,
+      canApplyAcceptance,
+      canApplyWarranty,
+      acceptanceApplied: acceptanceDraftItems.length > 0 && !canApplyAcceptance,
+      hasContent,
+      stale: Boolean(raw.stale),
+      isWaiting: status === 'queued' || status === 'running',
+      waitHint:
         raw.waitHint ||
         (status === 'queued' || status === 'running'
           ? hasContent
             ? '正在更新'
             : '正在出意见'
           : ''),
-        }
-        },
+    }
+  },
 
   mergeAskPicksIntoComplaint(askOwner) {
     const base = String(this._askComplaintBase || this.data.chiefComplaint || '').trim()
@@ -7393,7 +7460,6 @@ Page({
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: this.data.delivererName,
-        deliveryPhotos: this.data.deliveryPhotos || [],
       })
       if (gaps.length) {
         wx.showModal({
@@ -7516,12 +7582,6 @@ Page({
           : null) ||
         doc.workItems ||
         []
-      const deliveryPhotos =
-        (Array.isArray(base.deliveryPhotos) && base.deliveryPhotos.length
-          ? base.deliveryPhotos
-          : null) ||
-        doc.deliveryPhotos ||
-        []
       return {
         ...base,
         confirmCopy: REPAIR_CONFIRM_COPY,
@@ -7539,7 +7599,6 @@ Page({
           [],
         ownerFaqs: faqs,
         workItems,
-        deliveryPhotos,
         totalAmount: base.totalAmount != null ? base.totalAmount : doc.totalAmount,
       }
     }
@@ -7895,6 +7954,137 @@ Page({
         workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
       })
       this.commitAppliedPhotoDraft()
+    })
+  },
+
+  /** 施工拆分建议：把一张施工项按图拆成多张。 */
+  onApplyWorkSplit(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const split = ((this.data.workAdvice && this.data.workAdvice.splitGroups) || []).find(
+      (row) => row && row.id === id && row.canApply,
+    )
+    if (!split || !split.hasGroups || this.data.readOnly) return
+    const findingId = String(split.findingId || '')
+    if (!findingId) return
+    const groups = split.groups || []
+    if (groups.length < 2) return
+    let targetSection = -1
+    let targetIndex = -1
+    const sections = this.data.sections || []
+    sections.forEach((section, si) => {
+      if (!section || section.findingKind !== 'work') return
+      const idx = (section.findings || []).findIndex((row) => String((row && row.id) || '') === findingId)
+      if (idx >= 0) {
+        targetSection = si
+        targetIndex = idx
+      }
+    })
+    if (targetSection < 0 || targetIndex < 0) {
+      wx.showToast({ title: '对不上施工项，请刷新后再试', icon: 'none' })
+      return
+    }
+    const target = sections[targetSection].findings[targetIndex]
+    const targetImages = (target && target.images) || []
+    // url -> group index
+    const urlToGroup = new Map()
+    groups.forEach((g, gi) => {
+      ;(g.images || []).forEach((img) => {
+        const key = mediaKey(img && img.url)
+        if (key && !urlToGroup.has(key)) urlToGroup.set(key, gi)
+      })
+    })
+    const buckets = groups.map(() => [])
+    const leftover = []
+    targetImages.forEach((img) => {
+      const key = mediaKey(img && img.url)
+      const gi = urlToGroup.get(key)
+      if (gi != null) buckets[gi].push(img)
+      else leftover.push(img)
+    })
+    const newFindings = []
+    groups.forEach((g, gi) => {
+      if (!buckets[gi].length) return
+      const partName = String(g.partName || '').trim()
+      newFindings.push(
+        normalizeWorkFinding({
+          id: `fid_split_${Date.now()}_${gi}`,
+          partName,
+          caption: String(g.advice || '').trim(),
+          images: buckets[gi],
+          outsideQuote: workOutsideQuoteOf(partName, this.confirmedQuoteNames()),
+        }),
+      )
+    })
+    if (leftover.length) {
+      newFindings.push(
+        normalizeWorkFinding({
+          id: target.id,
+          partName: String(target.partName || '').trim(),
+          caption: String(target.caption || '').trim(),
+          images: leftover,
+          outsideQuote: Boolean(target.outsideQuote),
+        }),
+      )
+    }
+    if (!newFindings.length) {
+      wx.showToast({ title: '没有可拆分的图', icon: 'none' })
+      return
+    }
+    const nextSections = sections.map((section, si) => {
+      if (si !== targetSection) return section
+      const findings = (section.findings || []).slice()
+      findings.splice(targetIndex, 1, ...newFindings)
+      return {
+        ...section,
+        findings,
+        images: this.flattenWorkSectionImages(findings),
+      }
+    })
+    this.setSectionsWithFindings(nextSections, { autoSaveLabel: '保存中…' }, undefined, () => {
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      this.persistPhotos().then(() => this.commitAppliedPhotoDraft())
+    })
+  },
+
+  /** 施工新增项：新建施工项并挂图，可选走补充报价。 */
+  async onApplyWorkNewItem(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const item = ((this.data.workAdvice && this.data.workAdvice.newItems) || []).find(
+      (row) => row && row.id === id && row.canApply,
+    )
+    if (!item || this.data.readOnly) return
+    const images = (item.images || []).map((img) => ({ url: img.url }))
+    const partName = String(item.name || '').trim()
+    const caption = String(item.description || '').trim()
+    const sectionIndex = (this.data.sections || []).findIndex((s) => s && s.findingKind === 'work')
+    if (sectionIndex < 0) {
+      wx.showToast({ title: '找不到施工项区域', icon: 'none' })
+      return
+    }
+    const blank = normalizeWorkFinding({
+      id: `fid_new_${Date.now()}`,
+      partName,
+      caption,
+      images,
+      outsideQuote: workOutsideQuoteOf(partName, this.confirmedQuoteNames()),
+    })
+    this.appendFindingToSection(sectionIndex, blank)
+    this.setData({
+      workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+    })
+    await this.persistPhotos()
+    await this.commitAppliedPhotoDraft()
+    // 不强制补充报价，由店员决定
+    wx.showModal({
+      title: '已新建施工项',
+      content: '这项不在原报价内，是否通知车主补充报价？（部分店选择免费处理）',
+      confirmText: '补充报价',
+      cancelText: '暂不',
+      success: (res) => {
+        if (res.confirm) this.onAddAddonPlan()
+      },
     })
   },
 

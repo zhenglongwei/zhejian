@@ -10,7 +10,7 @@
  * geo.simplewin.cn（旧生产名）与 staging.geo.simplewin.cn（旧预发名）均已废弃，DNS 已撤。
  * 提审/正式发版前务必改回 ACTIVE_ENV = 'prod'
  */
-const ACTIVE_ENV = 'prod'
+const ACTIVE_ENV = 'staging'
 
 const PROFILES = {
   mock: {

@@ -86,12 +86,10 @@ function collectNodeImageEntries(node = {}) {
   ;(Array.isArray(draft.pendingImages) ? draft.pendingImages : []).forEach((img) => {
     push(img, '留证')
   })
-  ;(Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos : []).forEach((row) => {
-    push(row, '全车外观')
-  })
   ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
+    const label = item && item.kind === 'exterior' ? '整车外观' : `验收图 ${text(item && item.name)}`
     ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) => {
-      push(img, `验收图 ${text(item && item.name)}`.trim())
+      push(img, label.trim())
     })
   })
   const pushFindings = (list) => {
@@ -106,8 +104,9 @@ function collectNodeImageEntries(node = {}) {
   pushFindings(payload.findings)
   const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
   ;(Array.isArray(discovery.images) ? discovery.images : []).forEach((url) => push(url, '新发现'))
-  ;(Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []).forEach((row) => {
-    push(row, '交车图')
+  ;(Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : []).forEach((row) => {
+    const label = row && row.kind === 'exterior' ? '整车外观' : '交车图'
+    ;(Array.isArray(row && row.images) ? row.images : []).forEach((img) => push(img, label))
   })
   const seen = new Set()
   return entries.filter((row) => {
@@ -279,9 +278,6 @@ function buildReviewContext(album, node, extra = {}) {
         const trimmed = text(typeof raw === 'object' && raw ? raw.url || raw.rawUrl : raw)
         if (trimmed && urls.indexOf(trimmed) < 0) urls.push(trimmed)
       }
-      ;(Array.isArray(draftDelivery.deliveryPhotos) ? draftDelivery.deliveryPhotos : []).forEach(
-        pushUrl,
-      )
       ;(Array.isArray(draftDelivery.acceptanceItems) ? draftDelivery.acceptanceItems : []).forEach(
         (row) => (Array.isArray(row && row.images) ? row.images : []).forEach(pushUrl),
       )

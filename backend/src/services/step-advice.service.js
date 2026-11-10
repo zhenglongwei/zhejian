@@ -246,14 +246,47 @@ function parseWorkAdvice(raw, items, slots) {
     })
     .filter(Boolean)
     .slice(0, 8)
+  // 施工顺序：按报价行给的通用施工说明+拍照建议（只读）
+  const sequence = (Array.isArray(parsed['施工顺序']) ? parsed['施工顺序'] : [])
+    .map((row) => {
+      const name = text(row && (row['项目'] || row.partName || row.name || row.title)).slice(0, 40)
+      const how = text(row && (row['说明'] || row.how || row.body)).slice(0, 160)
+      const photo = text(row && (row['拍照建议'] || row.photoAdvice || row.photo)).slice(0, 160)
+      if (!name && !how && !photo) return null
+      return { name, how, photo }
+    })
+    .filter(Boolean)
+    .slice(0, 12)
+  // 新增项：不属于任何报价行的图
+  const slotByNum = new Map((Array.isArray(slots) ? slots : []).map((row) => [Number(row.slot), row]))
+  const newItems = (Array.isArray(parsed['新增项']) ? parsed['新增项'] : [])
+    .map((row) => {
+      const name = text(row && (row['项目'] || row.partName || row.name)).slice(0, 40)
+      const desc = text(row && (row['描述'] || row.body || row.note)).slice(0, 160)
+      const nums = collectGroupSlotNumbers({
+        imageSlots: slotTokens(row['图片']).concat(slotTokens(row.imageSlots)),
+        imageNames: slotTokens(row.imageNames),
+        imageName: row.imageName,
+        photoNames: row.photoNames,
+      })
+      const images = nums
+        .map((n) => slotByNum.get(n))
+        .filter(Boolean)
+        .map((shot) => ({ slot: shot.slot, url: shot.url }))
+      if (!images.length && !name && !desc) return null
+      return { name, description: desc, images }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
   const names = new Set((Array.isArray(items) ? items : []).map((row) => text(row && row.name)).filter(Boolean))
   const bySlot = new Map((Array.isArray(slots) ? slots : []).map((row) => [row.slot, row]))
   const seenSlot = new Set()
   const splitRows = Array.isArray(parsed['拆分建议']) ? parsed['拆分建议'] : null
   const groupRows = splitRows || (Array.isArray(parsed.groups) ? parsed.groups : [])
-  const groups = []
+  // 按所属施工项（findingId）归组，支持拆成多张
+  const byFinding = new Map()
   groupRows.forEach((row) => {
-    const partName = text(row && (row['检测项目'] || row.partName || row.title)).slice(0, 16)
+    const partName = text(row && (row['项目'] || row['检测项目'] || row.partName || row.title)).slice(0, 16)
     if (!partName || !names.has(partName)) return
     const nums = splitRows
       ? collectGroupSlotNumbers({
@@ -265,21 +298,55 @@ function parseWorkAdvice(raw, items, slots) {
       : [Number(row && row.slot)].filter((n) => Number.isInteger(n) && n >= 1)
     nums.forEach((slot) => {
       const shot = bySlot.get(slot)
-      if (!shot || shot.partName === partName || seenSlot.has(slot)) return
+      if (!shot || seenSlot.has(slot)) return
       seenSlot.add(slot)
-      groups.push({
-        slot,
-        url: shot.url,
-        partName,
-        body: `这张更像是${partName}。`,
+      const findingId = text(shot.findingId)
+      if (!byFinding.has(findingId)) byFinding.set(findingId, new Map())
+      const named = byFinding.get(findingId)
+      if (!named.has(partName)) {
+        named.set(partName, { partName, advice: '', images: [], imageSlots: [] })
+      }
+      const group = named.get(partName)
+      const desc = text(row && (row['描述'] || row.advice || row.body)).slice(0, 200)
+      if (desc && !group.advice) group.advice = desc
+      if (!group.imageSlots.includes(slot)) group.imageSlots.push(slot)
+      group.images.push({ url: shot.url })
+    })
+  })
+  const groups = []
+  byFinding.forEach((named, findingId) => {
+    const groupList = [...named.values()]
+      .filter((row) => row.partName && row.images.length)
+      .map((row) => {
+        const imageSlots = row.imageSlots.slice().sort((a, b) => a - b)
+        return {
+          partName: row.partName,
+          advice: row.advice,
+          images: row.images,
+          imageSlots,
+          imageLabel: imageSlots.map((n) => `图${n}`).join('、'),
+        }
       })
+    if (!groupList.length) return
+    groups.push({
+      id: `edit_item_${findingId}`,
+      kind: 'item',
+      findingId,
+      body:
+        groupList.length >= 2
+          ? `拆成${groupList.map((g) => `「${g.partName}」`).join('')}并写上施工说明`
+          : groupList[0].advice || groupList[0].partName,
+      groups: groupList,
+      canApply: groupList.length >= 2,
     })
   })
   return {
     scope: 'process',
+    sequence,
     gaps,
     items: written,
-    groups: groups.slice(0, 4),
+    groups: groups.slice(0, 6),
+    newItems,
     photoPlan,
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
@@ -329,7 +396,7 @@ function parsePublicCaptions(list) {
     .slice(0, 8)
 }
 
-function parseDeliveryAdvice(raw) {
+function parseDeliveryAdvice(raw, slots) {
   const parsed = parseReviewModelJson(raw)
   if (!parsed) {
     return {
@@ -362,8 +429,8 @@ function parseDeliveryAdvice(raw) {
     })
     .filter(Boolean)
     .slice(0, 4)
-  // 验收（2026-11-10 定稿）：按本单施工项目逐项给 {项目,标准,怎么验,建议结果,依据}。
-  // 项目名必须是本单已有施工项目（应用侧只填空行，不新增）；建议结果只是建议，点「应用」才写入。
+  // 验收（2026-11-10 二次收敛）：按本单施工项目逐行 + 外观行，给 {项目,建议结果,验收描述,依据}。
+  // 项目名必须是本单已有施工项目或「外观」（应用侧只填空行，不新增）；建议结果只是建议，点「应用」才写入。
   const accSource = parsed['验收'] || parsed.acceptance
   const accList = Array.isArray(accSource)
     ? accSource
@@ -375,6 +442,8 @@ function parseDeliveryAdvice(raw) {
       const obj = row && typeof row === 'object' ? row : {}
       const name = text(obj['项目'] || obj['验收项'] || obj.name).slice(0, 60)
       if (!name) return null
+      const isExterior =
+        text(obj['类别'] || obj.kind) === 'exterior' || text(obj['类别'] || obj.kind) === '外观' || name === '外观'
       const resultText = text(obj['建议结果'] || obj.result).slice(0, 20)
       const resultEnum =
         ACCEPTANCE_RESULT_TEXT[resultText] && isValidAcceptanceResult(ACCEPTANCE_RESULT_TEXT[resultText])
@@ -382,26 +451,59 @@ function parseDeliveryAdvice(raw) {
           : isValidAcceptanceResult(resultText)
             ? resultText
             : ''
+      const statusText = text(obj['状态'] || obj.status)
+      const unbuilt = statusText === '未施工' || statusText === 'unbuilt'
       return {
-        name,
-        standard: text(obj['标准'] || obj.standard).slice(0, 200),
-        method: text(obj['怎么验'] || obj.method).slice(0, 60),
+        name: isExterior ? '外观' : name,
+        kind: isExterior ? 'exterior' : 'work',
+        unbuilt,
+        standard: text(obj['验收标准'] || obj.standard).slice(0, 200),
+        method: text(obj['验收方法'] || obj.method).slice(0, 160),
+        photoAdvice: text(obj['拍照建议'] || obj.photoAdvice).slice(0, 160),
         result: resultEnum,
+        note: text(obj['描述'] || obj['验收描述'] || obj.note).slice(0, 300),
         basis: text(obj['依据'] || obj.basis).slice(0, 150),
       }
     })
     .filter(Boolean)
     .slice(0, 20)
   const acceptance = accItems.length ? { items: accItems } : null
+  // 拆分建议：验收图挂错行，挪到目标验收行
+  const slotByNum = new Map((Array.isArray(slots) ? slots : []).map((row) => [Number(row.slot), row]))
+  const splitGroups = (Array.isArray(parsed['拆分建议']) ? parsed['拆分建议'] : [])
+    .map((row) => {
+      const partName = text(row && (row['项目'] || row['检测项目'] || row.partName || row.title)).slice(0, 60)
+      if (!partName) return null
+      const nums = collectGroupSlotNumbers({
+        imageSlots: slotTokens(row['图片']).concat(slotTokens(row.imageSlots)),
+        imageNames: slotTokens(row.imageNames),
+        imageName: row.imageName,
+        photoNames: row.photoNames,
+      })
+      if (!nums.length) return null
+      const images = nums
+        .map((n) => slotByNum.get(n))
+        .filter(Boolean)
+        .map((shot) => ({ slot: shot.slot, url: shot.url }))
+      return {
+        partName,
+        slots: nums.slice().sort((a, b) => a - b),
+        images,
+        body: text(row && (row['描述'] || row.body || row.advice)).slice(0, 160),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 6)
   const warrantyPeriod = text(parsed['质保'] || parsed.warrantyPeriod).slice(0, 60)
   return {
     repairBrief,
     ownerFaqs,
     acceptance,
+    groups: splitGroups,
     warranty: warrantyPeriod
       ? { title: '质保期限', body: warrantyPeriod }
       : null,
-    schema: 5,
+    schema: 6,
     tips,
     publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
     processIssues: [],
@@ -422,6 +524,8 @@ function adviceHasContent(advice, kind) {
       (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.groups) && advice.groups.length > 0) ||
       (Array.isArray(advice.photoPlan) && advice.photoPlan.length > 0) ||
+      (Array.isArray(advice.sequence) && advice.sequence.length > 0) ||
+      (Array.isArray(advice.newItems) && advice.newItems.length > 0) ||
       Boolean(text(advice.note))
   }
   if (kind === 'inspect') {
@@ -433,6 +537,7 @@ function adviceHasContent(advice, kind) {
   }
   return Boolean(
     (advice.acceptance && Array.isArray(advice.acceptance.items) && advice.acceptance.items.length > 0) ||
+      (Array.isArray(advice.groups) && advice.groups.length > 0) ||
       filled(advice.warranty) ||
       text(advice.repairBrief) ||
       (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0),
@@ -670,7 +775,7 @@ function organizeInspectSplits(rawGroups, photoSlots) {
   const byFinding = new Map()
   ;(Array.isArray(rawGroups) ? rawGroups : []).forEach((g) => {
     if (!g || typeof g !== 'object') return
-    const partName = zhInspectName(g['检测项目'] || g.partName || g.name || g.title)
+    const partName = zhInspectName(g['项目'] || g['检测项目'] || g.partName || g.name || g.title)
     const advice = zhInspectProse(g['描述'] || g.advice || g.body || g.note, 200)
     const opinion = inspectHandleOpinion(g['处理意见'] || g.result)
     if (!partName) return
@@ -911,7 +1016,7 @@ function inspectPhotoSlots(inspection) {
   return slots
 }
 
-/** 交车步图片：外观照 + 各验收项验收图，统一给 slot 与所属项目名（供 AI 引用「图N」） */
+/** 交车步图片：逐行图片（施工项 + 外观行），统一给 slot 与所属项目名（供 AI 引用「图N」） */
 function deliveryPhotoSlots(delivery) {
   const draft = contentOfFlowNode(delivery)
   const slots = []
@@ -922,13 +1027,9 @@ function deliveryPhotoSlots(delivery) {
     seen[url] = true
     slots.push({ slot: slots.length + 1, url, partName: text(partName).slice(0, 40) })
   }
-  ;(Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos : []).forEach((row) =>
-    push(row, '整车外观'),
-  )
   ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
-    ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) =>
-      push(img, text(item && item.name)),
-    )
+    const label = item && item.kind === 'exterior' ? '整车外观' : text(item && item.name)
+    ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) => push(img, label))
   })
   return slots
 }
@@ -1032,9 +1133,8 @@ function contextOf(album, extraNotes = {}) {
         ? {
             items: draft.acceptanceItems.slice(0, 20).map((row) => ({
               name: text(row && row.name),
-              standard: text(row && row.standard).slice(0, 120),
-              method: text(row && row.method).slice(0, 40),
-              note: text(row && row.note).slice(0, 120),
+              kind: row && row.kind === 'exterior' ? 'exterior' : 'work',
+              note: text(row && row.note).slice(0, 200),
               result: text(row && row.result).slice(0, 20),
               imageSlots: (Array.isArray(row && row.images) ? row.images : [])
                 .map((img) => {
@@ -1046,7 +1146,10 @@ function contextOf(album, extraNotes = {}) {
             })),
           }
         : null,
-    exteriorCount: Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos.length : 0,
+    exteriorCount: (Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).reduce(
+      (sum, row) => sum + (row && row.kind === 'exterior' && Array.isArray(row.images) ? row.images.length : 0),
+      0,
+    ),
     deliveryPhotoSlots: deliverySlots.filter((row) => !noteForUrl(row.url, imageNotesMap)),
     deliveryPhotoUrls: deliverySplit.fresh,
     deliveryNoted: deliverySplit.noted,
@@ -1277,13 +1380,21 @@ async function runLlm(instruction, urls, label, options = {}) {
 function workInstruction(ctx) {
   const slots = ctx.workPhotoSlots || []
   return [
-    '你是修理厂的施工顾问，帮店员看这一步留证齐不齐。',
-    '对照已经确认的报价行。不要改价格。不要自己挪图，只建议。',
+    '你是修理厂的施工顾问，帮店员整理施工这一步的意见。',
+    '对照已经确认的报价行。不要改价格。不要自己挪图、拆项、建项，只建议，店员点应用才执行。',
     '前序节点只带文字，不要再看那些图。本步只看施工项和这次的施工图。',
     '车主要看做成了什么、换了什么件；店员姿势和工具特写不算留证。',
-    '提醒：报价有施工无，类型写「缺项」；施工有报价无，类型写「增项」；该拍还没拍，类型写「留证」。',
-    '填写建议：只给还没有施工说明、并且已经有照片的项写描述。项目填该项名称。',
-    '拆分建议：某张图更像另一项时，检测项目填已有施工项名称，图片用["图1"]。已经挂对的不要再写。其它键留空。',
+    '',
+    '按下面六步思考，结果都写进这一个 JSON：',
+    '',
+    '1. 施工顺序：只看报价行里还没有施工图的项目。每项给「说明」（先做什么再做什么）和「拍照建议」（该拍哪些图，如新旧件对比、关键工序、装车效果）。已有施工图的项目不要写进来。写入「施工顺序」。',
+    '2. 逐张看图：按图1、图2顺序，每张独立判断它属于哪个报价行或已有施工项。不属于任何报价行的，归到「新增项」。只写这张图里实际有的内容，不编。',
+    '3. 填写建议：对已有施工图、但还没写施工说明的施工项，给一句可直接写入的施工描述。项目填该施工项名称。',
+    '4. 拆分建议：同一张施工项里混了多个项目的图，按项目分组。每组写「项目」「图片」「描述」（这组说明什么）。点应用后店员才拆项。已经挂对的图不要写。',
+    '5. 新增项：不属于任何报价行的图，单独列。能识别项目名就填「项目」，不能识别就留空。',
+    '6. 提醒：报价有施工无写「缺项」；施工有报价无写「增项」；该拍还没拍写「留证」。',
+    '',
+    '其它键留空。',
     `参考材料：${JSON.stringify({
       prior: {
         intake: ctx.intakeAdviceSummary,
@@ -1297,7 +1408,7 @@ function workInstruction(ctx) {
       photos: slots.map((row) => ({ 图: `图${row.slot}`, 现在挂在: row.partName })),
     })}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"故障分析":"","建议补充检测":[],"拆分建议":[{"检测项目":"已有施工项名称","图片":["图1"],"描述":"这张更像这一项。","处理意见":""}],"填写建议":[{"项目":"已有施工项名称","描述":"更换了开裂的下摆臂胶套。"}],"简述":"","问答":[],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没有照片。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"施工顺序":[{"项目":"下摆臂胶套更换","说明":"先拆旧胶套再压入新胶套，最后复紧螺栓。","拍照建议":"拍新旧胶套对比、压入过程、装车后螺栓特写。"}],"填写建议":[{"项目":"已有施工项名","描述":"更换了开裂的下摆臂胶套，螺栓已复紧。"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。","处理意见":""}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没做。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1447,16 +1558,25 @@ function deliveryInstruction(ctx) {
     deliveryPhotoSlots: ctx.deliveryPhotoSlots,
   })
   return [
-    '你是修理厂的交车顾问。根据整单事实、本单施工项目，以及商家实际传的验收图和写的验收文字，逐项给出验收建议。',
+    '你是修理厂的交车顾问。根据整单事实、本单施工项目与报价行，以及商家实际传的验收图和写的验收文字，逐项给出验收建议。',
     '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
-    '验收建议（最重要）：只针对参考材料里的施工项目（workItemNames，以及 acceptance.items 里已有的行），一项一条，不得新增项目、不得改写项目名。「验收」是数组，每条带「项目」「标准」「怎么验」「建议结果」「依据」五个键。「标准」=怎样算合格，一句普通人看得懂的判断句（如「踏板回弹正常，脚感不软不硬」）；「怎么验」=目视/实车操作/路试/仪表确认/检测仪读数，越短越好；「建议结果」只能是「合格」「建议观察」「需返工」之一；「依据」写本项的实际依据：引用「图N」（deliveryPhotoSlots 里有 slot 与所属项目名）或商家已写的验收文字，说清看到什么状态。行业惯例只能用来定「标准」和「怎么验」，不能用来推断这台车的结果；画面只拍到别的部位、或该项没有图也没有文字时，「建议结果」留空字符串，「依据」写还缺什么（如「还没有路试画面或文字」）。不写「已验合格」这类没有依据的结论，不写承诺句。店员点该项「应用」才写入，你不代点。',
-    '简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖五件事——①车主为什么来；②查出了什么（挑与诉求最相关的两三项，含「需关注」）；③怎么修的（关键工艺/用料，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保。提炼不流水账，不写价格和隐私，不编没做的事。',
-    '质保（静默建议）：「质保」只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
-    '问答：3到8条，用于公开案例页与托管预览（不展示在交车页）：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」，脱离页面也知道问的是哪台车什么项目。优先覆盖两类：①本次维修的注意事项——修后护理、复查时机、禁忌（含「需关注」项的观察方法）和质保与返修，这两条至少各写一条；②同类问题在修前怎么判断和由这例稍作延伸的普遍问题，用通用汽修常识回答，只讲常识、不编本案没有的检测结论，不制造焦虑推加项，答句末尾点明「具体以到店检测为准」。答句先写这例的具体事实，再接一句叮嘱。',
-    '图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不描述无关背景，不写推测结论，不写车牌与人脸。',
+    '',
+    '按下面四步思考，结果都写进这一个 JSON：',
+    '',
+    '1. 验收建议（最重要）：行清单 = 施工项 + 报价行合并去重，末行是「外观」。每行一条：',
+    '   - 没图也没文字：给「验收标准」「验收方法」「拍照建议」；「建议结果」留空字符串，「描述」留空，「依据」写还缺什么（如「还没有胶套安装图」）。',
+    '   - 有图或有文字：「建议结果」只能是「合格」「建议观察」「需返工」。「描述」写这行实际状态；不达标时在描述里明确写「建议补传XX图」或「建议返工XX」（不加新枚举）。「依据」引用「图N」（deliveryPhotoSlots 里有 slot 与所属行名）或商家已写文字。',
+    '   - 报价有但施工没做的行：「状态」写「未施工」，其余按没图没文字处理。',
+    '   「类别」填「施工」或「外观」。不写「已验合格」这类无依据结论，不写承诺句。店员点应用才写入，你不代点。',
+    '2. 拆分建议：验收图挂错行时，写「项目」（目标验收行名）、「图片」、「描述」。已经挂对的不要写。',
+    '3. 质保：只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
+    '4. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖五件事——①车主为什么来；②查出了什么（挑与诉求最相关的两三项，含「需关注」）；③怎么修的（关键工艺/用料，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保。不写价格和隐私，不编没做的事。',
+    '   问答（静默）：3到8条，用于公开案例页与托管预览（不展示在交车页）：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」。优先覆盖①本次维修注意事项（修后护理、复查时机、禁忌、质保与返修）至少各一条；②同类问题修前怎么判断和由这例稍作延伸的普遍问题，答句末尾点明「具体以到店检测为准」。',
+    '   图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不写推测结论，不写车牌与人脸。',
+    '',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"简述":"…120到200字…","验收":[{"项目":"左下摆臂胶套更换","标准":"胶套安装到位，螺栓按规定力矩复紧，无干涉渗油","怎么验":"举升目视","建议结果":"合格","依据":"图1 举升下胶套安装到位，无渗油"},{"项目":"底盘异响","标准":"低速过减速带无异响","怎么验":"路试","建议结果":"","依据":"还没有路试画面或文字，建议补路试结果"}],"质保":"12 个月或 2 万公里，以先到为准","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"},{"问":"这例质保怎么算？","答":"这例质保 12 个月，同部位出问题可免费复检。"},{"问":"车底盘有异响拖着不修会怎么样？","答":"衬套这类橡胶件开裂后一般会逐渐加重，异响变大还可能连带轮胎偏磨，建议出现就检查，具体以到店检测为准，这是通用情况。"}],"图说":[{"图":"图1","说":"举升后拆下的下摆臂胶套，胶体开裂明显。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"验收":[{"项目":"左下摆臂胶套更换","类别":"施工","状态":"已施工","验收标准":"胶套无开裂、螺栓扭矩达标、无渗油","验收方法":"举升目视+扳手复紧","拍照建议":"举升下胶套安装位、螺栓特写","建议结果":"合格","描述":"胶套安装到位无渗油。","依据":"图1 举升下胶套安装到位"},{"项目":"变速箱油更换","类别":"施工","状态":"未施工","验收标准":"","验收方法":"","拍照建议":"","建议结果":"","描述":"","依据":"报价有该项，施工未做"},{"项目":"外观","类别":"外观","状态":"已施工","验收标准":"车身无明显磕碰划痕","验收方法":"绕车目视","拍照建议":"整车前后左右各一张","建议结果":"","描述":"","依据":"还没有外观图或文字"}],"拆分建议":[{"项目":"外观","图片":["图3"],"描述":"这张是整车外观。"}],"质保":"12 个月或 2 万公里，以先到为准","简述":"…120到200字…","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"}],"图说":[{"图":"图1","说":"举升后安装到位的下摆臂胶套。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1546,7 +1666,7 @@ async function runJob(albumId, kind, options = {}) {
       ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
-        : parseDeliveryAdvice(raw)
+        : parseDeliveryAdvice(raw, ctx.deliveryPhotoSlots)
     const attachedUrlKeys = new Set()
     llmTraces.forEach((trace) => {
       ;(Array.isArray(trace && trace.attachedSlots) ? trace.attachedSlots : []).forEach((row) => {
@@ -1658,8 +1778,13 @@ async function queueIfNeeded(album, kind, options = {}) {
   const capability = await resolveCapabilityForMerchant(album.merchantId)
   if (!capability || !capability.entitled || !capability.llmEnabled) return { queued: false, skipped: true }
   const ctx = contextOf(album, await notesForAlbumImages(album))
-  if (kind === 'work' && !ctx.quoteLines.length && !ctx.workItems.length) {
-    const err = new Error('先有报价或施工项')
+  if (
+    kind === 'work' &&
+    !ctx.quoteLines.length &&
+    !ctx.workItems.length &&
+    !(ctx.workPhotoSlots || []).length
+  ) {
+    const err = new Error('先有报价或施工项或施工图')
     err.status = 400
     throw err
   }

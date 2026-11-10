@@ -471,16 +471,22 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
         return { ...node, content, photoDraft: content }
       }
       if (node.kind === 'delivery_photos' && groups.delivery.length) {
+        // 外观照只进验收清单「外观」行（末行），不再写旧 deliveryPhotos
+        const rows = Array.isArray(bag.acceptanceItems) ? bag.acceptanceItems.slice() : []
+        const idx = rows.findIndex((row) => row && row.kind === 'exterior')
+        const prev = idx >= 0 ? rows[idx] : { id: 'exterior', kind: 'exterior', name: '外观', result: '', note: '' }
         const seen = {}
-        const deliveryPhotos = []
-        ;[].concat(bag.deliveryPhotos || [], groups.delivery.map((row) => ({ url: row.url })))
-          .forEach((row) => {
-            const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
-            if (!url || seen[url]) return
-            seen[url] = true
-            deliveryPhotos.push({ url })
-          })
-        const content = { ...bag, deliveryPhotos: deliveryPhotos.slice(0, 3) }
+        const images = []
+        ;[].concat(prev.images || [], groups.delivery.map((row) => ({ url: row.url }))).forEach((row) => {
+          const url = String((row && (row.url || row.rawUrl)) || row || '').trim()
+          if (!url || seen[url]) return
+          seen[url] = true
+          images.push({ url })
+        })
+        const exterior = { ...prev, images: images.slice(0, 3) }
+        if (idx >= 0) rows[idx] = exterior
+        else rows.push(exterior)
+        const content = { ...bag, acceptanceItems: rows }
         return { ...node, content, photoDraft: content }
       }
       return node

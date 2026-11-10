@@ -73,9 +73,9 @@ function collectCaptionPool({ flowNodes, reviewDocs }) {
   })
   ;(Array.isArray(reviewDocs) ? reviewDocs : []).forEach((doc) => {
     pool.push(doc && doc.title)
-    ;(Array.isArray(doc && doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach((photo) => {
-      if (typeof photo === 'string') return
-      pool.push(photo && photo.caption, photo && photo.partName)
+    ;(Array.isArray(doc && doc.acceptanceItems) ? doc.acceptanceItems : []).forEach((row) => {
+      if (!row || typeof row !== 'object') return
+      pool.push(row.name, row.note)
     })
   })
   return pool.map(text).filter(Boolean)

@@ -124,6 +124,10 @@ function collectMaskImagesFromChapters(chapters) {
       push(row.evidenceUrl)
       ;(Array.isArray(row.images) ? row.images : []).forEach(push)
     })
+    ;(Array.isArray(ch.acceptanceItems) ? ch.acceptanceItems : []).forEach((row) => {
+      if (!row) return
+      ;(Array.isArray(row.images) ? row.images : []).forEach(push)
+    })
   })
   return rows
 }
@@ -137,6 +141,8 @@ function normalizeArchiveChapters(chapters) {
     findings: Array.isArray(ch && ch.findings) ? ch.findings : [],
     items: Array.isArray(ch && ch.items) ? ch.items : [],
     photos: Array.isArray(ch && ch.photos) ? ch.photos : [],
+    // 验收清单：施工项目逐行 + 外观末行（与公网完工同源）
+    acceptanceItems: Array.isArray(ch && ch.acceptanceItems) ? ch.acceptanceItems : [],
     warrantyPeriod: String((ch && ch.warrantyPeriod) || ''),
     warrantyNotes: String((ch && ch.warrantyNotes) || ''),
     repairBrief: String((ch && ch.repairBrief) || ''),
@@ -612,6 +618,15 @@ Page({
           return {
             ...row,
             evidenceUrl: row.evidenceUrl ? bust(row.evidenceUrl) : '',
+          }
+        }),
+        acceptanceItems: (ch.acceptanceItems || []).map((row) => {
+          if (!row) return row
+          return {
+            ...row,
+            images: (Array.isArray(row.images) ? row.images : []).map((img) =>
+              img && img.url ? { ...img, url: bust(img.url) } : img,
+            ),
           }
         }),
       }))

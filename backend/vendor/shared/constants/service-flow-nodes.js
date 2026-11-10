@@ -30,10 +30,11 @@ const FINDING_RESULT_OPTIONS = [
 const FINDING_ADVICE_NONE = '无需处理'
 
 /**
- * 交车验收项（2026-11-10 定稿）
+ * 交车验收项（2026-11-10 二次收敛定稿）
  * 真源：docs/04_维修过程相册/26_ §6.2 acceptanceItems
- * 一项 = 查什么(name) + 合格标准(standard) + 怎么验(method) + 结果(result) + 可选佐证图/补充
- * 结果只有店员实查后能点；AI 只起草，不代点结果。有 rework 硬拦交车定稿。
+ * 一行 = 一个施工项目（kind=work）或「外观」（kind=exterior，固定最后一行）
+ * 每行只有：图片(images[]) + 结果(result) + 验收描述(note)；不再有标准/怎么验
+ * 结果由店员确认；AI 逐行给建议结果与描述，点应用才写入，写入后仍可改。有 rework 硬拦交车定稿。
  */
 const ACCEPTANCE_RESULT = {
   PASS: 'pass',
@@ -47,23 +48,36 @@ const ACCEPTANCE_RESULT_OPTIONS = [
   { value: ACCEPTANCE_RESULT.REWORK, label: '需返工' },
 ]
 
-/** 外观照上限（交车页单独一块，首张为整车外观） */
+/** 验收项类别：施工项目 / 外观（外观固定为清单最后一行） */
+const ACCEPTANCE_KIND = {
+  WORK: 'work',
+  EXTERIOR: 'exterior',
+}
+
+/** 外观行的固定标识与名称 */
+const ACCEPTANCE_EXTERIOR_ID = 'exterior'
+const ACCEPTANCE_EXTERIOR_NAME = '外观'
+/** 外观图上限（首张为整车外观，至少 1 张） */
 const ACCEPTANCE_EXTERIOR_MAX = 3
+/** 施工项图片上限 */
+const ACCEPTANCE_ITEM_MAX_IMAGES = 6
 
 function isValidAcceptanceResult(value) {
   return ACCEPTANCE_RESULT_OPTIONS.some((row) => row.value === value)
 }
 
-/** 验收项草稿工厂：产出全部业务字段，不留半空对象（行由施工项目带出，name 由调用方填入） */
-function emptyAcceptanceItem() {
+/** 验收项工厂：产出全部业务字段，不留半空对象（name 由调用方填入） */
+function emptyAcceptanceItem(overrides = {}) {
+  const patch = overrides && typeof overrides === 'object' ? overrides : {}
+  const kind = patch.kind === ACCEPTANCE_KIND.EXTERIOR ? ACCEPTANCE_KIND.EXTERIOR : ACCEPTANCE_KIND.WORK
+  const isExterior = kind === ACCEPTANCE_KIND.EXTERIOR
   return {
-    id: '',
-    name: '',
-    standard: '',
-    method: '',
-    result: '',
-    images: [],
-    note: '',
+    id: String(patch.id || (isExterior ? ACCEPTANCE_EXTERIOR_ID : '')).trim(),
+    kind,
+    name: String(patch.name || (isExterior ? ACCEPTANCE_EXTERIOR_NAME : '')).trim(),
+    images: Array.isArray(patch.images) ? patch.images : [],
+    result: isValidAcceptanceResult(patch.result) ? patch.result : '',
+    note: String(patch.note || '').trim(),
   }
 }
 
@@ -323,7 +337,11 @@ module.exports = {
   INTAKE_RECORD_CATEGORIES,
   ACCEPTANCE_RESULT,
   ACCEPTANCE_RESULT_OPTIONS,
+  ACCEPTANCE_KIND,
+  ACCEPTANCE_EXTERIOR_ID,
+  ACCEPTANCE_EXTERIOR_NAME,
   ACCEPTANCE_EXTERIOR_MAX,
+  ACCEPTANCE_ITEM_MAX_IMAGES,
   isValidAcceptanceResult,
   emptyAcceptanceItem,
   QUOTE_CONFIRM_COPY,

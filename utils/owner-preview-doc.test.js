@@ -53,13 +53,22 @@ test('交车报告不展示简述与问答（只供托管预览/公网）', () =
   assert.equal(preview.doc.ownerFaqs, undefined)
 })
 
-test('交车报告带上全车和其他交车图', () => {
+test('交车报告带上外观行的整车与部位图（去重）', () => {
   const preview = buildOwnerPreviewDoc({
     family: 'finish',
-    deliveryPhotos: [{ url: 'from-work.jpg' }, { url: 'uploaded.jpg' }, { url: 'from-work.jpg' }],
+    acceptanceItems: [
+      {
+        id: 'exterior',
+        kind: 'exterior',
+        name: '外观',
+        result: 'pass',
+        images: [{ url: 'from-work.jpg' }, { url: 'uploaded.jpg' }, { url: 'from-work.jpg' }],
+      },
+    ],
   })
+  const exterior = preview.doc.acceptanceItems.find((row) => row.kind === 'exterior')
   assert.deepEqual(
-    preview.doc.deliveryPhotos.map((row) => row.url),
+    exterior.images.map((row) => row.url),
     ['from-work.jpg', 'uploaded.jpg'],
   )
 })

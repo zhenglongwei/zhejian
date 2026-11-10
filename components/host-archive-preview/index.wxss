@@ -41,24 +41,6 @@
   color: var(--color-text-primary);
 }
 
-.host-archive-preview__acceptance-row {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-}
-
-.host-archive-preview__acceptance-label {
-  flex-shrink: 0;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
-  padding: 2rpx 12rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-muted);
-}
-
 .host-archive-preview__k-head {
   display: flex;
   flex-direction: column;

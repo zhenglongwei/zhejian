@@ -145,24 +145,30 @@ function pickWorkItems(flowNodes) {
 function pickFinish(flowNodes) {
   for (const node of nodesOfKind(flowNodes, 'repair_report')) {
     const payload = payloadOf(node)
-    const deliveryPhotos = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
-    // 验收项（2026-11-10）：事实句进提炼层（验收项+合格标准+结果），不改快照事实
+    // 验收项（2026-11-10 二次收敛）：事实句按行（项目 + 结果 + 描述），外观并入末行；不改快照事实
     const acceptanceItems = (Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [])
       .map((row) => {
         const obj = row && typeof row === 'object' ? row : {}
-        const name = String(obj.name || '').trim()
-        const standard = String(obj.standard || '').trim()
+        const name = String(obj.name || (obj.kind === 'exterior' ? '外观' : '')).trim()
+        const note = String(obj.note || '').trim()
         const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
         if (!name) return null
-        return { name, standard, result }
+        return {
+          name,
+          kind: obj.kind === 'exterior' ? 'exterior' : 'work',
+          note,
+          result,
+          photoCount: Array.isArray(obj.images) ? obj.images.length : 0,
+        }
       })
       .filter(Boolean)
+    const acceptancePhotoCount = acceptanceItems.reduce((sum, row) => sum + row.photoCount, 0)
     return {
       conclusion: String(payload.conclusion || '').trim(),
       acceptanceItems,
       warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
       warrantyNotes: String(payload.warrantyNotes || '').trim(),
-      deliveryPhotoCount: deliveryPhotos.length,
+      acceptancePhotoCount,
     }
   }
   return {
@@ -170,7 +176,7 @@ function pickFinish(flowNodes) {
     acceptanceItems: [],
     warrantyPeriod: '',
     warrantyNotes: '',
-    deliveryPhotoCount: 0,
+    acceptancePhotoCount: 0,
   }
 }
 
@@ -236,7 +242,7 @@ function buildCaseFactPack(flowNodes) {
         acceptanceItems: [],
         warrantyPeriod: '',
         warrantyNotes: '',
-        deliveryPhotoCount: 0,
+        acceptancePhotoCount: 0,
       },
       analyzedImageKeys: [],
       missing: ['flowNodes'],

@@ -109,7 +109,7 @@ function harvestFlowNodeMaskedUrls(lookup, flowNodes) {
   }
   const harvestBag = (bag) => {
     if (!bag || typeof bag !== 'object') return
-    ;['photos', 'deliveryPhotos', 'discoveryImages', 'pendingImages'].forEach((key) => {
+    ;['photos', 'discoveryImages', 'pendingImages'].forEach((key) => {
       ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(harvestSlot)
     })
     ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
@@ -302,24 +302,6 @@ function collectWorkSheetPublicItems(node) {
     .filter(Boolean)
 }
 
-function collectDeliveryPhotos(payload, lookup) {
-  const list = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
-  const photos = []
-  const seenRaw = new Set()
-  list.forEach((item) => {
-    const rawSrc = typeof item === 'string' ? item : item && (item.url || item.src || item.rawUrl)
-    const rawKey = urlKey(rawSrc)
-    if (rawKey && seenRaw.has(rawKey)) return
-    const pub = resolvePhotoDisplayUrl(item, lookup)
-    if (!pub) return
-    if (rawKey) seenRaw.add(rawKey)
-    else if (photos.some((p) => p.url === pub)) return
-    const caption = cleanPublicNote(typeof item === 'object' && item ? item.caption || item.note : '')
-    photos.push({ url: pub, caption })
-  })
-  return photos
-}
-
 function mapOwnerFaqs(payload) {
   const rows = Array.isArray(payload && payload.ownerFaqs) ? payload.ownerFaqs : []
   return rows
@@ -363,14 +345,15 @@ function publicTitle(node) {
 const ACCEPTANCE_RESULT_LABELS = { pass: '合格', observe: '建议观察', rework: '需返工' }
 
 /**
- * 公网完工章验收（2026-11-10 定稿）：按施工项目逐项原样展示（含「建议观察」），带验收图（走脱敏映射）。
+ * 公网完工章验收（2026-11-10 二次收敛）：一张清单，施工项目逐行 + 外观末行，只有图片 / 结果 / 描述。
  * 只认 acceptanceItems；旧结构由迁移脚本搬完，读侧不做兼容。
  */
 function mapAcceptanceItems(payload = {}, lookup) {
-  return (Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [])
+  const rows = (Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [])
     .map((row, index) => {
       const obj = row && typeof row === 'object' ? row : {}
-      const name = text(obj.name)
+      const isExterior = obj.kind === 'exterior'
+      const name = text(obj.name) || (isExterior ? '外观' : '')
       if (!name) return null
       const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
       const images = (Array.isArray(obj.images) ? obj.images : [])
@@ -382,10 +365,9 @@ function mapAcceptanceItems(payload = {}, lookup) {
         .filter(Boolean)
         .map((url) => ({ url }))
       return {
-        id: text(obj.id) || `acc_${index + 1}`,
+        id: text(obj.id) || (isExterior ? 'exterior' : `acc_${index + 1}`),
+        kind: isExterior ? 'exterior' : 'work',
         name,
-        standard: cleanPublicNote(obj.standard),
-        method: cleanPublicNote(obj.method),
         note: cleanPublicNote(obj.note),
         result,
         resultLabel: result ? ACCEPTANCE_RESULT_LABELS[result] : '',
@@ -393,6 +375,9 @@ function mapAcceptanceItems(payload = {}, lookup) {
       }
     })
     .filter(Boolean)
+  return rows
+    .filter((row) => row.kind !== 'exterior')
+    .concat(rows.filter((row) => row.kind === 'exterior'))
 }
 
 function mapRepairChapter(node, lookup) {
@@ -403,7 +388,7 @@ function mapRepairChapter(node, lookup) {
     title: publicTitle(node),
     // 公网完工不重列方案/工单项目；项目只在上游章
     items: [],
-    photos: collectDeliveryPhotos({ deliveryPhotos: payload.deliveryPhotos }, lookup),
+    photos: [],
     repairBrief: text(payload.repairBrief),
     acceptanceItems: mapAcceptanceItems(payload, lookup),
     ownerFaqs: mapOwnerFaqs(payload),

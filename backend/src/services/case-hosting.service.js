@@ -706,7 +706,9 @@ function collectReviewMaskImages(docs, outcomeIndex) {
       ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
       if (row) push(row.evidenceUrl)
     })
-    ;(Array.isArray(doc.deliveryPhotos) ? doc.deliveryPhotos : []).forEach(push)
+    ;(Array.isArray(doc.acceptanceItems) ? doc.acceptanceItems : []).forEach((row) => {
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+    })
     ;(Array.isArray(doc.discoveryImages) ? doc.discoveryImages : []).forEach(push)
   })
   return rows

@@ -8,31 +8,15 @@ const {
 const RAW = 'https://cdn.example/files/uploads/2026/10/plate.jpg'
 const MASK = 'https://cdn.example/files/uploads/desensitized/plate_m.jpg'
 
-test('字符串交车图升为带 maskedUrl 的对象', () => {
-  const { nodes, changed } = writeMaskedUrlIntoFlowNodes(
-    [
-      {
-        kind: 'repair_report',
-        document: { payload: { deliveryPhotos: [RAW] } },
-      },
-    ],
-    RAW,
-    MASK,
-  )
-  assert.equal(changed, true)
-  assert.deepEqual(nodes[0].document.payload.deliveryPhotos[0], {
-    url: RAW,
-    maskedUrl: MASK,
-  })
-})
-
-test('对象交车图写回 maskedUrl 不改原图地址', () => {
+test('字符串验收图升为带 maskedUrl 的对象（外观行）', () => {
   const { nodes, changed } = writeMaskedUrlIntoFlowNodes(
     [
       {
         kind: 'repair_report',
         document: {
-          payload: { deliveryPhotos: [{ url: RAW, caption: '外观' }] },
+          payload: {
+            acceptanceItems: [{ id: 'exterior', kind: 'exterior', name: '外观', images: [RAW] }],
+          },
         },
       },
     ],
@@ -40,9 +24,33 @@ test('对象交车图写回 maskedUrl 不改原图地址', () => {
     MASK,
   )
   assert.equal(changed, true)
-  assert.equal(nodes[0].document.payload.deliveryPhotos[0].url, RAW)
-  assert.equal(nodes[0].document.payload.deliveryPhotos[0].maskedUrl, MASK)
-  assert.equal(nodes[0].document.payload.deliveryPhotos[0].caption, '外观')
+  assert.deepEqual(nodes[0].document.payload.acceptanceItems[0].images[0], {
+    url: RAW,
+    maskedUrl: MASK,
+  })
+})
+
+test('对象验收图写回 maskedUrl 不改原图地址', () => {
+  const { nodes, changed } = writeMaskedUrlIntoFlowNodes(
+    [
+      {
+        kind: 'repair_report',
+        document: {
+          payload: {
+            acceptanceItems: [
+              { id: 'exterior', kind: 'exterior', name: '外观', images: [{ url: RAW, caption: '外观' }] },
+            ],
+          },
+        },
+      },
+    ],
+    RAW,
+    MASK,
+  )
+  assert.equal(changed, true)
+  assert.equal(nodes[0].document.payload.acceptanceItems[0].images[0].url, RAW)
+  assert.equal(nodes[0].document.payload.acceptanceItems[0].images[0].maskedUrl, MASK)
+  assert.equal(nodes[0].document.payload.acceptanceItems[0].images[0].caption, '外观')
 })
 
 test('检测挂图 images[] 写回', () => {
@@ -69,7 +77,7 @@ test('未命中原图不改动', () => {
   assert.equal(r.changed, false)
 })
 
-test('写回不得把 selectedDeliveryUrls 字符串升成对象', () => {
+test('写回不得把废止的旧外观字段升成对象', () => {
   const { writeMaskedUrlIntoFlowNodes } = require('./flow-photo-mask-writeback')
   const { nodes, changed } = writeMaskedUrlIntoFlowNodes(
     [
@@ -81,9 +89,10 @@ test('写回不得把 selectedDeliveryUrls 字符串升成对象', () => {
     RAW,
     MASK,
   )
-  assert.equal(changed, true)
+  // 旧字段已废止：写回不再碰它们，只改验收清单里的图
+  assert.equal(changed, false)
   assert.deepEqual(nodes[0].photoDraft.selectedDeliveryUrls, [RAW])
-  assert.equal(nodes[0].photoDraft.deliveryExteriorMaskedUrl, MASK)
+  assert.equal(nodes[0].photoDraft.deliveryExteriorMaskedUrl, undefined)
 })
 
 test('收集节点上的原图和打码图', () => {
@@ -106,14 +115,21 @@ test('ok_no_privacy 清空冒充产物的 maskedUrl 并写结论', () => {
       {
         kind: 'repair_report',
         content: {
-          deliveryPhotos: [{ url: RAW, maskedUrl: RAW, preMaskedUrl: RAW }],
+          acceptanceItems: [
+            {
+              id: 'exterior',
+              kind: 'exterior',
+              name: '外观',
+              images: [{ url: RAW, maskedUrl: RAW, preMaskedUrl: RAW }],
+            },
+          ],
         },
       },
     ],
     [{ rawUrl: RAW, maskedUrl: '', maskOutcome: 'ok_no_privacy', maskRegions: [] }],
   )
   assert.equal(changed, true)
-  const slot = nodes[0].content.deliveryPhotos[0]
+  const slot = nodes[0].content.acceptanceItems[0].images[0]
   assert.equal(slot.url, RAW)
   assert.equal(slot.maskedUrl, '')
   assert.equal(slot.preMaskedUrl, '')

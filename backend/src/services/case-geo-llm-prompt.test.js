@@ -54,7 +54,16 @@ const FLOW = [
       payload: {
         conclusion: '异响消除',
         warrantyPeriod: '12个月',
-        deliveryPhotos: [{ url: 'https://x/d.jpg' }],
+        acceptanceItems: [
+          {
+            id: 'exterior',
+            kind: 'exterior',
+            name: '外观',
+            note: '整车外观正常',
+            result: 'pass',
+            images: [{ url: 'https://x/d.jpg' }],
+          },
+        ],
       },
     },
   }),

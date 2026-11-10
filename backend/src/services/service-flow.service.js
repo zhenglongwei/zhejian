@@ -141,14 +141,14 @@ function textHasValue(value) {
   return Boolean(String(value || '').trim())
 }
 
-/** 验收项（acceptanceItems · 2026-11-10）有实质内容：有项目名且有任一填写/结果即算 */
+/** 验收项（acceptanceItems · 2026-11-10 二次收敛）有实质内容：有行名且有描述/结果/图片即算 */
 function acceptanceItemsHaveBody(raw) {
   return (Array.isArray(raw) ? raw : []).some(
     (item) =>
       item &&
       typeof item === 'object' &&
       textHasValue(item.name) &&
-      (['standard', 'method', 'note', 'result'].some((key) => textHasValue(item[key])) ||
+      (['note', 'result'].some((key) => textHasValue(item[key])) ||
         (Array.isArray(item.images) && item.images.length > 0)),
   )
 }
@@ -159,7 +159,6 @@ function finishReportHasDeliveryFields(payload = {}) {
       acceptanceItemsHaveBody(payload.acceptanceItems) ||
       textHasValue(payload.warrantyPeriod) ||
       textHasValue(payload.warrantyNotes) ||
-      (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
       (Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length),
   )
 }
@@ -170,26 +169,17 @@ function frozenDeliveryHasBody(draft = {}) {
       acceptanceItemsHaveBody(draft.acceptanceItems) ||
       textHasValue(draft.warrantyPeriod) ||
       textHasValue(draft.warrantyNotes) ||
-      (Array.isArray(draft.deliveryPhotos) && draft.deliveryPhotos.length) ||
       (Array.isArray(draft.ownerFaqs) && draft.ownerFaqs.length),
   )
 }
 
 function deliveryFieldsFromReport(payload = {}) {
-  const photos = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
-  const deliveryPhotos = photos
-    .map((row) => {
-      const url = String((typeof row === 'string' ? row : row && (row.url || row.src)) || '').trim()
-      return url ? { url } : null
-    })
-    .filter(Boolean)
   return {
     repairBrief: String(payload.repairBrief || '').trim(),
     acceptanceItems: Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [],
     ownerFaqs: Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [],
     warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
     warrantyNotes: String(payload.warrantyNotes || '').trim(),
-    deliveryPhotos,
     delivererName: String(payload.delivererName || '').trim(),
     finishedAt: String(payload.finishedAt || '').trim(),
     confirmCopy: String(payload.confirmCopy || '').trim(),
@@ -228,13 +218,6 @@ function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
   ].forEach((key) => {
     if (!textHasValue(next[key]) && textHasValue(prev[key])) next[key] = prev[key]
   })
-  if (
-    (!Array.isArray(next.deliveryPhotos) || !next.deliveryPhotos.length) &&
-    Array.isArray(prev.deliveryPhotos) &&
-    prev.deliveryPhotos.length
-  ) {
-    next.deliveryPhotos = prev.deliveryPhotos
-  }
   if (
     (!Array.isArray(next.ownerFaqs) || !next.ownerFaqs.length) &&
     Array.isArray(prev.ownerFaqs) &&
@@ -284,11 +267,17 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}) {
   })
 }
 
+function exteriorRowOf(rows) {
+  return (Array.isArray(rows) ? rows : []).find(
+    (row) => row && row.kind === 'exterior',
+  ) || null
+}
+
 function finishReportMissingFrozenFields(payload = {}, draft = {}, nodes = []) {
-  const missingPhotos =
-    !(Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) &&
-    Array.isArray(draft.deliveryPhotos) &&
-    draft.deliveryPhotos.length > 0
+  // 外观已并入验收清单最后一行：报告缺外观图而草稿有，即视为漏搬
+  const missingExteriorImages =
+    !((exteriorRowOf(payload.acceptanceItems) || {}).images || []).length &&
+    ((exteriorRowOf(resolveAcceptanceItems(draft)) || {}).images || []).length > 0
   const missingBrief = !textHasValue(payload.repairBrief) && textHasValue(draft.repairBrief)
   const missingAcceptance =
     !acceptanceItemsHaveBody(payload.acceptanceItems) &&
@@ -302,7 +291,14 @@ function finishReportMissingFrozenFields(payload = {}, draft = {}, nodes = []) {
   const missingWork =
     !(Array.isArray(payload.workItems) && payload.workItems.length) &&
     collectAllWorkOrderItems(nodes).length > 0
-  return missingPhotos || missingBrief || missingAcceptance || missingWarranty || missingFaqs || missingWork
+  return (
+    missingExteriorImages ||
+    missingBrief ||
+    missingAcceptance ||
+    missingWarranty ||
+    missingFaqs ||
+    missingWork
+  )
 }
 
 function pendingImagesFromReportPhotos(payload = {}) {
@@ -553,30 +549,25 @@ function collectNodePhotoList(node, albumNodes = []) {
           : []
     shots.forEach((img) => push(img, item && item.partName))
   })
-  // 交车：外观照 + 各验收项验收图（只认节点 content，不读 album.nodes stage_*）
+  // 交车：验收清单逐行图片（含外观末行；只认节点 content，不读 album.nodes stage_*）
   if (node && node.kind === 'delivery_photos') {
-    ;(Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos : []).forEach((row) => {
-      push(typeof row === 'object' && row ? row : { url: row }, '整车外观')
-    })
     ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
-      ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) => {
-        push(img, item && item.name)
-      })
+      const label = item && item.kind === 'exterior' ? '整车外观' : item && item.name
+      ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) => push(img, label))
     })
   }
   return out
 }
 
 function countPhotosForFlowNode(node, albumNodes = []) {
-  // 完工照：外观照 + 验收图都以 content 字段为准
+  // 完工照：验收清单逐行图片（含外观行）都以 content 字段为准
   if (node && node.kind === 'delivery_photos') {
     const draft = contentOfFlowNode(node)
-    const exterior = Array.isArray(draft.deliveryPhotos) ? draft.deliveryPhotos.length : 0
     const acceptance = (Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).reduce(
       (sum, item) => sum + (Array.isArray(item && item.images) ? item.images.length : 0),
       0,
     )
-    if (exterior + acceptance > 0) return exterior + acceptance
+    if (acceptance > 0) return acceptance
   }
   return collectNodePhotoList(node, albumNodes).length
 }
@@ -1705,7 +1696,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       ? { warrantyExclusions: payload.warrantyExclusions }
       : {}),
     ...(payload.confirmCopy != null ? { confirmCopy: payload.confirmCopy } : {}),
-    ...(payload.deliveryPhotos != null ? { deliveryPhotos: payload.deliveryPhotos } : {}),
     ...(payload.repairBrief != null ? { repairBrief: payload.repairBrief } : {}),
     ...(payload.ownerFaqs != null ? { ownerFaqs: payload.ownerFaqs } : {}),
     ...(payload.acceptanceItems != null ? { acceptanceItems: payload.acceptanceItems } : {}),
@@ -2604,7 +2594,9 @@ function signPreviewMedia(doc) {
     items: Array.isArray(doc.items) ? doc.items.map(signItem) : doc.items,
     workItems: Array.isArray(doc.workItems) ? doc.workItems.map(signItem) : doc.workItems,
     photos: signPhotos(doc.photos),
-    deliveryPhotos: signPhotos(doc.deliveryPhotos),
+    acceptanceItems: Array.isArray(doc.acceptanceItems)
+      ? doc.acceptanceItems.map(signItem)
+      : doc.acceptanceItems,
   }
 }
 
@@ -2679,7 +2671,7 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
     totalAmount: 0,
     totalAmountLabel: '',
     photos,
-    deliveryPhotos: [],
+    acceptanceItems: [],
     warrantyPeriod: '',
     warrantyNotes: '',
     warrantyScope: '',
@@ -2779,7 +2771,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
       workItems: [],
       totalAmount: 0,
       totalAmountLabel: '',
-      deliveryPhotos: [],
+      acceptanceItems: [],
       repairBrief: '',
       ownerFaqs: [],
       warrantyPeriod: '',
@@ -2844,7 +2836,6 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
             mileageText,
             workItems: Array.isArray(payload.workItems) ? payload.workItems : [],
             totalAmount: payload.totalAmount,
-            deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
             acceptanceItems: Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [],
             warrantyPeriod: payload.warrantyPeriod,
             warrantyNotes: resolveWarrantyNotes(payload),
@@ -2951,11 +2942,6 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
       : finishDoc
         ? finishDoc.totalAmountLabel
         : `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
-    deliveryPhotos: finishDoc
-      ? finishDoc.deliveryPhotos
-      : Array.isArray(payload.deliveryPhotos)
-        ? payload.deliveryPhotos
-        : [],
     acceptanceItems: finishDoc
       ? finishDoc.acceptanceItems
       : Array.isArray(payload.acceptanceItems)
@@ -3042,17 +3028,9 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
           return url && url !== photo.url ? { ...photo, url } : photo
         })
       : doc.photos
-    const deliveryPhotos = Array.isArray(doc.deliveryPhotos)
-      ? doc.deliveryPhotos.map((photo) => {
-          if (typeof photo === 'string') {
-            const url = remapUrl(photo)
-            return url || photo
-          }
-          if (!photo || typeof photo !== 'object') return photo
-          const url = remapUrl(photo.url)
-          return url && url !== photo.url ? { ...photo, url } : photo
-        })
-      : doc.deliveryPhotos
+    const acceptanceItems = Array.isArray(doc.acceptanceItems)
+      ? doc.acceptanceItems.map(remapItemImages)
+      : doc.acceptanceItems
     return {
       ...doc,
       findings,
@@ -3060,7 +3038,7 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
       items,
       workItems,
       photos,
-      deliveryPhotos,
+      acceptanceItems,
       needsConfirm: false,
       locked: false,
       stepState: 'done',
@@ -3091,7 +3069,7 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
           (Array.isArray(payload.items) && payload.items.length) ||
           (Array.isArray(payload.workItems) && payload.workItems.length) ||
           (Array.isArray(payload.photos) && payload.photos.length) ||
-          (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
+          (Array.isArray(payload.acceptanceItems) && payload.acceptanceItems.length) ||
           (Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length) ||
           Boolean(String(payload.warrantyPeriod || '').trim()) ||
           Boolean(String(payload.conclusion || '').trim()))
