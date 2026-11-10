@@ -911,6 +911,139 @@
   gap: var(--space-xs);
 }
 
+/* ===== AI 建议卡片：五个节点统一使用 ===== */
+.merchant-flow-page__advice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__advice-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.merchant-flow-page__advice-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background-color: transparent;
+}
+
+/* 可操作的卡片：左侧蓝条 + 淡蓝投影 */
+.merchant-flow-page__advice-card--actionable {
+  border-color: var(--color-primary-light);
+  box-shadow: 0 2rpx 10rpx rgba(18, 105, 242, 0.06);
+}
+
+.merchant-flow-page__advice-card--actionable::before {
+  background-color: var(--color-primary);
+}
+
+.merchant-flow-page__advice-card--ok::before {
+  background-color: var(--color-success);
+}
+
+.merchant-flow-page__advice-card--warn::before {
+  background-color: var(--color-warning);
+}
+
+.merchant-flow-page__advice-card--bad::before {
+  background-color: var(--color-danger);
+}
+
+/* 未施工/无结果：灰底弱化 */
+.merchant-flow-page__advice-card--muted {
+  background-color: var(--color-bg-page);
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+}
+
+.merchant-flow-page__advice-card-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__advice-card-title-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__advice-card-title {
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__advice-card-field {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__advice-card-label {
+  flex-shrink: 0;
+  width: 96rpx;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-flow-page__advice-card-value {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.merchant-flow-page__advice-card-text {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.merchant-flow-page__advice-card-media {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__advice-card-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1rpx dashed var(--color-border);
+}
+
+.merchant-flow-page__advice-card-group:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
 .merchant-flow-page__key-fill {
   display: flex;
   flex-direction: row;
@@ -1171,83 +1304,6 @@
   color: var(--color-text-secondary);
 }
 
-.merchant-flow-page__accept-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-/* 验收区改为卡片后，去掉区块本身的左侧蓝条，避免和卡片蓝框叠加 */
-.merchant-flow-page__advice-sec--carded {
-  padding-left: 0;
-  border-left: none;
-}
-
-.merchant-flow-page__accept-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  border: 2rpx solid var(--color-primary);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-card);
-  box-shadow: 0 2rpx 10rpx rgba(18, 105, 242, 0.08);
-  overflow: hidden;
-}
-
-.merchant-flow-page__accept-card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6rpx;
-  background-color: var(--color-border-strong);
-}
-
-.merchant-flow-page__accept-card--ok::before {
-  background-color: var(--color-success);
-}
-
-.merchant-flow-page__accept-card--warn::before {
-  background-color: var(--color-warning);
-}
-
-.merchant-flow-page__accept-card--bad::before {
-  background-color: var(--color-danger);
-}
-
-.merchant-flow-page__accept-card--unbuilt {
-  border-style: dashed;
-  border-color: var(--color-border-strong);
-  background-color: var(--color-bg-page);
-}
-
-.merchant-flow-page__accept-head {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.merchant-flow-page__accept-title-wrap {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.merchant-flow-page__accept-name {
-  font-size: var(--font-body);
-  line-height: var(--font-body-lh);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
 .merchant-flow-page__accept-badge {
   padding: 2rpx 12rpx;
   border-radius: var(--radius-full);
@@ -1270,29 +1326,6 @@
 .merchant-flow-page__accept-badge--bad {
   color: var(--color-danger);
   background-color: var(--color-danger-light);
-}
-
-.merchant-flow-page__accept-line {
-  display: flex;
-  flex-direction: row;
-  gap: var(--space-xs);
-}
-
-.merchant-flow-page__accept-label {
-  flex-shrink: 0;
-  width: 96rpx;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-tertiary);
-}
-
-.merchant-flow-page__accept-text {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
-  word-break: break-all;
 }
 
 .merchant-flow-page__advice-chips {
