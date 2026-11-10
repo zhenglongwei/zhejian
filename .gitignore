@@ -31,6 +31,9 @@ backend/prisma/*.db
 # Cursor
 .cursor/
 
+# Trae 本机 IDE 配置（规则文件 .trae/rules/ 需入库）
+.trae/mcp.json
+
 # 市场宣传 / 对外文案物料（本地保留，不同步 GitHub）
 docs/13_市场物料/
 docs/09_SEO_GEO_AI内容基础设施/articles/
