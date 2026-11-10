@@ -163,7 +163,10 @@ function migratePackage(pkg) {
     if (node.kind === 'delivery_photos') {
       const bagTouched = migrateBag(node.content || {}, mark)
       const draftTouched = migrateBag(node.photoDraft || {}, mark)
-      if (bagTouched || draftTouched) stats.nodes += 1
+      if (bagTouched || draftTouched) {
+        stats.nodes += 1
+        changed = true
+      }
       // archiveCopy 一次性迁入节点 content（只补空）
       const copy = pkg.archiveCopy && typeof pkg.archiveCopy === 'object' ? pkg.archiveCopy : null
       if (copy) {
