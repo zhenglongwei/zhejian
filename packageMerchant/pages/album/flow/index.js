@@ -5976,7 +5976,7 @@ Page({
       hasSequence: sequence.length > 0,
       hasSplitGroups: splitGroups.length > 0,
       hasNewItems: newItems.length > 0,
-      hasLines: lines.length > 0 || photoPlan.length > 0,
+      hasLines: lines.length > 0,
       hasContent,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',

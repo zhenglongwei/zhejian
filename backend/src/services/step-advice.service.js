@@ -1860,6 +1860,8 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
       gaps: Array.isArray(advice.gaps) ? advice.gaps : [],
       items: Array.isArray(advice.items) ? advice.items : [],
       groups: Array.isArray(advice.groups) ? advice.groups : [],
+      sequence: Array.isArray(advice.sequence) ? advice.sequence : [],
+      newItems: Array.isArray(advice.newItems) ? advice.newItems : [],
       photoPlan: Array.isArray(advice.photoPlan) ? advice.photoPlan : [],
     }
   }
@@ -1880,6 +1882,7 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     repairBrief: text(advice.repairBrief),
     ownerFaqs: Array.isArray(advice.ownerFaqs) ? advice.ownerFaqs : [],
     acceptance: advice.acceptance && typeof advice.acceptance === 'object' ? advice.acceptance : null,
+    groups: Array.isArray(advice.groups) ? advice.groups : [],
     tips: Array.isArray(advice.tips) ? advice.tips : [],
     repair: advice.repair || null,
     warranty: advice.warranty || null,
