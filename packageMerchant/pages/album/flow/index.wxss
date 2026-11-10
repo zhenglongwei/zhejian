@@ -1159,7 +1159,13 @@
 .merchant-flow-page__accept-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
+}
+
+/* 验收区改为卡片后，去掉区块本身的左侧蓝条，避免和卡片蓝框叠加 */
+.merchant-flow-page__advice-sec--carded {
+  padding-left: 0;
+  border-left: none;
 }
 
 .merchant-flow-page__accept-card {
@@ -1168,9 +1174,10 @@
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
-  border: 1rpx solid var(--color-border);
+  border: 2rpx solid var(--color-primary);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-card);
+  box-shadow: 0 2rpx 10rpx rgba(18, 105, 242, 0.08);
   overflow: hidden;
 }
 
@@ -1198,6 +1205,7 @@
 
 .merchant-flow-page__accept-card--unbuilt {
   border-style: dashed;
+  border-color: var(--color-border-strong);
   background-color: var(--color-bg-page);
 }
 

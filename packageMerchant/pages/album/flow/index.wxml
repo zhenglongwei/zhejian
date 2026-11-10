@@ -81,7 +81,7 @@
 <template name="deliveryAdvicePanel">
   <view
     wx:if="{{advice.acceptance && advice.acceptance.items.length}}"
-    class="merchant-flow-page__advice-sec"
+    class="merchant-flow-page__advice-sec merchant-flow-page__advice-sec--carded"
   >
     <view class="merchant-flow-page__advice-row">
       <text class="merchant-flow-page__advice-sec-title">验收建议</text>
