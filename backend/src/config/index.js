@@ -177,8 +177,8 @@ const config = {
   /** ALB-UX-02 · 云市场 VIN 解析（Authorization: APPCODE …） */
   aliyunVin: {
     appCode: envStr('ALIYUN_VIN_APPCODE'),
-    host: envStr('ALIYUN_VIN_HOST', 'https://sxvin.market.alicloudapi.com'),
-    path: envStr('ALIYUN_VIN_PATH', '/vin/query'),
+    host: envStr('ALIYUN_VIN_HOST', 'https://sxvinv2.market.alicloudapi.com'),
+    path: envStr('ALIYUN_VIN_PATH', '/vin/query/v2'),
     timeoutMs: Number(process.env.ALIYUN_VIN_TIMEOUT_MS || 12000),
   },
   desensitize: {

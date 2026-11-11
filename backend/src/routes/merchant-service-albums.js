@@ -128,7 +128,7 @@ router.post('/service-albums/vehicle-ocr', requireAuth(['merchant']), async (req
   }
 })
 
-/** ALB-UX-02 · VIN 解码（阿里云市场 sxvin） */
+/** ALB-UX-02 · VIN 解码（阿里云市场 sxvinv2） */
 router.get('/service-albums/vin-decode', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const data = await decodeVin(req.query?.vin || req.query?.VIN)

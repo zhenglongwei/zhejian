@@ -204,12 +204,12 @@ function mapAliyunVinResult(raw = {}) {
     'carSeries',
     'car_series',
     '车系',
-    'groupname',
-    'groupName',
-    'group_name',
     'typename',
     'typeName',
     '车型名称',
+    'groupname',
+    'groupName',
+    'group_name',
     'vehicleName',
     'cartype',
     'carType',
@@ -348,8 +348,8 @@ async function decodeVin(vinInput) {
     )
   }
 
-  const host = (config.aliyunVin && config.aliyunVin.host) || 'https://sxvin.market.alicloudapi.com'
-  const path = (config.aliyunVin && config.aliyunVin.path) || '/vin/query'
+  const host = (config.aliyunVin && config.aliyunVin.host) || 'https://sxvinv2.market.alicloudapi.com'
+  const path = (config.aliyunVin && config.aliyunVin.path) || '/vin/query/v2'
   const url = new URL(path, host)
   url.searchParams.set('vin', vin)
 
