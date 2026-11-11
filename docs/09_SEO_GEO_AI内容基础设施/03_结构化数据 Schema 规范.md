@@ -664,7 +664,70 @@ P0 必须满足：
 | `facts.exteriorPhotoWaived` | 商家定稿确认未拍外观照 |
 | `evidenceLevel` / `evidenceLevelLabel` | trustMeta（见《10_案例信任元数据开发计划》§3.3） |
 
-### **21.3 约束**
+### **21.3 示例**
+
+输入（来自测试夹具 `case-facts-jsonld.test.js`，一个有五环节定稿 + 外观缺图标注的案例）：
+
+```
+caseVehicle    = { brand: "丰田", series: "卡罗拉", year: "2021款", mileageText: "3.2万公里" }
+mileageKm      = 32000
+evidenceLevel  = rich_images / 图文全留证
+chapters[inspection_report].chiefComplaint = "右前门有划痕"
+chapters[inspection_report].findings[0]    = { partName: "右前门漆面", result: "需处理", advice: "建议局部补漆" }
+chapters[quote_confirm].items[0]           = { name: "右前门局部补漆", brand: "杜邦漆" }
+chapters[work].items[0]                    = { name: "右前门局部补漆", note: "打磨后喷涂，烤房固化" }
+chapters[repair_report].acceptanceItems[0]  = { kind: "work",     name: "右前门局部补漆", resultLabel: "合格" }
+chapters[repair_report].acceptanceItems[1]  = { kind: "exterior", name: "外观",           resultLabel: "合格", missingPhoto: true }
+chapters[repair_report].warrantyPeriod     = "3个月"
+chapters[repair_report].warrantyNotes      = "同部位掉色免费返修"
+```
+
+输出（bot 预渲染 head 中的独立 `<script type="application/ld+json">`，由 `buildCaseFactsSchema` 真实生成）：
+
+```json
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Car",
+      "@id": "https://zhejian.simplewin.cn/case/case_001.html#vehicle",
+      "name": "2021款 丰田 卡罗拉",
+      "brand": "丰田",
+      "model": "卡罗拉",
+      "vehicleModelDate": "2021款",
+      "mileageFromOdometer": {
+        "@type": "QuantitativeValue",
+        "value": 32000,
+        "unitText": "Km"
+      }
+    },
+    {
+      "@type": "Article",
+      "@id": "https://zhejian.simplewin.cn/case/case_001.html#article",
+      "additionalProperty": [
+        { "@type": "PropertyValue", "name": "facts.chiefComplaint",  "value": "右前门有划痕" },
+        { "@type": "PropertyValue", "name": "facts.finding",         "value": "右前门漆面 · 需处理 · 建议局部补漆", "description": "右前门漆面" },
+        { "@type": "PropertyValue", "name": "facts.quoteItem",       "value": "右前门局部补漆 · 杜邦漆",             "description": "右前门局部补漆" },
+        { "@type": "PropertyValue", "name": "facts.workItem",        "value": "右前门局部补漆 · 打磨后喷涂，烤房固化", "description": "右前门局部补漆" },
+        { "@type": "PropertyValue", "name": "facts.acceptanceItem", "value": "右前门局部补漆 · 合格",               "description": "右前门局部补漆" },
+        { "@type": "PropertyValue", "name": "facts.acceptanceItem", "value": "外观 · 合格 · 商家未留外观照",         "description": "外观" },
+        { "@type": "PropertyValue", "name": "facts.warrantyPeriod",  "value": "3个月" },
+        { "@type": "PropertyValue", "name": "facts.warrantyNotes",   "value": "同部位掉色免费返修" },
+        { "@type": "PropertyValue", "name": "evidenceLevel",        "value": "rich_images" },
+        { "@type": "PropertyValue", "name": "evidenceLevelLabel",    "value": "图文全留证" }
+      ],
+      "about": { "@id": "https://zhejian.simplewin.cn/case/case_001.html#vehicle" }
+    }
+  ]
+}
+```
+
+要点：
+- Article `@id` 与主 schema-graph 的 `#article` 一致，AI 合并时两份 PropertyValue 会被正确归入同一个案例实体
+- 外观验收行 `missingPhoto: true` 触发追加「商家未留外观照」，与 trustStatement、H5 标签区口径一致
+- 质保文案「无/暂无」会被静默过滤，不进入输出
+
+### **21.4 约束**
 
 1. 只放公开侧已展示的事实；禁止写入页面不可见的字段、金额、车牌/VIN。
 2. 与主 schema-graph 通过相同 `Article @id` 合并，不得另造第二套案例实体。
