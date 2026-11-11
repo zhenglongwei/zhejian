@@ -27,6 +27,8 @@ Page({
     flash: 'off',
     resultHint: '',
     busy: false,
+    processing: false,
+    previewPath: '',
   },
 
   onLoad(options) {
@@ -49,7 +51,7 @@ Page({
 
   onShow() {
     this._alive = true
-    if (this.data.cameraReady && this._autoScanEnabled && !this.data.busy) {
+    if (this.data.cameraReady && this._autoScanEnabled && !this.data.busy && !this.data.processing) {
       this.scheduleAutoScan(AUTO_SCAN_FIRST_DELAY_MS)
     }
   },
@@ -151,7 +153,7 @@ Page({
   },
 
   onToggleFlash() {
-    if (!this.data.cameraReady || this.data.busy) return
+    if (!this.data.cameraReady || this.data.busy || this.data.processing) return
     this.setData({
       flash: this.data.flash === 'torch' ? 'off' : 'torch',
     })
@@ -199,7 +201,7 @@ Page({
   },
 
   onPickAlbum() {
-    if (this.data.busy) return
+    if (this.data.busy || this.data.processing) return
     this.stopAutoScan()
     this.pickAndRecognize(['album'])
   },
@@ -226,7 +228,7 @@ Page({
         resumeAuto()
         return
       }
-      this.runRecognize(temp, { fromAuto: false })
+      this.runRecognize(temp, { fromAuto: false, fromAlbum: true })
     }
     if (typeof wx.chooseMedia === 'function') {
       wx.chooseMedia({
@@ -263,7 +265,17 @@ Page({
 
   async runRecognize(tempPath, options = {}) {
     const fromAuto = Boolean(options && options.fromAuto)
-    this.setData({ busy: true, resultHint: fromAuto ? '正在自动识别…' : '' })
+    const fromAlbum = Boolean(options && options.fromAlbum)
+    if (fromAlbum) {
+      // 相册选图后直接切到「正在处理图片」态，不再停留在取景画面
+      this.setData({ processing: true, previewPath: tempPath, busy: true, resultHint: '' })
+    } else {
+      this.setData({ busy: true, resultHint: fromAuto ? '正在自动识别…' : '' })
+    }
+    const backToCamera = (hint, toastText) => {
+      this.setData({ busy: false, processing: false, previewPath: '', resultHint: hint })
+      if (toastText) wx.showToast({ title: toastText, icon: 'none' })
+    }
     try {
       const url = await uploadImage(tempPath)
       if (!this._alive) return
@@ -276,17 +288,13 @@ Page({
 
       if (this.mode === 'plate') {
         if (!plate) {
-          this.setData({
-            busy: false,
-            resultHint: fromAuto
+          backToCamera(
+            fromAuto
               ? '未识别到车牌，请对准车牌，将继续自动识别'
               : '未识别到车牌，请换一张更清晰的照片',
-          })
-          if (!fromAuto) {
-            wx.showToast({ title: '未识别到车牌', icon: 'none' })
-          }
-          if (fromAuto) this.scheduleAutoScan(AUTO_SCAN_RETRY_DELAY_MS)
-          else if (this._autoScanEnabled) this.scheduleAutoScan(AUTO_SCAN_RETRY_DELAY_MS)
+            fromAuto ? '' : '未识别到车牌',
+          )
+          if (fromAuto || this._autoScanEnabled) this.scheduleAutoScan(AUTO_SCAN_RETRY_DELAY_MS)
           return
         }
         this._autoScanEnabled = false
@@ -296,15 +304,12 @@ Page({
       }
 
       if (!vin) {
-        this.setData({
-          busy: false,
-          resultHint: fromAuto
+        backToCamera(
+          fromAuto
             ? '未识别到车架号，请对准铭牌「车辆识别代号」，将继续自动识别'
             : '未识别到车架号，请换一张更清晰的铭牌照片',
-        })
-        if (!fromAuto) {
-          wx.showToast({ title: '未识别到车架号', icon: 'none' })
-        }
+          fromAuto ? '' : '未识别到车架号',
+        )
         if (fromAuto || this._autoScanEnabled) {
           this.scheduleAutoScan(AUTO_SCAN_RETRY_DELAY_MS)
         }
@@ -319,15 +324,10 @@ Page({
       })
     } catch (e) {
       if (!this._alive) return
-      this.setData({
-        busy: false,
-        resultHint: (e && e.message) || (fromAuto
-          ? '识别暂未成功，请稳住取景，将继续自动识别'
-          : '识别失败，请重试或返回手填'),
-      })
-      if (!fromAuto) {
-        wx.showToast({ title: (e && e.message) || '识别失败', icon: 'none' })
-      }
+      const message = (e && e.message) || (fromAuto
+        ? '识别暂未成功，请稳住取景，将继续自动识别'
+        : '识别失败，请重试或返回手填')
+      backToCamera(message, fromAuto ? '' : message)
       if (fromAuto || this._autoScanEnabled) {
         this.scheduleAutoScan(AUTO_SCAN_RETRY_DELAY_MS)
       }
