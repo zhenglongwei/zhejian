@@ -57,10 +57,11 @@
 
 ## T8 部署与验收
 
-- [ ] `git add` 具体文件 → `git commit -m "..."`
-- [ ] `git push staging main`
-- [ ] 服务器：`cd /var/www/zhejian-staging/backend && npm install && npm run sync:shared-utils && npm run db:setup:prod && pm2 restart zhejian-api-staging`
-- [ ] `curl -s https://staging.zhejian.simplewin.cn/api/v1/health`
-- [ ] 案例 `alb_svc_mwc1mcom_8fac1f` 走查：三块渲染、待施工数量、完成提醒
+- [x] `git add` 具体文件 → `git commit -m "..."`
+- [x] `git push staging main`
+- [x] 服务器：`cd /var/www/zhejian-staging/backend && npm install && npm run sync:shared-utils && npm run db:setup:prod && pm2 restart zhejian-api-staging`
+- [x] `curl -s https://staging.zhejian.simplewin.cn/api/v1/health`
+- [x] 案例 `alb_svc_mwc1mcom_8fac1f` 走查：三块渲染、待施工数量、完成提醒
+
 
 
