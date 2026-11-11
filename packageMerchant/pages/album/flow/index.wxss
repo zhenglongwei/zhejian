@@ -1268,6 +1268,17 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-flow-page__advice-badge {
+  flex-shrink: 0;
+  margin-left: var(--space-xs);
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-muted);
+  font-size: 20rpx;
+  line-height: 28rpx;
+  color: var(--color-text-secondary);
+}
+
 .merchant-flow-page__advice-shots {
   display: flex;
   flex-wrap: wrap;

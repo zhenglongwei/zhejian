@@ -40,6 +40,7 @@ const {
   parseMileageKm,
   parseAmount,
   resolveQuoteConfirmCopy,
+  computeUnstartedQuoteItems,
 } = resolveShared('utils/service-flow-docs.js')
 const {
   buildOwnerPreviewDoc,
@@ -1954,9 +1955,22 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     delivery_photos: '请核对完工确认',
     work: '施工记录已确认',
   }
+  // 完成施工时的非阻塞提醒：报价有、工单没有的项目（检查类也算）
+  const warnings = []
+  if (node.kind === 'work') {
+    const unstarted = computeUnstartedQuoteItems(sortFlowNodes(readFlowNodesRaw(refreshed)))
+    if (unstarted.total > 0) {
+      warnings.push({
+        code: 'QUOTE_ITEMS_NOT_STARTED',
+        total: unstarted.total,
+        items: unstarted.items.map((row) => row.name),
+      })
+    }
+  }
   return {
     node: updated ? mapFlowNodeForView(updated, viewNodes) : null,
     message: messages[node.kind] || '本步已完成',
+    ...(warnings.length ? { warnings } : {}),
   }
 }
 

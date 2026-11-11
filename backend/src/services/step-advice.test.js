@@ -668,6 +668,116 @@ test('施工意见认统一中文信封：提醒、填写建议、拆分建议',
   assert.equal(got.groups[0].groups[0].images[0].url, 'https://cdn.example/a.jpg')
 })
 
+test('施工项五种状态：工单/新增 × 证据充分/不足，报价项缺失', () => {
+  const slots = [
+    { slot: 1, url: 'https://a/1.jpg', findingId: 'a', partName: '划痕修复' },
+    { slot: 2, url: 'https://a/2.jpg', findingId: 'b', partName: '平衡杆' },
+  ]
+  const got = parseWorkAdvice({
+    证据: [
+      { 项目: '划痕修复', 证据: '不足', 缺什么: '补新旧件对比' },
+      { 项目: '平衡杆', 证据: '充分' },
+    ],
+    填写建议: [
+      { 项目: '划痕修复', 建议描述: '打磨后补漆。' },
+      { 项目: '平衡杆', 建议描述: '', 补充建议: '旧件已拍照留档。' },
+    ],
+  }, [
+    { id: 'a', name: '划痕修复', note: '', photos: 1, quoteLineId: 'ql1' },
+    { id: 'b', name: '平衡杆', note: '已换新', photos: 1 },
+  ], slots, {
+    quoteLines: [
+      { id: 'ql1', name: '划痕修复', amount: '800' },
+      { id: 'ql2', name: '底盘检查', amount: '0' },
+    ],
+  })
+  assert.equal(got.schema, 2)
+  const scratch = got.workItems.find((row) => row.name === '划痕修复')
+  assert.equal(scratch.origin, 'quote')
+  assert.equal(scratch.quoteLineId, 'ql1')
+  assert.equal(scratch.evidence, 'insufficient')
+  assert.equal(scratch.evidenceGap, '补新旧件对比')
+  assert.equal(scratch.action, 'fill')
+  assert.equal(scratch.advice.body, '打磨后补漆。')
+  const bar = got.workItems.find((row) => row.name === '平衡杆')
+  assert.equal(bar.origin, 'extra')
+  assert.equal(bar.evidence, 'sufficient')
+  assert.equal(bar.action, 'supplement')
+  assert.equal(bar.advice.supplement, '旧件已拍照留档。')
+  assert.equal(got.quoteOnlyItems.length, 1)
+  assert.equal(got.quoteOnlyItems[0].name, '底盘检查')
+  assert.equal(got.quoteOnlyItems[0].kind, 'unstarted')
+  assert.equal(got.quoteOnlyItems[0].amount, '0')
+  assert.equal(got.photoPlan[0].title, '划痕修复')
+})
+
+test('逐图归类先工单、再报价、最后新增', () => {
+  const slots = [
+    { slot: 1, url: 'https://a/1.jpg', findingId: 'a', partName: '下摆臂胶套更换' },
+    { slot: 2, url: 'https://a/2.jpg', findingId: 'x', partName: '' },
+    { slot: 3, url: 'https://a/3.jpg', findingId: 'x', partName: '' },
+  ]
+  const got = parseWorkAdvice({
+    逐图归类: [
+      { 图: '图1', 内容: '旧胶套开裂。', 归属: '下摆臂胶套更换' },
+      { 图: '图2', 内容: '门边划痕。', 归属: '划痕修复' },
+      { 图: '图3', 内容: '减震器漏油。', 归属: '新增' },
+    ],
+    新增项: [{ 项目: '', 图片: ['图3'], 描述: '减震器漏油。' }],
+  }, [
+    { id: 'a', name: '下摆臂胶套更换', note: '', photos: 1, quoteLineId: 'ql1' },
+  ], slots, {
+    quoteLines: [
+      { id: 'ql1', name: '下摆臂胶套更换' },
+      { id: 'ql2', name: '划痕修复' },
+    ],
+  })
+  assert.equal(got.workItems.length, 1)
+  assert.equal(got.workItems[0].quoteName, '下摆臂胶套更换')
+  assert.equal(got.quoteOnlyItems.length, 1)
+  assert.equal(got.quoteOnlyItems[0].name, '划痕修复')
+  assert.equal(got.quoteOnlyItems[0].kind, 'work_missing')
+  assert.deepEqual(got.quoteOnlyItems[0].photos.map((row) => row.slot), [2])
+  assert.equal(got.newItems.length, 1)
+  assert.equal(got.newItems[0].description, '减震器漏油。')
+})
+
+test('同一项目按预设名归并，字面不同的报价项不合并', () => {
+  const got = parseWorkAdvice({
+    填写建议: [
+      { 项目: '划痕修复', 建议描述: '右后门底部划痕已打磨补漆。' },
+      { 项目: '划痕检测', 建议描述: '另一项检测结论。' },
+    ],
+  }, [
+    { id: 'a', name: '划痕修复', note: '', photos: 2, quoteLineId: 'q1' },
+  ], [], {
+    quoteLines: [
+      { id: 'q1', name: '划痕修复' },
+      { id: 'q2', name: '划痕检测' },
+    ],
+  })
+  const scratch = got.workItems.find((row) => row.name === '划痕修复')
+  assert.equal(scratch.quoteName, '划痕修复')
+  assert.equal(scratch.advice.body, '右后门底部划痕已打磨补漆。')
+  assert.equal(got.quoteOnlyItems.length, 1)
+  assert.equal(got.quoteOnlyItems[0].name, '划痕检测')
+  assert.equal(got.quoteOnlyItems[0].kind, 'unstarted')
+})
+
+test('模型写成报价项的短叫法时归到预设报价项，不新建', () => {
+  const got = parseWorkAdvice({
+    逐图归类: [{ 图: '图1', 内容: '门边划痕。', 归属: '划痕修复' }],
+  }, [], [
+    { slot: 1, url: 'https://a/1.jpg', findingId: 'x', partName: '' },
+  ], {
+    quoteLines: [{ id: 'q1', name: '右后门划痕修复' }],
+  })
+  assert.equal(got.quoteOnlyItems.length, 1)
+  assert.equal(got.quoteOnlyItems[0].name, '右后门划痕修复')
+  assert.equal(got.quoteOnlyItems[0].kind, 'work_missing')
+  assert.equal(got.newItems.length, 0)
+})
+
 test('交车出简述与车主关心的问题', () => {
   const got = parseDeliveryAdvice({
     repairBrief: '更换下摆臂胶套，并做了机油机滤保养。',

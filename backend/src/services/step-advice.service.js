@@ -22,7 +22,13 @@ const ACCEPTANCE_RESULT_TEXT = {
 const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
-const { normalizeOwnerFaqs, contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+const {
+  normalizeOwnerFaqs,
+  contentOfFlowNode,
+  collectConfirmedQuoteLines,
+  normalizeItemName,
+  resolvePresetItemName,
+} = resolveShared('utils/service-flow-docs.js')
 const { noteForUrl, notesForAlbumImages } = require('./image-look-cache')
 
 const jobsInFlight = new Set()
@@ -78,6 +84,7 @@ function workRows(node) {
     name: text(row && row.partName),
     note: text(row && (row.caption || row.advice)),
     photos: workImageList(row).length,
+    quoteLineId: text(row && row.quoteLineId),
   })).filter((row) => row.name || row.note || row.photos)
 }
 
@@ -155,8 +162,9 @@ function workRemindKind(row) {
   return t ? 'missing' : 'plan'
 }
 
-function parseWorkAdvice(raw, items, slots) {
+function parseWorkAdvice(raw, items, slots, options = {}) {
   const parsed = parseReviewModelJson(raw) || {}
+  const quoteLines = Array.isArray(options && options.quoteLines) ? options.quoteLines : []
   const byId = new Map()
   const byName = new Map()
   adviceRows(parsed, '填写建议', 'items').forEach((row) => {
@@ -248,7 +256,7 @@ function parseWorkAdvice(raw, items, slots) {
     .filter(Boolean)
     .slice(0, 8)
   // 施工顺序：按报价行给的通用施工说明+拍照建议（只读）
-  const sequence = (Array.isArray(parsed['施工顺序']) ? parsed['施工顺序'] : [])
+  let sequence = (Array.isArray(parsed['施工顺序']) ? parsed['施工顺序'] : [])
     .map((row) => {
       const name = text(row && (row['项目'] || row.partName || row.name || row.title)).slice(0, 40)
       const how = text(row && (row['说明'] || row.how || row.body)).slice(0, 160)
@@ -341,14 +349,194 @@ function parseWorkAdvice(raw, items, slots) {
       canApply: groupList.length >= 2,
     })
   })
+  // 新契约（schema 2）：报价项建议 / 逐图归类 / 证据 / 填写建议
+  const workNames = (Array.isArray(items) ? items : [])
+    .map((row) => text(row && row.name))
+    .filter(Boolean)
+  const quoteNames = quoteLines.map((row) => text(row && row.name)).filter(Boolean)
+  const presetAll = workNames.concat(quoteNames.filter((name) => !workNames.includes(name)))
+  const slotByNumNew = new Map((Array.isArray(slots) ? slots : []).map((row) => [Number(row.slot), row]))
+  const slotsOfRow = (row) => {
+    const nums = collectGroupSlotNumbers({
+      imageSlots: slotTokens(row && (row['图'] || row['图片'])).concat(slotTokens(row && row.imageSlots)),
+      imageNames: slotTokens(row && row.imageNames),
+      imageName: row && row.imageName,
+      photoNames: row && row.photoNames,
+    })
+    return nums.map((n) => slotByNumNew.get(n)).filter(Boolean).map((shot) => ({ slot: shot.slot, url: shot.url }))
+  }
+  // 第 1 步：报价项建议（只读）
+  const quoteAdvice = (Array.isArray(parsed['报价项建议']) ? parsed['报价项建议'] : [])
+    .map((row) => {
+      const rawName = text(row && (row['报价项'] || row['项目'] || row.name))
+      const name = resolvePresetItemName(rawName, quoteNames)
+      if (!name) return null
+      const how = text(row && (row['做法'] || row['说明'] || row.how)).slice(0, 160)
+      const photo = text(row && (row['拍照建议'] || row.photoAdvice || row.photo)).slice(0, 160)
+      if (!how && !photo) return null
+      const line = quoteLines.find((item) => text(item && item.name) === name) || {}
+      return { id: text(line.id) || `qa_${name}`, name, how, photo }
+    })
+    .filter(Boolean)
+    .slice(0, 20)
+  // 第 4 步：证据
+  const evidenceByName = new Map()
+  ;(Array.isArray(parsed['证据']) ? parsed['证据'] : []).forEach((row) => {
+    const name = resolvePresetItemName(text(row && (row['项目'] || row.partName || row.name)), workNames)
+    if (!name || evidenceByName.has(name)) return
+    const flag = text(row && (row['证据'] || row.evidence))
+    const evidence =
+      flag === '充分' || flag === 'sufficient'
+        ? 'sufficient'
+        : flag === '不足' || flag === 'insufficient'
+          ? 'insufficient'
+          : 'unknown'
+    evidenceByName.set(name, {
+      evidence,
+      gap: text(row && (row['缺什么'] || row.gap)).slice(0, 120),
+    })
+  })
+  // 第 5 步：填写建议
+  const fillByName = new Map()
+  adviceRows(parsed, '填写建议', 'items').forEach((row) => {
+    const rawName = text(row && (row['项目'] || row.partName || row.name))
+    const name = resolvePresetItemName(rawName, workNames) || resolvePresetItemName(rawName, quoteNames)
+    if (!name || fillByName.has(name)) return
+    const body = text(row && (row['建议描述'] || row['描述'] || row.body)).slice(0, 160)
+    const supplement = text(row && (row['补充建议'] || row.supplement)).slice(0, 120)
+    if (!body && !supplement) return
+    fillByName.set(name, { body, supplement })
+  })
+  const photosOfFinding = (findingId) =>
+    (Array.isArray(slots) ? slots : [])
+      .filter((row) => text(row && row.findingId) === text(findingId))
+      .map((row) => ({ slot: row.slot, url: row.url }))
+  // 施工项：每项带报价归属、证据、可应用建议
+  const workItemsOut = (Array.isArray(items) ? items : [])
+    .map((row) => {
+      const name = text(row && row.name)
+      if (!name) return null
+      const written = text(row && row.note)
+      const quoteName = resolvePresetItemName(name, quoteNames)
+      const quoteLine = quoteName ? quoteLines.find((item) => text(item && item.name) === quoteName) : null
+      const hit = fillByName.get(name) || (quoteName ? fillByName.get(quoteName) : null) || null
+      const ev = evidenceByName.get(name) || null
+      const body = !written && hit ? text(hit.body) : ''
+      const supplement = written && hit ? text(hit.supplement) : ''
+      return {
+        id: text(row && row.id),
+        name,
+        quoteLineId: text(row && row.quoteLineId) || text(quoteLine && quoteLine.id),
+        quoteName: quoteName || '',
+        origin: quoteName ? 'quote' : 'extra',
+        photos: photosOfFinding(row && row.id),
+        written,
+        evidence: ev ? ev.evidence : 'unknown',
+        evidenceGap: ev ? ev.gap : '',
+        advice: { body: body.slice(0, 120), supplement: supplement.slice(0, 120) },
+        action: body ? 'fill' : supplement ? 'supplement' : 'none',
+      }
+    })
+    .filter(Boolean)
+  // 第 2 步：逐图归类 → 报价有、工单无、但有图（漏记）
+  const quotePhotoMap = new Map()
+  ;(Array.isArray(parsed['逐图归类']) ? parsed['逐图归类'] : []).forEach((row) => {
+    const name = resolvePresetItemName(text(row && (row['归属'] || row.partName || row.name)), quoteNames)
+    if (!name) return
+    if (workItemsOut.some((item) => item.quoteName === name)) return
+    if (!quotePhotoMap.has(name)) quotePhotoMap.set(name, [])
+    const bucket = quotePhotoMap.get(name)
+    slotsOfRow(row).forEach((shot) => {
+      if (bucket.some((item) => item.slot === shot.slot)) return
+      bucket.push(shot)
+    })
+  })
+  // 新增项里如果其实能对上预设名，就并回报价项/工单项，不留在新增
+  const newItemsOut = []
+  newItems.forEach((row) => {
+    const preset = resolvePresetItemName(row.name, presetAll)
+    if (!preset) {
+      newItemsOut.push(row)
+      return
+    }
+    const quoteName = resolvePresetItemName(preset, quoteNames)
+    if (!quoteName || workItemsOut.some((item) => item.quoteName === quoteName)) return
+    if (!quotePhotoMap.has(quoteName)) quotePhotoMap.set(quoteName, [])
+    const bucket = quotePhotoMap.get(quoteName)
+    ;(row.images || []).forEach((shot) => {
+      if (bucket.some((item) => item.slot === shot.slot)) return
+      bucket.push(shot)
+    })
+  })
+  // 报价项待施工：未施工（无图）/ 漏记（有图）
+  const quoteOnlyItems = quoteLines
+    .map((line) => {
+      const name = text(line && line.name)
+      if (!name) return null
+      const lineId = text(line && line.id)
+      const covered = workItemsOut.some(
+        (item) =>
+          (lineId && item.quoteLineId === lineId) ||
+          item.quoteName === name ||
+          item.name === name,
+      )
+      if (covered) return null
+      const photos = quotePhotoMap.get(name) || []
+      const hit = fillByName.get(name) || null
+      return {
+        id: lineId || `q_${name}`,
+        name,
+        amount: text(line.amount),
+        note: text(line.note),
+        kind: photos.length ? 'work_missing' : 'unstarted',
+        photos,
+        advice: { body: hit ? text(hit.body).slice(0, 120) : '' },
+        action: 'create',
+        canApply: true,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 30)
+  // 旧字段继续产出：施工顺序 / 缺项 / 增项 / 留证
+  if (!sequence.length && quoteAdvice.length) {
+    sequence = quoteAdvice.map((row) => ({ name: row.name, how: row.how, photo: row.photo }))
+  }
+  quoteOnlyItems
+    .filter((row) => row.kind === 'unstarted')
+    .forEach((row) => {
+      if (gaps.length >= 4) return
+      gaps.push({
+        kind: 'missing',
+        title: row.name,
+        body: `报价里的${row.name}，施工没有做。`,
+      })
+    })
+  newItemsOut.forEach((row) => {
+    if (gaps.length >= 4 || !row.name) return
+    gaps.push({
+      kind: 'extra',
+      title: row.name,
+      body: `${row.name}是新增项，没有事先报价。`,
+    })
+  })
+  if (!photoPlan.length) {
+    photoPlan = workItemsOut
+      .filter((row) => row.evidence === 'insufficient')
+      .slice(0, 6)
+      .map((row) => ({ title: row.name, body: row.evidenceGap || '这一项留证不足，建议补拍。' }))
+  }
   return {
     scope: 'process',
+    schema: 2,
     sequence,
     gaps,
     items: written,
     groups: groups.slice(0, 6),
-    newItems,
+    newItems: newItemsOut,
     photoPlan,
+    quoteAdvice,
+    workItems: workItemsOut,
+    quoteOnlyItems,
     imageNotes: Array.isArray(parsed.imageNotes) ? parsed.imageNotes : [],
   }
 }
@@ -521,7 +709,10 @@ function filled(item) {
 function adviceHasContent(advice, kind) {
   if (!advice || typeof advice !== 'object') return false
   if (kind === 'work') {
-    return (Array.isArray(advice.gaps) && advice.gaps.length > 0) ||
+    return (Array.isArray(advice.quoteAdvice) && advice.quoteAdvice.length > 0) ||
+      (Array.isArray(advice.workItems) && advice.workItems.length > 0) ||
+      (Array.isArray(advice.quoteOnlyItems) && advice.quoteOnlyItems.length > 0) ||
+      (Array.isArray(advice.gaps) && advice.gaps.length > 0) ||
       (Array.isArray(advice.items) && advice.items.length > 0) ||
       (Array.isArray(advice.groups) && advice.groups.length > 0) ||
       (Array.isArray(advice.photoPlan) && advice.photoPlan.length > 0) ||
@@ -1110,6 +1301,12 @@ function contextOf(album, extraNotes = {}) {
     inspectPhotoSlots: inspectSlots,
     inspectNoted: inspectSplit.noted,
     quoteLines: quotes.reduce((all, node) => all.concat(linesOf(node)), []),
+    quoteItemRows: collectConfirmedQuoteLines(nodes).map((row) => ({
+      id: row.id,
+      name: row.name,
+      amount: row.amount || '',
+      note: row.note || '',
+    })),
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
     workPhotoSlots: workFreshSlots,
     workNoted,
@@ -1163,8 +1360,12 @@ function contextOf(album, extraNotes = {}) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'owner-all',
-        quoteLines: ctx.quoteLines,
+        v: 'work_v2',
+        quoteLines: (ctx.quoteItemRows || []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          amount: row.amount,
+        })),
         workItems: ctx.workItems,
         workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
           slot: row.slot,
@@ -1380,36 +1581,59 @@ async function runLlm(instruction, urls, label, options = {}) {
 
 function workInstruction(ctx) {
   const slots = ctx.workPhotoSlots || []
+  const quoteItems = (Array.isArray(ctx.quoteItemRows) ? ctx.quoteItemRows : []).map((row) => {
+    const covered = (ctx.workItems || []).some(
+      (item) =>
+        (row.id && item.quoteLineId === row.id) ||
+        (item.name && resolvePresetItemName(item.name, [row.name]) === row.name),
+    )
+    return {
+      报价项: row.name,
+      金额: row.amount || '',
+      备注: row.note || '',
+      工单: covered ? '已有' : '无',
+    }
+  })
+  const material = {
+    prior: {
+      intake: ctx.intakeAdviceSummary,
+      intakeNoted: ctx.intakeNoted,
+      inspect: ctx.inspectAdviceSummary,
+      inspectNoted: ctx.inspectNoted,
+      workNoted: ctx.workNoted,
+    },
+    报价项: quoteItems,
+    工单项目: (ctx.workItems || []).map((row) => ({
+      项目: row.name,
+      已写描述: row.note || '',
+      图片数: row.photos || 0,
+    })),
+    图片: slots.map((row) => ({ 图: `图${row.slot}`, 现在挂在: row.partName || '未挂' })),
+  }
   return [
     '你是修理厂的施工顾问，帮店员整理施工这一步的意见。',
-    '对照已经确认的报价行。不要改价格。不要自己挪图、拆项、建项，只建议，店员点应用才执行。',
-    '前序节点只带文字，不要再看那些图。本步只看施工项和这次的施工图。',
-    '车主要看做成了什么、换了什么件；店员姿势和工具特写不算留证。',
+    '本步有两份单据，必须分清：报价项是车主已确认的方案行，是预设清单；工单项是按报价项预生成的施工记录，允许与报价项不同。',
+    '',
+    '硬规则：',
+    '1. 项目名只能从「工单项目」「报价项」里原样选择，禁止自己造名字；新增项才允许留空或写新名。',
+    '2. 同一个项目的不同叫法必须归到预设名（例：报价只有「划痕修复」，底部划痕、门边划痕都归「划痕修复」）。',
+    '3. 不同项目不得合并。',
+    '4. 只建议，店员点应用才执行；不改价格，不自己挪图。',
     '',
     '按下面六步思考，结果都写进这一个 JSON：',
     '',
-    '1. 施工顺序：只看报价行里还没有施工图的项目。每项给「说明」（先做什么再做什么）和「拍照建议」（该拍哪些图，如新旧件对比、关键工序、装车效果）。已有施工图的项目不要写进来。写入「施工顺序」。',
-    '2. 逐张看图：按图1、图2顺序，每张独立判断它属于哪个报价行或已有施工项。不属于任何报价行的，归到「新增项」。只写这张图里实际有的内容，不编。',
-    '3. 填写建议：对已有施工图、但还没写施工说明的施工项，给一句可直接写入的施工描述。项目填该施工项名称。',
-    '4. 拆分建议：同一张施工项里混了多个项目的图，按项目分组。每组写「项目」「图片」「描述」（这组说明什么）。点应用后店员才拆项。已经挂对的图不要写。',
-    '5. 新增项：不属于任何报价行的图，单独列。能识别项目名就填「项目」，不能识别就留空。',
-    '6. 提醒：报价有施工无写「缺项」；施工有报价无写「增项」；该拍还没拍写「留证」。',
+    '1. 报价项建议：逐条报价项给「做法」（先做什么再做什么）和「拍照建议」（该拍哪些图，如新旧件对比、关键工序、装车效果）。写入「报价项建议」。',
+    '2. 逐图归类：按图1、图2顺序，每张图独立看，只写这张图里实际有的内容。每张图给「图」「内容」「归属」；归属先找工单项目，工单没有再看报价项，两者都没有写「新增」。',
+    '3. 拆分建议：同一工单项里混了多个项目的图才拆，写「项目」「图片」「描述」；项目只能取预设名。已经挂对的图不要写。',
+    '4. 证据：逐工单项判断留证是否充分，写「项目」「证据」（充分或不足）、「缺什么」。检查类项目只看结论文字，不要求施工图。',
+    '5. 填写建议：还没写施工描述的工单项给「建议描述」，写清做了什么、换什么件、关键工序、结果；已经写了描述的只给「补充建议」，补缺失信息，不改文采。',
+    '6. 新增项：工单和报价都没有的图才列，写「项目」「图片」「描述」；识别不出项目就留空。',
     '',
-    '其它键留空。',
-    `参考材料：${JSON.stringify({
-      prior: {
-        intake: ctx.intakeAdviceSummary,
-        intakeNoted: ctx.intakeNoted,
-        inspect: ctx.inspectAdviceSummary,
-        inspectNoted: ctx.inspectNoted,
-        quoteLines: ctx.quoteLines,
-        workNoted: ctx.workNoted,
-      },
-      workItems: ctx.workItems,
-      photos: slots.map((row) => ({ 图: `图${row.slot}`, 现在挂在: row.partName })),
-    })}`,
+    '只写画面和单据里实际有的内容，不编。',
+    '',
+    `参考材料：${JSON.stringify(material)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"施工顺序":[{"项目":"下摆臂胶套更换","说明":"先拆旧胶套再压入新胶套，最后复紧螺栓。","拍照建议":"拍新旧胶套对比、压入过程、装车后螺栓特写。"}],"填写建议":[{"项目":"已有施工项名","描述":"更换了开裂的下摆臂胶套，螺栓已复紧。"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。","处理意见":""}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"提醒":[{"类型":"缺项","标题":"下摆臂","正文":"报价有这项，施工还没做。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"报价项建议":[{"报价项":"下摆臂胶套更换","做法":"先拆旧胶套再压入新胶套，最后复紧螺栓。","拍照建议":"拍新旧胶套对比、压入过程、装车后螺栓特写。"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"证据":[{"项目":"下摆臂胶套更换","证据":"充分","缺什么":""}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，螺栓已复紧。","补充建议":""}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1664,7 +1888,7 @@ async function runJob(albumId, kind, options = {}) {
       llmOpts,
     )
     let parsed = kind === 'work'
-      ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots)
+      ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots, { quoteLines: ctx.quoteItemRows })
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         : parseDeliveryAdvice(raw, ctx.deliveryPhotoSlots)
@@ -1854,8 +2078,12 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     updatedAt: text(advice.updatedAt),
   }
   if (kind === 'work') {
+    // 旧结果（schema<2）视为过时，引导刷新
+    const workOutdated = Number(advice.schema || 1) < 2
     return {
       ...base,
+      stale: stale || (workOutdated && (status === 'ready' || hasBody)),
+      schema: Number(advice.schema || 1),
       scope: text(advice.scope),
       note: text(advice.note),
       gaps: Array.isArray(advice.gaps) ? advice.gaps : [],
@@ -1864,6 +2092,9 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
       sequence: Array.isArray(advice.sequence) ? advice.sequence : [],
       newItems: Array.isArray(advice.newItems) ? advice.newItems : [],
       photoPlan: Array.isArray(advice.photoPlan) ? advice.photoPlan : [],
+      quoteAdvice: Array.isArray(advice.quoteAdvice) ? advice.quoteAdvice : [],
+      workItems: Array.isArray(advice.workItems) ? advice.workItems : [],
+      quoteOnlyItems: Array.isArray(advice.quoteOnlyItems) ? advice.quoteOnlyItems : [],
     }
   }
   if (kind === 'inspect') {

@@ -947,7 +947,13 @@ function collectConfirmedQuoteLines(flowNodes = []) {
     const doc = (node && node.document) || {}
     if (String(doc.status || '') !== 'confirmed') return
     const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
-    const list = Array.isArray(payload.lines) ? payload.lines : []
+    // 确认后 payload 会被清成信封，报价行真源在节点 content.lines
+    const contentLines = contentOfFlowNode(node).lines
+    const list = Array.isArray(contentLines) && contentLines.length
+      ? contentLines
+      : Array.isArray(payload.lines)
+        ? payload.lines
+        : []
     list.forEach((line) => {
       const id = String((line && line.id) || '').trim()
       const name = String((line && line.name) || '').trim()
@@ -958,6 +964,7 @@ function collectConfirmedQuoteLines(flowNodes = []) {
       lines.push({
         id,
         name,
+        amount: line && line.amount != null ? String(line.amount) : '',
         note: String((line && line.note) || '').trim(),
       })
     })
@@ -984,6 +991,60 @@ function seedWorkFindingsFromQuoteLines(findings = [], quoteLines = []) {
         index,
       ),
     )
+}
+
+function normalizeItemName(value = '') {
+  return String(value || '').replace(/\s+/g, '').trim()
+}
+
+/** 把模型写的项目名收敛到预设名：精确优先，其次包含匹配取最长 */
+function resolvePresetItemName(rawName, presetNames = []) {
+  const raw = normalizeItemName(rawName)
+  if (!raw) return ''
+  const names = (Array.isArray(presetNames) ? presetNames : [])
+    .map((name) => String(name || '').trim())
+    .filter(Boolean)
+  if (!names.length) return ''
+  const exact = names.find((name) => normalizeItemName(name) === raw)
+  if (exact) return exact
+  if (raw.length < 2) return ''
+  const hits = names.filter((name) => {
+    const key = normalizeItemName(name)
+    return key.length >= 2 && (key.includes(raw) || raw.includes(key))
+  })
+  if (!hits.length) return ''
+  const longest = Math.max(...hits.map((name) => normalizeItemName(name).length))
+  const top = hits.filter((name) => normalizeItemName(name).length === longest)
+  // 同样长的多个候选说明分不清，宁可判为新增，也不错误合并
+  return top.length === 1 ? top[0] : ''
+}
+
+/**
+ * 报价项未施工：报价有、工单无。
+ * 有图的漏记由 AI 逐图归类另行处置，这里只按单据链判定「没有任何工单项承接」。
+ */
+function computeUnstartedQuoteItems(flowNodes = []) {
+  const quoteLines = collectConfirmedQuoteLines(flowNodes).filter((line) => line.name)
+  if (!quoteLines.length) return { items: [], total: 0 }
+  const quoteNames = quoteLines.map((line) => line.name)
+  const usedIds = new Set()
+  const usedNames = new Set()
+  ;(flowNodes || []).forEach((node) => {
+    if (!node || node.kind !== 'work') return
+    const findings = contentOfFlowNode(node).findings || []
+    ;(Array.isArray(findings) ? findings : []).forEach((row) => {
+      const quoteLineId = String((row && row.quoteLineId) || '').trim()
+      if (quoteLineId) usedIds.add(quoteLineId)
+      const partName = String((row && row.partName) || '').trim()
+      if (!partName) return
+      const preset = resolvePresetItemName(partName, quoteNames)
+      if (preset) usedNames.add(preset)
+    })
+  })
+  const items = quoteLines
+    .filter((line) => !(line.id && usedIds.has(line.id)) && !usedNames.has(line.name))
+    .map((line) => ({ id: line.id, name: line.name, amount: line.amount || '', note: line.note || '' }))
+  return { items, total: items.length }
 }
 
 function unmatchedCheckpoints(checkpoints, findings) {
@@ -2392,6 +2453,9 @@ module.exports = {
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
   seedWorkFindingsFromQuoteLines,
+  normalizeItemName,
+  resolvePresetItemName,
+  computeUnstartedQuoteItems,
   unmatchedCheckpoints,
   buildPriorOrganizeFacts,
   matchQuotePartName,

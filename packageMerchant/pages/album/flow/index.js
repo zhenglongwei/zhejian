@@ -105,6 +105,7 @@ const {
   seedWorkFindingsFromQuoteLines,
   unmatchedCheckpoints,
   workOutsideQuoteOf,
+  computeUnstartedQuoteItems,
   buildWorkAssignPickGroups,
   buildWorkAddPickGroups,
   normalizeIntakeResult,
@@ -5956,15 +5957,95 @@ Page({
       const note = String(raw.note || '').trim()
       if (note) lines.push({ id: 'note', body: note, canApply: false })
     }
+    // 新契约三块：报价项建议 / 工单项 / 报价项待施工
+    const quoteAdvice = (Array.isArray(raw.quoteAdvice) ? raw.quoteAdvice : [])
+      .map((row, index) => {
+        const name = String((row && row.name) || '').trim()
+        const how = String((row && row.how) || '').trim()
+        const photo = String((row && row.photo) || '').trim()
+        if (!name && !how && !photo) return null
+        return {
+          id: String((row && row.id) || `qa_${index}`),
+          name,
+          how,
+          photo,
+          hasHow: Boolean(how),
+          hasPhoto: Boolean(photo),
+        }
+      })
+      .filter(Boolean)
+    const workItemsNew = (Array.isArray(raw.workItems) ? raw.workItems : [])
+      .map((row) => {
+        const findingId = String((row && row.id) || '').trim()
+        const name = String((row && row.name) || '').trim()
+        if (!findingId && !name) return null
+        const current = this.pickAdviceFinding(findings, { findingId, partName: name })
+        const written = String((current && current.caption) || (row && row.written) || '').trim()
+        const advice = (row && row.advice) || {
+          body: row && row.adviceBody,
+          supplement: row && row.supplement,
+        }
+        const body = String(advice.body || '').trim()
+        const supplement = String(advice.supplement || '').trim()
+        const evidence = String((row && row.evidence) || 'unknown')
+        return {
+          id: `wi_${findingId || name}`,
+          findingId,
+          name,
+          quoteName: String((row && row.quoteName) || '').trim(),
+          originExtra: String((row && row.origin) || '') === 'extra',
+          written,
+          evidence,
+          evidenceLabel:
+            evidence === 'sufficient' ? '证据充分' : evidence === 'insufficient' ? '证据不足' : '待核证据',
+          evidenceGap: String((row && row.evidenceGap) || '').trim(),
+          adviceBody: body,
+          supplement,
+          canApply: Boolean(body && !written),
+          canSupplement: Boolean(supplement && written && !written.includes(supplement)),
+          photos: (Array.isArray(row && row.photos) ? row.photos : [])
+            .map((img) => ({ url: String((img && img.url) || '') }))
+            .filter((img) => img.url),
+        }
+      })
+      .filter(Boolean)
+    const quoteOnlyItems = (Array.isArray(raw.quoteOnlyItems) ? raw.quoteOnlyItems : [])
+      .map((row, index) => {
+        const name = String((row && row.name) || '').trim()
+        if (!name) return null
+        const kind = String((row && row.kind) || '')
+        return {
+          id: String((row && row.id) || `qo_${index}`),
+          name,
+          amount: String((row && row.amount) || '').trim(),
+          note: String((row && row.note) || '').trim(),
+          unstarted: kind !== 'work_missing',
+          missed: kind === 'work_missing',
+          adviceBody: String((row && row.advice && row.advice.body) || (row && row.adviceBody) || '').trim(),
+          photos: (Array.isArray(row && row.photos) ? row.photos : [])
+            .map((img) => ({ url: String((img && img.url) || '') }))
+            .filter((img) => img.url),
+          canApply: Boolean(row && row.canApply !== false),
+        }
+      })
+      .filter(Boolean)
+    const hasQuoteAdvice = quoteAdvice.length > 0
+    const hasWorkItemsNew = workItemsNew.length > 0
+    const hasQuoteOnlyItems = quoteOnlyItems.length > 0
+    const showLegacy = !hasQuoteAdvice && !hasWorkItemsNew && !hasQuoteOnlyItems
     const hasContent =
       lines.length > 0 ||
       photoPlan.length > 0 ||
       sequence.length > 0 ||
       splitGroups.length > 0 ||
-      newItems.length > 0
+      newItems.length > 0 ||
+      hasQuoteAdvice ||
+      hasWorkItemsNew ||
+      hasQuoteOnlyItems
     return {
       status,
       scope: String(raw.scope || ''),
+      schema: Number(raw.schema || 1),
       lines,
       gaps,
       sequence,
@@ -5972,10 +6053,17 @@ Page({
       splitGroups,
       newItems,
       photoPlan,
+      quoteAdvice,
+      workItems: workItemsNew,
+      quoteOnlyItems,
       hasPhotoPlan: photoPlan.length > 0,
       hasSequence: sequence.length > 0,
       hasSplitGroups: splitGroups.length > 0,
       hasNewItems: newItems.length > 0,
+      hasQuoteAdvice,
+      hasWorkItems: hasWorkItemsNew,
+      hasQuoteOnlyItems,
+      showLegacy,
       hasLines: lines.length > 0,
       hasContent,
       stale: Boolean(raw.stale),
@@ -7517,6 +7605,12 @@ Page({
           this._forceStageOpen = true
         }
         await this.loadFlow({ silent: true })
+        const unstartedWarning = (Array.isArray(res && res.warnings) ? res.warnings : []).find(
+          (row) => row && row.code === 'QUOTE_ITEMS_NOT_STARTED',
+        )
+        if (unstartedWarning) {
+          wx.showToast({ title: `还有 ${unstartedWarning.total} 项报价未施工`, icon: 'none' })
+        }
         if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
         else if (kind === 'inspection') this.openStage('inspect')
       } catch (e) {
@@ -7526,12 +7620,27 @@ Page({
       }
     }
 
-    if (
-      kind === 'intake_inspection' ||
-      kind === 'intake' ||
-      kind === 'inspection' ||
-      kind === 'work'
-    ) {
+    if (kind === 'work') {
+      // 非阻塞提醒：报价有、工单没有的项目，仍可继续完成
+      const unstarted = computeUnstartedQuoteItems(this._flowNodes || [])
+      if (unstarted.total > 0) {
+        const names = unstarted.items.map((row) => row.name)
+        wx.showModal({
+          title: `还有 ${unstarted.total} 项报价项目未施工`,
+          content: `${names.slice(0, 4).join('、')}${names.length > 4 ? ' 等' : ''}\n可回报价单查看，也可继续完成施工。`,
+          confirmText: '仍然完成',
+          cancelText: '去看看',
+          success: (res) => {
+            if (res.confirm) run(this.buildAiReviewAckExtra())
+            else if (res.cancel) this.openStage('quote')
+          },
+        })
+        return
+      }
+      await run(this.buildAiReviewAckExtra())
+      return
+    }
+    if (kind === 'intake_inspection' || kind === 'intake' || kind === 'inspection') {
       await run(this.buildAiReviewAckExtra())
       return
     }
@@ -7996,6 +8105,73 @@ Page({
       })
       this.commitAppliedPhotoDraft()
     })
+  },
+
+  /** 工单项建议：未写描述的应用整句，已写的只补一句。 */
+  onApplyWorkItemAdvice(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const item = ((this.data.workAdvice && this.data.workAdvice.workItems) || []).find(
+      (row) => row && row.id === id,
+    )
+    if (!item || this.data.readOnly) return
+    const body = item.canApply ? String(item.adviceBody || '').trim() : ''
+    const supplement = item.canSupplement ? String(item.supplement || '').trim() : ''
+    if (!body && !supplement) return
+    let changed = false
+    const sections = (this.data.sections || []).map((section) => {
+      if (!section || !section.findingMode || section.findingKind !== 'work') return section
+      const findings = section.findings || []
+      const target =
+        findings.find((row) => String((row && row.id) || '') === item.findingId) ||
+        this.pickAdviceFinding(findings, { partName: item.name })
+      if (!target) return section
+      const caption = body
+        ? body
+        : [String((target && target.caption) || '').trim(), supplement].filter(Boolean).join(' ')
+      changed = true
+      return {
+        ...section,
+        findings: findings.map((row) => (row === target ? { ...row, caption } : row)),
+      }
+    })
+    if (!changed) {
+      wx.showToast({ title: '没对上施工项，请刷新后再应用', icon: 'none' })
+      return
+    }
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, undefined, () => {
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      this.commitAppliedPhotoDraft()
+    })
+  },
+
+  /** 报价项待施工：按报价行补建工单项（有图就带图），不需补充报价。 */
+  async onApplyWorkQuoteItem(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const item = ((this.data.workAdvice && this.data.workAdvice.quoteOnlyItems) || []).find(
+      (row) => row && row.id === id && row.canApply,
+    )
+    if (!item || this.data.readOnly) return
+    const sectionIndex = (this.data.sections || []).findIndex((s) => s && s.findingKind === 'work')
+    if (sectionIndex < 0) {
+      wx.showToast({ title: '找不到施工项区域', icon: 'none' })
+      return
+    }
+    const blank = normalizeWorkFinding({
+      id: `fid_quote_${Date.now()}`,
+      partName: item.name,
+      caption: item.adviceBody || '',
+      images: (item.photos || []).map((img) => ({ url: img.url })),
+      quoteLineId: item.id,
+      outsideQuote: false,
+    })
+    this.appendFindingToSection(sectionIndex, blank)
+    this.setData({
+      workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+    })
+    await this.persistPhotos()
+    await this.commitAppliedPhotoDraft()
   },
 
   /** 施工拆分建议：把一张施工项按图拆成多张。 */
