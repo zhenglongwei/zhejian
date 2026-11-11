@@ -7798,7 +7798,13 @@ Page({
     if (!workNode) return empty
     const findings = nodeContentOf(workNode).findings
     const started = Boolean(
-      workNode.status === 'completed' || (Array.isArray(findings) && findings.length),
+      workNode.status === 'completed' ||
+        (Array.isArray(findings) &&
+          findings.some(
+            (row) =>
+              (Array.isArray(row && row.images) && row.images.length) ||
+              String((row && row.caption) || '').trim(),
+          )),
     )
     if (!started) return empty
     const unstarted = computeUnstartedQuoteItems(nodes)
@@ -7828,12 +7834,18 @@ Page({
     const unstarted = computeUnstartedQuoteItems(withLocal)
     const quoteNames = collectConfirmedQuoteNames(withLocal)
     const outside = []
+    // 报价还没确认时没有比对基准，不做“不在报价”判断
+    if (!quoteNames.length) return { unstarted, outside }
     const seen = new Set()
-    localFindings.forEach((row) => {
-      const name = String((row && row.partName) || '').trim()
-      if (!name || seen.has(name)) return
-      seen.add(name)
-      if (workOutsideQuoteOf(name, quoteNames)) outside.push(name)
+    withLocal.forEach((node) => {
+      if (!node || node.kind !== 'work') return
+      const findings = nodeContentOf(node).findings || []
+      ;(Array.isArray(findings) ? findings : []).forEach((row) => {
+        const name = String((row && row.partName) || '').trim()
+        if (!name || seen.has(name)) return
+        seen.add(name)
+        if (workOutsideQuoteOf(name, quoteNames)) outside.push(name)
+      })
     })
     return { unstarted, outside }
   },
