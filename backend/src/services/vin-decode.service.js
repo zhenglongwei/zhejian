@@ -7,6 +7,9 @@ const { prisma } = require('../lib/prisma')
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/i
 
+/** 第 10 位年份代码允许的字符（不含 I/O/Q/U/Z/0），用于付费解析前的本地拦截 */
+const VIN_YEAR_CODES = 'ABCDEFGHJKLMNPRSTVWXY123456789'
+
 /** 对外统一错误文案：只区分「格式不对」「未解析到车型」「服务不可用」三种 */
 const MSG_INVALID_VIN = '请输入 17 位有效车架号（VIN）'
 const MSG_DECODE_EMPTY = '未解析到车型，请手工填写品牌与车系'
@@ -329,7 +332,7 @@ function summarizeBodyForLog(body) {
 
 async function decodeVin(vinInput) {
   const vin = normalizeVin(vinInput)
-  if (!VIN_RE.test(vin)) {
+  if (!VIN_RE.test(vin) || !VIN_YEAR_CODES.includes(vin[9])) {
     throw httpError(MSG_INVALID_VIN, 400, 'INVALID_VIN')
   }
 

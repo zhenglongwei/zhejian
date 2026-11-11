@@ -16,6 +16,16 @@ function normalizeVinInput(value) {
     .replace(/\s+/g, '')
 }
 
+// VIN 编码规则：17 位，不含 I/O/Q；第 10 位为年份代码（不含 I/O/Q/U/Z/0）
+const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/
+const VIN_YEAR_CODES = 'ABCDEFGHJKLMNPRSTVWXY123456789'
+
+function isValidVin(value) {
+  const vin = normalizeVinInput(value)
+  if (!VIN_RE.test(vin)) return false
+  return VIN_YEAR_CODES.includes(vin[9])
+}
+
 function parseMileage(value) {
   const raw = String(value == null ? '' : value).trim()
   if (!raw) return null
@@ -60,6 +70,7 @@ module.exports = {
   normalizeOwnerPhone,
   normalizePlateInput,
   normalizeVinInput,
+  isValidVin,
   parseMileage,
   validateCreateSheet,
 }

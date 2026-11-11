@@ -8,6 +8,7 @@ const {
 } = require('../../services/merchant-service-album')
 const {
   normalizeVinInput,
+  isValidVin,
   validateCreateSheet,
 } = require('../../utils/merchant-album-create-sheet')
 
@@ -126,19 +127,31 @@ Component({
     },
 
     async tryDecodeVin(vin, fallbackHints = {}) {
+      const normalized = normalizeVinInput(vin)
+      // 先按 VIN 编码规则本地校验，不合法就不调用付费解析接口
+      if (!isValidVin(normalized)) {
+        this.setData({
+          decodedVehicle: normalized ? { vin: normalized, ...(fallbackHints || {}) } : null,
+          vehicleHint: '车架号格式不合法，请核对后重新填写',
+        })
+        if (fallbackHints && (fallbackHints.brand || fallbackHints.series)) {
+          this.applyDecodedFields(fallbackHints)
+        }
+        return
+      }
       try {
-        const data = await decodeMerchantVin(vin)
+        const data = await decodeMerchantVin(normalized)
         const vehicle = { ...(fallbackHints || {}), ...((data && data.vehicle) || {}) }
-        if (vin) vehicle.vin = vin
+        vehicle.vin = normalized
         this.setData({ decodedVehicle: vehicle, vehicleHint: '' })
         this.applyDecodedFields(vehicle)
       } catch (e) {
         if (fallbackHints && (fallbackHints.brand || fallbackHints.series)) {
-          this.applyVehicleHints(fallbackHints, vin)
+          this.applyVehicleHints(fallbackHints, normalized)
           return
         }
         this.setData({
-          decodedVehicle: { vin, ...(fallbackHints || {}) },
+          decodedVehicle: { vin: normalized, ...(fallbackHints || {}) },
           vehicleHint: '未解析到车型，请手工填写',
         })
       }
