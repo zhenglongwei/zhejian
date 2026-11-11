@@ -110,15 +110,35 @@ function formatTrustStatement(meta) {
   )
 }
 
-function resolveEvidenceLevel(publicImageCount) {
+/**
+ * 证据分级（2026-11-11 升级）：
+ * - 无画像时保持旧的纯图数口径（兜底存量链路）
+ * - 有画像（单据链证据画像，utils/case-evidence-profile）时按「环节定稿 + 图证分布」判级：
+ *   图文全留证 = ≥3 环定稿 且 图证覆盖 ≥2 环 且 总图 ≥4；
+ *   部分留证 = 有图但未达全留证；仅文字记录 = 全案例无图
+ */
+function resolveEvidenceLevel(publicImageCount, profile) {
+  const labelMap = {
+    text_primary: '仅文字记录',
+    partial_images: '部分留证',
+    rich_images: '图文全留证',
+  }
+  const withLabel = (level) => ({ evidenceLevel: level, evidenceLevelLabel: labelMap[level] })
+
+  const p = profile && typeof profile === 'object' ? profile : null
+  if (p && Number.isFinite(Number(p.totalPhotos))) {
+    const photos = Math.max(Number(p.totalPhotos) || 0, Number(publicImageCount) || 0)
+    if (photos <= 0) return withLabel('text_primary')
+    const sealedStages = Number(p.sealedStages) || 0
+    const photoStages = Number(p.photoStages) || 0
+    if (photos >= 4 && photoStages >= 2 && sealedStages >= 3) return withLabel('rich_images')
+    return withLabel('partial_images')
+  }
+
   const count = Number(publicImageCount) || 0
-  if (count <= 0) {
-    return { evidenceLevel: 'text_primary', evidenceLevelLabel: '以文字记录为主' }
-  }
-  if (count <= 3) {
-    return { evidenceLevel: 'partial_images', evidenceLevelLabel: '含少量脱敏过程图' }
-  }
-  return { evidenceLevel: 'rich_images', evidenceLevelLabel: '含多阶段脱敏过程图' }
+  if (count <= 0) return withLabel('text_primary')
+  if (count <= 3) return withLabel('partial_images')
+  return withLabel('rich_images')
 }
 
 module.exports = {

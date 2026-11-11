@@ -10,7 +10,8 @@ const {
 } = require('../lib/h5-html-prerender')
 const { config } = require('../config')
 const { getCaseDetail } = require('./content.service')
-const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
+const { buildCasePageSchemaGraph, buildContentTrustLabels } = require('../lib/schema-graph')
+const { buildCaseFactsSchema } = require('../lib/case-facts-jsonld')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { renderSiteBeianHtml } = require('../lib/site-beian')
 
@@ -151,11 +152,20 @@ function renderNodeStoriesSection(data) {
     .join('')}</section>`
 }
 
-/** 爬虫正文与人看到的页面一致：摘要、维修实录、关键节点说明、问答。不含套话文章。 */
+/** 爬虫正文与人看到的页面一致：摘要、证据等级、维修实录、关键节点说明、问答。不含套话文章。 */
 function buildCrawlText(data) {
   const parts = []
   const summary = visibleSummary(data)
   if (summary) parts.push(summary)
+  const evidenceLabels = []
+  const tm = data.trustMeta || null
+  if (tm && String(tm.evidenceLevelLabel || '').trim()) {
+    evidenceLabels.push(`证据等级：${tm.evidenceLevelLabel}`)
+    const trustText = buildContentTrustLabels(tm)
+    if (trustText) evidenceLabels.push(trustText)
+    evidenceAnnotationTexts(data).forEach((row) => evidenceLabels.push(row))
+  }
+  if (evidenceLabels.length) parts.push(evidenceLabels.join(' · '))
   hostNodeStories(data).forEach((text) => parts.push(text))
   ;((data.serviceFlow && data.serviceFlow.chapters) || []).forEach((chapter) => {
     const lines = chapterLines(chapter)
@@ -170,6 +180,35 @@ function buildCrawlText(data) {
   return parts.join('\n\n')
 }
 
+/** 证据等级徽章：AI 与人看到的口径一致（trustMeta 真源 + 缺图诚实标注） */
+function evidenceAnnotationTexts(data) {
+  const chapters = (data.serviceFlow && data.serviceFlow.chapters) || []
+  const rows = []
+  chapters.forEach((chapter) => {
+    if (!chapter || chapter.kind !== 'repair_report') return
+    if (chapter.exteriorPhotoWaived === true) rows.push('商家确认未拍外观照')
+    ;(Array.isArray(chapter.acceptanceItems) ? chapter.acceptanceItems : []).forEach((row) => {
+      if (row && row.kind === 'exterior' && row.missingPhoto) {
+        if (!rows.includes('商家未留外观照')) rows.push('商家未留外观照')
+      }
+    })
+  })
+  return rows
+}
+
+function renderEvidenceSection(data) {
+  const tm = data.trustMeta || null
+  const label = tm && String(tm.evidenceLevelLabel || '').trim()
+  if (!label) return ''
+  const labels = [label]
+  const trustText = buildContentTrustLabels(tm)
+  if (trustText) labels.push(trustText)
+  evidenceAnnotationTexts(data).forEach((row) => labels.push(row))
+  return `<section data-bot="evidence"><p>证据等级：${escapeHtml(
+    labels.join(' · ')
+  )}</p></section>`
+}
+
 function buildBotBodyHtml(data) {
   const summary = visibleSummary(data)
   const sections = [
@@ -177,6 +216,7 @@ function buildBotBodyHtml(data) {
     summary
       ? `<section data-bot="ai-summary"><h2>案例摘要</h2><p>${escapeHtml(summary)}</p></section>`
       : '',
+    renderEvidenceSection(data),
     renderNodeStoriesSection(data),
     renderFlowSection(data),
     renderFaqSection(data.faq || []),
@@ -234,6 +274,9 @@ async function renderCaseBotHtml(caseIdOrSlug) {
     const imageObjects = buildImageObjectSchemas(data, data.displayNodes || data.nodes, canonical)
     jsonLdBlocks.push(...imageObjects)
   }
+  // GEO-FACTS-01：案例事实块（车型/里程/项目/结果/质保/证据等级），与主 @graph 通过 Article @id 互链
+  const factsBlock = buildCaseFactsSchema({ baseUrl: config.publicBaseUrl, canonicalPath, data })
+  if (factsBlock) jsonLdBlocks.push(factsBlock)
 
   return injectPrerenderHtml(readH5Template('case/view.html'), {
     title: `${title} · 辙见`,

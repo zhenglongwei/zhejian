@@ -501,6 +501,10 @@
     var sourceLabel =
       (data.attribution && data.attribution.sourceLabel) || '商家上传'
     var labels = [sourceLabel, '已脱敏']
+    // 证据等级（2026-11-11）：与 trustMeta / JSON-LD 同口径，让车主按级采信
+    var tm = data.trustMeta
+    var evidenceLabel = tm && String(tm.evidenceLevelLabel || '').trim()
+    if (evidenceLabel && labels.indexOf(evidenceLabel) < 0) labels.push(evidenceLabel)
     var trust = data.publisherTrust
     if (trust && Array.isArray(trust.tags) && trust.tags.length) {
       trust.tags.forEach(function (t) {

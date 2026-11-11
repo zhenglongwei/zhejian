@@ -248,6 +248,7 @@ function buildCaseFactPack(flowNodes) {
         acceptancePhotoCount: 0,
       },
       analyzedImageKeys: [],
+      evidenceProfile: null,
       missing: ['flowNodes'],
     }
   }
@@ -260,6 +261,24 @@ function buildCaseFactPack(flowNodes) {
   const workItems = pickWorkItems(nodes)
   if (!findings.length && !workItems.length) missing.push('findings_or_work')
 
+  // 证据画像 + 分级：供 LLM 引用时按级采信（诚实标注优于静默缺失）
+  let evidenceProfile = null
+  try {
+    const { assessCaseEvidenceProfile } = require('./case-evidence-profile')
+    const profile = assessCaseEvidenceProfile(nodes)
+    if (profile) {
+      const { resolveEvidenceLevel } = require('../schemas/case-trust-meta.schema')
+      const graded = resolveEvidenceLevel(0, profile)
+      evidenceProfile = {
+        ...profile,
+        evidenceLevel: graded.evidenceLevel,
+        evidenceLevelLabel: graded.evidenceLevelLabel,
+      }
+    }
+  } catch (_) {
+    /* 画像失败不挡 factpack */
+  }
+
   return {
     hasFlow: true,
     chiefComplaint,
@@ -270,6 +289,7 @@ function buildCaseFactPack(flowNodes) {
     workItems,
     finish: pickFinish(nodes),
     analyzedImageKeys: pickAnalyzedImageKeys(nodes),
+    evidenceProfile,
     missing,
   }
 }
@@ -286,6 +306,7 @@ function factPackHasEnoughFacts(pack) {
 module.exports = {
   FEEDABLE_RESULTS,
   pickChiefComplaint,
+  pickVehicle,
   buildCaseFactPack,
   factPackHasEnoughFacts,
 }

@@ -72,7 +72,7 @@ const {
   isStoreShowcaseCase,
   readHostMeta,
 } = require('../utils/archive-attribution')
-const { pickChiefComplaint } = require('../utils/case-geo-factpack')
+const { pickChiefComplaint, pickVehicle } = require('../utils/case-geo-factpack')
 const { buildPublisherTrustBadge } = require('../utils/merchant-trust')
 
 async function loadPublisherTrustByStoreIds(storeIds = []) {
@@ -395,16 +395,19 @@ function mapPublicCaseRow(row, album, options = {}) {
     hostMeta.archiveSnapshot && typeof hostMeta.archiveSnapshot === 'object'
       ? hostMeta.archiveSnapshot
       : null
+  const factsFlowNodes =
+    (archiveSnap && archiveSnap.flowNodes) ||
+    (album && album.contentPackageJson && album.contentPackageJson.flowNodes) ||
+    []
   layered.serviceFlow = buildPublicServiceFlow({
-    flowNodes:
-      (archiveSnap && archiveSnap.flowNodes) ||
-      (album && album.contentPackageJson && album.contentPackageJson.flowNodes) ||
-      [],
+    flowNodes: factsFlowNodes,
     album,
     contentNodes: content.nodes,
     publicView,
     maskLookup: options.maskLookup || null,
   })
+  // 车型四元组（品牌/车系/年款/里程文案）：JSON-LD facts 块与公开展示共用同一单据链真源
+  layered.caseVehicle = pickVehicle(factsFlowNodes)
   const chapterComplaint = (layered.serviceFlow.chapters || [])
     .map((chapter) => (chapter && chapter.chiefComplaint) || '')
     .find((value) => String(value || '').trim())

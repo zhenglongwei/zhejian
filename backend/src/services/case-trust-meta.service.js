@@ -17,6 +17,18 @@ const {
 } = require('../schemas/case-trust-meta.schema')
 const { persistCaseEnrichment } = require('./case-enrichment.service')
 
+/** 托管案例优先用冻结快照的单据链，其次相册当前链（口径与公开页 serviceFlow 一致） */
+function resolveAlbumFlowNodes(album) {
+  const pkg = album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+    ? album.contentPackageJson
+    : {}
+  const archive =
+    pkg.hostMeta && typeof pkg.hostMeta === 'object' ? pkg.hostMeta.archiveSnapshot : null
+  if (archive && Array.isArray(archive.flowNodes)) return archive.flowNodes
+  if (Array.isArray(pkg.flowNodes)) return pkg.flowNodes
+  return []
+}
+
 function countPublicImages(contentJson, snapshot) {
   const publicView = extractPublicViewFromContentJson(contentJson)
   if (publicView?.publicMediaCount != null) {
@@ -91,7 +103,14 @@ function buildCaseTrustMeta(context = {}) {
     snapshot?.authorizationTier || row.authorizationTier || row.authorization_tier || 'named'
   const tier = mapAuthorizationTierForTrust(tierSource)
   const publicImageCount = countPublicImages(contentJson, snapshot)
-  const evidence = resolveEvidenceLevel(publicImageCount)
+  const { assessCaseEvidenceProfile } = require('../utils/case-evidence-profile')
+  const evidenceProfile =
+    context.flowNodes && context.flowNodes.length
+      ? assessCaseEvidenceProfile(context.flowNodes)
+      : context.flowNodes === null
+        ? null
+        : assessCaseEvidenceProfile(resolveAlbumFlowNodes(context.album))
+  const evidence = resolveEvidenceLevel(publicImageCount, evidenceProfile)
 
   const partial = {
     snapshotVersion,
@@ -179,4 +198,5 @@ module.exports = {
   refreshCaseTrustMeta,
   countPublicImages,
   countNodeStages,
+  resolveAlbumFlowNodes,
 }

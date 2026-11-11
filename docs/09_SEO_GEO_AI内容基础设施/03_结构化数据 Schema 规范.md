@@ -636,3 +636,37 @@ P0 必须满足：
 7. **P2**：公开读侧不输出分项 `scorePart` 加权分，不输出咨询响应；算法说明用白话，不下发「25/30/15」权重表。
 
 > 验收清单：[`12_公开页AI可信度验收对照表.md`](./12_公开页AI可信度验收对照表.md)
+
+---
+
+## **21. 案例事实 JSON-LD facts 块（V2.4 · 2026-11-11）**
+
+> 目的：让 AI 抓取案例时整块拿到「车型/里程/检测/方案/工单/验收/质保/证据等级」结构化事实，与正文摘要互为印证。实现：`backend/src/lib/case-facts-jsonld.js`（纯函数），bot 预渲染 head 注入。
+
+### **21.1 块结构**
+
+独立 `<script type="application/ld+json">` 块，`@graph` 含：
+
+| 节点 | 说明 |
+| --- | --- |
+| `Car`（`#vehicle`） | 品牌 `brand` / 车系 `model` / 年款 `vehicleModelDate` / 里程 `mileageFromOdometer`（Km）；任一存在才输出 |
+| `Article`（复用主图 `#article` @id） | `additionalProperty` 事实列表；有车辆实体时 `about` 挂链 |
+
+### **21.2 facts 命名空间**
+
+| name | 来源（公开侧同一真源，无金额） |
+| --- | --- |
+| `facts.chiefComplaint` | 检测章主诉 |
+| `facts.finding` | 检测行：`部位 · 结果 · 建议`（≤8） |
+| `facts.quoteItem` / `facts.workItem` | 方案/工单行：`项目 · 用料 · 备注`（各≤10） |
+| `facts.acceptanceItem` | 验收行：`项目 · 结果 · 备注`；外观缺图行追加「商家未留外观照」（≤10） |
+| `facts.warrantyPeriod` / `facts.warrantyNotes` | 质保（「无/暂无」不输出） |
+| `facts.exteriorPhotoWaived` | 商家定稿确认未拍外观照 |
+| `evidenceLevel` / `evidenceLevelLabel` | trustMeta（见《10_案例信任元数据开发计划》§3.3） |
+
+### **21.3 约束**
+
+1. 只放公开侧已展示的事实；禁止写入页面不可见的字段、金额、车牌/VIN。
+2. 与主 schema-graph 通过相同 `Article @id` 合并，不得另造第二套案例实体。
+3. 无任何事实（无车辆且无章节事实）时整块不输出。
+4. Bot 正文同步输出「证据等级」行（`data-bot="evidence"`），AI 可读文本与 JSON-LD 口径一致。
