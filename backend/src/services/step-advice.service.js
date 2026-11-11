@@ -43,8 +43,9 @@ function readFlowNodes(album) {
 }
 
 function linesOf(node) {
-  const payload = (node && node.document && node.document.payload) || {}
-  return (Array.isArray(payload.lines) ? payload.lines : [])
+  // 报价行与其它节点同口径：content / photoDraft / payload 三源择优（确认后 payload 可能只剩信封）
+  const content = contentOfFlowNode(node)
+  return (Array.isArray(content.lines) ? content.lines : [])
     .map((row) => ({
       name: text(row && row.name),
       amount: text(row && row.amount),

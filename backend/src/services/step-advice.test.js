@@ -747,3 +747,35 @@ test('AI 上下文从节点 content 读主诉、检测项和图', () => {
   assert.equal(got.inspectPhotoSlots.length, 1)
   assert.match(got.inspectPhotoSlots[0].url, /inspect\.jpg/)
 })
+
+test('AI 上下文从节点 content 读报价行（确认后 payload 只剩信封）', () => {
+  const got = contextOf({
+    contentPackageJson: {
+      flowNodes: [
+        {
+          kind: 'quote_confirm',
+          sortOrder: 3,
+          document: { status: 'confirmed', payload: {} },
+          content: {
+            lines: [
+              { id: 'ql_1', name: '划痕检测补漆', amount: '800' },
+              { id: 'ql_2', name: '外观修复', amount: '500' },
+            ],
+          },
+        },
+        {
+          kind: 'work',
+          sortOrder: 4,
+          content: {
+            findings: [{ id: 'w1', partName: '划痕检测补漆', caption: '已修复' }],
+          },
+        },
+      ],
+    },
+  })
+  assert.deepEqual(
+    got.quoteLines.map((row) => row.name),
+    ['划痕检测补漆', '外观修复']
+  )
+  assert.deepEqual(got.workItems.map((row) => row.name), ['划痕检测补漆'])
+})

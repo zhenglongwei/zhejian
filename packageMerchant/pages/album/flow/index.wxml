@@ -1930,6 +1930,19 @@
                 </view>
               </view>
             </view>
+            <view wx:if="{{workAdvice.hasPhotoPlan}}" class="merchant-flow-page__advice-sec">
+              <text class="merchant-flow-page__advice-sec-title">拍照建议</text>
+              <view class="merchant-flow-page__advice-list">
+                <view
+                  wx:for="{{workAdvice.photoPlan}}"
+                  wx:key="id"
+                  class="merchant-flow-page__advice-card"
+                >
+                  <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-card-title">{{item.title}}</text>
+                  <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-card-text">{{item.body}}</text>
+                </view>
+              </view>
+            </view>
             <view wx:if="{{workAdvice.hasLines}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">填写建议</text>
               <view class="merchant-flow-page__advice-list">
