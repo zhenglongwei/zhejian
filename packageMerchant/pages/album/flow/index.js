@@ -2566,7 +2566,7 @@ Page({
           const draft = nodeContentOf(intake)
           const pendingImages = normalizePendingImages(draft.pendingImages).concat(uploadedList)
           const next = { ...draft, pendingImages }
-          await updateMerchantFlowNode(this.albumId, intake.id, flowContentSave({ pendingImages }))
+          await this.saveFlowNode(intake.id, flowContentSave({ pendingImages }))
           applyNodeContent(intake, next)
           this.syncIntakePileFromDraft(next)
           if (typeof this.writeLocalFlowDraft === 'function') this.writeLocalFlowDraft()
@@ -2607,7 +2607,7 @@ Page({
     const photoDraft = this.purgeIntakeDraftPhoto(draft, url)
     this.setData({ confirming: true })
     try {
-      await updateMerchantFlowNode(this.albumId, intake.id, flowContentSave(photoDraft))
+      await this.saveFlowNode(intake.id, flowContentSave(photoDraft))
       applyNodeContent(intake, photoDraft)
       // 未确认报告跟节点走（服务端也会 force 对齐）；客户端不维护 previewImages 副本
       if (intake.document && intake.document.payload && String(intake.document.status || '') !== 'confirmed') {
@@ -2792,7 +2792,7 @@ Page({
       if (!node) return
       if (node.status === 'completed' && !(node.kind === 'work' && !deliveryReportSent(nodes))) return
       jobs.push(
-        updateMerchantFlowNode(this.albumId, node.id, flowContentSave(patch)).then(() => {
+        this.saveFlowNode(node.id, flowContentSave(patch)).then(() => {
           applyNodeContent(node, { ...nodeContentOf(node), ...patch })
         }),
       )
@@ -2802,7 +2802,7 @@ Page({
       const status = String(node.document.status || '')
       if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled') return
       jobs.push(
-        updateMerchantFlowNode(this.albumId, node.id, {
+        this.saveFlowNode(node.id, {
           document: { status: status || 'draft', payload: patch },
         }).then(() => {
           node.document = {
@@ -3163,7 +3163,7 @@ Page({
     if (!payload.photos.length) return false
     if (!quiet) this.setData({ confirming: true })
     try {
-      await updateMerchantFlowNode(this.albumId, node.id, {
+      await this.saveFlowNode(node.id, {
         document: { docType: 'intake_confirm', status: 'delivered', payload },
       })
       if (!quiet) {
@@ -3338,7 +3338,7 @@ Page({
     const nextStatus = key === 'inspect' ? 'delivered' : 'pending_confirm'
     this.setData({ confirming: true })
     try {
-      const sent = await updateMerchantFlowNode(this.albumId, node.id, {
+      const sent = await this.saveFlowNode(node.id, {
         document: { status: nextStatus, payload },
       })
       if (sent && sent.nextAction === 'ai_review') {
@@ -3511,7 +3511,7 @@ Page({
     }
     this.setData({ briefSending: true })
     try {
-      await updateMerchantFlowNode(this.albumId, brief.nodeId, {
+      await this.saveFlowNode(brief.nodeId, {
         document: { status: 'pending_confirm', payload },
       })
       wx.showToast({ title: '已发送车主', icon: 'success' })
@@ -4904,7 +4904,44 @@ Page({
       return
     }
     this.writeLocalFlowDraft()
-    await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, flowContentSave(this.buildPhotoDraftPayload()))
+    await this.saveFlowNode(this.data.activeNode.id, flowContentSave(this.buildPhotoDraftPayload()))
+  },
+
+  /**
+   * 保存节点并同步流程快照。
+   * 快照承载跨节点判断（报价名、未施工、是否报价外等），保存后必须与最新数据保持一致，
+   * 否则会出现“实际节点已改、快照还是旧的”导致判断出错。
+   */
+  async saveFlowNode(nodeId, patch) {
+    const res = await updateMerchantFlowNode(this.albumId, nodeId, patch)
+    this.syncFlowSnapshot(nodeId, patch)
+    return res
+  },
+
+  /** 把一次保存的内容合并进 this._flowNodes，保持快照与节点一致 */
+  syncFlowSnapshot(nodeId, patch) {
+    const nodes = Array.isArray(this._flowNodes) ? this._flowNodes : []
+    const node = nodes.find((row) => row && row.id === nodeId)
+    if (!node) return
+    const body = patch && typeof patch === 'object' ? patch : {}
+    const bag =
+      body.content && typeof body.content === 'object'
+        ? body.content
+        : body.photoDraft && typeof body.photoDraft === 'object'
+          ? body.photoDraft
+          : null
+    if (bag) {
+      applyNodeContent(node, bag)
+      if (node.document) node.document = { ...node.document, payload: bag }
+    }
+    if (body.document && typeof body.document === 'object') {
+      node.document = { ...(node.document || {}), ...body.document }
+      // 只改文档 payload 时，content 与 payload 同源，一并跟上
+      if (!bag && body.document.payload && typeof body.document.payload === 'object') {
+        applyNodeContent(node, body.document.payload)
+      }
+    }
+    if (body.status) node.status = body.status
   },
 
   commitAppliedPhotoDraft() {
@@ -7482,7 +7519,7 @@ Page({
     const kind = this.data.activeKind
     if (kind === 'inspection_report') {
       const reportPayload = this.buildDocPayloadForSave()
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      await this.saveFlowNode(this.data.activeNode.id, {
         ...flowContentSave(reportPayload),
         document: { status: 'draft', payload: reportPayload },
       })
@@ -7492,7 +7529,7 @@ Page({
         const quoteStatus = String((quoteNode && quoteNode.document && quoteNode.document.status) || '')
         if (quoteStatus !== 'pending_confirm' && quoteStatus !== 'confirmed' && quoteStatus !== 'cancelled') {
           const quotePayload = this.buildQuotePayloadForSave()
-          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+          await this.saveFlowNode(quoteNodeId, {
             ...flowContentSave(quotePayload),
             document: { status: 'draft', payload: quotePayload },
           })
@@ -7502,7 +7539,7 @@ Page({
     }
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const quotePayload = this.buildQuotePayloadForSave()
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      await this.saveFlowNode(this.data.activeNode.id, {
         ...flowContentSave(quotePayload),
         document: { status: 'draft', payload: quotePayload },
       })
@@ -7510,7 +7547,7 @@ Page({
     }
     if (kind === 'repair_report') {
       const reportPayload = this.buildDocPayloadForSave()
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      await this.saveFlowNode(this.data.activeNode.id, {
         ...flowContentSave(reportPayload),
         document: { status: 'draft', payload: reportPayload },
       })
@@ -8170,7 +8207,7 @@ Page({
     this.showAdviceWaiting()
     try {
       await this.persistPhotoDraft()
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      await this.saveFlowNode(this.data.activeNode.id, {
         startIntakeAdvice: true,
         forceRefresh: force,
       })
@@ -8202,7 +8239,7 @@ Page({
       const quoteNodeId =
         this.data.quoteNodeId || this._quoteNodeId || (this.data.activeNode && this.data.activeNode.id)
       if (quoteNodeId) {
-        await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+        await this.saveFlowNode(quoteNodeId, {
           document: { status: 'draft', payload: quotePayload },
           startQuoteAssist: true,
           forceRefresh: force,
@@ -8797,7 +8834,7 @@ Page({
     this.showAdviceWaiting()
     try {
       await this.persistPhotoDraft()
-      await updateMerchantFlowNode(this.albumId, node.id, {
+      await this.saveFlowNode(node.id, {
         startInspectionAdvice: true,
         forceRefresh: force,
       })
@@ -8825,7 +8862,7 @@ Page({
     this.showAdviceWaiting()
     try {
       await this.persistPhotoDraft()
-      const res = await updateMerchantFlowNode(this.albumId, node.id, {
+      const res = await this.saveFlowNode(node.id, {
         [flag]: true,
         forceRefresh: force,
       })
@@ -8849,7 +8886,7 @@ Page({
     if (!node) return
     this.setData({ confirming: true, aiReviewBusy: true, adviceOpen: true })
     try {
-      const res = await updateMerchantFlowNode(this.albumId, node.id, {
+      const res = await this.saveFlowNode(node.id, {
         startAiReview: true,
       })
       if (res && res.nextAction === 'ai_review') {
@@ -8893,7 +8930,7 @@ Page({
     this.setData({ confirming: true })
     this.stopAiReviewPoll()
     try {
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      await this.saveFlowNode(this.data.activeNode.id, {
         document: {
           status: 'draft',
           payload: reportPayload,
@@ -8901,7 +8938,7 @@ Page({
       })
       const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
-        await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+        await this.saveFlowNode(quoteNodeId, {
           document: {
             status: 'draft',
             payload: quotePayload,
@@ -8974,7 +9011,7 @@ Page({
     if (!this.data.isAddonQuote || this.data.readOnly || this.data.confirmAwaitingOwner) return
     const nodeId = this.data.activeNode && this.data.activeNode.id
     if (!nodeId) return
-    await updateMerchantFlowNode(this.albumId, nodeId, {
+    await this.saveFlowNode(nodeId, {
       document: {
         status: 'draft',
         payload: this.buildDocPayloadForSave(),
@@ -9180,7 +9217,7 @@ Page({
     }
     this.setData({ confirming: true })
     try {
-      const sent = await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      const sent = await this.saveFlowNode(this.data.activeNode.id, {
         document: {
           status: 'pending_confirm',
           payload: this.buildDocPayloadForSave(),
@@ -9285,7 +9322,7 @@ Page({
         (this.data.activeNode.document && this.data.activeNode.document.status) || '',
       )
       if (docStatus !== 'pending_confirm') {
-        await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        await this.saveFlowNode(this.data.activeNode.id, {
           document: {
             status: 'pending_confirm',
             payload,
