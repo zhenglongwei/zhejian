@@ -393,6 +393,9 @@ async function decodeVin(vinInput) {
       msg: (body && (body.msg || body.message || body.error_msg || body.reason)) || '',
       summary: summarizeBodyForLog(body),
     })
+    // 4xx（除鉴权/额度类 401/403）视为该 VIN 查不到，其余视为服务不可用
+    const notFoundLike = response.status < 500 && response.status !== 401 && response.status !== 403
+    if (notFoundLike) throw httpError(MSG_DECODE_EMPTY, 404, 'VIN_DECODE_EMPTY')
     throw httpError(MSG_SERVICE_UNAVAILABLE, 502, 'VIN_DECODE_FAILED')
   }
 
