@@ -375,10 +375,17 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
       const photo = text(row && (row['拍照建议'] || row.photoAdvice || row.photo)).slice(0, 160)
       if (!how && !photo) return null
       const line = quoteLines.find((item) => text(item && item.name) === name) || {}
-      return { id: text(line.id) || `qa_${name}`, name, how, photo }
+      return { id: text(line.id) || `qa_${name}`, name, how, photo, amount: text(line.amount) }
     })
     .filter(Boolean)
-    .slice(0, 20)
+  // 报价项没拿到建议也照样列出，前端在第一条列表里直接给「新增」
+  const adviceNames = new Set(quoteAdvice.map((row) => row.name))
+  quoteLines.forEach((line) => {
+    const name = text(line && line.name)
+    if (!name || adviceNames.has(name)) return
+    quoteAdvice.push({ id: text(line.id) || `qa_${name}`, name, how: '', photo: '', amount: text(line.amount) })
+  })
+  quoteAdvice.splice(30)
   // 第 4 步：证据
   const evidenceByName = new Map()
   ;(Array.isArray(parsed['证据']) ? parsed['证据'] : []).forEach((row) => {

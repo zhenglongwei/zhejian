@@ -5923,6 +5923,21 @@ Page({
         }
       })
       .filter(Boolean)
+    // 已建工单项：判断报价项/新增项是否已经落地，避免按钮重复可点
+    const nameKey = (value) => String(value || '').replace(/\s+/g, '')
+    const workFindings = []
+    ;(Array.isArray(sections) ? sections : []).forEach((section) => {
+      if (!section || section.findingKind !== 'work') return
+      ;(Array.isArray(section.findings) ? section.findings : []).forEach((row) => workFindings.push(row))
+    })
+    const coveredQuote = (row) =>
+      workFindings.some((finding) => {
+        const lineId = String((finding && finding.quoteLineId) || '').trim()
+        if (lineId && lineId === row.id) return true
+        const a = nameKey(finding && finding.partName)
+        const b = nameKey(row.name)
+        return Boolean(a && b && a === b)
+      })
     // 新增项：不属于任何报价行的图
     const newItems = (Array.isArray(raw.newItems) ? raw.newItems : [])
       .map((row, index) => {
@@ -5930,12 +5945,21 @@ Page({
         const description = String((row && row.description) || '').trim()
         const images = Array.isArray(row && row.images) ? row.images : []
         if (!images.length && !name && !description) return null
+        const urls = images.map((img) => String((img && img.url) || ''))
+        const applied = workFindings.some((finding) => {
+          const a = nameKey(finding && finding.partName)
+          if (name) return Boolean(a && a === nameKey(name))
+          return (Array.isArray(finding && finding.images) ? finding.images : []).some((img) =>
+            urls.includes(String((img && img.url) || '')),
+          )
+        })
         return {
           id: `new_${index}`,
           name,
           description,
           images: images.map((img) => ({ url: String((img && img.url) || '') })),
-          canApply: images.length > 0,
+          canApply: images.length > 0 && !applied,
+          applied,
         }
       })
       .filter(Boolean)
@@ -5957,23 +5981,81 @@ Page({
       const note = String(raw.note || '').trim()
       if (note) lines.push({ id: 'note', body: note, canApply: false })
     }
-    // 新契约三块：报价项建议 / 工单项 / 报价项待施工
+    // 新契约：报价项建议 / 工单项；报价待施工合并进第一条列表，不再单列
+    const quoteOnlyItems = (Array.isArray(raw.quoteOnlyItems) ? raw.quoteOnlyItems : [])
+      .map((row, index) => {
+        const name = String((row && row.name) || '').trim()
+        if (!name) return null
+        // 兼容二次 decorate：装饰后的行没有 kind，用 missed 还原
+        const kind = String((row && row.kind) || (row && row.missed ? 'work_missing' : ''))
+        return {
+          id: String((row && row.id) || `qo_${index}`),
+          name,
+          amount: String((row && row.amount) || '').trim(),
+          note: String((row && row.note) || '').trim(),
+          unstarted: kind !== 'work_missing',
+          missed: kind === 'work_missing',
+          adviceBody: String((row && row.advice && row.advice.body) || (row && row.adviceBody) || '').trim(),
+          photos: (Array.isArray(row && row.photos) ? row.photos : [])
+            .map((img) => ({ url: String((img && img.url) || '') }))
+            .filter((img) => img.url),
+          canApply: Boolean(row && row.canApply !== false),
+        }
+      })
+      .filter(Boolean)
+      // 已经建过工单项的报价项不再给「新增」
+      .filter((row) => !coveredQuote(row))
+    const onlyById = new Map(quoteOnlyItems.map((row) => [row.id, row]))
+    const onlyByName = new Map(quoteOnlyItems.map((row) => [row.name, row]))
     const quoteAdvice = (Array.isArray(raw.quoteAdvice) ? raw.quoteAdvice : [])
       .map((row, index) => {
         const name = String((row && row.name) || '').trim()
         const how = String((row && row.how) || '').trim()
         const photo = String((row && row.photo) || '').trim()
         if (!name && !how && !photo) return null
+        const only = onlyById.get(String((row && row.id) || '')) || onlyByName.get(name) || null
         return {
           id: String((row && row.id) || `qa_${index}`),
           name,
           how,
           photo,
+          amount: String((row && row.amount) || (only && only.amount) || '').trim(),
           hasHow: Boolean(how),
           hasPhoto: Boolean(photo),
+          canApply: Boolean(only && only.canApply),
+          onlyId: only ? only.id : '',
+          unstarted: Boolean(only && only.unstarted),
+          missed: Boolean(only && only.missed),
+          photos: only ? only.photos : [],
+          tip: only
+            ? only.missed
+              ? '报价有这项、工单没有，但有施工图。新增后图会挂到工单项。'
+              : '报价有这项，工单和施工图都还没有。'
+            : '',
         }
       })
       .filter(Boolean)
+    // 有报价项但模型没给建议时也列出来，保证「新增」入口不丢
+    quoteOnlyItems.forEach((row) => {
+      if (quoteAdvice.some((item) => item.onlyId === row.id)) return
+      quoteAdvice.push({
+        id: row.id,
+        name: row.name,
+        how: '',
+        photo: '',
+        amount: row.amount,
+        hasHow: false,
+        hasPhoto: false,
+        canApply: row.canApply,
+        onlyId: row.id,
+        unstarted: row.unstarted,
+        missed: row.missed,
+        photos: row.photos,
+        tip: row.missed
+          ? '报价有这项、工单没有，但有施工图。新增后图会挂到工单项。'
+          : '报价有这项，工单和施工图都还没有。',
+      })
+    })
     const workItemsNew = (Array.isArray(raw.workItems) ? raw.workItems : [])
       .map((row) => {
         const findingId = String((row && row.id) || '').trim()
@@ -6009,30 +6091,10 @@ Page({
         }
       })
       .filter(Boolean)
-    const quoteOnlyItems = (Array.isArray(raw.quoteOnlyItems) ? raw.quoteOnlyItems : [])
-      .map((row, index) => {
-        const name = String((row && row.name) || '').trim()
-        if (!name) return null
-        const kind = String((row && row.kind) || '')
-        return {
-          id: String((row && row.id) || `qo_${index}`),
-          name,
-          amount: String((row && row.amount) || '').trim(),
-          note: String((row && row.note) || '').trim(),
-          unstarted: kind !== 'work_missing',
-          missed: kind === 'work_missing',
-          adviceBody: String((row && row.advice && row.advice.body) || (row && row.adviceBody) || '').trim(),
-          photos: (Array.isArray(row && row.photos) ? row.photos : [])
-            .map((img) => ({ url: String((img && img.url) || '') }))
-            .filter((img) => img.url),
-          canApply: Boolean(row && row.canApply !== false),
-        }
-      })
-      .filter(Boolean)
     const hasQuoteAdvice = quoteAdvice.length > 0
     const hasWorkItemsNew = workItemsNew.length > 0
     const hasQuoteOnlyItems = quoteOnlyItems.length > 0
-    const showLegacy = !hasQuoteAdvice && !hasWorkItemsNew && !hasQuoteOnlyItems
+    const showLegacy = !hasQuoteAdvice && !hasWorkItemsNew
     const hasContent =
       lines.length > 0 ||
       photoPlan.length > 0 ||
@@ -6040,8 +6102,7 @@ Page({
       splitGroups.length > 0 ||
       newItems.length > 0 ||
       hasQuoteAdvice ||
-      hasWorkItemsNew ||
-      hasQuoteOnlyItems
+      hasWorkItemsNew
     return {
       status,
       scope: String(raw.scope || ''),
@@ -8158,20 +8219,42 @@ Page({
       wx.showToast({ title: '找不到施工项区域', icon: 'none' })
       return
     }
-    const blank = normalizeWorkFinding({
-      id: `fid_quote_${Date.now()}`,
-      partName: item.name,
-      caption: item.adviceBody || '',
-      images: (item.photos || []).map((img) => ({ url: img.url })),
-      quoteLineId: item.id,
-      outsideQuote: false,
+    // 已经建过同报价行/同名的施工项：只刷新面板，不再重复新建
+    const sameName = (value) => String(value || '').replace(/\s+/g, '')
+    const findings = ((this.data.sections[sectionIndex] || {}).findings) || []
+    const already = findings.some((row) => {
+      const lineId = String((row && row.quoteLineId) || '').trim()
+      if (lineId && lineId === item.id) return true
+      const a = sameName(row && row.partName)
+      return Boolean(a && a === sameName(item.name))
     })
-    this.appendFindingToSection(sectionIndex, blank)
-    this.setData({
-      workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
-    })
-    await this.persistPhotos()
-    await this.commitAppliedPhotoDraft()
+    if (already) {
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      wx.showToast({ title: '这项已在施工项里', icon: 'none' })
+      return
+    }
+    if (this._quoteItemApplying) return
+    this._quoteItemApplying = true
+    try {
+      const blank = normalizeWorkFinding({
+        id: `fid_quote_${Date.now()}`,
+        partName: item.name,
+        caption: item.adviceBody || '',
+        images: (item.photos || []).map((img) => ({ url: img.url })),
+        quoteLineId: item.id,
+        outsideQuote: false,
+      })
+      this.appendFindingToSection(sectionIndex, blank)
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      await this.persistPhotos()
+      await this.commitAppliedPhotoDraft()
+    } finally {
+      this._quoteItemApplying = false
+    }
   },
 
   /** 施工拆分建议：把一张施工项按图拆成多张。 */
@@ -8280,19 +8363,43 @@ Page({
       wx.showToast({ title: '找不到施工项区域', icon: 'none' })
       return
     }
-    const blank = normalizeWorkFinding({
-      id: `fid_new_${Date.now()}`,
-      partName,
-      caption,
-      images,
-      outsideQuote: workOutsideQuoteOf(partName, this.confirmedQuoteNames()),
+    // 已经建过同名/同图的施工项：只刷新面板，不再重复新建
+    const sameName = (value) => String(value || '').replace(/\s+/g, '')
+    const urls = images.map((img) => String((img && img.url) || '')).filter(Boolean)
+    const findings = ((this.data.sections[sectionIndex] || {}).findings) || []
+    const already = findings.some((row) => {
+      const a = sameName(row && row.partName)
+      if (partName) return Boolean(a && a === sameName(partName))
+      return (Array.isArray(row && row.images) ? row.images : []).some((img) =>
+        urls.includes(String((img && img.url) || '')),
+      )
     })
-    this.appendFindingToSection(sectionIndex, blank)
-    this.setData({
-      workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
-    })
-    await this.persistPhotos()
-    await this.commitAppliedPhotoDraft()
+    if (already) {
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      wx.showToast({ title: '这条已在施工项里', icon: 'none' })
+      return
+    }
+    if (this._workNewApplying) return
+    this._workNewApplying = true
+    try {
+      const blank = normalizeWorkFinding({
+        id: `fid_new_${Date.now()}`,
+        partName,
+        caption,
+        images,
+        outsideQuote: workOutsideQuoteOf(partName, this.confirmedQuoteNames()),
+      })
+      this.appendFindingToSection(sectionIndex, blank)
+      this.setData({
+        workAdvice: this.decorateWorkAdvice(this.data.workAdvice, this.data.sections),
+      })
+      await this.persistPhotos()
+      await this.commitAppliedPhotoDraft()
+    } finally {
+      this._workNewApplying = false
+    }
     // 不强制补充报价，由店员决定
     wx.showModal({
       title: '已新建施工项',

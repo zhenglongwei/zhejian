@@ -1917,8 +1917,25 @@
             <view wx:if="{{workAdvice.hasQuoteAdvice}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">施工建议（按报价项）</text>
               <view class="merchant-flow-page__advice-list">
-                <view wx:for="{{workAdvice.quoteAdvice}}" wx:key="id" class="merchant-flow-page__advice-card">
-                  <text wx:if="{{item.name}}" class="merchant-flow-page__advice-card-title">{{item.name}}</text>
+                <view
+                  wx:for="{{workAdvice.quoteAdvice}}"
+                  wx:key="id"
+                  class="merchant-flow-page__advice-card {{item.canApply ? 'merchant-flow-page__advice-card--actionable' : ''}}"
+                >
+                  <view class="merchant-flow-page__advice-card-head">
+                    <view class="merchant-flow-page__advice-card-title-wrap">
+                      <text wx:if="{{item.name}}" class="merchant-flow-page__advice-card-title">{{item.name}}</text>
+                      <text wx:if="{{item.unstarted}}" class="merchant-flow-page__advice-badge">未施工</text>
+                      <text wx:if="{{item.missed}}" class="merchant-flow-page__advice-badge">工单漏记</text>
+                      <text wx:if="{{item.amount}}" class="merchant-flow-page__advice-badge">¥{{item.amount}}</text>
+                    </view>
+                    <text
+                      wx:if="{{item.canApply}}"
+                      class="merchant-flow-page__advice-apply"
+                      data-id="{{item.onlyId}}"
+                      catchtap="onApplyWorkQuoteItem"
+                    >新增</text>
+                  </view>
                   <view wx:if="{{item.hasHow}}" class="merchant-flow-page__advice-card-field">
                     <text class="merchant-flow-page__advice-card-label">做法</text>
                     <text class="merchant-flow-page__advice-card-value">{{item.how}}</text>
@@ -1926,6 +1943,17 @@
                   <view wx:if="{{item.hasPhoto}}" class="merchant-flow-page__advice-card-field">
                     <text class="merchant-flow-page__advice-card-label">拍照</text>
                     <text class="merchant-flow-page__advice-card-value">{{item.photo}}</text>
+                  </view>
+                  <text wx:if="{{item.tip}}" class="merchant-flow-page__advice-tip">{{item.tip}}</text>
+                  <view wx:if="{{item.photos.length}}" class="merchant-flow-page__advice-card-media">
+                    <image
+                      wx:for="{{item.photos}}"
+                      wx:for-item="img"
+                      wx:key="url"
+                      class="merchant-flow-page__advice-shot"
+                      src="{{img.url}}"
+                      mode="aspectFill"
+                    />
                   </view>
                 </view>
               </view>
@@ -1970,42 +1998,6 @@
                       mode="aspectFill"
                     />
                   </view>
-                </view>
-              </view>
-            </view>
-            <view wx:if="{{workAdvice.hasQuoteOnlyItems}}" class="merchant-flow-page__advice-sec">
-              <text class="merchant-flow-page__advice-sec-title">报价项待施工</text>
-              <view class="merchant-flow-page__advice-list">
-                <view
-                  wx:for="{{workAdvice.quoteOnlyItems}}"
-                  wx:key="id"
-                  class="merchant-flow-page__advice-card merchant-flow-page__advice-card--actionable"
-                >
-                  <view class="merchant-flow-page__advice-card-head">
-                    <view class="merchant-flow-page__advice-card-title-wrap">
-                      <text class="merchant-flow-page__advice-card-title">{{item.name}}</text>
-                      <text class="merchant-flow-page__advice-badge">{{item.unstarted ? '未施工' : '工单漏记'}}</text>
-                      <text wx:if="{{item.amount}}" class="merchant-flow-page__advice-badge">¥{{item.amount}}</text>
-                    </view>
-                    <text
-                      wx:if="{{item.canApply}}"
-                      class="merchant-flow-page__advice-apply"
-                      data-id="{{item.id}}"
-                      catchtap="onApplyWorkQuoteItem"
-                    >新增</text>
-                  </view>
-                  <text wx:if="{{item.adviceBody}}" class="merchant-flow-page__advice-card-text">{{item.adviceBody}}</text>
-                  <view wx:if="{{item.photos.length}}" class="merchant-flow-page__advice-card-media">
-                    <image
-                      wx:for="{{item.photos}}"
-                      wx:for-item="img"
-                      wx:key="url"
-                      class="merchant-flow-page__advice-shot"
-                      src="{{img.url}}"
-                      mode="aspectFill"
-                    />
-                  </view>
-                  <text class="merchant-flow-page__advice-tip">{{item.missed ? '报价有这项、工单没有，但有施工图。新增后图会挂到工单项。' : '报价有这项，工单和施工图都还没有。'}}</text>
                 </view>
               </view>
             </view>
@@ -2120,6 +2112,7 @@
                       data-id="{{item.id}}"
                       catchtap="onApplyWorkNewItem"
                     >应用</text>
+                    <text wx:elif="{{item.applied}}" class="merchant-flow-page__advice-state">已添加</text>
                   </view>
                   <view wx:if="{{item.images.length}}" class="merchant-flow-page__advice-card-media">
                     <image
