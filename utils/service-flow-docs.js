@@ -1066,19 +1066,11 @@ function unmatchedCheckpoints(checkpoints, findings) {
 function collectConfirmedQuoteNames(flowNodes = []) {
   const names = []
   const seen = new Set()
-  ;(flowNodes || []).forEach((node) => {
-    const kind = String((node && node.kind) || '')
-    if (kind !== 'quote_confirm' && kind !== 'addon_quote_confirm') return
-    const doc = (node && node.document) || {}
-    if (String(doc.status || '') !== 'confirmed') return
-    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
-    const lines = Array.isArray(payload.lines) ? payload.lines : []
-    lines.forEach((line) => {
-      const name = String((line && line.name) || '').trim()
-      if (!name || seen.has(name)) return
-      seen.add(name)
-      names.push(name)
-    })
+  collectConfirmedQuoteLines(flowNodes).forEach((line) => {
+    const name = String((line && line.name) || '').trim()
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    names.push(name)
   })
   return names
 }

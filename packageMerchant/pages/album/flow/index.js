@@ -559,6 +559,7 @@ Page({
     docPayload: {},
     quoteLines: [],
     quoteDraftHint: '',
+    quoteUnstarted: { total: 0, namesText: '' },
     quoteEvidenceFindings: [],
     quoteTotalLabel: '合计 ¥0.00',
     quoteHeroAmount: '0',
@@ -2191,6 +2192,7 @@ Page({
         vehicleLine,
         quoteLines,
         quoteDraftHint,
+        quoteUnstarted: this.buildQuoteUnstartedHint(flowNodes),
         addonEntryLabel: face.addonEntry,
         quoteEvidenceFindings,
         ...this.quoteMoneyFields(quoteLines),
@@ -7670,7 +7672,21 @@ Page({
           (row) => row && row.code === 'QUOTE_ITEMS_NOT_STARTED',
         )
         if (unstartedWarning) {
-          wx.showToast({ title: `还有 ${unstartedWarning.total} 项报价未施工`, icon: 'none' })
+          const names = (unstartedWarning.items || []).map((row) => row && row.name).filter(Boolean)
+          const acknowledged = this._workWarnAcknowledged
+          this._workWarnAcknowledged = false
+          // 已在前置弹窗里选择「忽略完成」的不再重复打扰；否则兜底再提醒一次
+          if (!acknowledged) {
+            wx.showModal({
+              title: `还有 ${unstartedWarning.total} 项报价未施工`,
+              content: `${names.slice(0, 4).join('、')}${names.length > 4 ? ' 等' : ''}\n施工已完结，可回施工节点补做，或去报价单核对。`,
+              confirmText: '去报价单',
+              cancelText: '知道了',
+              success: (r) => {
+                if (r.confirm) this.openStage('quote')
+              },
+            })
+          }
         }
         if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
         else if (kind === 'inspection') this.openStage('inspect')
@@ -7682,22 +7698,50 @@ Page({
     }
 
     if (kind === 'work') {
-      // 非阻塞提醒：报价有、工单没有的项目，仍可继续完成
-      const unstarted = computeUnstartedQuoteItems(this._flowNodes || [])
-      if (unstarted.total > 0) {
-        const names = unstarted.items.map((row) => row.name)
+      // 非阻塞提醒：报价有、工单没有 → 补施工项；工单有、报价没有 → 补报价
+      let diff = null
+      try {
+        wx.showLoading({ title: '核对报价…', mask: true })
+        diff = await this.workCompletionDiff()
+      } finally {
+        wx.hideLoading()
+      }
+      if (!diff) diff = { unstarted: { total: 0, items: [] }, outside: [] }
+      const unstartedNames = diff.unstarted.items.map((row) => row.name).filter(Boolean)
+      const outsideNames = diff.outside
+      if (unstartedNames.length || outsideNames.length) {
+        const brief = []
+        if (unstartedNames.length) {
+          brief.push(
+            `未施工 ${unstartedNames.length} 项：${unstartedNames.slice(0, 3).join('、')}${
+              unstartedNames.length > 3 ? ' 等' : ''
+            }`,
+          )
+        }
+        if (outsideNames.length) {
+          brief.push(
+            `不在报价 ${outsideNames.length} 项：${outsideNames.slice(0, 3).join('、')}${
+              outsideNames.length > 3 ? ' 等' : ''
+            }`,
+          )
+        }
         wx.showModal({
-          title: `还有 ${unstarted.total} 项报价项目未施工`,
-          content: `${names.slice(0, 4).join('、')}${names.length > 4 ? ' 等' : ''}\n可回报价单查看，也可继续完成施工。`,
-          confirmText: '仍然完成',
-          cancelText: '去看看',
+          title: '施工和报价对不上',
+          content: `${brief.join('\n')}\n\n可以先补齐，也可以忽略继续完成。`,
+          confirmText: '去处理',
+          cancelText: '忽略完成',
           success: (res) => {
-            if (res.confirm) run(this.buildAiReviewAckExtra())
-            else if (res.cancel) this.openStage('quote')
+            if (res.confirm) {
+              this.promptWorkDiffActions({ unstartedNames, outsideNames })
+            } else if (res.cancel) {
+              this._workWarnAcknowledged = true
+              run(this.buildAiReviewAckExtra())
+            }
           },
         })
         return
       }
+      this._workWarnAcknowledged = false
       await run(this.buildAiReviewAckExtra())
       return
     }
@@ -7744,6 +7788,74 @@ Page({
       return
     }
     await run(this.buildAiReviewAckExtra())
+  },
+
+  /** 报价未施工提示：施工开始后才提示，避免还没动工就在报价单上报“未施工” */
+  buildQuoteUnstartedHint(flowNodes) {
+    const empty = { total: 0, namesText: '' }
+    const nodes = Array.isArray(flowNodes) ? flowNodes : []
+    const workNode = nodes.find((node) => node && node.kind === 'work')
+    if (!workNode) return empty
+    const findings = nodeContentOf(workNode).findings
+    const started = Boolean(
+      workNode.status === 'completed' || (Array.isArray(findings) && findings.length),
+    )
+    if (!started) return empty
+    const unstarted = computeUnstartedQuoteItems(nodes)
+    if (!unstarted.total) return empty
+    return {
+      total: unstarted.total,
+      namesText: unstarted.items.map((row) => row.name).slice(0, 4).join('、'),
+    }
+  },
+
+  /** 完成施工前的差异：报价未施工 / 施工项不在报价内（取服务端最新流程，叠加当前编辑） */
+  async workCompletionDiff() {
+    let nodes = this._flowNodes || []
+    try {
+      const flow = await fetchMerchantAlbumFlow(this.albumId)
+      if (flow && Array.isArray(flow.flowNodes) && flow.flowNodes.length) nodes = flow.flowNodes
+    } catch (_) {
+      /* 网络失败时退回页面缓存 */
+    }
+    const localFindings = this.collectFindingsFromSections()
+    const activeId = String((this.data.activeNode && this.data.activeNode.id) || '')
+    const withLocal = nodes.map((node) => {
+      if (!node || node.kind !== 'work') return node
+      if (activeId && node.id !== activeId) return node
+      return { ...node, content: { ...nodeContentOf(node), findings: localFindings } }
+    })
+    const unstarted = computeUnstartedQuoteItems(withLocal)
+    const quoteNames = collectConfirmedQuoteNames(withLocal)
+    const outside = []
+    const seen = new Set()
+    localFindings.forEach((row) => {
+      const name = String((row && row.partName) || '').trim()
+      if (!name || seen.has(name)) return
+      seen.add(name)
+      if (workOutsideQuoteOf(name, quoteNames)) outside.push(name)
+    })
+    return { unstarted, outside }
+  },
+
+  /** 差异处理入口：补施工项 / 补报价 / 先不完成 */
+  promptWorkDiffActions({ unstartedNames = [], outsideNames = [] } = {}) {
+    const items = []
+    if (unstartedNames.length) items.push('补充施工项')
+    if (outsideNames.length) items.push('补充报价')
+    items.push('先不完成')
+    wx.showActionSheet({
+      itemList: items,
+      success: (res) => {
+        const pick = items[res.tapIndex]
+        if (pick === '补充施工项') {
+          if (!this.data.adviceOpen) this.openAdvicePanel()
+          wx.showToast({ title: '点施工建议里的「新增」补项', icon: 'none' })
+        } else if (pick === '补充报价') {
+          this.onAddAddonPlan()
+        }
+      },
+    })
   },
 
   buildDocPayloadForSave() {

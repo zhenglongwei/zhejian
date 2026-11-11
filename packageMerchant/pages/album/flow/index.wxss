@@ -1294,6 +1294,15 @@
   color: var(--color-text-tertiary);
 }
 
+.merchant-flow-page__quote-unstarted {
+  display: block;
+  margin: var(--space-xs) 0;
+  padding: 8rpx 16rpx;
+  border-radius: var(--radius-md);
+  background-color: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
 .merchant-flow-page__advice-ask-title {
   font-size: var(--font-body-size);
   line-height: var(--font-body-lh);

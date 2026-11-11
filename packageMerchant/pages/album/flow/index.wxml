@@ -1461,6 +1461,7 @@
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
                     <text class="text-body merchant-flow-page__sheet-title">报价单</text>
                   </view>
+                  <text wx:if="{{quoteUnstarted.total}}" class="text-caption merchant-flow-page__quote-unstarted">还有 {{quoteUnstarted.total}} 项报价未施工：{{quoteUnstarted.namesText}}，回施工节点补项</text>
                   <text wx:if="{{quoteDraftHint}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
                     <view
