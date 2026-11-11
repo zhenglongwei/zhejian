@@ -153,12 +153,15 @@ function pickFinish(flowNodes) {
         const note = String(obj.note || '').trim()
         const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
         if (!name) return null
+        const photoCount = Array.isArray(obj.images) ? obj.images.length : 0
         return {
           name,
           kind: obj.kind === 'exterior' ? 'exterior' : 'work',
           note,
           result,
-          photoCount: Array.isArray(obj.images) ? obj.images.length : 0,
+          photoCount,
+          // 外观照选填（2026-11-11）：缺图如实标注，供 AI 引用时降权采信，而非静默缺失
+          missingPhoto: obj.kind === 'exterior' && photoCount === 0,
         }
       })
       .filter(Boolean)

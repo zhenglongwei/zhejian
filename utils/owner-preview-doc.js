@@ -340,6 +340,8 @@ function buildOwnerPreviewDoc(input = {}) {
           result,
           resultLabel: result ? acceptanceLabels[result] : '',
           resultTone: result ? acceptanceTones[result] : '',
+          // 外观照选填（2026-11-11）：缺图如实标注，车主确认单展示「商家未留外观照」
+          missingPhoto: Boolean(isExterior && photoRows(obj.images).length === 0),
         }
       })
       .filter(Boolean)

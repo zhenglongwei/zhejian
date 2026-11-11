@@ -41,13 +41,13 @@ test('交车确认：外观行有图 + 逐行结果 + 质保 + 交付人齐则�
   assert.deepEqual(collectDeliveryPhotoDraftGaps(filled), [])
 })
 
-test('交车确认：缺外观图给提示', () => {
-  assert.ok(
-    collectDeliveryPhotoDraftGaps({
-      ...filled,
-      acceptanceItems: [acc('pass'), exterior([])],
-    }).includes('请至少上传 1 张整车外观照'),
-  )
+test('交车确认：缺外观图不再拦（2026-11-11 选填化，前端弹确认 + payload 留痕）', () => {
+  const gaps = collectDeliveryPhotoDraftGaps({
+    ...filled,
+    acceptanceItems: [acc('pass'), exterior([])],
+  })
+  assert.equal(gaps.includes('请至少上传 1 张整车外观照'), false)
+  assert.deepEqual(gaps, [])
 })
 
 test('交车确认：没有施工项目时提示先回施工节点', () => {

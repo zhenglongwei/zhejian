@@ -234,6 +234,10 @@
             wx:if="{{acc.resultLabel}}"
             class="service-doc-sheet__acc-result service-doc-sheet__acc-result--{{acc.resultTone}}"
           >{{acc.resultLabel}}</text>
+          <text
+            wx:if="{{acc.kind === 'exterior' && acc.missingPhoto}}"
+            class="service-doc-sheet__acc-result service-doc-sheet__acc-result--observe"
+          >商家未留外观照</text>
         </view>
         <text wx:if="{{acc.note}}" class="service-doc-sheet__note">{{acc.note}}</text>
         <view wx:if="{{acc.images && acc.images.length}}" class="service-doc-sheet__finding-photos">

@@ -372,6 +372,8 @@ function mapAcceptanceItems(payload = {}, lookup) {
         result,
         resultLabel: result ? ACCEPTANCE_RESULT_LABELS[result] : '',
         images,
+        // 外观照选填（2026-11-11）：缺图如实标注，读侧渲染「商家未留外观照」
+        missingPhoto: Boolean(isExterior && !images.length),
       }
     })
     .filter(Boolean)
@@ -397,6 +399,8 @@ function mapRepairChapter(node, lookup) {
       warrantyNotes: payload.warrantyNotes,
       warrantyScope: payload.warrantyScope,
     }),
+    // 定稿时确认过「不拍外观照」的留痕，公开侧与商家端一致
+    exteriorPhotoWaived: payload.exteriorPhotoWaived === true,
   }
 }
 

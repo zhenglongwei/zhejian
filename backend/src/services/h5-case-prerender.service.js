@@ -108,6 +108,8 @@ function chapterLines(chapter) {
   })
   ;(chapter.acceptanceItems || []).forEach((row) => {
     const bits = [row && row.name, row && row.resultLabel, row && row.note].filter(Boolean)
+    // 外观照选填：缺图如实写进 SEO 文本，供搜索引擎与 AI 引用时采信判断
+    if (row && row.kind === 'exterior' && row.missingPhoto) bits.push('商家未留外观照')
     if (bits.length) lines.push(`验收：${bits.join(' · ')}`)
   })
   ;(chapter.photos || []).forEach((photo) => {

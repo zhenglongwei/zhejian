@@ -1445,12 +1445,10 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
   const accItems = resolveAcceptanceItems(payload)
   const workRows = accItems.filter((item) => item.kind !== ACCEPTANCE_KIND.EXTERIOR)
-  const exteriorRow = accItems.find((item) => item.kind === ACCEPTANCE_KIND.EXTERIOR)
+  // 外观照已改为选填（2026-11-11）：缺图不再硬拦交车，由前端弹确认并在 payload 记 exteriorPhotoWaived 留痕。
+  // 可信信源原则：诚实标注「未留证」优于事后补拍造假。
   if (!workRows.length) {
     gaps.push('还没有施工项目：请先在施工节点完成施工项，再回来逐项验收')
-  }
-  if (!exteriorRow || !exteriorRow.images.length) {
-    gaps.push('请至少上传 1 张整车外观照')
   }
   const period = String(payload.warrantyPeriod || '').trim()
   if (!period) {
@@ -1950,6 +1948,8 @@ function buildRepairReportPayload({
     warrantyScope: '',
     warrantyExclusions: '',
     delivererName: String(photoDraft.delivererName || '').trim(),
+    // 外观照豁免留痕透传：读侧（车主/公开页）据此标注「商家未留外观照」
+    exteriorPhotoWaived: photoDraft.exteriorPhotoWaived === true,
     finishedAt: String(photoDraft.finishedAt || '').trim(),
     confirmCopy:
       String(confirmCopy || photoDraft.confirmCopy || '').trim() ||
@@ -2025,6 +2025,8 @@ function normalizePhotoDraft(raw = {}) {
     inspectedAt: String(raw.inspectedAt || '').trim(),
     workerName: String(raw.workerName || '').trim(),
     delivererName: String(raw.delivererName || '').trim(),
+    // 外观照豁免留痕：true = 定稿时确认过「不拍外观照」，读侧据此标注「商家未留外观照」
+    exteriorPhotoWaived: raw.exteriorPhotoWaived === true,
     finishedAt: String(raw.finishedAt || '').trim(),
     recordVersions: Array.isArray(raw.recordVersions)
       ? raw.recordVersions
@@ -2126,6 +2128,9 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.inspectedAt != null) next.inspectedAt = String(patch.inspectedAt || '').trim()
   if (patch.workerName != null) next.workerName = String(patch.workerName || '').trim()
   if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
+  if (patch.exteriorPhotoWaived != null) {
+    next.exteriorPhotoWaived = patch.exteriorPhotoWaived === true
+  }
   if (patch.finishedAt != null) next.finishedAt = String(patch.finishedAt || '').trim()
   if (patch.recordVersions != null) {
     next.recordVersions = normalizePhotoDraft({ recordVersions: patch.recordVersions }).recordVersions

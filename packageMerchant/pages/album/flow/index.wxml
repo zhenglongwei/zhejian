@@ -1205,14 +1205,39 @@
                 <view class="merchant-flow-page__key-fill-field">
                   <view class="merchant-flow-page__key-fill-label-row">
                     <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收</text>
-                    <text class="merchant-flow-page__key-fill-req">（每行选结果；外观行必传图）</text>
+                    <text class="merchant-flow-page__key-fill-req">（每行选结果；图片选填）</text>
                   </view>
                   <text wx:if="{{!acceptanceWorkCount}}" class="text-caption text-secondary merchant-flow-page__delivery-hint">还没有施工项目：请先在施工节点完成施工项，再回来逐项验收。</text>
                   <view wx:for="{{acceptanceItems}}" wx:key="id" class="merchant-flow-page__owner-faq merchant-flow-page__acc-row">
                     <view class="merchant-flow-page__owner-faq-head">
                       <text class="text-body merchant-flow-page__acc-name">{{item.kind === 'exterior' ? '外观（整车）' : item.name}}</text>
-                      <text wx:if="{{item.kind === 'exterior'}}" class="merchant-flow-page__key-fill-req">（至少 1 张，车头或车尾拍清楚）</text>
+                      <text wx:if="{{item.kind === 'exterior'}}" class="merchant-flow-page__key-fill-req">（选填，建议拍车头或车尾）</text>
                     </view>
+                    <view class="merchant-flow-page__acc-result">
+                      <text class="text-caption text-secondary merchant-flow-page__acc-result-label">结果</text>
+                      <view class="merchant-flow-page__acc-result-opts">
+                        <text
+                          wx:for="{{acceptanceResultOptions}}"
+                          wx:for-item="opt"
+                          wx:key="value"
+                          class="merchant-flow-page__acc-result-opt {{item.result === opt.value ? 'merchant-flow-page__acc-result-opt--active' : ''}}"
+                          data-row-id="{{item.id}}"
+                          data-value="{{opt.value}}"
+                          bindtap="onAcceptanceResultTap"
+                        >{{opt.label}}</text>
+                      </view>
+                    </view>
+                    <textarea
+                      class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
+                      placeholder="{{item.kind === 'exterior' ? '外观描述（选填）：如左前门已抛光，漆面无明显划痕' : '验收描述（选填）：这车实际什么状态，例：举升复查螺栓力矩复紧到位'}}"
+                      value="{{item.note}}"
+                      maxlength="300"
+                      auto-height="{{true}}"
+                      data-row-id="{{item.id}}"
+                      data-field="note"
+                      disabled="{{readOnly}}"
+                      bindinput="onAcceptanceItemInput"
+                    />
                     <view class="merchant-flow-page__delivery-pool">
                       <view
                         wx:for="{{item.images}}"
@@ -1246,31 +1271,6 @@
                         <text class="text-caption merchant-flow-page__delivery-add-label">{{item.kind === 'exterior' ? '外观照' : '验收图'}}</text>
                       </view>
                     </view>
-                    <view class="merchant-flow-page__acc-result">
-                      <text class="text-caption text-secondary merchant-flow-page__acc-result-label">结果</text>
-                      <view class="merchant-flow-page__acc-result-opts">
-                        <text
-                          wx:for="{{acceptanceResultOptions}}"
-                          wx:for-item="opt"
-                          wx:key="value"
-                          class="merchant-flow-page__acc-result-opt {{item.result === opt.value ? 'merchant-flow-page__acc-result-opt--active' : ''}}"
-                          data-row-id="{{item.id}}"
-                          data-value="{{opt.value}}"
-                          bindtap="onAcceptanceResultTap"
-                        >{{opt.label}}</text>
-                      </view>
-                    </view>
-                    <textarea
-                      class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
-                      placeholder="{{item.kind === 'exterior' ? '外观描述（选填）：如左前门已抛光，漆面无明显划痕' : '验收描述（选填）：这车实际什么状态，例：举升复查螺栓力矩复紧到位'}}"
-                      value="{{item.note}}"
-                      maxlength="300"
-                      auto-height="{{true}}"
-                      data-row-id="{{item.id}}"
-                      data-field="note"
-                      disabled="{{readOnly}}"
-                      bindinput="onAcceptanceItemInput"
-                    />
                   </view>
                 </view>
 

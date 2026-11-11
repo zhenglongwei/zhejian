@@ -7485,7 +7485,7 @@ Page({
       }
     }
 
-    const run = async (extra = {}) => {
+    const run = async (extra = {}, contentExtra = {}) => {
       this.setData({ confirming: true })
       this.stopAiReviewPoll()
       try {
@@ -7493,11 +7493,15 @@ Page({
         this.resyncSectionsAfterPersist()
         await this.persistPhotoDraft()
         this.clearLocalFlowDraft()
+        const bag = this.buildPhotoDraftPayload()
+        if (contentExtra && typeof contentExtra === 'object') {
+          Object.assign(bag, contentExtra)
+        }
         // 接车勿先单独写 document.delivered，否则 complete 会被「已发出冻结」拦住
         const res = await completeMerchantFlowNode(
           this.albumId,
           this.data.activeNode.id,
-          Object.assign({}, flowContentSave(this.buildPhotoDraftPayload()), extra),
+          Object.assign({}, flowContentSave(bag), extra),
         )
         if (res && res.nextAction === 'ai_review') {
           this.applyInlineAiReview(res.review, 'complete')
@@ -7526,10 +7530,34 @@ Page({
       kind === 'intake_inspection' ||
       kind === 'intake' ||
       kind === 'inspection' ||
-      kind === 'work' ||
-      kind === 'delivery_photos'
+      kind === 'work'
     ) {
       await run(this.buildAiReviewAckExtra())
+      return
+    }
+    if (kind === 'delivery_photos') {
+      const exteriorRow = (this.data.acceptanceItems || []).find(
+        (item) => item && item.kind === 'exterior',
+      )
+      const hasExteriorPhoto = Boolean(
+        exteriorRow && Array.isArray(exteriorRow.images) && exteriorRow.images.length,
+      )
+      if (hasExteriorPhoto) {
+        await run(this.buildAiReviewAckExtra())
+        return
+      }
+      // 外观照选填：缺图不拦交车，但强提醒并留痕（诚实标注优于补拍造假）
+      wx.showModal({
+        title: '未拍整车外观照',
+        content: '没有外观照，交车后无法用照片证明车辆外观状态。确认不拍并继续交车？',
+        confirmText: '不拍，交车',
+        cancelText: '去补拍',
+        success: (res) => {
+          if (res.confirm) {
+            run(this.buildAiReviewAckExtra(), { exteriorPhotoWaived: true })
+          }
+        },
+      })
       return
     }
 
