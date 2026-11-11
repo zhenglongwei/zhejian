@@ -139,7 +139,7 @@ Component({
         }
         this.setData({
           decodedVehicle: { vin, ...(fallbackHints || {}) },
-          vehicleHint: '未解析出车型，请手填',
+          vehicleHint: '未解析到车型，请手工填写',
         })
       }
     },

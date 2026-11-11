@@ -7,6 +7,12 @@ const { prisma } = require('../lib/prisma')
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/i
 
+/** 对外统一错误文案：只区分「格式不对」「未解析到车型」「服务不可用」三种 */
+const MSG_INVALID_VIN = '请输入 17 位有效车架号（VIN）'
+const MSG_DECODE_EMPTY = '未解析到车型，请手工填写品牌与车系'
+const MSG_SERVICE_UNAVAILABLE = '车型解析服务暂不可用，请手工填写品牌与车系'
+const MSG_DECODE_TIMEOUT = '车型解析超时，请稍后重试或手工填写品牌与车系'
+
 function httpError(message, status = 400, code = '') {
   const err = new Error(message)
   err.status = status
@@ -324,7 +330,7 @@ function summarizeBodyForLog(body) {
 async function decodeVin(vinInput) {
   const vin = normalizeVin(vinInput)
   if (!VIN_RE.test(vin)) {
-    throw httpError('请输入 17 位有效车架号（VIN）', 400, 'INVALID_VIN')
+    throw httpError(MSG_INVALID_VIN, 400, 'INVALID_VIN')
   }
 
   const cached = await findCachedDecode(vin)
@@ -341,11 +347,7 @@ async function decodeVin(vinInput) {
 
   const appCode = config.aliyunVin && config.aliyunVin.appCode
   if (!appCode) {
-    throw httpError(
-      '未配置 VIN 解析服务（ALIYUN_VIN_APPCODE），请手工填写品牌与车系',
-      503,
-      'VIN_DECODE_NOT_CONFIGURED',
-    )
+    throw httpError(MSG_SERVICE_UNAVAILABLE, 503, 'VIN_DECODE_NOT_CONFIGURED')
   }
 
   const host = (config.aliyunVin && config.aliyunVin.host) || 'https://sxvinv2.market.alicloudapi.com'
@@ -371,9 +373,9 @@ async function decodeVin(vinInput) {
     text = await response.text()
   } catch (err) {
     if (err && err.name === 'AbortError') {
-      throw httpError('VIN 解析超时，请稍后重试或手工填写', 504, 'VIN_DECODE_TIMEOUT')
+      throw httpError(MSG_DECODE_TIMEOUT, 504, 'VIN_DECODE_TIMEOUT')
     }
-    throw httpError('VIN 解析服务暂不可用，请手工填写车型', 502, 'VIN_DECODE_NETWORK')
+    throw httpError(MSG_SERVICE_UNAVAILABLE, 502, 'VIN_DECODE_NETWORK')
   } finally {
     clearTimeout(timer)
   }
@@ -386,24 +388,22 @@ async function decodeVin(vinInput) {
   }
 
   if (!response.ok) {
-    const msg =
-      (body && (body.msg || body.message || body.error_msg || body.reason)) ||
-      `VIN 解析失败（HTTP ${response.status}）`
     console.warn('[vin-decode] http failed', {
       status: response.status,
+      msg: (body && (body.msg || body.message || body.error_msg || body.reason)) || '',
       summary: summarizeBodyForLog(body),
     })
-    throw httpError(String(msg).slice(0, 200), 502, 'VIN_DECODE_FAILED')
+    throw httpError(MSG_SERVICE_UNAVAILABLE, 502, 'VIN_DECODE_FAILED')
   }
 
   const errCode = body && (body.error_code ?? body.errorCode ?? body.code ?? body.status)
   if (!isApiSuccessCode(errCode)) {
-    const msg =
-      (body && (body.reason || body.msg || body.message || body.error_msg)) || 'VIN 未查询到结果'
     console.warn('[vin-decode] business empty', {
+      code: errCode,
+      msg: (body && (body.reason || body.msg || body.message || body.error_msg)) || '',
       summary: summarizeBodyForLog(body),
     })
-    throw httpError(String(msg).slice(0, 200), 404, 'VIN_DECODE_EMPTY')
+    throw httpError(MSG_DECODE_EMPTY, 404, 'VIN_DECODE_EMPTY')
   }
 
   const mapped = mapAliyunVinResult(body || {})
@@ -413,7 +413,7 @@ async function decodeVin(vinInput) {
       summary: summarizeBodyForLog(body),
       candidateCount: mapped.candidateCount,
     })
-    throw httpError('未解析到品牌/车系，请手工填写', 404, 'VIN_DECODE_EMPTY')
+    throw httpError(MSG_DECODE_EMPTY, 404, 'VIN_DECODE_EMPTY')
   }
   if (!mapped.vehicle.vin) mapped.vehicle.vin = vin
 
