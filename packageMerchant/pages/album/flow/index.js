@@ -5969,6 +5969,15 @@ Page({
       if (!section || section.findingKind !== 'work') return
       ;(Array.isArray(section.findings) ? section.findings : []).forEach((row) => workFindings.push(row))
     })
+    // 不在报价里的工单项（outsideQuote）
+    const outsideQuoteItems = workFindings
+      .filter((finding) => Boolean(finding && finding.outsideQuote))
+      .map((finding) => ({
+        id: String((finding && finding.id) || ''),
+        name: String((finding && finding.partName) || '').trim(),
+        hasQuoteLineId: Boolean(finding && finding.quoteLineId),
+      }))
+      .filter((row) => row.name)
     const coveredQuote = (row) =>
       workFindings.some((finding) => {
         const lineId = String((finding && finding.quoteLineId) || '').trim()
@@ -6156,6 +6165,8 @@ Page({
       quoteAdvice,
       workItems: workItemsNew,
       quoteOnlyItems,
+      outsideQuoteItems,
+      hasOutsideQuoteItems: outsideQuoteItems.length > 0,
       hasPhotoPlan: photoPlan.length > 0,
       hasSequence: sequence.length > 0,
       hasSplitGroups: splitGroups.length > 0,
@@ -7245,8 +7256,17 @@ Page({
     const nodes = this._flowNodes
     const sections = this.data.sections || []
     const quoteLines = this.data.quoteLines || []
+    // 优先当前 active quote 节点自己的 quoteAssist（补充报价），否则首次报价节点，都没有则 null
+    const currentQuoteNode = (nodes || []).find((n) => {
+      if (!n) return false
+      if (n.id === this.data.activeNode.id) {
+        return n.kind === 'quote_confirm' || n.kind === 'addon_quote_confirm'
+      }
+      return false
+    })
     const quoteAssistRaw =
-      (nodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {}).quoteAssist ||
+      (currentQuoteNode && currentQuoteNode.quoteAssist) ||
+      ((nodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {}).quoteAssist) ||
       null
     this._pendingQuoteAssist = quoteAssistRaw
 
@@ -7901,6 +7921,7 @@ Page({
           if (!this.data.adviceOpen) this.openAdvicePanel()
           wx.showToast({ title: '点施工建议里的「新增」补项', icon: 'none' })
         } else if (pick === '补充报价') {
+          this.setData({ adviceOpen: false })
           this.onAddAddonPlan()
         }
       },

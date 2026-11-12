@@ -1915,6 +1915,29 @@
         </view>
         <block wx:if="{{(stageBoard.family === 'work' && workAdvice.hasContent) || (stageBoard.family === 'finish' && deliveryAdvice.hasContent) || (stageBoard.family === 'inspect' && inspectionAdvice.hasContent) || (stageBoard.family === 'intake' && intakeAdvice.hasContent) || (stageBoard.family === 'quote' && quoteAssist.hasContent) || !((advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)))}}">
           <block wx:if="{{stageBoard.family === 'work' && workAdvice.hasContent}}">
+            <view wx:if="{{workAdvice.hasOutsideQuoteItems}}" class="merchant-flow-page__advice-sec">
+              <view class="merchant-flow-page__advice-row">
+                <text class="merchant-flow-page__advice-sec-title">这些施工项不在原报价里</text>
+                <text class="merchant-flow-page__advice-badge">{{workAdvice.outsideQuoteItems.length}}项</text>
+              </view>
+              <view class="merchant-flow-page__advice-card merchant-flow-page__advice-card--actionable">
+                <view class="merchant-flow-page__advice-card-head">
+                  <view class="merchant-flow-page__advice-card-title-wrap">
+                    <text class="merchant-flow-page__advice-card-text">
+                      <block wx:for="{{workAdvice.outsideQuoteItems}}" wx:key="id" wx:for-item="oq">
+                        <text wx:if="{{index > 0}}、</text>
+                        <text>{{oq.name}}</text>
+                      </block>
+                    </text>
+                  </view>
+                  <text
+                    class="merchant-flow-page__advice-apply"
+                    catchtap="onAddAddonPlan"
+                  >补充报价</text>
+                </view>
+                <text class="merchant-flow-page__advice-tip">这些是施工中发现的新增项，需要补进报价单。</text>
+              </view>
+            </view>
             <view wx:if="{{workAdvice.hasQuoteAdvice}}" class="merchant-flow-page__advice-sec">
               <text class="merchant-flow-page__advice-sec-title">施工建议（按报价项）</text>
               <view class="merchant-flow-page__advice-list">
