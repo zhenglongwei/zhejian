@@ -8273,8 +8273,12 @@ Page({
     }
     try {
       const quotePayload = this.buildQuotePayloadForSave()
+      const active = this.data.activeNode
+      // 报价 AI 跟节点绑定：补充报价节点用自己的 id 生成，不落到首次报价
       const quoteNodeId =
-        this.data.quoteNodeId || this._quoteNodeId || (this.data.activeNode && this.data.activeNode.id)
+        active && active.kind === 'quote_confirm'
+          ? active.id
+          : this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
         await this.saveFlowNode(quoteNodeId, {
           document: { status: 'draft', payload: quotePayload },

@@ -577,18 +577,35 @@ function collectPreviewImages(node, albumNodes = []) {
   return collectNodePhotoList(node, albumNodes)
 }
 
+/** 报价类节点（含旧数据的 addon_quote_confirm） */
+function isQuoteNodeOf(node) {
+  return Boolean(node && (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm'))
+}
+
+function isAddonQuoteNode(node) {
+  if (!isQuoteNodeOf(node)) return false
+  return String(node.insertedReason || '') === 'addon' || node.kind === 'addon_quote_confirm'
+}
+
 function buildAdviceFingerprints(album) {
   if (!album) {
-    return { quote: '', intake: '', work: '', inspect: '', delivery: '' }
+    return { quote: '', quotes: {}, intake: '', work: '', inspect: '', delivery: '' }
   }
   let quote = ''
   let intake = ''
   let work = ''
   let inspect = ''
   let delivery = ''
+  const quotes = {}
   try {
     const { buildAssistFingerprint } = require('./quote-assist.service')
-    quote = buildAssistFingerprint(album)
+    // 每个报价节点（首次 + 补充报价）各自一份指纹，避免拿首次报价的指纹判 addon 是否过期
+    const quoteNodes = sortFlowNodes(readFlowNodesRaw(album)).filter(isQuoteNodeOf)
+    quoteNodes.forEach((node) => {
+      quotes[node.id] = buildAssistFingerprint(album, node)
+    })
+    const firstQuote = quoteNodes.find((node) => !node.insertedReason)
+    quote = (firstQuote && quotes[firstQuote.id]) || buildAssistFingerprint(album)
   } catch (_) {
     /* ignore */
   }
@@ -607,7 +624,7 @@ function buildAdviceFingerprints(album) {
   } catch (_) {
     /* ignore */
   }
-  return { quote, intake, work, inspect, delivery }
+  return { quote, quotes, intake, work, inspect, delivery }
 }
 
 /** 读侧重签原图：小程序 <image> 无法带 Bearer；库内应是裸 URL */
@@ -643,7 +660,10 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
   const photo = isPhotoFlowNode(node)
   const needConfirm = requiresOwnerConfirm(node)
   const fps = adviceFingerprints || {}
-  const quoteContentFp = String(fps.quote || '')
+  // 报价指纹按节点取：补充报价用自己的指纹判断是否过期
+  const quoteContentFp = isAddonQuoteNode(node)
+    ? String((fps.quotes && fps.quotes[node.id]) || '')
+    : String(fps.quote || '')
   const intakeContentFp = String(fps.intake || '')
   const stepContentFp = (kind) => String(fps[kind] || '')
 
@@ -1231,14 +1251,16 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
   try {
-    const quoteRaw = sortFlowNodes(readFlowNodesRaw(album)).find(
-      (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
-    )
-    const assistStatus = String((quoteRaw && quoteRaw.quoteAssist && quoteRaw.quoteAssist.status) || '')
-    if (assistStatus === 'queued' || assistStatus === 'running') {
-      const { queueQuoteAssistGenerate } = require('./quote-assist.service')
-      queueQuoteAssistGenerate({ albumId, merchantId })
-    }
+    const { queueQuoteAssistGenerate } = require('./quote-assist.service')
+    // 每个报价节点（首次 + 各补充报价）各自恢复未完成的分析
+    sortFlowNodes(readFlowNodesRaw(album))
+      .filter(isQuoteNodeOf)
+      .forEach((item) => {
+        const assistStatus = String((item.quoteAssist && item.quoteAssist.status) || '')
+        if (assistStatus === 'queued' || assistStatus === 'running') {
+          queueQuoteAssistGenerate({ albumId, merchantId, nodeId: item.id })
+        }
+      })
     const intakeRaw = sortFlowNodes(readFlowNodesRaw(album)).find(
       (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
     )
@@ -1414,6 +1436,8 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     const startAlbum = await loadAlbum(albumId)
     const queued = await queueQuoteAssistIfNeeded(startAlbum, merchantId, {
       force: forceAdviceRefresh,
+      // 报价 AI 跟节点绑定：首次报价与各补充报价各自生成、各自保存
+      nodeId: id,
     })
     const fresh = await loadAlbum(albumId)
     const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
