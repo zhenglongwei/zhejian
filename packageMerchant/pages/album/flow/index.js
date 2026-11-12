@@ -2069,6 +2069,18 @@ Page({
         ? buildMerchantStageBoard(album, flowNodes, stageKeyForBoard)
         : null
       const openStageBar = openStageBoard ? this.stageBarFields(flowNodes, openStageBoard, active) : {}
+      const openStageFocus = openStageBoard
+        ? flowNodes.find((node) => node && node.id === openStageBoard.focusId)
+        : null
+      // 补充报价是独立节点：冻结判断要按节点自己的身份，不能跟着"首次报价"一起冻
+      const openFreezeFamily =
+        openStageFocus &&
+        (openStageFocus.kind === 'quote_confirm' ||
+          openStageFocus.kind === 'addon_quote_confirm' ||
+          String(openStageFocus.insertedReason || '') === 'addon')
+          ? familyOfKind(openStageFocus.kind, openStageFocus)
+          : openStageBoard &&
+            (openStageBoard.family || familyOfStageKey(openStageBoard.selectedKey))
       const openAdvice = Boolean(this._openAdviceAfterLoad)
       this._openAdviceAfterLoad = false
       // 切换到另一个节点时，上一节点打开的 AI 面板不应跟着带过去
@@ -2088,18 +2100,11 @@ Page({
         statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
         readOnly:
           readOnly ||
-          Boolean(
-            openStageBoard &&
-              isStageFrozen(flowNodes, openStageBoard.family || familyOfStageKey(openStageBoard.selectedKey)),
-          ) ||
+          Boolean(openStageBoard && isStageFrozen(flowNodes, openFreezeFamily)) ||
           Boolean(
             openStageBoard &&
               openStageBoard.family === 'quote' &&
-              stageReviewForm(
-                openStageBoard,
-                openStageBoard && flowNodes.find((node) => node && node.id === openStageBoard.focusId),
-                flowNodes,
-              ),
+              stageReviewForm(openStageBoard, openStageFocus, flowNodes),
           ),
         completedSteps,
         activeNode: active,
@@ -2395,10 +2400,16 @@ Page({
     const stay = focusStaysEditable(stageBoard, focus)
     const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
     const review = stageReviewForm(stageBoard, focus, nodes)
+    const freezeFamily =
+      focus &&
+      (focus.kind === 'quote_confirm' ||
+        focus.kind === 'addon_quote_confirm' ||
+        String(focus.insertedReason || '') === 'addon')
+        ? familyOfKind(focus.kind, focus)
+        : family
+    // 补充报价节点按自己的状态判断冻结；不能复用"报价"整段（首次报价已发就会把补充报价也冻住）
     const frozen = Boolean(
-      review ||
-        isStageFrozen(nodes, family === 'addon' ? 'quote' : family) ||
-        (focus && isNodeEditFrozen(nodes, focus)),
+      review || isStageFrozen(nodes, freezeFamily) || (focus && isNodeEditFrozen(nodes, focus)),
     )
     const editorNode = stageEditorNode(stageBoard, focus, nodes)
     if (family === 'work' && workDone && !frozen) {

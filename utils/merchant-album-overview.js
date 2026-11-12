@@ -232,15 +232,14 @@ function bucketNodes(nodes) {
 }
 
 function bucketDone(bucket) {
-  if (
-    bucket &&
-    String(bucket.key).startsWith('quote') &&
-    bucket.key !== 'quote:0' &&
-    !(bucket.nodes || []).some((node) => addonQuoteHasProcess(node))
-  ) {
-    return true
+  if (!bucket) return false
+  const nodes = bucket.nodes || []
+  if (!nodes.length) return true
+  if (String(bucket.key).startsWith('quote') && bucket.key !== 'quote:0') {
+    // 未保存（draft）的补充报价：时间线里不展示（见 bucketOnTimeline），也不算完成
+    if (!nodes.some((node) => addonQuoteHasProcess(node))) return false
   }
-  return bucket.nodes.every((node) => isFlowNodeDone(node))
+  return nodes.every((node) => isFlowNodeDone(node))
 }
 
 function docTile(title, node, labels) {
