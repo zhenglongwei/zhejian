@@ -25,7 +25,7 @@ const { resolveShared } = require('../utils/resolve-shared')
 const {
   normalizeOwnerFaqs,
   contentOfFlowNode,
-  collectConfirmedQuoteLines,
+  buildQuoteLedger,
   normalizeItemName,
   resolvePresetItemName,
 } = resolveShared('utils/service-flow-docs.js')
@@ -46,18 +46,6 @@ function sortFlowNodes(nodes) {
 function readFlowNodes(album) {
   const pkg = (album && album.contentPackageJson) || {}
   return sortFlowNodes(pkg.flowNodes)
-}
-
-function linesOf(node) {
-  // 报价行与其它节点同口径：content / photoDraft / payload 三源择优（确认后 payload 可能只剩信封）
-  const content = contentOfFlowNode(node)
-  return (Array.isArray(content.lines) ? content.lines : [])
-    .map((row) => ({
-      name: text(row && row.name),
-      amount: text(row && row.amount),
-      note: text(row && row.note),
-    }))
-    .filter((row) => row.name)
 }
 
 function imageOriginalUrl(raw) {
@@ -1251,10 +1239,19 @@ function contextOf(album, extraNotes = {}) {
   const factPack = buildCaseFactPack(nodes)
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
   const inspection = nodes.find((item) => item && item.kind === 'inspection')
-  const quotes = nodes.filter((item) => {
-    if (!item || (item.kind !== 'quote_confirm' && item.kind !== 'addon_quote_confirm')) return false
-    return String((item.document && item.document.status) || '') !== 'cancelled'
-  })
+  // 历次报价单（首次 + 各次补充报价）与其汇总：施工、交车都用汇总口径
+  const quoteLedger = buildQuoteLedger(nodes)
+  const quoteSummary = {
+    count: quoteLedger.count,
+    total: quoteLedger.total,
+    confirmedTotal: quoteLedger.confirmedTotal,
+    entries: quoteLedger.entries.map((entry) => ({
+      label: entry.label,
+      status: entry.status,
+      lineCount: entry.lines.length,
+      total: entry.total,
+    })),
+  }
   const works = nodes.filter((item) => item && item.kind === 'work')
   const delivery = nodes.find((item) => item && item.kind === 'delivery_photos')
   const repair = nodes.find((item) => item && item.kind === 'repair_report')
@@ -1307,13 +1304,16 @@ function contextOf(album, extraNotes = {}) {
     inspectPhotoUrlsAll: inspectUrls,
     inspectPhotoSlots: inspectSlots,
     inspectNoted: inspectSplit.noted,
-    quoteLines: quotes.reduce((all, node) => all.concat(linesOf(node)), []),
-    quoteItemRows: collectConfirmedQuoteLines(nodes).map((row) => ({
+    quoteLines: quoteLedger.lines,
+    // 未施工判定只认已确认的历次报价；行上带来源，便于 AI 说明是哪张单子的项目
+    quoteItemRows: quoteLedger.confirmedLines.map((row) => ({
       id: row.id,
       name: row.name,
       amount: row.amount || '',
       note: row.note || '',
+      quoteLabel: row.quoteLabel || '',
     })),
+    quoteSummary,
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
     workPhotoSlots: workFreshSlots,
     workNoted,
@@ -1367,12 +1367,21 @@ function contextOf(album, extraNotes = {}) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'work_v2',
+        v: 'work_v3',
         quoteLines: (ctx.quoteItemRows || []).map((row) => ({
           id: row.id,
           name: row.name,
           amount: row.amount,
+          quoteLabel: row.quoteLabel || '',
         })),
+        // 补充报价确认/取消后，汇总口径变化，施工意见要重新出
+        quoteSummary: ctx.quoteSummary
+          ? {
+              count: ctx.quoteSummary.count,
+              total: ctx.quoteSummary.confirmedTotal,
+              entries: (ctx.quoteSummary.entries || []).map((row) => `${row.label}:${row.status}`),
+            }
+          : null,
         workItems: ctx.workItems,
         workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
           slot: row.slot,
@@ -1598,6 +1607,7 @@ function workInstruction(ctx) {
       报价项: row.name,
       金额: row.amount || '',
       备注: row.note || '',
+      来源: row.quoteLabel || '首次报价',
       工单: covered ? '已有' : '无',
     }
   })
@@ -1610,6 +1620,8 @@ function workInstruction(ctx) {
       workNoted: ctx.workNoted,
     },
     报价项: quoteItems,
+    // 历次报价单（首次 + 各次补充报价）的汇总口径
+    报价汇总: ctx.quoteSummary || null,
     工单项目: (ctx.workItems || []).map((row) => ({
       项目: row.name,
       已写描述: row.note || '',
@@ -1771,6 +1783,7 @@ function deliveryInstruction(ctx) {
     intake: ctx.intakeAdviceSummary,
     inspect: ctx.inspectAdviceSummary,
     quoteLines: ctx.quoteLines,
+    quoteSummary: ctx.quoteSummary || null,
     workItems: ctx.workItems,
     workAdvice: ctx.workAdviceSummary,
     factPack: ctx.factPack || null,

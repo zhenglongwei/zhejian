@@ -1075,6 +1075,69 @@ function collectConfirmedQuoteNames(flowNodes = []) {
   return names
 }
 
+/**
+ * 历次报价单 + 汇总报价单。
+ * entries：按节点顺序的单张报价单（首次报价、补充报价1、补充报价2…）；
+ * lines / total：历次加总后的汇总报价单，行上带来源标签。
+ */
+function buildQuoteLedger(flowNodes = []) {
+  const entries = []
+  let addonSeq = 0
+  ;(flowNodes || []).forEach((node) => {
+    if (!node || (node.kind !== 'quote_confirm' && node.kind !== 'addon_quote_confirm')) return
+    const doc = (node && node.document) || {}
+    const status = String(doc.status || '')
+    if (status === 'cancelled') return
+    const isAddon =
+      String(node.insertedReason || '') === 'addon' || node.kind === 'addon_quote_confirm'
+    if (isAddon) addonSeq += 1
+    const label = isAddon ? `补充报价${addonSeq}` : '首次报价'
+    const contentLines = contentOfFlowNode(node).lines
+    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : {}
+    const raw = Array.isArray(contentLines) && contentLines.length
+      ? contentLines
+      : Array.isArray(payload.lines)
+        ? payload.lines
+        : []
+    const lines = raw
+      .map((line) => {
+        const name = String((line && line.name) || '').trim()
+        if (!name) return null
+        return {
+          id: String((line && line.id) || '').trim(),
+          name,
+          amount: line && line.amount != null ? String(line.amount) : '',
+          note: String((line && line.note) || '').trim(),
+          quoteNodeId: String((node && node.id) || ''),
+          quoteLabel: label,
+          isAddon,
+          status,
+          confirmed: status === 'confirmed',
+        }
+      })
+      .filter(Boolean)
+    entries.push({
+      nodeId: String((node && node.id) || ''),
+      label,
+      isAddon,
+      status,
+      confirmed: status === 'confirmed',
+      lines,
+      total: sumQuoteAmounts(lines),
+    })
+  })
+  const lines = entries.reduce((all, entry) => all.concat(entry.lines), [])
+  const confirmedLines = lines.filter((line) => line.confirmed)
+  return {
+    entries,
+    lines,
+    confirmedLines,
+    total: sumQuoteAmounts(lines),
+    confirmedTotal: sumQuoteAmounts(confirmedLines),
+    count: entries.length,
+  }
+}
+
 function compactQuoteName(value = '') {
   return String(value || '').replace(/\s+/g, '')
 }
@@ -2444,6 +2507,7 @@ module.exports = {
   foldInspectionPendingDraft,
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
+  buildQuoteLedger,
   seedWorkFindingsFromQuoteLines,
   normalizeItemName,
   resolvePresetItemName,

@@ -6131,6 +6131,29 @@ Page({
           : '报价有这项，工单和施工图都还没有。',
       })
     })
+    // 报价单口径：历次报价（首次 + 各次补充报价）实时汇总；AI 结果里还没有的行也补进列表
+    const liveQuoteLines = collectConfirmedQuoteLines(this._flowNodes || [])
+    const listedQuoteNames = new Set(quoteAdvice.map((row) => nameKey(row.name)))
+    liveQuoteLines.forEach((line) => {
+      const key = nameKey(line.name)
+      if (!key || listedQuoteNames.has(key)) return
+      listedQuoteNames.add(key)
+      quoteAdvice.push({
+        id: String(line.id || `qa_live_${quoteAdvice.length}`),
+        name: String(line.name || '').trim(),
+        how: '',
+        photo: '',
+        amount: String(line.amount || '').trim(),
+        hasHow: false,
+        hasPhoto: false,
+        canApply: false,
+        onlyId: '',
+        unstarted: false,
+        missed: false,
+        photos: [],
+        tip: '',
+      })
+    })
     const workItemsNew = (Array.isArray(raw.workItems) ? raw.workItems : [])
       .map((row) => {
         const findingId = String((row && row.id) || '').trim()

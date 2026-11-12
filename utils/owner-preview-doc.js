@@ -83,6 +83,16 @@ function workItemsFromFindings(findings = []) {
     .filter((row) => row.name)
 }
 
+/** 报价行真源在节点 content（确认后 document.payload 恒空）；历次报价一起取 */
+function quoteLinesOfNode(node) {
+  const content = (node && (node.content || node.photoDraft)) || {}
+  const contentLines = Array.isArray(content.lines) ? content.lines : []
+  if (contentLines.length) return contentLines
+  const payload =
+    (node && node.document && node.document.payload) || {}
+  return Array.isArray(payload.lines) ? payload.lines : []
+}
+
 function quoteTotalsFromNodes(nodes = []) {
   const quoteByName = {}
   let quoteTotal = 0
@@ -90,9 +100,7 @@ function quoteTotalsFromNodes(nodes = []) {
     if (!node || (node.kind !== 'quote_confirm' && node.kind !== 'addon_quote_confirm')) return
     const status = String((node.document && node.document.status) || '')
     if (status === 'cancelled') return
-    const lines =
-      (node.document && node.document.payload && node.document.payload.lines) || []
-    lines.forEach((line) => {
+    quoteLinesOfNode(node).forEach((line) => {
       const name = String((line && line.name) || '').trim()
       const amount = Number(line && line.amount)
       if (!name || !Number.isFinite(amount)) return
