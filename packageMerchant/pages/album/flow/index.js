@@ -8276,7 +8276,7 @@ Page({
       const active = this.data.activeNode
       // 报价 AI 跟节点绑定：补充报价节点用自己的 id 生成，不落到首次报价
       const quoteNodeId =
-        active && active.kind === 'quote_confirm'
+        active && (active.kind === 'quote_confirm' || active.kind === 'addon_quote_confirm')
           ? active.id
           : this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
