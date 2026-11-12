@@ -7266,7 +7266,9 @@ Page({
       try {
         // 只刷意见状态，不整页 loadFlow，避免节点图片跟着闪
         await this.refreshAdviceOnly()
-      } catch (_) {
+      } catch (e) {
+        // 失败也要留痕，避免异常被静默吞掉后无限轮询
+        console.warn('[flow] refreshAdviceOnly failed', e)
         this._quoteAssistTimer = setTimeout(tick, 2000)
       }
     }
@@ -7307,7 +7309,8 @@ Page({
     const sections = this.data.sections || []
     const quoteLines = this.data.quoteLines || []
     // 优先当前 active quote 节点自己的 quoteAssist（补充报价），否则首次报价节点，都没有则 null
-    this._pendingQuoteAssist = pickQuoteAssistRaw(nodes, this.data.activeNode && this.data.activeNode.id)
+    const quoteAssistRaw = pickQuoteAssistRaw(nodes, this.data.activeNode && this.data.activeNode.id)
+    this._pendingQuoteAssist = quoteAssistRaw
 
     const intakeAdvice = this.decorateIntakeAdvice(
       (nodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
