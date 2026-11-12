@@ -543,7 +543,6 @@ Page({
     isIntakePhotoStep: false,
     isDeliveryPhotoStep: false,
     isWorkPhotoStep: false,
-    quoteTotalLabel: '',
     photoConfirmLabel: '确认并继续',
     sections: [],
     pendingImages: [],

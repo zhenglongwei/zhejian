@@ -1,0 +1,6 @@
+#!/bin/sh
+# 提交前统一自检：语法 + 未定义标识符/重复声明 + 共享层同步
+# 启用方式（每台开发机执行一次）：git config core.hooksPath .githooks
+set -e
+cd "$(git rev-parse --show-toplevel)/backend"
+npm run --silent check:all

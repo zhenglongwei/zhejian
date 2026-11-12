@@ -243,7 +243,7 @@ function analyzeAnswer(answer, variants, options = {}) {
     .join(' ')
 
   // 搜索引擎按结果条目匹配，用严版变体；大模型的自由文本用全量变体。
-  const searchVariants = options.strictVariants || strictVariants(variants)
+  const searchVariants = options.strictVariants || strictVariantsOf(variants)
   const stats =
     platformType === 'search' ? searchHitStats(citedUrls, searchVariants) : null
   const inAnswer = matchName(answerText, platformType === 'search' ? searchVariants : variants)

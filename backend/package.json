@@ -8,6 +8,10 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "sync:shared-utils": "node scripts/sync-shared-utils.cjs",
+    "check:js-syntax": "node scripts/check-js-syntax.js",
+    "check:lint": "node scripts/check-lint.js",
+    "check:shared-utils": "node scripts/check-shared-utils.cjs",
+    "check:all": "npm run check:js-syntax && npm run check:lint && npm run check:shared-utils",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
@@ -137,6 +141,7 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "eslint": "^9.39.4",
     "prisma": "^6.9.0"
   },
   "prisma": {
