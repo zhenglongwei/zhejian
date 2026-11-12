@@ -198,16 +198,12 @@ function addonQuoteHasProcess(node) {
   if (!node) return false
   const addon = node.kind === 'addon_quote_confirm' || String(node.insertedReason || '') === 'addon'
   if (!addon) return node.kind === 'quote_confirm'
-  const status = String((node.document && node.document.status) || '')
-  if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled') {
-    return true
-  }
-  const payload = (node.document && node.document.payload) || {}
-  const lines = Array.isArray(payload.lines) ? payload.lines : []
-  if (lines.some((row) => String((row && row.name) || '').trim())) return true
-  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
-  const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
-  return Boolean(images.length || String(discovery.note || '').trim())
+  const status = String((node.document && node.document.status) || 'draft')
+  // draft 状态 = 用户只是打开过补充报价、还没点"通知车主"。
+  // 即使有 seed 进来的 outsideQuote 工单项名（系统自动铺的），也不算"已保存"。
+  // 只有状态离开 draft（pending_confirm/confirmed/delivered/cancelled）才算。
+  if (status === 'draft') return false
+  return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled'
 }
 
 function bucketOnTimeline(bucket) {

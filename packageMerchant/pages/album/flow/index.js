@@ -238,6 +238,26 @@ function nodeContentOf(node) {
   return {}
 }
 
+/**
+ * 选 quoteAssist：优先当前 active 节点自己的 AI 结果；
+ * 如果 active 不是 quote/addon 节点，再 fallback 到首次报价节点。
+ * 这样 AI 分析严格跟节点绑定，不会出现"补充报价节点拿到首次报价的 AI"。
+ */
+function pickQuoteAssistRaw(nodes, activeId) {
+  const list = Array.isArray(nodes) ? nodes : []
+  if (activeId) {
+    const current = list.find(
+      (n) =>
+        n &&
+        n.id === activeId &&
+        (n.kind === 'quote_confirm' || n.kind === 'addon_quote_confirm'),
+    )
+    if (current && current.quoteAssist) return current.quoteAssist
+  }
+  const firstQuote = list.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason)
+  return (firstQuote && firstQuote.quoteAssist) || null
+}
+
 function applyNodeContent(node, bag) {
   if (!node || typeof node !== 'object') return
   const next = bag && typeof bag === 'object' ? bag : {}
@@ -1999,12 +2019,7 @@ Page({
         templateId: album && album.templateId,
         serviceName: (album && album.serviceName) || '',
       })
-      this._pendingQuoteAssist = (
-        (flowNodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {})
-          .quoteAssist ||
-        (active && active.quoteAssist) ||
-        null
-      )
+      this._pendingQuoteAssist = pickQuoteAssistRaw(flowNodes, active && active.id)
       quoteLines = this.decorateQuoteLines(quoteLines, quoteEvidenceFindings)
       const rawSummary = showCombinedPlan
         ? ''
@@ -7257,18 +7272,7 @@ Page({
     const sections = this.data.sections || []
     const quoteLines = this.data.quoteLines || []
     // 优先当前 active quote 节点自己的 quoteAssist（补充报价），否则首次报价节点，都没有则 null
-    const currentQuoteNode = (nodes || []).find((n) => {
-      if (!n) return false
-      if (n.id === this.data.activeNode.id) {
-        return n.kind === 'quote_confirm' || n.kind === 'addon_quote_confirm'
-      }
-      return false
-    })
-    const quoteAssistRaw =
-      (currentQuoteNode && currentQuoteNode.quoteAssist) ||
-      ((nodes.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason) || {}).quoteAssist) ||
-      null
-    this._pendingQuoteAssist = quoteAssistRaw
+    this._pendingQuoteAssist = pickQuoteAssistRaw(nodes, this.data.activeNode && this.data.activeNode.id)
 
     const intakeAdvice = this.decorateIntakeAdvice(
       (nodes.find((n) => n && (n.kind === 'intake' || n.kind === 'intake_inspection')) || {})
