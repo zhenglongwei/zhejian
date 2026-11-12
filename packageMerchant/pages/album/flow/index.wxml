@@ -930,9 +930,9 @@
                       </view>
                       <text
                         wx:if="{{section.findingKind === 'work' && finding.showQuoteAddon && !readOnly}}"
-                        class="text-caption text-link merchant-flow-page__quote-addon"
+                        class="merchant-flow-page__quote-addon"
                         catchtap="onAddAddonPlan"
-                      >去补充报价</text>
+                      >补充报价</text>
                       <view wx:if="{{!finding.expanded && finding.hasCollapsedHints}}" class="merchant-flow-page__finding-hints">
                         <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                         <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
@@ -1931,7 +1931,7 @@
                     </text>
                   </view>
                   <text
-                    class="merchant-flow-page__advice-apply"
+                    class="merchant-flow-page__advice-apply merchant-flow-page__advice-apply--solid"
                     catchtap="onAddAddonPlan"
                   >补充报价</text>
                 </view>

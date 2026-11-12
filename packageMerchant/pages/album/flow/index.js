@@ -239,20 +239,15 @@ function nodeContentOf(node) {
 }
 
 /**
- * 选 quoteAssist：优先当前 active 节点自己的 AI 结果；
- * 如果 active 不是 quote/addon 节点，再 fallback 到首次报价节点。
- * 这样 AI 分析严格跟节点绑定，不会出现"补充报价节点拿到首次报价的 AI"。
+ * 选 quoteAssist：AI 分析跟节点绑定。
+ * 当前是报价/补充报价节点时，只认它自己的结果；没有就返回 null（不能拿首次报价的冒充）。
+ * 非报价节点才回退到首次报价节点（供施工等其它节点做参考）。
  */
 function pickQuoteAssistRaw(nodes, activeId) {
   const list = Array.isArray(nodes) ? nodes : []
-  if (activeId) {
-    const current = list.find(
-      (n) =>
-        n &&
-        n.id === activeId &&
-        (n.kind === 'quote_confirm' || n.kind === 'addon_quote_confirm'),
-    )
-    if (current && current.quoteAssist) return current.quoteAssist
+  const active = activeId ? list.find((n) => n && n.id === activeId) : null
+  if (active && (active.kind === 'quote_confirm' || active.kind === 'addon_quote_confirm')) {
+    return active.quoteAssist || null
   }
   const firstQuote = list.find((n) => n && n.kind === 'quote_confirm' && !n.insertedReason)
   return (firstQuote && firstQuote.quoteAssist) || null
@@ -2076,6 +2071,9 @@ Page({
       const openStageBar = openStageBoard ? this.stageBarFields(flowNodes, openStageBoard, active) : {}
       const openAdvice = Boolean(this._openAdviceAfterLoad)
       this._openAdviceAfterLoad = false
+      // 切换到另一个节点时，上一节点打开的 AI 面板不应跟着带过去
+      const prevActiveId = String((this.data.activeNode && this.data.activeNode.id) || '')
+      const activeChanged = Boolean(prevActiveId) && prevActiveId !== String((active && active.id) || '')
 
       this._inspectionAiKey =
         nodeContentOf(active).inspectionAiKey || ''
@@ -2142,7 +2140,7 @@ Page({
           findings,
           isInspectionPhotoStep && (findings || []).some((row) => row && row.partName),
         ),
-        adviceOpen: openAdvice ? true : options.silent ? this.data.adviceOpen : false,
+        adviceOpen: openAdvice ? true : options.silent && !activeChanged ? this.data.adviceOpen : false,
         showQuoteAiCheck: Boolean(
           flow.nodeAiReview &&
             flow.nodeAiReview.entitled &&
@@ -2449,10 +2447,13 @@ Page({
           readOnly: albumLocked || frozen,
         })
       : {}
+    // 切换到另一个节点时，不继承上一节点打开的 AI 面板
+    const stageNodeChanged =
+      Boolean(this.data.activeNode && editorNode) && this.data.activeNode.id !== editorNode.id
     this.setData({
       workOpen: true,
       doneView: null,
-      adviceOpen: openAdvice ? true : this.data.adviceOpen,
+      adviceOpen: openAdvice ? true : stageNodeChanged ? false : this.data.adviceOpen,
       stageEditor:
         family !== 'intake' &&
         (((stageBoard.state === 'current' || stay || workDone || finishOpen) && !chrome.locked) || review || workDone),
@@ -9133,7 +9134,11 @@ Page({
   },
 
   onOpenCancelAddon() {
-    if (this.data.readOnly || !this.data.isAddonQuote) return
+    if (!this.data.isAddonQuote) return
+    if (this.data.readOnly) {
+      wx.showToast({ title: '当前状态不可编辑', icon: 'none' })
+      return
+    }
     const docStatus = String(this.data.docStatus || '')
     if (docStatus === 'confirmed' || docStatus === 'cancelled') {
       wx.showToast({ title: '当前不可取消', icon: 'none' })
