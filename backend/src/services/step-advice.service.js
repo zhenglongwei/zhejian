@@ -26,6 +26,7 @@ const {
   normalizeOwnerFaqs,
   contentOfFlowNode,
   buildQuoteLedger,
+  buildAcceptanceRowsFromWorkItems,
   normalizeItemName,
   resolvePresetItemName,
 } = resolveShared('utils/service-flow-docs.js')
@@ -1203,9 +1204,28 @@ function inspectPhotoSlots(inspection) {
   return slots
 }
 
-/** 交车步图片：逐行图片（施工项 + 外观行），统一给 slot 与所属项目名（供 AI 引用「图N」） */
-function deliveryPhotoSlots(delivery) {
-  const draft = contentOfFlowNode(delivery)
+/**
+ * 交车验收行（规则生成，不过模型）：行 = 施工项 ∪ 报价行（首次 + 历次补充）。
+ * 施工项的图按行名带进验收行，保证「有施工图就有证据」、验收清单不空白。
+ */
+function workAcceptanceItems(nodes) {
+  const items = []
+  ;(Array.isArray(nodes) ? nodes : []).forEach((node) => {
+    const findings = contentOfFlowNode(node).findings || []
+    ;(Array.isArray(findings) ? findings : []).forEach((row) => {
+      const name = text(row && row.partName)
+      if (!name) return
+      const images = workImageList(row)
+        .map((img) => ({ url: imageOriginalUrl(img) }))
+        .filter((img) => /^https?:\/\//.test(img.url))
+      items.push({ name, images })
+    })
+  })
+  return items
+}
+
+/** 交车步图片：逐行图片（施工项 + 报价行 + 外观行），统一给 slot 与所属项目名（供 AI 引用「图N」） */
+function deliveryPhotoSlots(rows) {
   const slots = []
   const seen = {}
   const push = (raw, partName) => {
@@ -1214,7 +1234,7 @@ function deliveryPhotoSlots(delivery) {
     seen[url] = true
     slots.push({ slot: slots.length + 1, url, partName: text(partName).slice(0, 40) })
   }
-  ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((item) => {
+  ;(Array.isArray(rows) ? rows : []).forEach((item) => {
     const label = item && item.kind === 'exterior' ? '整车外观' : text(item && item.name)
     ;(Array.isArray(item && item.images) ? item.images : []).forEach((img) => push(img, label))
   })
@@ -1265,7 +1285,14 @@ function contextOf(album, extraNotes = {}) {
   const inspectSlots = inspectPhotoSlots(inspection)
   const inspectUrls = inspectSlots.map((row) => row.url)
   const workSlots = workPhotoSlots(works)
-  const deliverySlots = deliveryPhotoSlots(delivery)
+  const workItemRows = works.reduce((all, node) => all.concat(workRows(node)), [])
+  // 验收行由规则生成：施工项 ∪ 总报价行（首次 + 历次补充），施工图按行名带进验收行；大模型只做逐行评估
+  const acceptanceRows = buildAcceptanceRowsFromWorkItems(
+    workAcceptanceItems(works),
+    draft.acceptanceItems,
+    quoteLedger.lines,
+  )
+  const deliverySlots = deliveryPhotoSlots(acceptanceRows)
   const deliveryUrls = deliverySlots.map((row) => row.url)
   const intakeSplit = splitNewAndNotedUrls(intakeUrls, imageNotesMap)
   const inspectSplit = splitNewAndNotedUrls(inspectUrls, imageNotesMap)
@@ -1274,6 +1301,18 @@ function contextOf(album, extraNotes = {}) {
     .filter((row) => noteForUrl(row.url, imageNotesMap))
     .map((row) => ({ slot: row.slot, partName: row.partName, note: noteForUrl(row.url, imageNotesMap) }))
   const deliverySplit = splitNewAndNotedUrls(deliveryUrls, imageNotesMap)
+  // 送模的图只含没看过的；槽位按送模顺序重排 1..N，保证「图N」与附件一致
+  const deliveryFreshSlots = deliverySlots
+    .filter((row) => !noteForUrl(row.url, imageNotesMap))
+    .map((row, index) => ({ ...row, slot: index + 1 }))
+  const acceptanceImageSlots = (row) =>
+    (Array.isArray(row && row.images) ? row.images : [])
+      .map((img) => {
+        const url = text(img && (img.url || img.rawUrl))
+        const hit = deliveryFreshSlots.find((slot) => slot.url === url)
+        return hit ? hit.slot : null
+      })
+      .filter((slot) => slot != null)
   return {
     complaint: text(contentOfFlowNode(intake).chiefComplaint),
     intakeBrief: intakeBrief(intake),
@@ -1328,36 +1367,31 @@ function contextOf(album, extraNotes = {}) {
     warrantyPeriod: text(draft.warrantyPeriod || reportPayload.warrantyPeriod),
     warrantyNotes: text(draft.warrantyNotes || reportPayload.warrantyNotes),
     // 本单施工项目（验收行）与已填内容：AI 只对已有项目给建议，不得新增项目
-    workItemNames: works
-      .reduce((all, node) => all.concat(workRows(node)), [])
+    workItemNames: workItemRows
       .map((row) => text(row && row.name))
       .filter(Boolean)
       .slice(0, 20),
-    acceptance:
-      Array.isArray(draft.acceptanceItems) && draft.acceptanceItems.length
-        ? {
-            items: draft.acceptanceItems.slice(0, 20).map((row) => ({
-              name: text(row && row.name),
-              kind: row && row.kind === 'exterior' ? 'exterior' : 'work',
-              note: text(row && row.note).slice(0, 200),
-              result: text(row && row.result).slice(0, 20),
-              imageSlots: (Array.isArray(row && row.images) ? row.images : [])
-                .map((img) => {
-                  const url = text(img && (img.url || img.rawUrl))
-                  const hit = deliverySlots.find((slot) => slot.url === url)
-                  return hit ? hit.slot : null
-                })
-                .filter((slot) => slot != null),
-            })),
-          }
-        : null,
-    exteriorCount: (Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).reduce(
+    // 验收行是规则产物（施工项 ∪ 总报价行），不依赖商家手填：没填也能逐行评估证据是否充分
+    acceptance: {
+      items: acceptanceRows.slice(0, 20).map((row) => ({
+        name: text(row && row.name),
+        kind: row && row.kind === 'exterior' ? 'exterior' : 'work',
+        note: text(row && row.note).slice(0, 200),
+        result: text(row && row.result).slice(0, 20),
+        imageSlots: acceptanceImageSlots(row),
+        evidenceImageCount: (Array.isArray(row && row.images) ? row.images : []).length,
+      })),
+    },
+    exteriorCount: (acceptanceRows || []).reduce(
       (sum, row) => sum + (row && row.kind === 'exterior' && Array.isArray(row.images) ? row.images.length : 0),
       0,
     ),
-    deliveryPhotoSlots: deliverySlots.filter((row) => !noteForUrl(row.url, imageNotesMap)),
+    deliveryPhotoSlots: deliveryFreshSlots,
     deliveryPhotoUrls: deliverySplit.fresh,
-    deliveryNoted: deliverySplit.noted,
+    deliveryNoted: deliverySplit.noted.map((row) => {
+      const hit = deliverySlots.find((slot) => slot.url === row.url)
+      return { partName: hit ? hit.partName : '', note: row.note }
+    }),
     workAdviceAt: text(workAdvice.updatedAt),
     imageNotesMap,
     factPack,
@@ -1808,11 +1842,13 @@ function deliveryInstruction(ctx) {
     '',
     '按下面四步思考，结果都写进这一个 JSON：',
     '',
-    '1. 验收建议（最重要）：行清单 = 施工项 + 报价行合并去重，末行是「外观」。每行一条：',
-    '   - 没图也没文字：给「验收标准」「验收方法」「拍照建议」；「建议结果」留空字符串，「描述」留空，「依据」写还缺什么（如「还没有胶套安装图」）。',
-    '   - 有图或有文字：「建议结果」只能是「合格」「建议观察」「需返工」。「描述」写这行实际状态；不达标时在描述里明确写「建议补传XX图」或「建议返工XX」（不加新枚举）。「依据」引用「图N」（deliveryPhotoSlots 里有 slot 与所属行名）或商家已写文字。',
+    '1. 验收评估（最重要）：行清单已由系统规则给出（见参考材料 acceptance.items，= 施工项 ∪ 首次与历次补充报价行，末行「外观」）。',
+    '   你必须对 acceptance.items 的**每一行**各输出一条，不增行、不漏行、不改行名；你的职责是判断这一行的图文证据是否足以说明事实。',
+    '   - 没图也没文字：给「验收标准」「验收方法」「拍照建议」；「建议结果」留空字符串，「描述」留空，「依据」写清缺什么（如「还没有胶套安装图」）。',
+    '   - 有图或有文字：「建议结果」只能是「合格」「建议观察」「需返工」。「描述」写这行实际状态；证据不足时在描述里明确写「建议补传XX图」或「建议返工XX」（不加新枚举）。「依据」引用「图N」（deliveryPhotoSlots 里有 slot 与所属行名）、workPhotos 的观察结论或商家已写文字。',
     '   - 报价有但施工没做的行：「状态」写「未施工」，其余按没图没文字处理。',
     '   「类别」填「施工」或「外观」。不写「已验合格」这类无依据结论，不写承诺句。店员点应用才写入，你不代点。',
+    '   证据判断口径：能看出「做的是这一项、状态正常且可辨识」才算充分；只拍了旧件/只拍了整车远景/图与行名对不上，都算不足并指出补拍要求。',
     '2. 拆分建议：验收图挂错行时，写「项目」（目标验收行名）、「图片」、「描述」。已经挂对的不要写。',
     '3. 质保：只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
     '4. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖五件事——①车主为什么来；②查出了什么（挑与诉求最相关的两三项，含「需关注」）；③怎么修的（关键工艺/用料，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保。不写价格和隐私，不编没做的事。',
@@ -1887,7 +1923,9 @@ async function runJob(albumId, kind, options = {}) {
         ? buildSlotByUrl(ctx.inspectPhotoSlots)
         : kind === 'work'
           ? buildSlotByUrl(ctx.workPhotoSlots)
-          : null
+          : kind === 'delivery'
+            ? buildSlotByUrl(ctx.deliveryPhotoSlots)
+            : null
     const llmTraces = []
     const llmOpts = {
       slotByUrl,

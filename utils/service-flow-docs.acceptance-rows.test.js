@@ -63,3 +63,31 @@ test('施工项目重名只留一行，外观行永远最后', () => {
   )
   assert.equal(rows[2].result, 'observe')
 })
+
+test('验收行=施工项 ∪ 报价行（首次+补充），按名去重、施工图自动带入', () => {
+  const rows = buildAcceptanceRowsFromWorkItems(
+    [{ name: '更换前刹车片', images: [{ url: 'brake.jpg' }] }, { name: '机油机滤保养', images: [] }],
+    [],
+    [
+      { name: '更换前刹车片', amount: 680 },
+      { name: '更换下摆臂胶套', amount: 360 },
+      { name: '更换雨刮器', amount: 80 },
+    ],
+  )
+  assert.deepEqual(
+    rows.map((row) => row.name),
+    ['更换前刹车片', '机油机滤保养', '更换下摆臂胶套', '更换雨刮器', '外观'],
+  )
+  assert.equal(rows[0].images[0].url, 'brake.jpg')
+  assert.equal(rows[2].images.length, 0)
+})
+
+test('已填行的图优先于施工图，不重复覆盖', () => {
+  const rows = buildAcceptanceRowsFromWorkItems(
+    [{ name: '更换前刹车片', images: [{ url: 'work.jpg' }] }],
+    [{ id: 'acc_1', kind: 'work', name: '更换前刹车片', images: [{ url: 'picked.jpg' }], result: 'pass', note: '已验' }],
+    [],
+  )
+  assert.equal(rows[0].images[0].url, 'picked.jpg')
+  assert.equal(rows[0].result, 'pass')
+})

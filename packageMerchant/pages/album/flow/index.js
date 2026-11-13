@@ -2092,6 +2092,8 @@ Page({
       const initialAcceptanceItems = this.resolveInitialAcceptanceItems(
         this.collectDeliveryWorkItems(flowNodes),
         acceptanceItemsFromDraft(acceptanceDraft),
+        // 验收行 = 施工项 ∪ 总报价行（首次 + 历次补充），规则生成，不经过大模型
+        collectConfirmedQuoteLines(flowNodes),
       )
       this.setData({
         status: 'ready',
@@ -4019,12 +4021,11 @@ Page({
   },
 
   /**
-   * 验收项初始值（2026-11-10 定稿）：行=本单施工项目，只读不可增删。
-   * 逐项生成，已填的图/结果/描述按行名回填；旧数据里没有逐项信息（如「整体验收」那一行）
-   * 不再整段回读，避免旧汇总行挡住逐项清单。
+   * 验收项初始值（2026-11-13 收敛）：行=本单施工项目 ∪ 报价行（首次 + 历次补充），只读不可增删。
+   * 规则生成，已填的图/结果/描述按行名回填，施工图按行名自动带进验收行。
    */
-  resolveInitialAcceptanceItems(workItems = [], savedRows = []) {
-    return buildAcceptanceRowsFromWorkItems(workItems, savedRows)
+  resolveInitialAcceptanceItems(workItems = [], savedRows = [], quoteLines = []) {
+    return buildAcceptanceRowsFromWorkItems(workItems, savedRows, quoteLines)
   },
 
   /** 本单施工项目（交车验收的行使）：工单节点 findings → 已定稿 workItems */

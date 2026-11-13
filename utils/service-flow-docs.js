@@ -1915,12 +1915,13 @@ function resolveAcceptanceItems(raw = {}) {
 }
 
 /**
- * 交车清单的「行」= 本单施工项目（2026-11-10 定稿）。
- * 逐项生成行，已填的图 / 结果 / 描述按**行名**回填（行名即施工项目名）；
- * 旧结构里没有逐项信息（例如首轮迁移压成的一行「整体验收」）不参与配对、也不硬塞进某一项，
- * 只有本单确实还没有施工项目时才保留旧行，避免清单空白。
+ * 交车清单的「行」= 本单施工项目 ∪ 报价行（首次报价 + 历次补充报价），按行名去重（2026-11-13 收敛）。
+ * 规则生成、不经过大模型：已填的图 / 结果 / 描述按**行名**回填；施工项的图按行名自动带进验收行，
+ * 报价有但没施工的行也建行（等商家补图后 AI 再判断证据是否充分）。
+ * 旧结构里没有逐项信息（例如首轮迁移压成的一行「整体验收」）不参与配对，
+ * 只有本单确实没有施工项也没有报价行时才保留旧行，避免清单空白。
  */
-function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = []) {
+function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = [], quoteLines = []) {
   const saved = normalizeAcceptanceItems(savedRows)
   const exterior = saved.find((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
   const savedWork = saved.filter((row) => row.kind === ACCEPTANCE_KIND.WORK)
@@ -1930,8 +1931,8 @@ function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = []) {
   })
   const rows = []
   const seen = {}
-  ;(Array.isArray(workItems) ? workItems : []).forEach((item) => {
-    const name = String((item && item.name) || '').trim().slice(0, 60)
+  const pushRow = (rawName, images = []) => {
+    const name = String(rawName || '').trim().slice(0, 60)
     if (!name || seen[name] || rows.length >= 19) return
     seen[name] = true
     const hit = byName[name]
@@ -1939,11 +1940,20 @@ function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = []) {
       emptyAcceptanceItem({
         id: hit ? hit.id : `acc_${rows.length + 1}`,
         name,
-        images: hit ? hit.images : [],
+        images:
+          hit && Array.isArray(hit.images) && hit.images.length
+            ? hit.images
+            : normalizePendingImages(images),
         result: hit ? hit.result : '',
         note: hit ? hit.note : '',
       }),
     )
+  }
+  ;(Array.isArray(workItems) ? workItems : []).forEach((item) => {
+    pushRow(item && item.name, (item && item.images) || [])
+  })
+  ;(Array.isArray(quoteLines) ? quoteLines : []).forEach((line) => {
+    pushRow(line && line.name)
   })
   const exteriorRow = emptyAcceptanceItem({
     kind: ACCEPTANCE_KIND.EXTERIOR,
