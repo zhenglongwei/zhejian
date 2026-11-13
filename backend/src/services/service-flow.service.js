@@ -1018,6 +1018,7 @@ async function syncFlowPackageAlbumOwnership(albumId, pkg) {
 
 async function writeFlowPackage(albumId, mutator) {
   const { stripMediaAccessQueryDeep } = require('../lib/media-signed-url')
+  const { countAllFlowPhotos } = require('../utils/flow-public-media')
   const album = await prisma.album.findUnique({ where: { id: albumId } })
   if (!album) {
     const err = new Error('相册不存在')
@@ -1029,9 +1030,12 @@ async function writeFlowPackage(albumId, mutator) {
   next.flowVersion = FLOW_VERSION
   // 库内不存短期门票；读侧再签。禁止在此整理旧数据。
   next = stripMediaAccessQueryDeep(next)
+  // 流程相册的图片数真源在节点袋里：每次落库同步回 imageCount 列，
+  // 否则「我的」列表、待评价计数等仍按旧列过滤，流程相册会被当成没有图片。
+  const imageCount = countAllFlowPhotos({ contentPackageJson: next })
   await prisma.album.update({
     where: { id: albumId },
-    data: { contentPackageJson: next },
+    data: { contentPackageJson: next, imageCount },
   })
   try {
     await syncFlowPackageAlbumOwnership(albumId, next)
@@ -1237,9 +1241,13 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
     const before = JSON.stringify(rawPkg)
     const after = JSON.stringify(stripped)
     if (before !== after) {
+      const { countAllFlowPhotos } = require('../utils/flow-public-media')
       await prisma.album.update({
         where: { id: albumId },
-        data: { contentPackageJson: { ...stripped, flowVersion: FLOW_VERSION } },
+        data: {
+          contentPackageJson: { ...stripped, flowVersion: FLOW_VERSION },
+          imageCount: countAllFlowPhotos({ contentPackageJson: stripped }),
+        },
       })
       album = await loadAlbum(albumId)
     }

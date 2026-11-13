@@ -501,10 +501,9 @@ function buildAlbumView(album) {
   } = require('../utils/flow-public-media')
   const flowAlbum = albumUsesFlowNodes(album)
   // 流程相册的照片挂在节点袋里，album.imageCount 列不会随流程更新，按流程真源兜底
-  const imageCount = Math.max(
-    Number(album.imageCount) || 0,
-    flowAlbum ? countAllFlowPhotos(album) : countImages(nodes),
-  )
+  const imageCount = flowAlbum
+    ? resolveAlbumImageCount(album, nodes)
+    : album.imageCount || countImages(nodes)
   const store = buildStoreBlock(album)
   const vehicle = sanitizeUserVehicle(album.vehicleJson || {}, { revealPlate: true })
   const vehicleDisplay = formatVehicle(vehicle)
@@ -642,10 +641,18 @@ function sanitizePartVerifyGuidePayload(payload = {}, existing = {}) {
   }
 }
 
+function resolveAlbumImageCount(album, nodes) {
+  const { albumUsesFlowNodes, countAllFlowPhotos } = require('../utils/flow-public-media')
+  return Math.max(
+    Number(album.imageCount) || 0,
+    albumUsesFlowNodes(album) ? countAllFlowPhotos(album) : countImages(nodes),
+  )
+}
+
 function buildMerchantView(album) {
   const nodes = mapNodesForView(album)
   const evidenceItems = resolveEvidenceItemsForAlbum(album, nodes)
-  const imageCount = album.imageCount || countImages(nodes)
+  const imageCount = resolveAlbumImageCount(album, nodes)
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const hasOwner = albumHasOwner(album)
   const { buildPlanPartsContext } = require('./album-plan-parts.service')
