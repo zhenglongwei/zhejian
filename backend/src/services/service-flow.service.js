@@ -2520,16 +2520,31 @@ async function reopenWorkForRework(albumId, storeId, merchantId = '', payload = 
         if (!finishReportStatusSent(document)) return node
         changed = true
         const payload = document.payload && typeof document.payload === 'object' ? document.payload : {}
+        const prevContent = contentOfFlowNode(node)
+        const prevRevision = Math.max(0, Number(payload.revision || prevContent.revision) || 0)
+        // 返工也要出修订版：提前归档旧版并递增 revision，重新生成时沿用该号
+        const revisions = (Array.isArray(document.revisions) ? document.revisions : [])
+          .concat([
+            {
+              revision: prevRevision,
+              generatedAt: String(prevContent.reportGeneratedAt || ''),
+              payload: prevContent,
+            },
+          ])
+          .slice(-10)
         return {
-          ...writeNodeContent(node, { content: { needsRevision: true } }),
+          ...writeNodeContent(node, {
+            content: { ...prevContent, needsRevision: true, revision: prevRevision + 1 },
+          }),
           document: {
             ...document,
             status: 'draft',
             payload: {
               ...payload,
               needsRevision: true,
-              revision: Math.max(1, Number(payload.revision) || 0),
+              revision: prevRevision + 1,
             },
+            revisions,
           },
         }
       }
