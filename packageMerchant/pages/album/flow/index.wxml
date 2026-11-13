@@ -1790,6 +1790,24 @@
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
+                <view class="merchant-flow-page__key-fill-label-row">
+                  <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">交车简述</text>
+                  <text
+                    wx:if="{{!readOnly && deliveryAdvice.repairBrief && !repairBrief}}"
+                    class="merchant-flow-page__advice-apply"
+                    catchtap="onApplyRepairBrief"
+                  >应用 AI 建议</text>
+                </view>
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
+                  placeholder="例：本次更换前轮下摆臂胶套、完成机油机滤保养，路试正常"
+                  value="{{repairBrief}}"
+                  maxlength="500"
+                  auto-height="{{true}}"
+                  data-field="repairBrief"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <view
