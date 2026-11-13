@@ -1329,18 +1329,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     freezeMessage,
   } = require('../../vendor/shared/utils/flow-stage-locks')
   const editFamily = familyOfKind(preview.kind, preview)
-  // 交车报告在车主确认前（pending_confirm）允许只补「交车简述」：
-  // 这是「应用 AI 建议」按钮的落库路径（完工即发后简述通常还空着）；其余改动仍按冻结/已发送规则拒绝。
-  const isBriefOnlyRepairPatch =
-    preview.kind === 'repair_report' &&
-    previewDocStatus === 'pending_confirm' &&
-    payload.content != null &&
-    payload.photoDraft == null &&
-    payload.document == null &&
-    Object.keys(payload.content).length > 0 &&
-    Object.keys(payload.content).every((key) => key === 'repairBrief')
   if (
-    !isBriefOnlyRepairPatch &&
     (payload.content != null || payload.photoDraft != null || payload.document) &&
     isNodeEditFrozen(previewNodes, preview) &&
     !payload.startIntakeAdvice &&
@@ -1366,7 +1355,6 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
   }
   if (
-    !isBriefOnlyRepairPatch &&
     payload.document &&
     (previewDocStatus === 'pending_confirm' ||
       previewDocStatus === 'confirmed' ||

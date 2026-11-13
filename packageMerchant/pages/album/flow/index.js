@@ -5356,31 +5356,6 @@ Page({
     })
   },
 
-  /** 交车报告：一键应用 AI 交车简述（只填空栏，不覆盖已写；车主问答不提供按钮） */
-  async onApplyRepairBrief() {
-    if (this.data.readOnly || this.data.confirming) return
-    const brief = String(
-      (this.data.deliveryAdvice && this.data.deliveryAdvice.repairBrief) || '',
-    ).trim()
-    const current = String(this.data.repairBrief || '').trim()
-    if (!brief || current) return
-    if (!this.data.activeNode || !this.data.activeNode.id) return
-    this.setData({ repairBrief: brief, confirming: true, autoSaveLabel: '保存中…' })
-    try {
-      // 完工即发后报告常为 pending_confirm：简述单字段补丁由后端专门放行
-      await this.saveFlowNode(this.data.activeNode.id, {
-        content: { repairBrief: brief },
-      })
-      this.setAutoSaveLabel('已自动保存')
-      wx.showToast({ title: '已写入交车简述', icon: 'none' })
-    } catch (e) {
-      this.setData({ repairBrief: current })
-      wx.showToast({ title: (e && e.message) || '应用失败，请重试', icon: 'none' })
-    } finally {
-      this.setData({ confirming: false })
-    }
-  },
-
   /** 交车 AI 建议：逐项验收/质保，点哪行写哪行（只填空栏，不覆盖已写、不批量替换） */
   onApplyDeliveryAdvice(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
