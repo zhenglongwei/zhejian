@@ -2294,6 +2294,9 @@ function normalizePhotoDraft(raw = {}) {
     reworkRecords: normalizeReworkRecords(raw.reworkRecords),
     // 外观照豁免留痕：true = 定稿时确认过「不拍外观照」，读侧据此标注「商家未留外观照」
     exteriorPhotoWaived: raw.exteriorPhotoWaived === true,
+    // 报告修订号：已发报告追加/返工后 revision+1，旧版归档在 document.revisions[]
+    revision: Math.max(0, Math.round(Number(raw.revision) || 0)),
+    needsRevision: raw.needsRevision === true,
     finishedAt: String(raw.finishedAt || '').trim(),
     recordVersions: Array.isArray(raw.recordVersions)
       ? raw.recordVersions
@@ -2401,6 +2404,8 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.exteriorPhotoWaived != null) {
     next.exteriorPhotoWaived = patch.exteriorPhotoWaived === true
   }
+  if (patch.revision != null) next.revision = Math.max(0, Math.round(Number(patch.revision) || 0))
+  if (patch.needsRevision != null) next.needsRevision = patch.needsRevision === true
   if (patch.finishedAt != null) next.finishedAt = String(patch.finishedAt || '').trim()
   if (patch.recordVersions != null) {
     next.recordVersions = normalizePhotoDraft({ recordVersions: patch.recordVersions }).recordVersions
