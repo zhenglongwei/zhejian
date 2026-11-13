@@ -818,11 +818,28 @@ test('交车只出逐项验收与质保建议；简述问答静默、不进面�
   assert.equal(got.acceptance.items.length, 2)
   assert.equal(got.acceptance.items[0].result, 'pass')
   assert.equal(got.acceptance.items[0].basis, '图1')
-  // 非法结果不写入
+  // 证据充分才可应用；非法结果不写入
+  assert.equal(got.acceptance.items[0].evidence, 'sufficient')
   assert.equal(got.acceptance.items[1].result, '')
+  assert.equal(got.acceptance.items[1].evidence, 'insufficient')
   assert.equal(got.warranty.body, '12 个月或 2 万公里')
   assert.match(got.repairBrief, /下摆臂胶套/)
   assert.equal(got.ownerFaqs.length, 1)
+})
+
+test('交车逐项：证据充分给状态与润色文案，证据不足只给补充建议', () => {
+  const got = parseDeliveryAdvice({
+    验收: [
+      { 项目: '变速箱油更换', 类别: '施工', 证据: '不足', 补充建议: '补拍放油口旧油颜色和加注新油的照片', 依据: '只有工单文字' },
+      { 项目: '下摆臂胶套更换', 类别: '施工', 证据: '充分', 建议结果: '建议观察', 描述: '胶套安装到位，建议观察几天是否渗油。', 依据: '图2' },
+    ],
+  })
+  assert.equal(got.acceptance.items[0].evidence, 'insufficient')
+  assert.equal(got.acceptance.items[0].supplement, '补拍放油口旧油颜色和加注新油的照片')
+  assert.equal(got.acceptance.items[0].result, '')
+  assert.equal(got.acceptance.items[1].evidence, 'sufficient')
+  assert.equal(got.acceptance.items[1].result, 'observe')
+  assert.match(got.acceptance.items[1].note, /安装到位/)
 })
 
 test('AI 上下文从节点 content 读主诉、检测项和图', () => {

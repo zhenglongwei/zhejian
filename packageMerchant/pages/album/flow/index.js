@@ -6503,18 +6503,33 @@ Page({
       .slice(0, 5)
     const rawItems =
       raw.acceptance && Array.isArray(raw.acceptance.items) ? raw.acceptance.items : []
-    // AI 建议行：补齐类别（名字叫「外观」或 kind=exterior 即外观行）
-    const draftRows = resolveAcceptanceItems({
-      acceptanceItems: rawItems.map((row) => {
+    // AI 建议行：直接保留 AI 字段（evidence/supplement/basis 等），不能走验收项归一化，否则会被裁掉
+    const draftRows = rawItems
+      .map((row, index) => {
         const rawName = String((row && row.name) || '').trim()
         const kind =
           (row && row.kind === 'exterior') || rawName === ACCEPTANCE_EXTERIOR_NAME
             ? 'exterior'
             : 'work'
         const name = rawName || (kind === 'exterior' ? ACCEPTANCE_EXTERIOR_NAME : '')
-        return { ...(row || {}), kind, name }
-      }),
-    })
+        if (!name) return null
+        return {
+          id: String((row && row.id) || `acc_${index + 1}`),
+          kind,
+          name,
+          images: [],
+          result: String((row && row.result) || '').trim(),
+          note: String((row && row.note) || '').trim(),
+          evidence: String((row && row.evidence) || '').trim(),
+          supplement: String((row && row.supplement) || '').trim(),
+          basis: String((row && row.basis) || '').trim(),
+          standard: String((row && row.standard) || '').trim(),
+          method: String((row && row.method) || '').trim(),
+          photoAdvice: String((row && row.photoAdvice) || '').trim(),
+          unbuilt: false,
+        }
+      })
+      .filter(Boolean)
     const liveItems = (this.data.acceptanceItems || []).map((row) => ({
       id: String((row && row.id) || '').trim(),
       name: String((row && row.name) || '').trim(),
@@ -6522,19 +6537,18 @@ Page({
       note: String((row && row.note) || '').trim(),
       unbuiltReason: String((row && row.unbuiltReason) || '').trim(),
     }))
-    // 逐行判断：AI 给了结果或描述、且本行还空着，才可应用；点了才写入，写入后仍可改
+    // 逐行判断：证据充分且有可写入的状态/润色文案，才给「应用」；证据不足只给补充意见，不可应用
     const acceptanceDraftItems = draftRows.map((item, index) => {
       const hit = liveItems.find(
         (row) => (item.id && row.id === item.id) || (item.name && row.name === item.name),
       )
       // 施工节点已交代的未施工行：已定稿，不再给「应用」
       const liveUnbuilt = Boolean(hit && hit.unbuiltReason)
-      const unbuilt = Boolean(item && item.unbuilt)
+      const unbuilt = Boolean(item && item.unbuilt) || liveUnbuilt
+      const evidenceOk = String((item && item.evidence) || '') === 'sufficient'
       const canApply = liveUnbuilt
         ? false
-        : unbuilt
-          ? Boolean(hit)
-          : Boolean(hit && ((item.result && !hit.result) || (item.note && !hit.note)))
+        : evidenceOk && Boolean(hit && ((item.result && !hit.result) || (item.note && !hit.note)))
       const resultLabel =
         (ACCEPTANCE_RESULT_OPTIONS.find((opt) => opt.value === item.result) || {}).label || ''
       return {
@@ -6546,6 +6560,11 @@ Page({
         tone:
           ({ pass: 'ok', observe: 'warn', rework: 'bad' }[String(item.result || '').trim()] || ''),
         unbuilt,
+        evidence: evidenceOk ? 'sufficient' : 'insufficient',
+        supplement: String((item && item.supplement) || '').trim(),
+        // 未施工行用施工节点交代的原因展示，不再要求补图
+        unbuiltReason: liveUnbuilt ? String(hit.unbuiltReason || '') : '',
+        unbuiltReasonLabel: liveUnbuilt ? unbuiltReasonLabel(hit.unbuiltReason) : '',
         standard: String((item && item.standard) || '').trim(),
         method: String((item && item.method) || '').trim(),
         photoAdvice: String((item && item.photoAdvice) || '').trim(),
@@ -6555,9 +6574,13 @@ Page({
     const canApplyAcceptance = acceptanceDraftItems.some((item) => item.canApply)
     const acceptancePendingCount = acceptanceDraftItems.filter((item) => item.canApply).length
     const acceptanceUnbuiltCount = acceptanceDraftItems.filter((item) => item.unbuilt).length
+    const acceptanceSupplementCount = acceptanceDraftItems.filter(
+      (item) => !item.unbuilt && item.evidence === 'insufficient' && item.supplement,
+    ).length
     const acceptanceSummaryText = [
       `共 ${acceptanceDraftItems.length} 项`,
       acceptancePendingCount ? `待写入 ${acceptancePendingCount} 项` : '',
+      acceptanceSupplementCount ? `待补证据 ${acceptanceSupplementCount} 项` : '',
       acceptanceUnbuiltCount ? `未施工 ${acceptanceUnbuiltCount} 项` : '',
     ]
       .filter(Boolean)
@@ -6602,6 +6625,7 @@ Page({
       repairBrief,
       ownerFaqs,
       acceptance: acceptanceDraftItems.length ? { items: acceptanceDraftItems } : null,
+      acceptanceEmpty: Boolean(raw.acceptance) && !acceptanceDraftItems.length,
       acceptanceSummaryText,
       splitGroups,
       hasSplitGroups: splitGroups.length > 0,

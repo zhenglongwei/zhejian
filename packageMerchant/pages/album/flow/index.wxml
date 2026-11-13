@@ -95,6 +95,9 @@
   </view>
 </template>
 <template name="deliveryAdvicePanel">
+  <view wx:if="{{advice.acceptanceEmpty}}" class="merchant-flow-page__advice-sec">
+    <text class="merchant-flow-page__advice-lead">AI 没有返回逐项验收建议，请点「刷新」重新分析</text>
+  </view>
   <view
     wx:if="{{advice.acceptance && advice.acceptance.items.length}}"
     class="merchant-flow-page__advice-sec"
@@ -112,11 +115,15 @@
         <view class="merchant-flow-page__advice-card-head">
           <view class="merchant-flow-page__advice-card-title-wrap">
             <text class="merchant-flow-page__advice-card-title">{{item.kind === 'exterior' ? '外观' : item.name}}</text>
-            <text wx:if="{{item.unbuilt}}" class="merchant-flow-page__accept-badge">未施工</text>
+            <text wx:if="{{item.unbuilt}}" class="merchant-flow-page__accept-badge">{{item.unbuiltReasonLabel || '未施工'}}</text>
             <text
               wx:if="{{item.resultLabel}}"
               class="merchant-flow-page__accept-badge merchant-flow-page__accept-badge--{{item.tone || 'muted'}}"
             >{{item.resultLabel}}</text>
+            <text
+              wx:elif="{{item.evidence === 'insufficient' && !item.unbuilt}}"
+              class="merchant-flow-page__accept-badge merchant-flow-page__accept-badge--muted"
+            >待补证据</text>
           </view>
           <text
             wx:if="{{item.canApply}}"
@@ -125,20 +132,12 @@
             data-advice-id="{{item.adviceId}}"
             catchtap="onApplyDeliveryAdvice"
           >应用</text>
-          <text wx:else class="merchant-flow-page__advice-state">已填</text>
+          <text wx:elif="{{item.unbuilt}}" class="merchant-flow-page__advice-state">已交代</text>
+          <text wx:elif="{{item.resultLabel || item.note}}" class="merchant-flow-page__advice-state">已填</text>
         </view>
-        <text wx:if="{{item.unbuilt}}" class="merchant-flow-page__advice-card-text">报价有该项，施工未做。</text>
-        <view wx:if="{{item.standard}}" class="merchant-flow-page__advice-card-field">
-          <text class="merchant-flow-page__advice-card-label">验收标准</text>
-          <text class="merchant-flow-page__advice-card-value">{{item.standard}}</text>
-        </view>
-        <view wx:if="{{item.method}}" class="merchant-flow-page__advice-card-field">
-          <text class="merchant-flow-page__advice-card-label">验收方法</text>
-          <text class="merchant-flow-page__advice-card-value">{{item.method}}</text>
-        </view>
-        <view wx:if="{{item.photoAdvice}}" class="merchant-flow-page__advice-card-field">
-          <text class="merchant-flow-page__advice-card-label">拍照建议</text>
-          <text class="merchant-flow-page__advice-card-value">{{item.photoAdvice}}</text>
+        <view wx:if="{{item.supplement && !item.unbuilt}}" class="merchant-flow-page__advice-card-field">
+          <text class="merchant-flow-page__advice-card-label">补充建议</text>
+          <text class="merchant-flow-page__advice-card-value">{{item.supplement}}</text>
         </view>
         <text wx:if="{{item.note}}" class="merchant-flow-page__advice-card-text">{{item.note}}</text>
         <view wx:if="{{item.basis}}" class="merchant-flow-page__advice-card-field">

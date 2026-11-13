@@ -638,24 +638,35 @@ function parseDeliveryAdvice(raw, slots) {
       if (!name) return null
       const isExterior =
         text(obj['类别'] || obj.kind) === 'exterior' || text(obj['类别'] || obj.kind) === '外观' || name === '外观'
-      const resultText = text(obj['建议结果'] || obj.result).slice(0, 20)
+      const resultText = text(obj['建议结果'] || obj['状态'] || obj.result).slice(0, 20)
       const resultEnum =
         ACCEPTANCE_RESULT_TEXT[resultText] && isValidAcceptanceResult(ACCEPTANCE_RESULT_TEXT[resultText])
           ? ACCEPTANCE_RESULT_TEXT[resultText]
           : isValidAcceptanceResult(resultText)
             ? resultText
             : ''
-      const statusText = text(obj['状态'] || obj.status)
-      const unbuilt = statusText === '未施工' || statusText === 'unbuilt'
+      const note = text(obj['描述'] || obj['验收描述'] || obj.note).slice(0, 300)
+      // 证据是否足以说明该项状态：充分→可应用润色文案与状态；不足→只给补充意见，不可应用
+      const evidenceText = text(obj['证据'] || obj.evidence)
+      const evidence =
+        evidenceText === '充分' || evidenceText === 'sufficient'
+          ? 'sufficient'
+          : evidenceText === '不足' || evidenceText === 'insufficient'
+            ? 'insufficient'
+            : resultEnum || note
+              ? 'sufficient'
+              : 'insufficient'
       return {
         name: isExterior ? '外观' : name,
         kind: isExterior ? 'exterior' : 'work',
-        unbuilt,
+        unbuilt: false,
+        evidence,
         standard: text(obj['验收标准'] || obj.standard).slice(0, 200),
         method: text(obj['验收方法'] || obj.method).slice(0, 160),
         photoAdvice: text(obj['拍照建议'] || obj.photoAdvice).slice(0, 160),
         result: resultEnum,
-        note: text(obj['描述'] || obj['验收描述'] || obj.note).slice(0, 300),
+        note,
+        supplement: text(obj['补充建议'] || obj['补充意见'] || obj['缺什么'] || obj.supplement).slice(0, 200),
         basis: text(obj['依据'] || obj.basis).slice(0, 150),
       }
     })
@@ -697,7 +708,7 @@ function parseDeliveryAdvice(raw, slots) {
     warranty: warrantyPeriod
       ? { title: '质保期限', body: warrantyPeriod }
       : null,
-    schema: 6,
+    schema: 7,
     tips,
     publicCaptions: parsePublicCaptions(parsed['图说'] || parsed.publicCaptions),
     processIssues: [],
@@ -1453,14 +1464,12 @@ function fingerprintFor(kind, ctx) {
             .sort(),
         }
       : {
-        complaint: ctx.complaint,
-        quoteLines: ctx.quoteLines,
+        // v7：交车只看施工记录与验收项图文，报价单/接车单不再参与判断
+        v7: 'delivery_v7',
         workItems: ctx.workItems,
         warrantyPeriod: ctx.warrantyPeriod,
         warrantyNotes: ctx.warrantyNotes,
         acceptance: ctx.acceptance || null,
-        hasExterior: ctx.hasExterior,
-        selectedCount: ctx.selectedCount,
         workAdviceAt: ctx.workAdviceAt,
       }
   return crypto.createHash('sha1').update(JSON.stringify({ v: kind, ...picked })).digest('hex')
@@ -1843,15 +1852,9 @@ function multiPhotoFindingIds(ctx) {
 
 function deliveryInstruction(ctx) {
   const { scrubPiiDeep } = require('../utils/scrub-pii-text')
+  // 报价单、接车单在各自节点完成后已锁定：交车只依据施工记录与验收项的图文判断证据是否充分。
   const safeFacts = scrubPiiDeep({
-    complaint: ctx.complaint,
-    intake: ctx.intakeAdviceSummary,
-    inspect: ctx.inspectAdviceSummary,
-    quoteLines: ctx.quoteLines,
-    quoteSummary: ctx.quoteSummary || null,
     workItems: ctx.workItems,
-    workAdvice: ctx.workAdviceSummary,
-    factPack: ctx.factPack || null,
     warrantyPeriod: ctx.warrantyPeriod,
     warrantyNotes: ctx.warrantyNotes,
     acceptance: ctx.acceptance || null,
@@ -1869,29 +1872,31 @@ function deliveryInstruction(ctx) {
     deliveryPhotoSlots: ctx.deliveryPhotoSlots,
   })
   return [
-    '你是修理厂的交车顾问。根据整单事实、本单施工项目与报价行，以及商家实际传的验收图和写的验收文字，逐项给出验收建议。',
-    '不要复述接车、检测、报价、施工里接下来做什么。不要写「系统内缺少」，不要编没做的钣喷。',
+    '你是修理厂的交车顾问。只看本单施工记录（workItems）和验收项上商家实际传的图、写的字，逐项判断证据是否足以说明该项状态。',
+    '报价单、接车单在各自节点完成后已经锁定，不再作为判断依据：不要引用、不要对比，也不要因为和报价或接车诉求不符而下结论。',
     '',
     '按下面四步思考，结果都写进这一个 JSON：',
     '',
-    '1. 验收评估（最重要）：行清单已由系统规则给出（见参考材料 acceptance.items，= 施工项 ∪ 首次与历次补充报价行，末行「外观」）。',
-    '   你必须对 acceptance.items 的**每一行**各输出一条，不增行、不漏行、不改行名；你的职责是判断这一行的图文证据是否足以说明事实。',
-    '   - 没图也没文字：给「验收标准」「验收方法」「拍照建议」；「建议结果」留空字符串，「描述」留空，「依据」写清缺什么（如「还没有胶套安装图」）。',
-    '   - 有图或有文字：「建议结果」只能是「合格」「建议观察」「需返工」。「描述」写这行实际状态；证据不足时在描述里明确写「建议补传XX图」或「建议返工XX」（不加新枚举）。「依据」引用「图N」（deliveryPhotoSlots 里有 slot 与所属行名）、workPhotos 的观察结论或商家已写文字。',
-    '   - 报价有但施工没做的行：「状态」写「未施工」，其余按没图没文字处理。',
-    '   - 带 unbuiltReason 的行是商家在施工节点已交代的未施工项（system_error=系统录入错误，customer_declined=客户要求不做）：',
-    '     不要求补图、不给建议结果（「建议结果」留空），只在「依据」写清交代原因；不要把它算作缺证据。',
+    '1. 逐项证据判断（最重要）：验收行已由系统规则给出（见参考材料 acceptance.items，末行「外观」）。',
+    '   你必须对 acceptance.items 的**每一行**各输出一条，不增行、不漏行、不改行名。',
+    '   证据 = 这一行能对得上的图（deliveryPhotoSlots 里有「图N」与所属行名，workPhotos 里有已看过的图观察结论）或商家已写的文字。',
+    '   - 证据充分（看得出做的是这一项，状态可辨识）：「证据」写「充分」，并给「建议结果」「描述」「依据」。',
+    '     「建议结果」只能是「合格」「建议观察」「需返工」。「描述」把这行的验收文字润色到准确、可交付，只写证据里实际有的内容。',
+    '     「依据」引用「图N」或商家已写文字。店员点「应用」才写入，你不代点。',
+    '   - 证据不足（没图没字、只有旧件图、只有整车远景、图与行名对不上等）：「证据」写「不足」，「建议结果」和「描述」都留空字符串，',
+    '     「补充建议」写清缺什么（该补拍哪张图、该补写哪句话），「依据」说明凭什么判断不足。证据不足时一律不写结论。',
+    '   - 带 unbuiltReason 的行是施工节点已交代的未施工项：不判断证据、不要求补图、不给建议结果和补充建议，只在「依据」写清交代原因。',
     '   「类别」填「施工」或「外观」。不写「已验合格」这类无依据结论，不写承诺句。店员点应用才写入，你不代点。',
     '   证据判断口径：能看出「做的是这一项、状态正常且可辨识」才算充分；只拍了旧件/只拍了整车远景/图与行名对不上，都算不足并指出补拍要求。',
     '2. 拆分建议：验收图挂错行时，写「项目」（目标验收行名）、「图片」、「描述」。已经挂对的不要写。',
     '3. 质保：只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
-    '4. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖五件事——①车主为什么来；②查出了什么（挑与诉求最相关的两三项，含「需关注」）；③怎么修的（关键工艺/用料，不写价格）；④修完怎么确认的（验收方法与结果）；⑤交车叮嘱与质保。不写价格和隐私，不编没做的事。',
+    '4. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖四件事——①这次做了哪些项目；②关键工艺与用料（不写价格）；③修完怎么确认的（验收方法与结果）；④交车叮嘱与质保。不写价格和隐私，不编没做的事。',
     '   问答（静默）：3到8条，用于公开案例页与托管预览（不展示在交车页）：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」。优先覆盖①本次维修注意事项（修后护理、复查时机、禁忌、质保与返修）至少各一条；②同类问题修前怎么判断和由这例稍作延伸的普遍问题，答句末尾点明「具体以到店检测为准」。',
     '   图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不写推测结论，不写车牌与人脸。',
     '',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"验收":[{"项目":"左下摆臂胶套更换","类别":"施工","状态":"已施工","验收标准":"胶套无开裂、螺栓扭矩达标、无渗油","验收方法":"举升目视+扳手复紧","拍照建议":"举升下胶套安装位、螺栓特写","建议结果":"合格","描述":"胶套安装到位无渗油。","依据":"图1 举升下胶套安装到位"},{"项目":"变速箱油更换","类别":"施工","状态":"未施工","验收标准":"","验收方法":"","拍照建议":"","建议结果":"","描述":"","依据":"报价有该项，施工未做"},{"项目":"外观","类别":"外观","状态":"已施工","验收标准":"车身无明显磕碰划痕","验收方法":"绕车目视","拍照建议":"整车前后左右各一张","建议结果":"","描述":"","依据":"还没有外观图或文字"}],"拆分建议":[{"项目":"外观","图片":["图3"],"描述":"这张是整车外观。"}],"质保":"12 个月或 2 万公里，以先到为准","简述":"…120到200字…","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"}],"图说":[{"图":"图1","说":"举升后安装到位的下摆臂胶套。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"验收":[{"项目":"左下摆臂胶套更换","类别":"施工","证据":"充分","建议结果":"合格","描述":"更换了开裂的下摆臂胶套，螺栓已复紧，安装位无渗油。","补充建议":"","依据":"图1 举升下胶套安装到位"},{"项目":"变速箱油更换","类别":"施工","证据":"不足","建议结果":"","描述":"","补充建议":"补拍放油口旧油颜色和加注新油的照片","依据":"只有工单文字，没有该项验收图"},{"项目":"外观","类别":"外观","证据":"不足","建议结果":"","描述":"","补充建议":"绕车补拍车头、车尾、左右侧各一张","依据":"还没有外观图或文字"}],"拆分建议":[{"项目":"外观","图片":["图3"],"描述":"这张是整车外观。"}],"质保":"12 个月或 2 万公里，以先到为准","简述":"…120到200字…","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"}],"图说":[{"图":"图1","说":"举升后安装到位的下摆臂胶套。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -2159,7 +2164,7 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     Boolean(contentFingerprint) &&
     fingerprint !== contentFingerprint
   // 旧版提示词生成的交车意见（无验收起草）视为过时，引导店员刷新
-  const adviceOutdated = kind === 'delivery' && Number(advice.schema || 1) < 4
+  const adviceOutdated = kind === 'delivery' && Number(advice.schema || 1) < 7
   const hasBody = adviceHasContent(advice, kind)
   const stale = (contentStale || adviceOutdated) && (status === 'ready' || hasBody)
   const isWaiting = status === 'queued' || status === 'running'
