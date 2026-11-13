@@ -2364,12 +2364,21 @@ Page({
     const workDone = family === 'work' && focus && String(focus.status || '') === 'completed'
     const review = stageReviewForm(board, focus, flowNodes)
     const finishOpen = family === 'finish' && !review && !chrome.locked
+    const finishNode = focus || activeNode
     if (family === 'work' && workDone) {
       chrome = { preview: false, label: '', action: '', locked: false }
     } else if (family === 'work' && (!board || board.state !== 'current') && !stay) {
       chrome = { preview: false, label: '', action: '', locked: true }
     } else if (family === 'work') {
       chrome = { ...chrome, preview: false }
+    } else if (
+      family === 'finish' &&
+      chrome.action === 'remindDelivery' &&
+      finishNode &&
+      finishNode.kind === 'delivery_photos'
+    ) {
+      // 还停在完工照这一步时，主按钮是「提交完工」而不是请车主确认
+      chrome = { ...chrome, label: '完成交车' }
     }
     return {
       stageShowPreview: chrome.preview,
@@ -3075,7 +3084,11 @@ Page({
 
   previewAcceptLabel(action) {
     if (action === 'generateReport') return '生成检测报告'
-    if (action === 'remindDelivery') return '请车主确认'
+    if (action === 'remindDelivery') {
+      const kind = this.data.activeNode && this.data.activeNode.kind
+      // 完工照还没提交时，这一步是「提交完工」，不是催车主确认
+      return kind === 'delivery_photos' ? '完成交车' : '请车主确认'
+    }
     if (action === 'advance' || action === 'sendQuote') return '发给车主'
     return ''
   },
