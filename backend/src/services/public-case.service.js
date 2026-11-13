@@ -114,8 +114,15 @@ function buildNodesFromTask(nodes, task) {
 }
 
 /** 公开案例节点以相册真源为准，脱敏图以 pre-mask 任务为准 */
+function publicCaseBaseNodes(albumView) {
+  // DOC-FLOW：流程相册的节点 id 在 flow 域，legacy 节点表不参与，标题/说明必须取流程视图
+  const flowNodes = Array.isArray(albumView.flowNodeViews) ? albumView.flowNodeViews : []
+  return flowNodes.length ? flowNodes : albumView.nodes
+}
+
+/** 公开案例节点以相册真源为准，脱敏图以 pre-mask 任务为准 */
 function resolvePublicCaseNodes(album, task, fallbackNodes = []) {
-  const nodes = album ? buildAlbumView(album).nodes : fallbackNodes
+  const nodes = album ? publicCaseBaseNodes(buildAlbumView(album)) : fallbackNodes
   if (!nodes.length) return fallbackNodes
   return buildNodesFromTask(nodes, task)
 }
@@ -128,7 +135,7 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
   const vehicle = albumView.vehicle || {}
   const serviceName = albumView.serviceName || '维修服务'
   const city = albumView.store?.city || '杭州'
-  const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
+  const nodesWithMask = buildNodesFromTask(publicCaseBaseNodes(albumView), task)
   const tier = coldStart ? 'private' : authorizationTier
   const publicPrice = buildPublicCasePrice(
     {
@@ -484,7 +491,7 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
   const wasOffline = album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE
   const task = await resolvePublishTask(albumId, payload)
   const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
-  const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
+  const nodesWithMask = buildNodesFromTask(publicCaseBaseNodes(albumView), task)
   // 托管公开：隐私已过线时允许门店自处理可公开面（脱敏工具可选）
   const allowStoreProcessedFace = Boolean(
     hostedGeoPublish && hostMeta.privacyAuditPassedAt,

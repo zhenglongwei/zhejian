@@ -111,6 +111,7 @@ const {
   normalizeIntakeResult,
   normalizePendingImages,
   buildQuoteDraft,
+  mergeNodeContent,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const { quoteFace } = require('../../../../utils/service-flow-quote-draft')
@@ -4957,14 +4958,18 @@ Page({
           ? body.photoDraft
           : null
     if (bag) {
-      applyNodeContent(node, bag)
-      if (node.document) node.document = { ...node.document, payload: bag }
+      // 与后端 writeNodeContent 保持一致：增量 merge，禁止用局部 patch 覆盖整袋内容
+      const merged = mergeNodeContent(nodeContentOf(node), bag)
+      applyNodeContent(node, merged)
+      if (node.document) node.document = { ...node.document, payload: merged }
     }
     if (body.document && typeof body.document === 'object') {
       node.document = { ...(node.document || {}), ...body.document }
       // 只改文档 payload 时，content 与 payload 同源，一并跟上
       if (!bag && body.document.payload && typeof body.document.payload === 'object') {
-        applyNodeContent(node, body.document.payload)
+        const merged = mergeNodeContent(nodeContentOf(node), body.document.payload)
+        applyNodeContent(node, merged)
+        if (node.document) node.document = { ...node.document, payload: merged }
       }
     }
     if (body.status) node.status = body.status

@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { resolvePublicCaseMediaUrl, resolveStoreProcessedPublicUrl } = require('../lib/media-url')
 const { resolveClientReadableMediaUrl, resolveClientReadableMediaUrls, rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 const { buildPublicCasePrice, resolvePublicCasePriceFields } = require('../utils/album-price')
 const { buildPublicServiceFlow } = require('../utils/public-service-flow')
@@ -226,7 +226,9 @@ function formatPublishedAt(value) {
 }
 
 function sanitizeCover(url) {
-  const cover = resolvePublicCaseMediaUrl(url) || ''
+  // 与写快照同一条公开口径：脱敏图优先；无打码产物的门店自处理原图（责任在商家）也放行。
+  // rewriteMediaUrlForCurrentBase 会丢掉历史签名并按当前域重新签名，避免签名过期导致图片全部消失。
+  const cover = resolvePublicCaseMediaUrl(url) || resolveStoreProcessedPublicUrl(url) || ''
   return cover ? rewriteMediaUrlForCurrentBase(cover) : ''
 }
 

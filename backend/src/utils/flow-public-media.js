@@ -64,6 +64,54 @@ function countPublicizableFlowPhotos(album) {
   return collectPublicizableFlowPhotos(album).length
 }
 
+function collectAllFlowPhotos(album) {
+  const out = []
+  const seen = new Set()
+  flowNodesOf(album).forEach((node) => {
+    if (!node || typeof node !== 'object') return
+    const refs = []
+    collectBagImageRefs(node.content, refs)
+    collectBagImageRefs(node.photoDraft, refs)
+    collectBagImageRefs(node.document && node.document.payload, refs)
+    refs.forEach((ref) => {
+      const url = String((ref && ref.url) || '').trim()
+      const key = stripUrlQuery(url)
+      if (!url || !key || seen.has(key)) return
+      seen.add(key)
+      out.push({ nodeId: String(node.id || node.nodeId || ''), url })
+    })
+  })
+  return out
+}
+
+function countAllFlowPhotos(album) {
+  return collectAllFlowPhotos(album).length
+}
+
+/**
+ * 流程相册的节点视图：与 imageMeta（流程真源）同一套 nodeId，供案例快照/公开页取标题与说明。
+ * 图片不在这里挂，统一由 publicView（已过公开闸）按 nodeId 输出，避免接车/报价图外泄。
+ */
+function buildFlowNodeViews(album) {
+  return flowNodesOf(album).map((node, idx) => {
+    const kind = String((node && node.kind) || '').trim()
+    const content =
+      node && node.content && typeof node.content === 'object' ? node.content : {}
+    const note = String((node && node.note) || '').trim()
+    return {
+      id: String((node && (node.id || node.nodeId)) || `flow_${idx}`),
+      nodeId: String((node && (node.id || node.nodeId)) || `flow_${idx}`),
+      title: String((node && node.title) || '').trim(),
+      kind,
+      status: String((node && node.status) || 'pending'),
+      note: note || String(content.conclusion || '').trim(),
+      content,
+      document: node && node.document ? node.document : null,
+      images: [],
+    }
+  })
+}
+
 /**
  * 给 assessPublicCaseQuality / buildPublicView 用的 imageMeta 形状。
  * 有可公示节点图 → 标 public+passed（不再读 album_images 闸）。
@@ -91,5 +139,8 @@ module.exports = {
   albumUsesFlowNodes,
   collectPublicizableFlowPhotos,
   countPublicizableFlowPhotos,
+  collectAllFlowPhotos,
+  countAllFlowPhotos,
+  buildFlowNodeViews,
   mapFlowImageMeta,
 }

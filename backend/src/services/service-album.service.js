@@ -494,7 +494,17 @@ function buildUserAlbumGateBFields(album) {
 
 function buildAlbumView(album) {
   const nodes = mapNodesForView(album)
-  const imageCount = album.imageCount || countImages(nodes)
+  const {
+    albumUsesFlowNodes,
+    countAllFlowPhotos,
+    buildFlowNodeViews,
+  } = require('../utils/flow-public-media')
+  const flowAlbum = albumUsesFlowNodes(album)
+  // 流程相册的照片挂在节点袋里，album.imageCount 列不会随流程更新，按流程真源兜底
+  const imageCount = Math.max(
+    Number(album.imageCount) || 0,
+    flowAlbum ? countAllFlowPhotos(album) : countImages(nodes),
+  )
   const store = buildStoreBlock(album)
   const vehicle = sanitizeUserVehicle(album.vehicleJson || {}, { revealPlate: true })
   const vehicleDisplay = formatVehicle(vehicle)
@@ -515,6 +525,8 @@ function buildAlbumView(album) {
     publicMediaCount: countPublicMedia(imageMeta),
     storeNote: album.storeNote || '',
     nodes,
+    // 流程真源节点视图（同 nodeId 域），案例快照/公开页取标题说明用
+    flowNodeViews: flowAlbum ? buildFlowNodeViews(album) : [],
     evidenceItems: resolveEvidenceItemsForAlbum(album, nodes),
     pendingConfirms: album.pendingConfirmsJson || [],
     pendingCount: (album.pendingConfirmsJson || []).length,
