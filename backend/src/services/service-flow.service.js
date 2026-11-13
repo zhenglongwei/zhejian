@@ -37,6 +37,7 @@ const {
   listQuoteLineEvidenceUrls,
   resolveWarrantyNotes,
   resolveAcceptanceItems,
+  normalizeReworkRecords,
   parseMileageKm,
   parseAmount,
   resolveQuoteConfirmCopy,
@@ -240,10 +241,18 @@ function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
   return next
 }
 
-function buildFinishReportFromFrozenNodes(nodes = [], album = {}) {
+function buildFinishReportFromFrozenNodes(nodes = [], album = {}, options = {}) {
   const delivery = (nodes || []).find((row) => row && row.kind === 'delivery_photos')
   const draft = delivery ? contentOfFlowNode(delivery) : {}
   const inspectionReport = (nodes || []).find((row) => row && row.kind === 'inspection_report')
+  const repair = (nodes || []).find((row) => row && row.kind === 'repair_report')
+  const prevPayload = (repair && repair.document && repair.document.payload) || {}
+  const prevContent = repair ? contentOfFlowNode(repair) : {}
+  // 修订号：已发送后重新生成 → revision+1；普通生成/修复沿用已有版本
+  const explicit = Number(options && options.revision)
+  const revision = Number.isFinite(explicit)
+    ? Math.max(0, explicit)
+    : Math.max(0, Number(prevPayload.revision || prevContent.revision) || 0)
   // 公开图说：草稿里应用过的优先，其次交车 AI 意见里的（同一次看图产出）
   const adviceCaptions =
     delivery && delivery.deliveryAdvice && delivery.deliveryAdvice.publicCaptions &&
@@ -265,6 +274,7 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}) {
     photoDraft: { ...draft, publicCaptions },
     totalAmount: collectConfirmedQuoteTotal(nodes),
     confirmCopy: REPAIR_CONFIRM_COPY,
+    revision,
   })
 }
 
@@ -770,6 +780,22 @@ function deliveryReportSent(nodes) {
   const report = (nodes || []).find((node) => node && node.kind === 'repair_report')
   const status = String((report && report.document && report.document.status) || '')
   return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered'
+}
+
+/** 报告已发后补充施工：保留已发版本，标记需出修订版 */
+function markFinishReportNeedsRevision(nodes) {
+  return (nodes || []).map((node) => {
+    if (!node || node.kind !== 'repair_report') return node
+    const document =
+      node.document && typeof node.document === 'object'
+        ? node.document
+        : emptyDocument('repair_report')
+    const payload = document.payload && typeof document.payload === 'object' ? document.payload : {}
+    return {
+      ...writeNodeContent(node, { content: { needsRevision: true } }),
+      document: { ...document, payload: { ...payload, needsRevision: true } },
+    }
+  })
 }
 
 function unlockNextNode(nodes, index) {
@@ -1963,13 +1989,33 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     if (list[idx].kind === 'delivery_photos') {
       const repairIdx = list.findIndex((n) => n.kind === 'repair_report')
       if (repairIdx >= 0) {
-        const draft = buildFinishReportFromFrozenNodes(list)
+        const repair = list[repairIdx]
+        const prevDoc = repair.document && typeof repair.document === 'object' ? repair.document : {}
+        const wasSent = finishReportStatusSent(prevDoc)
+        const prevPayload = prevDoc.payload && typeof prevDoc.payload === 'object' ? prevDoc.payload : {}
+        const prevContent = contentOfFlowNode(repair)
+        const prevRevision = Math.max(0, Number(prevPayload.revision || prevContent.revision) || 0)
+        const revision = wasSent ? prevRevision + 1 : prevRevision
+        const draft = buildFinishReportFromFrozenNodes(list, {}, { revision })
+        // 已发报告重新生成：旧版本归档到 document.revisions[]，车主可追溯
+        const revisions = wasSent
+          ? (Array.isArray(prevDoc.revisions) ? prevDoc.revisions : [])
+              .concat([
+                {
+                  revision: prevRevision,
+                  generatedAt: String(prevContent.reportGeneratedAt || ''),
+                  payload: prevContent,
+                },
+              ])
+              .slice(-10)
+          : prevDoc.revisions
         list[repairIdx] = {
-          ...writeNodeContent(list[repairIdx], { content: draft }),
+          ...writeNodeContent(repair, { content: draft }),
           status: 'in_progress',
           document: envelopeOnlyDocument({
-            ...(list[repairIdx].document || emptyDocument('repair_report')),
+            ...(repair.document || emptyDocument('repair_report')),
             status: 'pending_confirm',
+            revisions: revisions || [],
           }),
         }
         // 公开说明镜像：用报告简述/问答同步 archiveCopy
@@ -2292,7 +2338,7 @@ async function proxyConfirmFlowDocument(
 }
 
 /** 施工中插入增项方案确认 + 工单 */
-async function insertAddonPlan(albumId, storeId, merchantId = '') {
+async function insertAddonPlan(albumId, storeId, merchantId = '', payload = {}) {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
     require('./service-album.service')
   const album = await loadAlbum(albumId)
@@ -2300,11 +2346,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   assertAlbumContentEditable(album)
 
   const existingNodes = sortFlowNodes(readFlowNodesRaw(album))
-  if (deliveryReportSent(existingNodes)) {
-    const err = new Error('交车已发给车主，不能再补充报价')
-    err.status = 409
-    throw err
-  }
+  const reportAlreadySent = deliveryReportSent(existingNodes)
   const workForSeed =
     existingNodes.find((n) => n && n.kind === 'work' && n.status === 'in_progress') ||
     existingNodes.find((n) => n && n.kind === 'work' && n.status !== 'locked') ||
@@ -2313,6 +2355,20 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
     ? contentOfFlowNode(workForSeed).findings
     : []
   const addonDraft = buildAddonDraftFromWorkFindings(seedFindings)
+  // 交车「发现问题 → 当场追加」：带上商家填写的新问题说明与照片
+  const discoveryNote = String((payload && payload.discoveryNote) || '').trim().slice(0, 200)
+  const discoveryImages = (Array.isArray(payload && payload.discoveryImages) ? payload.discoveryImages : [])
+    .map((url) => String(url || '').trim())
+    .filter(Boolean)
+    .slice(0, 6)
+  if (discoveryNote || discoveryImages.length) {
+    const prev = addonDraft.discovery && typeof addonDraft.discovery === 'object' ? addonDraft.discovery : {}
+    addonDraft.discovery = {
+      ...prev,
+      note: discoveryNote || String(prev.note || '').trim(),
+      images: discoveryImages.length ? discoveryImages : Array.isArray(prev.images) ? prev.images : [],
+    }
+  }
   const openAddon = existingNodes.find((n) => {
     if (!n || n.kind !== 'quote_confirm' || String(n.insertedReason || '') !== 'addon') return false
     const status = String((n.document && n.document.status) || 'draft')
@@ -2325,26 +2381,27 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
     if (openStatus === 'draft' && addonDraft.seeded && addonDraftStillBlank(openPayload)) {
       await writeFlowPackage(albumId, (pkg) => {
         const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+        const nextNodes = nodes.map((n) => {
+          if (!n || n.id !== openAddon.id) return n
+          const document = n.document && typeof n.document === 'object' ? n.document : emptyDocument('quote_confirm')
+          const payload = document.payload && typeof document.payload === 'object' ? document.payload : {}
+          seededIntoOpen = true
+          return {
+            ...n,
+            document: {
+              ...document,
+              payload: {
+                ...payload,
+                lines: addonDraft.lines,
+                discovery: addonDraft.discovery,
+                confirmCopy: payload.confirmCopy || QUOTE_CONFIRM_COPY,
+              },
+            },
+          }
+        })
         return {
           ...pkg,
-          flowNodes: nodes.map((n) => {
-            if (!n || n.id !== openAddon.id) return n
-            const document = n.document && typeof n.document === 'object' ? n.document : emptyDocument('quote_confirm')
-            const payload = document.payload && typeof document.payload === 'object' ? document.payload : {}
-            seededIntoOpen = true
-            return {
-              ...n,
-              document: {
-                ...document,
-                payload: {
-                  ...payload,
-                  lines: addonDraft.lines,
-                  discovery: addonDraft.discovery,
-                  confirmCopy: payload.confirmCopy || QUOTE_CONFIRM_COPY,
-                },
-              },
-            }
-          }),
+          flowNodes: reportAlreadySent ? markFinishReportNeedsRevision(nextNodes) : nextNodes,
         }
       })
     }
@@ -2354,6 +2411,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       ...buildFlowView(refreshedOpen, viewNodes),
       addonAlreadyOpen: true,
       addonSeeded: Boolean(seededIntoOpen),
+      needsRevision: reportAlreadySent,
     }
   }
 
@@ -2366,7 +2424,11 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       err.status = 400
       throw err
     }
-    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: inserted.nodes }
+    return {
+      ...pkg,
+      flowVersion: FLOW_VERSION,
+      flowNodes: reportAlreadySent ? markFinishReportNeedsRevision(inserted.nodes) : inserted.nodes,
+    }
   })
 
   const refreshed = await loadAlbum(albumId)
@@ -2374,6 +2436,164 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   return {
     ...buildFlowView(refreshed, viewNodes),
     addonSeeded: Boolean(inserted && inserted.seeded),
+    needsRevision: reportAlreadySent,
+  }
+}
+
+/**
+ * 交车发现新问题 → 返工（2026-11-13）
+ * 记录返工项与原因，施工回到 in_progress，交付确认与报告回退；不产生费用。
+ */
+async function reopenWorkForRework(albumId, storeId, merchantId = '', payload = {}) {
+  const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
+    require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  assertAlbumContentEditable(album)
+
+  const reason = String((payload && payload.reason) || '').trim()
+  if (!reason) {
+    const err = new Error('请填写返工原因')
+    err.status = 400
+    throw err
+  }
+  if (reason.length > 200) {
+    const err = new Error('返工原因请控制在 200 字内')
+    err.status = 400
+    throw err
+  }
+  const itemIds = (Array.isArray(payload && payload.itemIds) ? payload.itemIds : [])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  if (!itemIds.length) {
+    const err = new Error('请选择返工项目')
+    err.status = 400
+    throw err
+  }
+
+  const nodes = sortFlowNodes(readFlowNodesRaw(album))
+  const delivery = nodes.find((n) => n && n.kind === 'delivery_photos')
+  const liveRows = resolveAcceptanceItems(delivery ? contentOfFlowNode(delivery) : {})
+  const idSet = new Set(itemIds)
+  const names = liveRows
+    .filter((row) => idSet.has(String(row.id || '')))
+    .map((row) => String(row.name || '').trim())
+    .filter(Boolean)
+
+  await writeFlowPackage(albumId, (pkg) => {
+    const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+    let changed = false
+    const next = list.map((node) => {
+      if (!node) return node
+      if (node.kind === 'work') {
+        changed = true
+        return { ...node, status: 'in_progress' }
+      }
+      if (node.kind === 'delivery_photos') {
+        changed = true
+        const draft = contentOfFlowNode(node)
+        const records = normalizeReworkRecords(draft.reworkRecords)
+        const acceptanceItems = resolveAcceptanceItems(draft).map((row) =>
+          idSet.has(String(row.id || '')) ? { ...row, result: '', rework: true } : row,
+        )
+        return {
+          ...writeNodeContent(node, {
+            content: {
+              reworkRecords: records.concat([
+                {
+                  id: `rw_${Date.now()}`,
+                  itemIds,
+                  itemNames: names,
+                  reason,
+                  status: 'open',
+                  createdAt: new Date().toISOString(),
+                },
+              ]),
+              acceptanceItems,
+            },
+          }),
+          status: 'in_progress',
+        }
+      }
+      if (node.kind === 'repair_report') {
+        const document = node.document && typeof node.document === 'object' ? node.document : {}
+        if (!finishReportStatusSent(document)) return node
+        changed = true
+        const payload = document.payload && typeof document.payload === 'object' ? document.payload : {}
+        return {
+          ...writeNodeContent(node, { content: { needsRevision: true } }),
+          document: {
+            ...document,
+            status: 'draft',
+            payload: {
+              ...payload,
+              needsRevision: true,
+              revision: Math.max(1, Number(payload.revision) || 0),
+            },
+          },
+        }
+      }
+      return node
+    })
+    return changed ? { ...pkg, flowVersion: FLOW_VERSION, flowNodes: next } : pkg
+  })
+
+  const refreshed = await loadAlbum(albumId)
+  return { ...buildFlowView(refreshed, mapNodesForView(refreshed)), rework: true }
+}
+
+/**
+ * 交车发现新问题 → 转新单（2026-11-13）
+ * 新建相册并继承车辆/客户/门店，与源单双向关联；源单报告标注遗留项。
+ */
+async function createFollowUpAlbum(albumId, storeId, merchantId = '', payload = {}) {
+  const { loadAlbum, assertMerchantAlbum, createMerchantServiceAlbum, mapNodesForView } =
+    require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+
+  const note = String((payload && payload.note) || '').trim().slice(0, 200)
+  const created = await createMerchantServiceAlbum(merchantId, storeId, {
+    serviceName: album.serviceName || '服务留档',
+    serviceId: album.serviceId || '',
+    userPhone: album.userPhone || '',
+    storeName: album.storeName || '',
+    vehicle: album.vehicleJson || {},
+  })
+  const followUpId = String((created && (created.albumId || created.id)) || '').trim()
+  if (!followUpId) {
+    const err = new Error('新建相册失败')
+    err.status = 500
+    throw err
+  }
+
+  const followUp = await prisma.album.findUnique({ where: { id: followUpId } })
+  const followUpPkg =
+    followUp && followUp.contentPackageJson && typeof followUp.contentPackageJson === 'object'
+      ? followUp.contentPackageJson
+      : {}
+  await prisma.album.update({
+    where: { id: followUpId },
+    data: {
+      contentPackageJson: {
+        ...followUpPkg,
+        relatedAlbumId: albumId,
+        relatedAlbumNote: note,
+      },
+    },
+  })
+
+  await writeFlowPackage(albumId, (pkg) => ({
+    ...pkg,
+    followUpAlbumId: followUpId,
+    followUpNote: note,
+  }))
+
+  const refreshed = await loadAlbum(albumId)
+  return {
+    ...buildFlowView(refreshed, mapNodesForView(refreshed)),
+    followUpAlbumId: followUpId,
+    followUpNote: note,
   }
 }
 
@@ -3688,6 +3908,8 @@ module.exports = {
   ownerRejectFlowDocument,
   insertAddonPlan,
   cancelAddonPlan,
+  reopenWorkForRework,
+  createFollowUpAlbum,
   mapFlowNodeForView,
   healFinishReportPackage,
   persistHealedFinishReport,

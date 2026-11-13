@@ -98,7 +98,7 @@ function workPhotoSlots(nodes) {
   const used = new Set()
   const push = (bucket, shot) => {
     const url = shot && shot.url
-    if (!url || used.has(url) || slots.length >= 8) return
+    if (!url || used.has(url) || slots.length >= 12) return
     used.add(url)
     slots.push({
       slot: slots.length + 1,
@@ -401,6 +401,40 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
       gap: text(row && (row['缺什么'] || row.gap)).slice(0, 120),
     })
   })
+  // 第 4 步补充：结构化补拍清单 + 疑似返工（施工节点完成前必须补齐留证）
+  const shootPlan = (Array.isArray(parsed['补拍清单']) ? parsed['补拍清单'] : [])
+    .map((row) => {
+      const name = resolvePresetItemName(
+        text(row && (row['项目'] || row.partName || row.name)),
+        workNames,
+      )
+      const missing = text(row && (row['缺哪类'] || row.missing)).slice(0, 40)
+      const how = text(row && (row['怎么拍'] || row.how || row.body)).slice(0, 160)
+      const severity = text(row && (row['严重度'] || row.severity)) === '必须' ? 'must' : 'suggest'
+      if (!name && !how) return null
+      return {
+        title: name || '留证',
+        project: name,
+        missing,
+        how,
+        body: how || (missing ? `缺${missing}` : '这一项留证不足，建议补拍。'),
+        severity,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+  const reworkHints = (Array.isArray(parsed['返工提醒']) ? parsed['返工提醒'] : [])
+    .map((row) => {
+      const name = resolvePresetItemName(
+        text(row && (row['项目'] || row.partName || row.name)),
+        workNames,
+      )
+      const basis = text(row && (row['依据'] || row.basis || row.body)).slice(0, 120)
+      if (!name || !basis) return null
+      return { name, basis, display: `${name}疑似返工：${basis}` }
+    })
+    .filter(Boolean)
+    .slice(0, 4)
   // 第 5 步：填写建议
   const fillByName = new Map()
   adviceRows(parsed, '填写建议', 'items').forEach((row) => {
@@ -524,21 +558,31 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
       body: `${row.name}是新增项，没有事先报价。`,
     })
   })
-  if (!photoPlan.length) {
+  if (shootPlan.length) {
+    photoPlan = shootPlan
+  } else if (!photoPlan.length) {
     photoPlan = workItemsOut
       .filter((row) => row.evidence === 'insufficient')
       .slice(0, 6)
-      .map((row) => ({ title: row.name, body: row.evidenceGap || '这一项留证不足，建议补拍。' }))
+      .map((row) => ({
+        title: row.name,
+        project: row.name,
+        missing: '',
+        how: row.evidenceGap || '',
+        body: row.evidenceGap || '这一项留证不足，建议补拍。',
+        severity: row.photos.length ? 'suggest' : 'must',
+      }))
   }
   return {
     scope: 'process',
-    schema: 2,
+    schema: 8,
     sequence,
     gaps,
     items: written,
     groups: groups.slice(0, 6),
     newItems: newItemsOut,
     photoPlan,
+    reworkHints,
     quoteAdvice,
     workItems: workItemsOut,
     quoteOnlyItems,
@@ -666,7 +710,11 @@ function parseDeliveryAdvice(raw, slots) {
         photoAdvice: text(obj['拍照建议'] || obj.photoAdvice).slice(0, 160),
         result: resultEnum,
         note,
-        supplement: text(obj['补充建议'] || obj['补充意见'] || obj['缺什么'] || obj.supplement).slice(0, 200),
+        // 交车只做减法：证据不足统一写「施工节点留证不足」，不再要求交车补拍
+        supplement:
+          evidence === 'insufficient'
+            ? '施工节点留证不足'
+            : text(obj['补充建议'] || obj['补充意见'] || obj['缺什么'] || obj.supplement).slice(0, 200),
         basis: text(obj['依据'] || obj.basis).slice(0, 150),
       }
     })
@@ -1429,7 +1477,8 @@ function contextOf(album, extraNotes = {}) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        v: 'work_v3',
+        // v8：施工节点是唯一留证节点，逐项判证据；交代记录参与指纹，变更后重出建议
+        v: 'work_v8',
         quoteLines: (ctx.quoteItemRows || []).map((row) => ({
           id: row.id,
           name: row.name,
@@ -1444,6 +1493,11 @@ function fingerprintFor(kind, ctx) {
               entries: (ctx.quoteSummary.entries || []).map((row) => `${row.label}:${row.status}`),
             }
           : null,
+        unbuiltQuoteItems: (ctx.unbuiltQuoteItems || []).map((row) => ({
+          quoteLineId: row.quoteLineId || '',
+          name: row.name,
+          reason: row.reason,
+        })),
         workItems: ctx.workItems,
         workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
           slot: row.slot,
@@ -1704,6 +1758,7 @@ function workInstruction(ctx) {
   }
   return [
     '你是修理厂的施工顾问，帮店员整理施工这一步的意见。',
+    '定位：施工节点是本单唯一留证节点。本步完成后照片锁定，交车节点不再补拍、不再补验收结果，所以留证必须在这里补齐。',
     '本步有两份单据，必须分清：报价项是车主已确认的方案行，是预设清单；工单项是按报价项预生成的施工记录，允许与报价项不同。',
     '',
     '硬规则：',
@@ -1711,22 +1766,28 @@ function workInstruction(ctx) {
     '2. 同一个项目的不同叫法必须归到预设名（例：报价只有「划痕修复」，底部划痕、门边划痕都归「划痕修复」）。',
     '3. 不同项目不得合并。',
     '4. 只建议，店员点应用才执行；不改价格，不自己挪图。',
-    '5. 报价项里「交代」非空的，是商家已确认未施工（系统录入错误 / 客户要求不做）：不得再列进缺项、未施工、漏记提醒，也不要建议补做。',
+    '5. 报价项里「交代」非空的，是商家已确认未施工（系统录入错误 / 客户要求不做）：不得再列进缺项、未施工、漏记提醒，也不要建议补做。报价有、工单无、又没交代的，必须提醒「报价有、施工无」。',
+    '6. 禁止出现「交车时补拍」「交车再确认」这类把责任推给下一步的说法；缺图只能在本步补。',
     '',
     '按下面六步思考，结果都写进这一个 JSON：',
     '',
     '1. 报价项建议：逐条报价项给「做法」（先做什么再做什么）和「拍照建议」（该拍哪些图，如新旧件对比、关键工序、装车效果）。写入「报价项建议」。',
     '2. 逐图归类：按图1、图2顺序，每张图独立看，只写这张图里实际有的内容。每张图给「图」「内容」「归属」；归属先找工单项目，工单没有再看报价项，两者都没有写「新增」。',
     '3. 拆分建议：同一工单项里混了多个项目的图才拆，写「项目」「图片」「描述」；项目只能取预设名。已经挂对的图不要写。',
-    '4. 证据：逐工单项判断留证是否充分，写「项目」「证据」（充分或不足）、「缺什么」。检查类项目只看结论文字，不要求施工图。',
-    '5. 填写建议：还没写施工描述的工单项给「建议描述」，写清做了什么、换什么件、关键工序、结果；已经写了描述的只给「补充建议」，补缺失信息，不改文采。',
-    '6. 新增项：工单和报价都没有的图才列，写「项目」「图片」「描述」；识别不出项目就留空。',
+    '4. 证据：逐工单项判断留证是否充分，写「项目」「证据」（充分或不足）、「缺什么」。',
+    '   每项留证看三类：拆检/施工过程、新旧件对比、完工效果。至少 1 张图；三类齐全才算「充分」，缺哪类就在「缺什么」里写明（例：缺新旧对比）。检查类项目只看结论文字，不要求施工图。',
+    '5. 补拍清单：证据不足的工单项逐条写「项目」「缺哪类」「怎么拍」「严重度」。',
+    '   「怎么拍」必须可执行：拍什么对象、从哪个角度、要不要新旧件同框。例：新旧胶套并排放在举升台上俯拍同框。禁止写「补拍一下」「多拍几张」这类空话。',
+    '   「严重度」只能填「必须」或「建议」：完全没图、图对不上项目为「必须」；已有过程图但缺新旧对比/完工效果为「建议」。',
+    '6. 填写建议：证据充分的工单项才给「建议描述」，写清做了什么、换什么件、关键工序、结果；已经写了描述的只给「补充建议」。证据不足的工单项不写描述，只进补拍清单。',
+    '   疑似返工：从照片看得出返工迹象（旧件未拆、装配不到位、漏装、油污未清等）时，在「返工提醒」写「项目」「依据」，依据必须指向具体图和画面；只提醒，不擅自把状态改成返工。',
+    '7. 新增项：工单和报价都没有的图才列，写「项目」「图片」「描述」；识别不出项目就留空。',
     '',
     '只写画面和单据里实际有的内容，不编。',
     '',
     `参考材料：${JSON.stringify(material)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"报价项建议":[{"报价项":"下摆臂胶套更换","做法":"先拆旧胶套再压入新胶套，最后复紧螺栓。","拍照建议":"拍新旧胶套对比、压入过程、装车后螺栓特写。"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"证据":[{"项目":"下摆臂胶套更换","证据":"充分","缺什么":""}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，螺栓已复紧。","补充建议":""}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"报价项建议":[{"报价项":"下摆臂胶套更换","做法":"先拆旧胶套再压入新胶套，最后复紧螺栓。","拍照建议":"拍新旧胶套对比、压入过程、装车后螺栓特写。"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"证据":[{"项目":"下摆臂胶套更换","证据":"充分","缺什么":""},{"项目":"变速箱油更换","证据":"不足","缺什么":"缺新旧对比"}],"补拍清单":[{"项目":"变速箱油更换","缺哪类":"新旧对比","怎么拍":"旧油放出的油盆与新油桶并排俯拍同框，带上放油口","严重度":"必须"}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，螺栓已复紧。","补充建议":""}],"返工提醒":[{"项目":"下摆臂胶套更换","依据":"图1 可见旧胶套仍装在车上，未见拆装痕迹"}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1884,10 +1945,10 @@ function deliveryInstruction(ctx) {
     '     「建议结果」只能是「合格」「建议观察」「需返工」。「描述」把这行的验收文字润色到准确、可交付，只写证据里实际有的内容。',
     '     「依据」引用「图N」或商家已写文字。店员点「应用」才写入，你不代点。',
     '   - 证据不足（没图没字、只有旧件图、只有整车远景、图与行名对不上等）：「证据」写「不足」，「建议结果」和「描述」都留空字符串，',
-    '     「补充建议」写清缺什么（该补拍哪张图、该补写哪句话），「依据」说明凭什么判断不足。证据不足时一律不写结论。',
+    '     「补充建议」固定写「施工节点留证不足」，「依据」一句话说明缺哪类证据。禁止要求补拍——施工节点完成即锁定，交车不再补拍。证据不足时一律不写结论。',
     '   - 带 unbuiltReason 的行是施工节点已交代的未施工项：不判断证据、不要求补图、不给建议结果和补充建议，只在「依据」写清交代原因。',
     '   「类别」填「施工」或「外观」。不写「已验合格」这类无依据结论，不写承诺句。店员点应用才写入，你不代点。',
-    '   证据判断口径：能看出「做的是这一项、状态正常且可辨识」才算充分；只拍了旧件/只拍了整车远景/图与行名对不上，都算不足并指出补拍要求。',
+    '   证据判断口径：能看出「做的是这一项、状态正常且可辨识」才算充分；只拍了旧件/只拍了整车远景/图与行名对不上，都算不足。',
     '2. 拆分建议：验收图挂错行时，写「项目」（目标验收行名）、「图片」、「描述」。已经挂对的不要写。',
     '3. 质保：只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
     '4. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖四件事——①这次做了哪些项目；②关键工艺与用料（不写价格）；③修完怎么确认的（验收方法与结果）；④交车叮嘱与质保。不写价格和隐私，不编没做的事。',
@@ -2178,8 +2239,8 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     updatedAt: text(advice.updatedAt),
   }
   if (kind === 'work') {
-    // 旧结果（schema<2）视为过时，引导刷新
-    const workOutdated = Number(advice.schema || 1) < 2
+    // 旧结果（schema<8）视为过时，引导刷新
+    const workOutdated = Number(advice.schema || 1) < 8
     return {
       ...base,
       stale: stale || (workOutdated && (status === 'ready' || hasBody)),

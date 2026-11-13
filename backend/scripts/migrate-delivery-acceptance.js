@@ -25,7 +25,7 @@ const { resolveShared } = require('../src/utils/resolve-shared')
 // 行源 = 施工项目：与商家交车页同一套规则（共享层单一真源）
 const { buildAcceptanceRowsFromWorkItems } = resolveShared('utils/service-flow-docs.js')
 
-const MAX_EXTERIOR = 3
+const MAX_EXTERIOR = 4
 const MAX_ITEM_IMAGES = 6
 const MAX_ACCEPTANCE = 20
 const RESULTS = ['pass', 'observe', 'rework']
@@ -105,6 +105,9 @@ function normalizeAcceptanceRows(list) {
         images,
         result: RESULTS.includes(obj.result) ? obj.result : '',
         note,
+        // 与共享层归一化字段对齐，保证迁移幂等
+        unbuiltReason: '',
+        unbuiltNote: '',
       }
     })
     .filter(Boolean)
@@ -131,6 +134,8 @@ function ensureExteriorRow(rows, photos) {
     images: imgs,
     result: '',
     note: '',
+    unbuiltReason: '',
+    unbuiltNote: '',
   })
   return list
 }

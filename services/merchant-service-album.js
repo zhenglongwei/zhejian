@@ -450,11 +450,11 @@ async function deliverMerchantFlowNode(albumId, nodeId, payload = {}) {
   )
 }
 
-async function insertMerchantAddonPlan(albumId) {
+async function insertMerchantAddonPlan(albumId, payload = {}) {
   if (ENV.mode === 'mock') {
     return { flowNodes: [], message: '已添加增项方案' }
   }
-  return post(`/merchant/service-albums/${albumId}/flow/addon-plan`, withStore({}))
+  return post(`/merchant/service-albums/${albumId}/flow/addon-plan`, withStore(payload))
 }
 
 async function cancelMerchantAddonPlan(albumId, payload = {}) {
@@ -465,6 +465,22 @@ async function cancelMerchantAddonPlan(albumId, payload = {}) {
     `/merchant/service-albums/${albumId}/flow/addon-plan/cancel`,
     withStore(payload),
   )
+}
+
+/** 交车发现新问题 → 返工：施工重开、交付与报告回退（不计费） */
+async function reopenMerchantWorkForRework(albumId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { flowNodes: [], rework: true, message: '已转返工' }
+  }
+  return post(`/merchant/service-albums/${albumId}/flow/rework`, withStore(payload))
+}
+
+/** 交车发现新问题 → 转新单：新建相册并双向关联 */
+async function createMerchantFollowUpAlbum(albumId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { followUpAlbumId: '', list: [], message: '已转新单' }
+  }
+  return post(`/merchant/service-albums/${albumId}/flow/follow-up-album`, withStore(payload))
 }
 
 module.exports = {
@@ -519,4 +535,6 @@ module.exports = {
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,
+  reopenMerchantWorkForRework,
+  createMerchantFollowUpAlbum,
 }

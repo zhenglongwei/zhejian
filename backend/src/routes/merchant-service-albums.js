@@ -1110,7 +1110,12 @@ router.post(
     try {
       const storeId = resolveStoreId(req)
       const { insertAddonPlan } = require('../services/service-flow.service')
-      const data = await insertAddonPlan(req.params.albumId, storeId, req.auth.merchantId)
+      const data = await insertAddonPlan(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+        req.body || {},
+      )
       return ok(res, data)
     } catch (e) {
       next(e)
@@ -1126,6 +1131,46 @@ router.post(
       const storeId = resolveStoreId(req)
       const { cancelAddonPlan } = require('../services/service-flow.service')
       const data = await cancelAddonPlan(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+        req.body || {},
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/flow/rework',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { reopenWorkForRework } = require('../services/service-flow.service')
+      const data = await reopenWorkForRework(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+        req.body || {},
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/flow/follow-up-album',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { createFollowUpAlbum } = require('../services/service-flow.service')
+      const data = await createFollowUpAlbum(
         req.params.albumId,
         storeId,
         req.auth.merchantId,

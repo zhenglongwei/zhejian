@@ -10,6 +10,8 @@ const {
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,
+  reopenMerchantWorkForRework,
+  createMerchantFollowUpAlbum,
   recognizeVehicleIntakeOcr,
   fetchMerchantSocialCards,
 } = require('../../../../services/merchant-service-album')
@@ -240,6 +242,20 @@ function nodeContentOf(node) {
   if (node.content && typeof node.content === 'object') return node.content
   if (node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
   return {}
+}
+
+/** 验收行展示字段（结果徽标 / 施工留证是否缺失），交付确认页只读渲染用 */
+function acceptanceRowDisplay(row = {}) {
+  const images = Array.isArray(row.images) ? row.images : []
+  const resultLabel =
+    (ACCEPTANCE_RESULT_OPTIONS.find((opt) => opt.value === row.result) || {}).label || ''
+  return {
+    ...row,
+    images,
+    resultLabel,
+    resultTone: { pass: 'ok', observe: 'warn', rework: 'bad' }[row.result] || '',
+    photosMissing: row.kind !== 'exterior' && !images.length,
+  }
 }
 
 /**
@@ -619,6 +635,16 @@ Page({
     finishedAt: '',
     finishedAtDate: '',
     finishedAtTime: '',
+    // 交付确认（2026-11-13）：交付里程默认检测里程；外观照选填，无图豁免留痕
+    deliveryMileage: '',
+    exteriorPhotoWaived: false,
+    deliveryIssueOpen: false,
+    deliveryIssueMode: 'addon',
+    deliveryIssueNote: '',
+    deliveryIssueImages: [],
+    deliveryIssueReworkIds: [],
+    deliveryIssueReworkOptions: [],
+    deliveryIssueBusy: false,
     mileageKm: '',
     odometerUrl: '',
     odometerImageId: '',
@@ -1575,7 +1601,11 @@ Page({
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: String(this.data.delivererName || '').trim(),
+        // 交付确认（2026-11-13）：交车时间、交付里程必填；finishedAt 保留兼容旧读侧
+        deliveredAt: String(this.data.finishedAt || '').trim(),
+        deliveryMileage: String(this.data.deliveryMileage || '').trim(),
         finishedAt: String(this.data.finishedAt || '').trim(),
+        exteriorPhotoWaived: this.data.exteriorPhotoWaived === true,
         confirmCopy: REPAIR_CONFIRM_COPY,
         // 简述/问答不在界面展示；此处只负责把 AI 静默写入的内容一起落库
         repairBrief: String(this.data.repairBrief || '').trim(),
@@ -2205,6 +2235,24 @@ Page({
           readOnly: this.data.readOnly,
         }),
         mileageKm,
+        deliveryMileage: isDeliveryPhotoStep
+          ? String(
+              parseMileageKm(photoDraft.deliveryMileage) ||
+                parseMileageKm(
+                  nodeContentOf(
+                    flowNodes.find(
+                      (node) =>
+                        node && (node.kind === 'inspection' || node.kind === 'inspection_report' || node.kind === 'intake'),
+                    ),
+                  ).mileageKm,
+                ) ||
+                this._albumMileage ||
+                '',
+            )
+          : this.data.deliveryMileage,
+        exteriorPhotoWaived: isDeliveryPhotoStep
+          ? photoDraft.exteriorPhotoWaived === true
+          : this.data.exteriorPhotoWaived,
         odometerUrl: isIntakePhotoStep ? String((sections[0] && sections[0].odometerUrl) || '').trim() : '',
         odometerImageId: isIntakePhotoStep
           ? String((sections[0] && sections[0].odometerImageId) || '').trim()
@@ -2723,7 +2771,15 @@ Page({
       workerName: text(workDraft.workerName || activeDraft.workerName),
       workFinishedAt: text(workDraft.finishedAt || activeDraft.finishedAt),
       delivererName: text(deliveryDraft.delivererName || repairPayload.delivererName || docPayload.delivererName),
-      finishedAt: text(deliveryDraft.finishedAt || repairPayload.finishedAt || docPayload.finishedAt),
+      // 交车时间：新字段 deliveredAt 优先，旧单回退 finishedAt
+      finishedAt: text(
+        deliveryDraft.deliveredAt ||
+          deliveryDraft.finishedAt ||
+          repairPayload.deliveredAt ||
+          repairPayload.finishedAt ||
+          docPayload.deliveredAt ||
+          docPayload.finishedAt,
+      ),
     }
   },
 
@@ -2760,6 +2816,10 @@ Page({
       ) {
         fields.finishedAt = now
         defaulted.push('finishedAt')
+      }
+      // 交付人默认当前店员：优先施工人（同一操作人），可改
+      if (kind === 'delivery_photos' && !fields.delivererName && fields.workerName) {
+        fields.delivererName = fields.workerName
       }
     }
     if (defaulted.length) {
@@ -4031,7 +4091,12 @@ Page({
    */
   resolveInitialAcceptanceItems(workItems = [], savedRows = [], quoteLines = [], unbuiltItems = []) {
     return buildAcceptanceRowsFromWorkItems(workItems, savedRows, quoteLines, unbuiltItems).map(
-      (row) => ({ ...row, unbuiltReasonLabel: unbuiltReasonLabel(row.unbuiltReason) }),
+      (row) => ({
+        ...acceptanceRowDisplay(row),
+        unbuiltReasonLabel: unbuiltReasonLabel(row.unbuiltReason),
+        unbuiltNote:
+          row.unbuiltNote || (row.unbuiltReason ? '商家已在施工节点交代，此项未施工。' : ''),
+      }),
     )
   },
 
@@ -4184,7 +4249,7 @@ Page({
 
   applyAcceptanceImages(rowId, images) {
     const acceptanceItems = (this.data.acceptanceItems || []).map((row) =>
-      row && row.id === rowId ? { ...row, images: images || [] } : row,
+      row && row.id === rowId ? acceptanceRowDisplay({ ...row, images: images || [] }) : row,
     )
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDraftOnly()
@@ -5364,6 +5429,157 @@ Page({
     })
   },
 
+  /** 交付里程：只留数字，默认带检测里程，可改 */
+  onDeliveryMileageInput(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const value = String((e.detail && e.detail.value) || '').replace(/[^\d]/g, '').slice(0, 7)
+    this.setData({ deliveryMileage: value, autoSaveLabel: '保存中…' }, () =>
+      this.scheduleAutoSavePhotos(),
+    )
+  },
+
+  /** 交车发现新问题：三出口（当场追加 / 转新单 / 返工） */
+  onOpenDeliveryIssue() {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const options = (this.data.acceptanceItems || [])
+      .filter((item) => item && item.kind !== 'exterior' && !item.unbuiltReason && item.name)
+      .map((item) => ({ id: String(item.id || ''), name: String(item.name || ''), active: false }))
+    this.setData({
+      deliveryIssueOpen: true,
+      deliveryIssueMode: 'addon',
+      deliveryIssueNote: '',
+      deliveryIssueImages: [],
+      deliveryIssueReworkIds: [],
+      deliveryIssueReworkOptions: options,
+    })
+  },
+
+  onCloseDeliveryIssue() {
+    if (this.data.deliveryIssueBusy) return
+    this.setData({ deliveryIssueOpen: false })
+  },
+
+  onDeliveryIssueMode(e) {
+    const mode = String((e.currentTarget && e.currentTarget.dataset.mode) || 'addon')
+    this.setData({ deliveryIssueMode: mode })
+  },
+
+  onDeliveryIssueNote(e) {
+    this.setData({ deliveryIssueNote: String((e.detail && e.detail.value) || '').slice(0, 200) })
+  },
+
+  onToggleDeliveryIssueItem(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset.id) || '')
+    if (!id) return
+    const current = (this.data.deliveryIssueReworkIds || []).slice()
+    const idx = current.indexOf(id)
+    if (idx >= 0) current.splice(idx, 1)
+    else current.push(id)
+    const options = (this.data.deliveryIssueReworkOptions || []).map((row) => ({
+      ...row,
+      active: current.indexOf(String(row.id || '')) >= 0,
+    }))
+    this.setData({ deliveryIssueReworkIds: current, deliveryIssueReworkOptions: options })
+  },
+
+  onPickDeliveryIssueImages() {
+    if (this.data.deliveryIssueBusy) return
+    const current = (this.data.deliveryIssueImages || []).filter(Boolean)
+    if (current.length >= 6) {
+      wx.showToast({ title: '最多 6 张', icon: 'none' })
+      return
+    }
+    pickLocalImages({
+      count: Math.min(6 - current.length, 9),
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const files = (res && res.tempFiles) || []
+        if (!files.length) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await this.uploadPickedFiles(files)
+          const urls = current
+            .concat(uploaded.map((row) => row.url).filter(Boolean))
+            .slice(0, 6)
+          this.setData({ deliveryIssueImages: urls })
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
+  onRemoveDeliveryIssueImage(e) {
+    const index = Number((e.currentTarget && e.currentTarget.dataset.index) || -1)
+    if (index < 0) return
+    const images = (this.data.deliveryIssueImages || []).slice()
+    images.splice(index, 1)
+    this.setData({ deliveryIssueImages: images })
+  },
+
+  onPreviewDeliveryIssueImage(e) {
+    const index = Number((e.currentTarget && e.currentTarget.dataset.index) || 0)
+    const urls = this.data.deliveryIssueImages || []
+    if (!urls.length) return
+    wx.previewImage({ current: urls[index], urls })
+  },
+
+  async onConfirmDeliveryIssue() {
+    if (this.data.deliveryIssueBusy) return
+    const mode = this.data.deliveryIssueMode
+    const note = String(this.data.deliveryIssueNote || '').trim()
+    if (!note) {
+      wx.showToast({ title: '请说明发现的问题', icon: 'none' })
+      return
+    }
+    if (mode === 'rework' && !(this.data.deliveryIssueReworkIds || []).length) {
+      wx.showToast({ title: '请选择返工项目', icon: 'none' })
+      return
+    }
+    this.setData({ deliveryIssueBusy: true })
+    try {
+      if (mode === 'addon') {
+        // 当场追加：复用补充报价流程，报告已发时会生成修订版
+        this.setData({ deliveryIssueOpen: false })
+        await this.onAddAddonPlan({
+          discoveryNote: note,
+          discoveryImages: (this.data.deliveryIssueImages || []).slice(),
+        })
+        return
+      }
+      if (mode === 'rework') {
+        const res = await reopenMerchantWorkForRework(this.albumId, {
+          reason: note,
+          itemIds: this.data.deliveryIssueReworkIds || [],
+        })
+        wx.showToast({ title: '已转返工，请重新施工留证', icon: 'none' })
+        this.setData({ deliveryIssueOpen: false })
+        await this.loadFlow({ silent: true })
+        return
+      }
+      const res = await createMerchantFollowUpAlbum(this.albumId, { note })
+      const followUpId = String((res && res.followUpAlbumId) || '')
+      wx.showToast({ title: '已转新单', icon: 'success' })
+      this.setData({ deliveryIssueOpen: false })
+      await this.loadFlow({ silent: true })
+      if (followUpId) {
+        setTimeout(() => {
+          wx.navigateTo({
+            url: `/packageMerchant/pages/album/flow/index?albumId=${followUpId}&relatedFrom=${this.albumId}`,
+          })
+        }, 400)
+      }
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ deliveryIssueBusy: false })
+    }
+  },
+
+
   /** 交车 AI 建议：逐项验收/质保，点哪行写哪行（只填空栏，不覆盖已写、不批量替换） */
   onApplyDeliveryAdvice(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
@@ -5422,18 +5638,18 @@ Page({
     }
     const acceptanceItems = (this.data.acceptanceItems || []).map((row) => {
       if (row && row.id && target.id && row.id === target.id) {
-        return {
+        return acceptanceRowDisplay({
           ...row,
           result: row.result || target.result || '',
           note: row.note || target.note || '',
-        }
+        })
       }
       if (String((row && row.name) || '').trim() !== target.name) return row
-      return {
+      return acceptanceRowDisplay({
         ...row,
         result: row.result || target.result || '',
         note: row.note || target.note || '',
-      }
+      })
     })
     this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
       this.setData(
@@ -5518,32 +5734,7 @@ Page({
     wx.showToast({ title: '已挪到对应验收项', icon: 'none' })
   },
 
-  onAcceptanceItemInput(e) {
-    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
-    const field = e.currentTarget.dataset.field
-    if (!rowId || !['name', 'note'].includes(field)) return
-    const acceptanceItems = (this.data.acceptanceItems || []).map((row) =>
-      row && row.id === rowId ? { ...row, [field]: String(e.detail.value || '').trim() } : row,
-    )
-    this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
-      this.scheduleAutoSaveDraftOnly()
-    })
-  },
-
-  /** 验收结果只有店员实查后能点（三档：合格 / 建议观察 / 需返工），AI 不代点 */
-  onAcceptanceResultTap(e) {
-    if (this.data.readOnly) return
-    const rowId = String((e.currentTarget.dataset && e.currentTarget.dataset.rowId) || '').trim()
-    const value = String(e.currentTarget.dataset.value || '')
-    if (!rowId) return
-    if (!ACCEPTANCE_RESULT_OPTIONS.some((row) => row.value === value)) return
-    const acceptanceItems = (this.data.acceptanceItems || []).map((row) =>
-      row && row.id === rowId ? { ...row, result: row.result === value ? '' : value } : row,
-    )
-    this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
-      this.scheduleAutoSaveDraftOnly()
-    })
-  },
+  noop() {},
 
   onQuoteLineInput(e) {
     const index = Number(e.currentTarget.dataset.index)
@@ -6580,34 +6771,13 @@ Page({
     const acceptanceSummaryText = [
       `共 ${acceptanceDraftItems.length} 项`,
       acceptancePendingCount ? `待写入 ${acceptancePendingCount} 项` : '',
-      acceptanceSupplementCount ? `待补证据 ${acceptanceSupplementCount} 项` : '',
+      acceptanceSupplementCount ? `留证不足 ${acceptanceSupplementCount} 项` : '',
       acceptanceUnbuiltCount ? `未施工 ${acceptanceUnbuiltCount} 项` : '',
     ]
       .filter(Boolean)
       .join(' · ')
-    // 拆分建议：验收图挂错行，挪图
-    const splitGroups = (Array.isArray(raw.groups) ? raw.groups : [])
-      .map((row, index) => {
-        const partName = String((row && row.partName) || '').trim()
-        const slots = Array.isArray(row && row.slots) ? row.slots : []
-        const images = Array.isArray(row && row.images) ? row.images : []
-        const body = String((row && row.body) || '').trim()
-        if (!partName || !slots.length) return null
-        // 找目标验收行
-        const target = (this.data.acceptanceItems || []).find(
-          (r) => String((r && r.name) || '').trim() === partName,
-        )
-        return {
-          id: `dsplit_${index}`,
-          partName,
-          slots,
-          images: images.map((img) => ({ url: String((img && img.url) || '') })).filter((i) => i.url),
-          body,
-          targetId: target ? String(target.id || '') : '',
-          canApply: Boolean(target),
-        }
-      })
-      .filter(Boolean)
+    // 交车不再采集/调整图片，图片挪行建议停用（2026-11-13）
+    const splitGroups = []
     const warrantyText = String((raw.warranty && raw.warranty.body) || '').trim()
     const liveWarranty = String(this.data.warrantyPeriod || '').trim()
     const canApplyWarranty = Boolean(warrantyText) && !liveWarranty
@@ -7774,11 +7944,39 @@ Page({
       }
     }
     if (kind === 'delivery_photos') {
+      // AI 建议需返工且未处理：不允许直接交车，必须先走「发现问题」三出口
+      const adviceItems =
+        this.data.deliveryAdvice &&
+        this.data.deliveryAdvice.acceptance &&
+        Array.isArray(this.data.deliveryAdvice.acceptance.items)
+          ? this.data.deliveryAdvice.acceptance.items
+          : []
+      const unhandledRework = adviceItems.filter((row) => {
+        if (!row || row.result !== 'rework') return false
+        const live = (this.data.acceptanceItems || []).find(
+          (item) => String(item.id || '') === String(row.id || '') || item.name === row.name,
+        )
+        return !live || live.result !== 'rework'
+      })
+      if (unhandledRework.length) {
+        wx.showModal({
+          title: 'AI 建议需返工',
+          content: `${unhandledRework
+            .slice(0, 3)
+            .map((row) => row.partName || row.name || '施工项')
+            .join('、')} 的证据显示可能需要返工。请点「发现问题」处理后再交车。`,
+          showCancel: false,
+          confirmText: '知道了',
+        })
+        return
+      }
       const gaps = collectDeliveryPhotoDraftGaps({
         acceptanceItems: this.data.acceptanceItems || [],
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: this.data.delivererName,
+        deliveredAt: this.data.finishedAt,
+        deliveryMileage: this.data.deliveryMileage,
       })
       if (gaps.length) {
         wx.showModal({
@@ -8084,6 +8282,10 @@ Page({
         warrantyNotes: this.data.warrantyNotes || base.warrantyNotes || doc.warrantyNotes,
         delivererName: String(this.data.delivererName || base.delivererName || doc.signName || '').trim(),
         finishedAt: String(this.data.finishedAt || base.finishedAt || doc.signAt || '').trim(),
+        deliveredAt: String(
+          this.data.finishedAt || base.deliveredAt || base.finishedAt || doc.deliveredAt || doc.signAt || '',
+        ).trim(),
+        deliveryMileage: String(this.data.deliveryMileage || base.deliveryMileage || '').trim(),
         repairBrief: String(this.data.repairBrief || base.repairBrief || doc.repairBrief || '').trim(),
         acceptanceItems:
           (this.data.acceptanceItems && this.data.acceptanceItems.length
@@ -9094,7 +9296,7 @@ Page({
     return this.onNotifyOwnerPlan()
   },
 
-  async onAddAddonPlan() {
+  async onAddAddonPlan(payload = {}) {
     if (this.data.readOnly || this.data.confirming) return
     this.setData({ confirming: true })
     try {
@@ -9112,12 +9314,20 @@ Page({
         this.resyncSectionsAfterPersist()
         await this.persistPhotoDraft()
       }
-      const added = await insertMerchantAddonPlan(this.albumId)
+      const added = await insertMerchantAddonPlan(this.albumId, payload || {})
       const seeded = Boolean(added && added.addonSeeded)
       wx.showToast({
         title: seeded || (added && added.addonSeeded) ? '补上金额' : '写下新发现和金额',
         icon: 'none',
       })
+      if (added && added.needsRevision) {
+        wx.showModal({
+          title: '报告已发送',
+          content: '本次追加完成后重新生成报告会出修订版 v2，旧版本保留可追溯。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+      }
       await this.loadFlow({ silent: true })
       const addon = (this._flowNodes || []).find(
         (node) =>

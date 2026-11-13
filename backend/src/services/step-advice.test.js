@@ -691,7 +691,7 @@ test('施工项五种状态：工单/新增 × 证据充分/不足，报价项�
       { id: 'ql2', name: '底盘检查', amount: '0' },
     ],
   })
-  assert.equal(got.schema, 2)
+  assert.equal(got.schema, 8)
   const scratch = got.workItems.find((row) => row.name === '划痕修复')
   assert.equal(scratch.origin, 'quote')
   assert.equal(scratch.quoteLineId, 'ql1')
@@ -827,7 +827,7 @@ test('交车只出逐项验收与质保建议；简述问答静默、不进面�
   assert.equal(got.ownerFaqs.length, 1)
 })
 
-test('交车逐项：证据充分给状态与润色文案，证据不足只给补充建议', () => {
+test('交车逐项：证据充分给状态与润色文案，证据不足只提示施工节点留证不足', () => {
   const got = parseDeliveryAdvice({
     验收: [
       { 项目: '变速箱油更换', 类别: '施工', 证据: '不足', 补充建议: '补拍放油口旧油颜色和加注新油的照片', 依据: '只有工单文字' },
@@ -835,7 +835,8 @@ test('交车逐项：证据充分给状态与润色文案，证据不足只给�
     ],
   })
   assert.equal(got.acceptance.items[0].evidence, 'insufficient')
-  assert.equal(got.acceptance.items[0].supplement, '补拍放油口旧油颜色和加注新油的照片')
+  // 交车只做减法：不足统一写「施工节点留证不足」，不再要求补拍
+  assert.equal(got.acceptance.items[0].supplement, '施工节点留证不足')
   assert.equal(got.acceptance.items[0].result, '')
   assert.equal(got.acceptance.items[1].evidence, 'sufficient')
   assert.equal(got.acceptance.items[1].result, 'observe')

@@ -19,7 +19,16 @@ test('旧三段验收行迁成一行：只留图片 / 结果 / 描述', () => {
     },
   ])
   assert.equal(rows.length, 1)
-  assert.deepEqual(Object.keys(rows[0]).sort(), ['id', 'images', 'kind', 'name', 'note', 'result'])
+  assert.deepEqual(Object.keys(rows[0]).sort(), [
+    'id',
+    'images',
+    'kind',
+    'name',
+    'note',
+    'result',
+    'unbuiltNote',
+    'unbuiltReason',
+  ])
   assert.equal(rows[0].name, '左下摆臂胶套更换')
   assert.equal(rows[0].kind, 'work')
   assert.equal(rows[0].note, '胶套安装到位，无渗油；怎么验：举升目视')
@@ -134,7 +143,16 @@ test('迁移幂等：再跑一次不再改', () => {
         kind: 'delivery_photos',
         content: {
           acceptanceItems: [
-            { id: 'a1', kind: 'work', name: '机油机滤', images: [], result: 'pass', note: '加注到上限' },
+            {
+              id: 'a1',
+              kind: 'work',
+              name: '机油机滤',
+              images: [],
+              result: 'pass',
+              note: '加注到上限',
+              unbuiltReason: '',
+              unbuiltNote: '',
+            },
             {
               id: 'exterior',
               kind: 'exterior',
@@ -142,6 +160,8 @@ test('迁移幂等：再跑一次不再改', () => {
               images: [{ url: 'https://x/out.jpg', imageId: '' }],
               result: 'pass',
               note: '',
+              unbuiltReason: '',
+              unbuiltNote: '',
             },
           ],
         },

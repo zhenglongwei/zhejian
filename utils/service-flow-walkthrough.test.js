@@ -215,6 +215,8 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
     ownerFaqs: [{ id: 'faq1', question: '多久复查？', answer: '建议 500 公里后再看底盘异响。' }],
     warrantyPeriod: '6个月或1万公里',
     delivererName: '李店长',
+    deliveredAt: '2026-11-13 17:30',
+    deliveryMileage: '36800',
     acceptanceItems: [
       { id: 'a1', kind: 'work', name: '故障现象', note: '路试底盘异响已消除', result: 'pass' },
       { id: 'a2', kind: 'work', name: '渗漏检查', note: '举升目视无油液渗漏', result: 'pass' },

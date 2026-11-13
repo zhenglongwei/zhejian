@@ -740,6 +740,8 @@ function contentBagHasSubstance(raw) {
     'receiverName',
     'inspectorName',
     'delivererName',
+    'deliveredAt',
+    'deliveryMileage',
     'conclusion',
     'belongings',
     'totalAmount',
@@ -1042,6 +1044,35 @@ function normalizeUnbuiltQuoteItem(raw) {
     note: String(obj.note || '').trim().slice(0, 200),
     at: String(obj.at || '').trim(),
   }
+}
+
+/**
+ * 返工记录（交车后发现施工问题 / 复核要求返工）
+ * 写入施工节点 content.reworkRecords；施工回 in_progress 时保留，报告据此标注「返工」。
+ */
+function normalizeReworkRecord(raw) {
+  const obj = raw && typeof raw === 'object' ? raw : {}
+  const reason = String(obj.reason || '').trim().slice(0, 200)
+  if (!reason) return null
+  const itemIds = Array.isArray(obj.itemIds)
+    ? obj.itemIds.map((id) => String(id || '').trim()).filter(Boolean).slice(0, 20)
+    : []
+  const itemNames = Array.isArray(obj.itemNames)
+    ? obj.itemNames.map((name) => String(name || '').trim()).filter(Boolean).slice(0, 20)
+    : []
+  return {
+    id: String(obj.id || '').trim() || `rw_${Date.now().toString(36)}`,
+    reason,
+    itemIds,
+    itemNames,
+    operator: String(obj.operator || '').trim().slice(0, 40),
+    at: String(obj.at || '').trim(),
+    doneAt: String(obj.doneAt || '').trim(),
+  }
+}
+
+function normalizeReworkRecords(list) {
+  return (Array.isArray(list) ? list : []).map(normalizeReworkRecord).filter(Boolean).slice(-20)
 }
 
 /** 按 quoteLineId / 行名去重，后者覆盖前者（重进施工节点重选即覆盖） */
@@ -1595,18 +1626,30 @@ function collectInspectionReportGaps(payload = {}) {
   return gaps
 }
 
-/** 施工过程：每项至少 1 张图 + 项目名；可选校验工单项目均已挂图 */
+/**
+ * 施工过程 = 唯一留证节点：每个施工项至少 1 张图 + 项目名。
+ * 完成后照片锁定，交车节点不再补拍，因此门槛放在这里。
+ */
 function collectWorkPhotoDraftGaps(payload = {}) {
   const gaps = []
   const findings = Array.isArray(payload.findings) ? payload.findings : []
-  const withPhoto = findings.filter((raw) => workFindingHasPhoto(raw))
-  if (!withPhoto.length) {
-    gaps.push('请至少上传 1 张施工照片并填写项目')
+  const rows = findings.filter(
+    (raw) =>
+      workFindingHasPhoto(raw) ||
+      String((raw && (raw.partName || raw.caption)) || '').trim(),
+  )
+  if (!rows.length) {
+    gaps.push('请先添加工单项目，并至少上传 1 张施工照片')
+    return gaps
   }
-  withPhoto.forEach((raw) => {
+  rows.forEach((raw) => {
     const item = normalizeWorkFinding(raw)
     const label = item.partName || '未写项目'
-    if (!item.partName) gaps.push(`「${label}」请填写项目`)
+    if (!item.partName) {
+      gaps.push(`「${label}」请填写项目`)
+    } else if (!item.images.length) {
+      gaps.push(`「${label}」请补 1 张施工照片（过程 / 新旧对比 / 完工效果至少一张）`)
+    }
   })
   return gaps
 }
@@ -1630,10 +1673,9 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
   const accItems = resolveAcceptanceItems(payload)
   const workRows = accItems.filter((item) => item.kind !== ACCEPTANCE_KIND.EXTERIOR)
-  // 外观照已改为选填（2026-11-11）：缺图不再硬拦交车，由前端弹确认并在 payload 记 exteriorPhotoWaived 留痕。
-  // 可信信源原则：诚实标注「未留证」优于事后补拍造假。
+  // 外观照选填（2026-11-11）：缺图不再硬拦交车，由前端弹确认并在 payload 记 exteriorPhotoWaived 留痕。
   if (!workRows.length) {
-    gaps.push('还没有施工项目：请先在施工节点完成施工项，再回来逐项验收')
+    gaps.push('还没有施工项目：请先在施工节点完成施工项，再回来确认交付')
   }
   const period = String(payload.warrantyPeriod || '').trim()
   if (!period) {
@@ -1644,14 +1686,21 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.delivererName || '').trim()) {
     gaps.push('请填写交付人')
   }
-  // 清单一列到底：每行（含外观行）都要选结果；施工项图与描述选填
-  // 例外：施工节点已交代的未施工行（unbuiltReason）只读展示，不再要求选结果
+  const deliveredAt = String(payload.deliveredAt || '').trim()
+  if (!deliveredAt) {
+    gaps.push('请填写交车时间')
+  } else if (Number.isNaN(Date.parse(deliveredAt.replace(' ', 'T')))) {
+    // iOS JSCore 不认 "YYYY-MM-DD HH:mm"，替换空格再判断
+    gaps.push('交车时间格式不对，请重新选择')
+  }
+  if (!parseMileageKm(payload.deliveryMileage)) {
+    gaps.push('请填写交付里程')
+  }
+  // 交付确认不再逐行选结果；只拦截已确认「需返工」但未处理的行
   accItems.forEach((item) => {
     if (item.unbuiltReason) return
-    const label = `「${item.name}」`
-    if (!item.result) gaps.push(`${label}请选择验收结果`)
-    else if (item.result === ACCEPTANCE_RESULT.REWORK) {
-      gaps.push(`${label}需返工，处理完重验后才能交车`)
+    if (item.result === ACCEPTANCE_RESULT.REWORK) {
+      gaps.push(`「${item.name}」需返工，处理完重验后才能交车`)
     }
   })
   return gaps
@@ -2091,6 +2140,8 @@ function buildRepairReportPayload({
   photoDraft = {},
   confirmCopy = '',
   totalAmount = null,
+  revision = 0,
+  unbuiltItems = [],
 } = {}) {
   const period = String(warranty.period || photoDraft.warrantyPeriod || '').trim()
   const notes = resolveWarrantyNotes({
@@ -2154,6 +2205,12 @@ function buildRepairReportPayload({
     warrantyScope: '',
     warrantyExclusions: '',
     delivererName: String(photoDraft.delivererName || '').trim(),
+    // 交付确认信息（2026-11-13）：交车时间、交付里程、返工记录、未施工交代
+    deliveredAt: String(photoDraft.deliveredAt || '').trim(),
+    deliveryMileage: parseMileageKm(photoDraft.deliveryMileage),
+    reworkRecords: normalizeReworkRecords(photoDraft.reworkRecords),
+    unbuiltQuoteItems: normalizeUnbuiltQuoteItems(unbuiltItems),
+    revision: Number.isFinite(Number(revision)) ? Math.max(0, Math.round(Number(revision))) : 0,
     // 外观照豁免留痕透传：读侧（车主/公开页）据此标注「商家未留外观照」
     exteriorPhotoWaived: photoDraft.exteriorPhotoWaived === true,
     finishedAt: String(photoDraft.finishedAt || '').trim(),
@@ -2231,6 +2288,10 @@ function normalizePhotoDraft(raw = {}) {
     inspectedAt: String(raw.inspectedAt || '').trim(),
     workerName: String(raw.workerName || '').trim(),
     delivererName: String(raw.delivererName || '').trim(),
+    // 交付确认（2026-11-13）：交车时间与交付里程必填
+    deliveredAt: String(raw.deliveredAt || '').trim(),
+    deliveryMileage: parseMileageKm(raw.deliveryMileage),
+    reworkRecords: normalizeReworkRecords(raw.reworkRecords),
     // 外观照豁免留痕：true = 定稿时确认过「不拍外观照」，读侧据此标注「商家未留外观照」
     exteriorPhotoWaived: raw.exteriorPhotoWaived === true,
     finishedAt: String(raw.finishedAt || '').trim(),
@@ -2334,6 +2395,9 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.inspectedAt != null) next.inspectedAt = String(patch.inspectedAt || '').trim()
   if (patch.workerName != null) next.workerName = String(patch.workerName || '').trim()
   if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
+  if (patch.deliveredAt != null) next.deliveredAt = String(patch.deliveredAt || '').trim()
+  if (patch.deliveryMileage != null) next.deliveryMileage = parseMileageKm(patch.deliveryMileage)
+  if (patch.reworkRecords != null) next.reworkRecords = normalizeReworkRecords(patch.reworkRecords)
   if (patch.exteriorPhotoWaived != null) {
     next.exteriorPhotoWaived = patch.exteriorPhotoWaived === true
   }
@@ -2604,6 +2668,8 @@ module.exports = {
   normalizeUnbuiltQuoteItem,
   normalizeUnbuiltQuoteItems,
   collectUnbuiltQuoteItems,
+  normalizeReworkRecord,
+  normalizeReworkRecords,
   computeUnstartedQuoteItems,
   unmatchedCheckpoints,
   buildPriorOrganizeFacts,

@@ -57,8 +57,8 @@ const ACCEPTANCE_KIND = {
 /** 外观行的固定标识与名称 */
 const ACCEPTANCE_EXTERIOR_ID = 'exterior'
 const ACCEPTANCE_EXTERIOR_NAME = '外观'
-/** 外观图上限（首张为整车外观，至少 1 张） */
-const ACCEPTANCE_EXTERIOR_MAX = 3
+/** 外观图上限（交付确认选填 0~4 张；无图需确认豁免并留痕） */
+const ACCEPTANCE_EXTERIOR_MAX = 4
 /** 施工项图片上限 */
 const ACCEPTANCE_ITEM_MAX_IMAGES = 6
 

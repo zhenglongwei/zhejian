@@ -123,7 +123,7 @@
             <text
               wx:elif="{{item.evidence === 'insufficient' && !item.unbuilt}}"
               class="merchant-flow-page__accept-badge merchant-flow-page__accept-badge--muted"
-            >待补证据</text>
+            >施工节点留证不足</text>
           </view>
           <text
             wx:if="{{item.canApply}}"
@@ -1203,85 +1203,77 @@
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <view class="merchant-flow-page__key-fill-field">
                   <view class="merchant-flow-page__key-fill-label-row">
-                    <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收</text>
-                    <text class="merchant-flow-page__key-fill-req">（每行选结果；施工节点已交代的未施工行无需处理）</text>
+                    <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">交付验收</text>
+                    <text class="merchant-flow-page__key-fill-req">（施工节点已留证，这里只读确认）</text>
                   </view>
-                  <text wx:if="{{!acceptanceWorkCount}}" class="text-caption text-secondary merchant-flow-page__delivery-hint">还没有施工项目：请先在施工节点完成施工项，再回来逐项验收。</text>
+                  <text wx:if="{{!acceptanceWorkCount}}" class="text-caption text-secondary merchant-flow-page__delivery-hint">还没有施工项目：请先在施工节点完成施工项并留证。</text>
                   <view wx:for="{{acceptanceItems}}" wx:key="id" class="merchant-flow-page__owner-faq merchant-flow-page__acc-row">
                     <view class="merchant-flow-page__owner-faq-head">
-                      <text class="text-body merchant-flow-page__acc-name">{{item.kind === 'exterior' ? '外观（整车）' : item.name}}</text>
+                      <text class="text-body merchant-flow-page__acc-name">{{item.kind === 'exterior' ? '外观（整车，选填）' : item.name}}</text>
                       <text wx:if="{{item.unbuiltReason}}" class="merchant-flow-page__acc-unbuilt">未施工 · {{item.unbuiltReasonLabel || '已交代'}}</text>
-                      <text wx:elif="{{item.kind === 'exterior'}}" class="merchant-flow-page__key-fill-req">（选填，建议拍车头或车尾）</text>
+                      <text wx:elif="{{item.resultLabel}}" class="merchant-flow-page__acc-badge merchant-flow-page__acc-badge--{{item.resultTone}}">{{item.resultLabel}}</text>
+                      <text wx:elif="{{item.photosMissing}}" class="merchant-flow-page__acc-badge merchant-flow-page__acc-badge--muted">施工节点未留证</text>
+                      <text wx:elif="{{item.kind !== 'exterior'}}" class="merchant-flow-page__acc-badge merchant-flow-page__acc-badge--ok">已留证</text>
                     </view>
                     <view wx:if="{{item.unbuiltReason}}" class="merchant-flow-page__acc-unbuilt-body">
-                      <text class="text-caption text-secondary">{{item.unbuiltNote || '商家已在施工节点交代，此项未施工。'}}</text>
+                      <text class="text-caption text-secondary">{{item.unbuiltNote}}</text>
                     </view>
                     <block wx:else>
-                    <view class="merchant-flow-page__acc-result">
-                      <text class="text-caption text-secondary merchant-flow-page__acc-result-label">结果</text>
-                      <view class="merchant-flow-page__acc-result-opts">
-                        <text
-                          wx:for="{{acceptanceResultOptions}}"
-                          wx:for-item="opt"
-                          wx:key="value"
-                          class="merchant-flow-page__acc-result-opt {{item.result === opt.value ? 'merchant-flow-page__acc-result-opt--active' : ''}}"
+                      <view wx:if="{{item.images.length}}" class="merchant-flow-page__delivery-pool">
+                        <view
+                          wx:for="{{item.images}}"
+                          wx:for-item="pic"
+                          wx:key="url"
+                          class="merchant-flow-page__delivery-pool-item"
+                        >
+                          <image
+                            class="merchant-flow-page__delivery-pool-img image-placeholder"
+                            src="{{pic.url}}"
+                            mode="aspectFill"
+                            data-row-id="{{item.id}}"
+                            data-url="{{pic.url}}"
+                            bindtap="onPreviewAcceptanceImage"
+                          />
+                          <text
+                            wx:if="{{!readOnly && item.kind === 'exterior'}}"
+                            class="merchant-flow-page__delivery-pool-remove"
+                            data-row-id="{{item.id}}"
+                            data-url="{{pic.url}}"
+                            catchtap="onRemoveAcceptanceImage"
+                          >删除</text>
+                        </view>
+                        <view
+                          wx:if="{{!readOnly && item.kind === 'exterior' && item.images.length < acceptanceExteriorMax}}"
+                          class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
                           data-row-id="{{item.id}}"
-                          data-value="{{opt.value}}"
-                          bindtap="onAcceptanceResultTap"
-                        >{{opt.label}}</text>
-                      </view>
-                    </view>
-                    <textarea
-                      class="merchant-flow-page__textarea merchant-flow-page__textarea--key"
-                      placeholder="{{item.kind === 'exterior' ? '外观描述（选填）：如左前门已抛光，漆面无明显划痕' : '验收描述（选填）：这车实际什么状态，例：举升复查螺栓力矩复紧到位'}}"
-                      value="{{item.note}}"
-                      maxlength="300"
-                      auto-height="{{true}}"
-                      data-row-id="{{item.id}}"
-                      data-field="note"
-                      disabled="{{readOnly}}"
-                      bindinput="onAcceptanceItemInput"
-                    />
-                    <view class="merchant-flow-page__delivery-pool">
-                      <view
-                        wx:for="{{item.images}}"
-                        wx:for-item="pic"
-                        wx:key="url"
-                        class="merchant-flow-page__delivery-pool-item"
-                      >
-                        <image
-                          class="merchant-flow-page__delivery-pool-img image-placeholder"
-                          src="{{pic.url}}"
-                          mode="aspectFill"
-                          data-row-id="{{item.id}}"
-                          data-url="{{pic.url}}"
-                          bindtap="onPreviewAcceptanceImage"
-                        />
-                        <text
-                          wx:if="{{!readOnly}}"
-                          class="merchant-flow-page__delivery-pool-remove"
-                          data-row-id="{{item.id}}"
-                          data-url="{{pic.url}}"
-                          catchtap="onRemoveAcceptanceImage"
-                        >删除</text>
+                          bindtap="onUploadAcceptanceImages"
+                        >
+                          <text class="merchant-flow-page__delivery-add-plus">+</text>
+                          <text class="text-caption merchant-flow-page__delivery-add-label">外观照</text>
+                        </view>
                       </view>
                       <view
-                        wx:if="{{!readOnly && item.images.length < (item.kind === 'exterior' ? acceptanceExteriorMax : acceptanceItemMaxImages)}}"
-                        class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
-                        data-row-id="{{item.id}}"
-                        bindtap="onUploadAcceptanceImages"
+                        wx:elif="{{!readOnly && item.kind === 'exterior'}}"
+                        class="merchant-flow-page__delivery-pool"
                       >
-                        <text class="merchant-flow-page__delivery-add-plus">+</text>
-                        <text class="text-caption merchant-flow-page__delivery-add-label">{{item.kind === 'exterior' ? '外观照' : '验收图'}}</text>
+                        <view
+                          class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
+                          data-row-id="{{item.id}}"
+                          bindtap="onUploadAcceptanceImages"
+                        >
+                          <text class="merchant-flow-page__delivery-add-plus">+</text>
+                          <text class="text-caption merchant-flow-page__delivery-add-label">外观照（选填）</text>
+                        </view>
                       </view>
-                    </view>
+                      <text wx:if="{{item.note}}" class="text-caption text-secondary merchant-flow-page__acc-note">{{item.note}}</text>
+                      <text wx:elif="{{item.kind !== 'exterior' && item.photosMissing}}" class="text-caption merchant-flow-page__acc-note merchant-flow-page__acc-note--muted">施工节点未留证，交车不再补拍；如证据不足请走「发现问题」处理。</text>
                     </block>
                   </view>
                 </view>
 
-                <text class="text-body merchant-flow-page__label">交付人</text>
+                <text class="text-body merchant-flow-page__label">交付人（必填）</text>
                 <input class="st-field" placeholder="例：李师傅" value="{{delivererName}}" data-key="delivererName" disabled="{{readOnly}}" bindinput="onClerkInput" />
-                <text class="text-body merchant-flow-page__label">完工时间</text>
+                <text class="text-body merchant-flow-page__label">交车时间（必填）</text>
                 <view class="st-field-row" wx:if="{{!readOnly}}">
                   <picker mode="date" value="{{finishedAtDate}}" data-key="finishedAt" data-part="date" bindchange="onClerkAtPick">
                     <view class="st-field st-field--picker">{{finishedAtDate || '选择日期'}}</view>
@@ -1291,6 +1283,18 @@
                   </picker>
                 </view>
                 <text wx:else class="st-quote">{{finishedAt || '未填'}}</text>
+                <text class="text-body merchant-flow-page__label">交付里程（必填，默认检测里程）</text>
+                <view class="st-field-row">
+                  <input
+                    class="st-field"
+                    type="number"
+                    placeholder="例：36800"
+                    value="{{deliveryMileage}}"
+                    disabled="{{readOnly}}"
+                    bindinput="onDeliveryMileageInput"
+                  />
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-mileage-unit">km</text>
+                </view>
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -1314,6 +1318,92 @@
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
+                <view wx:if="{{!readOnly}}" class="merchant-flow-page__delivery-issue-entry" bindtap="onOpenDeliveryIssue">
+                  <text class="text-body merchant-flow-page__delivery-issue-entry-title">发现问题？</text>
+                  <text class="text-caption text-secondary">当场追加 · 转新单 · 返工</text>
+                </view>
+              </view>
+
+              <view wx:if="{{deliveryIssueOpen}}" class="merchant-flow-page__issue-mask" catchtap="onCloseDeliveryIssue">
+                <view class="merchant-flow-page__issue-sheet" catchtap="noop">
+                  <view class="merchant-flow-page__issue-head">
+                    <text class="text-body merchant-flow-page__issue-title">交车时发现新问题</text>
+                    <text class="merchant-flow-page__issue-close" catchtap="onCloseDeliveryIssue">关闭</text>
+                  </view>
+                  <view class="merchant-flow-page__issue-modes">
+                    <view
+                      class="merchant-flow-page__issue-mode {{deliveryIssueMode === 'addon' ? 'merchant-flow-page__issue-mode--active' : ''}}"
+                      data-mode="addon"
+                      bindtap="onDeliveryIssueMode"
+                    >
+                      <text class="merchant-flow-page__issue-mode-title">当场追加</text>
+                      <text class="text-caption merchant-flow-page__issue-mode-desc">同一故障链、能当场修，补充报价后继续施工</text>
+                    </view>
+                    <view
+                      class="merchant-flow-page__issue-mode {{deliveryIssueMode === 'followUp' ? 'merchant-flow-page__issue-mode--active' : ''}}"
+                      data-mode="followUp"
+                      bindtap="onDeliveryIssueMode"
+                    >
+                      <text class="merchant-flow-page__issue-mode-title">转新单</text>
+                      <text class="text-caption merchant-flow-page__issue-mode-desc">需订件或另一件事，新建相册并关联本单</text>
+                    </view>
+                    <view
+                      class="merchant-flow-page__issue-mode {{deliveryIssueMode === 'rework' ? 'merchant-flow-page__issue-mode--active' : ''}}"
+                      data-mode="rework"
+                      bindtap="onDeliveryIssueMode"
+                    >
+                      <text class="merchant-flow-page__issue-mode-title">返工</text>
+                      <text class="text-caption merchant-flow-page__issue-mode-desc">之前施工有问题，重开施工，不计费</text>
+                    </view>
+                  </view>
+                  <view wx:if="{{deliveryIssueMode === 'rework'}}" class="merchant-flow-page__issue-rework">
+                    <text class="text-caption text-secondary">选择返工项目</text>
+                    <view class="merchant-flow-page__issue-rework-list">
+                      <text
+                        wx:for="{{deliveryIssueReworkOptions}}"
+                        wx:key="id"
+                        class="merchant-flow-page__issue-rework-item {{item.active ? 'merchant-flow-page__issue-rework-item--active' : ''}}"
+                        data-id="{{item.id}}"
+                        bindtap="onToggleDeliveryIssueItem"
+                      >{{item.name}}</text>
+                    </view>
+                  </view>
+                  <textarea
+                    class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
+                    placeholder="说明发现的问题（必填，200 字内）"
+                    value="{{deliveryIssueNote}}"
+                    maxlength="200"
+                    auto-height="{{true}}"
+                    bindinput="onDeliveryIssueNote"
+                  />
+                  <view wx:if="{{deliveryIssueMode === 'addon'}}" class="merchant-flow-page__delivery-pool">
+                    <view
+                      wx:for="{{deliveryIssueImages}}"
+                      wx:key="*this"
+                      class="merchant-flow-page__delivery-pool-item"
+                    >
+                      <image
+                        class="merchant-flow-page__delivery-pool-img image-placeholder"
+                        src="{{item}}"
+                        mode="aspectFill"
+                        data-index="{{index}}"
+                        bindtap="onPreviewDeliveryIssueImage"
+                      />
+                      <text class="merchant-flow-page__delivery-pool-remove" data-index="{{index}}" catchtap="onRemoveDeliveryIssueImage">删除</text>
+                    </view>
+                    <view
+                      wx:if="{{deliveryIssueImages.length < 6}}"
+                      class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
+                      bindtap="onPickDeliveryIssueImages"
+                    >
+                      <text class="merchant-flow-page__delivery-add-plus">+</text>
+                      <text class="text-caption merchant-flow-page__delivery-add-label">新问题图</text>
+                    </view>
+                  </view>
+                  <view class="merchant-flow-page__issue-actions">
+                    <ui-button type="primary" block="{{true}}" loading="{{deliveryIssueBusy}}" disabled="{{deliveryIssueBusy}}" bind:btntap="onConfirmDeliveryIssue">确认处理</ui-button>
+                  </view>
+                </view>
               </view>
 
               <view class="merchant-flow-page__step-foot">

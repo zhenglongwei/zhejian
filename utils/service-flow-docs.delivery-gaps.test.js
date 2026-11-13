@@ -29,6 +29,8 @@ const exterior = (images = [{ url: 'https://out.jpg' }], result = 'pass') => ({
 const filled = {
   warrantyPeriod: '6个月或1万公里',
   delivererName: '李店长',
+  deliveredAt: '2026-11-13 17:30',
+  deliveryMileage: '36800',
   acceptanceItems: [
     acc('pass'),
     acc('pass', '路试无异响'),
@@ -37,11 +39,17 @@ const filled = {
   ],
 }
 
-test('交车确认：外观行有图 + 逐行结果 + 质保 + 交付人齐则无缺口', () => {
-  assert.deepEqual(collectDeliveryPhotoDraftGaps(filled), [])
+test('交车确认：质保 + 交付人 + 交车时间 + 交付里程齐则无缺口（不再要求逐行结果）', () => {
+  assert.deepEqual(
+    collectDeliveryPhotoDraftGaps({
+      ...filled,
+      acceptanceItems: [acc(''), acc('', '路试无异响'), exterior([], '')],
+    }),
+    [],
+  )
 })
 
-test('交车确认：缺外观图不再拦（2026-11-11 选填化，前端弹确认 + payload 留痕）', () => {
+test('交车确认：缺外观图不再拦（选填，前端弹确认 + payload 留痕）', () => {
   const gaps = collectDeliveryPhotoDraftGaps({
     ...filled,
     acceptanceItems: [acc('pass'), exterior([])],
@@ -58,26 +66,24 @@ test('交车确认：没有施工项目时提示先回施工节点', () => {
   )
 })
 
-test('交车确认：逐行提示缺结果；验收图与描述不拦', () => {
+test('交车确认：不要求逐行结果，施工图缺失也不在交车拦（早已在施工节点锁定）', () => {
   const gaps = collectDeliveryPhotoDraftGaps({
     ...filled,
     acceptanceItems: [
-      { id: 'a1', kind: 'work', name: '踏板回弹', images: [], note: '', result: 'pass' },
+      { id: 'a1', kind: 'work', name: '踏板回弹', images: [], note: '', result: '' },
       { id: 'a2', kind: 'work', name: '路试', images: [], note: '', result: '' },
       exterior(),
     ],
   })
-  assert.equal(gaps.some((gap) => gap.includes('踏板回弹') && gap.includes('请选择验收结果')), false)
-  assert.ok(gaps.some((gap) => gap.includes('「路试」') && gap.includes('请选择验收结果')))
-  assert.equal(gaps.length, 1)
+  assert.deepEqual(gaps, [])
 })
 
-test('交车确认：外观行也要选结果', () => {
+test('交车确认：外观行无需选结果', () => {
   const gaps = collectDeliveryPhotoDraftGaps({
     ...filled,
     acceptanceItems: [acc('pass'), exterior([{ url: 'https://out.jpg' }], '')],
   })
-  assert.ok(gaps.some((gap) => gap.includes('「外观」') && gap.includes('请选择验收结果')))
+  assert.deepEqual(gaps, [])
 })
 
 test('交车确认：任一「需返工」拒绝定稿', () => {
@@ -88,9 +94,11 @@ test('交车确认：任一「需返工」拒绝定稿', () => {
   assert.ok(gaps.some((gap) => gap.includes('需返工') && gap.includes('重验')))
 })
 
-test('交车确认：质保 / 交付人分别提示；简述问答不拦', () => {
+test('交车确认：质保 / 交付人 / 交车时间 / 交付里程分别提示；简述问答不拦', () => {
   assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, warrantyPeriod: '' }).includes('请填写质保期限'))
   assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, delivererName: '' }).includes('请填写交付人'))
+  assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, deliveredAt: '' }).includes('请填写交车时间'))
+  assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, deliveryMileage: '' }).includes('请填写交付里程'))
   assert.deepEqual(collectDeliveryPhotoDraftGaps({ ...filled, repairBrief: '', ownerFaqs: [] }), [])
 })
 
