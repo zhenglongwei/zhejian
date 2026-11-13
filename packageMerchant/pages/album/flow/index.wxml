@@ -1205,14 +1205,19 @@
                 <view class="merchant-flow-page__key-fill-field">
                   <view class="merchant-flow-page__key-fill-label-row">
                     <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">验收</text>
-                    <text class="merchant-flow-page__key-fill-req">（每行选结果；图片选填）</text>
+                    <text class="merchant-flow-page__key-fill-req">（每行选结果；施工节点已交代的未施工行无需处理）</text>
                   </view>
                   <text wx:if="{{!acceptanceWorkCount}}" class="text-caption text-secondary merchant-flow-page__delivery-hint">还没有施工项目：请先在施工节点完成施工项，再回来逐项验收。</text>
                   <view wx:for="{{acceptanceItems}}" wx:key="id" class="merchant-flow-page__owner-faq merchant-flow-page__acc-row">
                     <view class="merchant-flow-page__owner-faq-head">
                       <text class="text-body merchant-flow-page__acc-name">{{item.kind === 'exterior' ? '外观（整车）' : item.name}}</text>
-                      <text wx:if="{{item.kind === 'exterior'}}" class="merchant-flow-page__key-fill-req">（选填，建议拍车头或车尾）</text>
+                      <text wx:if="{{item.unbuiltReason}}" class="merchant-flow-page__acc-unbuilt">未施工 · {{item.unbuiltReasonLabel || '已交代'}}</text>
+                      <text wx:elif="{{item.kind === 'exterior'}}" class="merchant-flow-page__key-fill-req">（选填，建议拍车头或车尾）</text>
                     </view>
+                    <view wx:if="{{item.unbuiltReason}}" class="merchant-flow-page__acc-unbuilt-body">
+                      <text class="text-caption text-secondary">{{item.unbuiltNote || '商家已在施工节点交代，此项未施工。'}}</text>
+                    </view>
+                    <block wx:else>
                     <view class="merchant-flow-page__acc-result">
                       <text class="text-caption text-secondary merchant-flow-page__acc-result-label">结果</text>
                       <view class="merchant-flow-page__acc-result-opts">
@@ -1271,6 +1276,7 @@
                         <text class="text-caption merchant-flow-page__delivery-add-label">{{item.kind === 'exterior' ? '外观照' : '验收图'}}</text>
                       </view>
                     </view>
+                    </block>
                   </view>
                 </view>
 

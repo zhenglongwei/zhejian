@@ -1147,6 +1147,24 @@
   color: var(--color-primary-dark);
 }
 
+/* 未施工行（施工节点已交代）：交车只读展示，不要求操作 */
+.merchant-flow-page__acc-unbuilt {
+  flex-shrink: 0;
+  padding: 2rpx var(--space-xs);
+  border: 2rpx solid var(--color-warning, #c47f17);
+  border-radius: var(--radius-sm);
+  color: var(--color-warning, #c47f17);
+  font-size: var(--font-caption);
+  line-height: 1.4;
+}
+
+.merchant-flow-page__acc-unbuilt-body {
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-muted);
+}
+
 .merchant-flow-page__owner-faq-head {
   display: flex;
   flex-direction: row;

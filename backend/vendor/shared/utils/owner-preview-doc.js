@@ -1,7 +1,11 @@
 /**
  * 发给车主前的预览：字段与车主单据同一张，不另做摘要。
  */
-const { ownerFindingResultLabel, REPAIR_CONFIRM_COPY } = require('../constants/service-flow-nodes')
+const {
+  ownerFindingResultLabel,
+  REPAIR_CONFIRM_COPY,
+  unbuiltReasonLabel,
+} = require('../constants/service-flow-nodes')
 const { quoteFace, resolveQuoteConfirmCopy } = require('./service-flow-quote-draft')
 
 function photoRows(list) {
@@ -339,15 +343,25 @@ function buildOwnerPreviewDoc(input = {}) {
         const name = String(obj.name || (isExterior ? '外观' : '')).trim()
         if (!name) return null
         const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
+        // 未施工交代（施工节点写入）：车主单只读展示「未施工 · 原因」
+        const unbuiltReason = ['system_error', 'customer_declined'].includes(obj.unbuiltReason)
+          ? obj.unbuiltReason
+          : ''
         return {
           id: String(obj.id || (isExterior ? 'exterior' : `acc_${index + 1}`)),
           kind: isExterior ? 'exterior' : 'work',
           name,
-          note: String(obj.note || '').trim(),
+          note: String(obj.note || obj.unbuiltNote || '').trim(),
           images: photoRows(obj.images),
           result,
-          resultLabel: result ? acceptanceLabels[result] : '',
-          resultTone: result ? acceptanceTones[result] : '',
+          resultLabel: unbuiltReason
+            ? `未施工 · ${unbuiltReasonLabel(unbuiltReason)}`
+            : result
+              ? acceptanceLabels[result]
+              : '',
+          resultTone: unbuiltReason ? 'unbuilt' : result ? acceptanceTones[result] : '',
+          unbuiltReason,
+          unbuiltNote: String(obj.unbuiltNote || '').trim(),
           // 外观照选填（2026-11-11）：缺图如实标注，车主确认单展示「商家未留外观照」
           missingPhoto: Boolean(isExterior && photoRows(obj.images).length === 0),
         }

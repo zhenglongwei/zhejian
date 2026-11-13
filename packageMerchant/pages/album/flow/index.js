@@ -42,6 +42,8 @@ const {
   ACCEPTANCE_EXTERIOR_NAME,
   ACCEPTANCE_EXTERIOR_MAX,
   ACCEPTANCE_ITEM_MAX_IMAGES,
+  UNBUILT_REASON_OPTIONS,
+  unbuiltReasonLabel,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
@@ -106,6 +108,7 @@ const {
   unmatchedCheckpoints,
   workOutsideQuoteOf,
   computeUnstartedQuoteItems,
+  collectUnbuiltQuoteItems,
   buildWorkAssignPickGroups,
   buildWorkAddPickGroups,
   normalizeIntakeResult,
@@ -2094,6 +2097,7 @@ Page({
         acceptanceItemsFromDraft(acceptanceDraft),
         // 验收行 = 施工项 ∪ 总报价行（首次 + 历次补充），规则生成，不经过大模型
         collectConfirmedQuoteLines(flowNodes),
+        collectUnbuiltQuoteItems(flowNodes),
       )
       this.setData({
         status: 'ready',
@@ -4022,10 +4026,13 @@ Page({
 
   /**
    * 验收项初始值（2026-11-13 收敛）：行=本单施工项目 ∪ 报价行（首次 + 历次补充），只读不可增删。
-   * 规则生成，已填的图/结果/描述按行名回填，施工图按行名自动带进验收行。
+   * 规则生成，已填的图/结果/描述按行名回填，施工图按行名自动带进验收行；
+   * 施工节点已交代的未施工行带 unbuiltReason，交车只读展示。
    */
-  resolveInitialAcceptanceItems(workItems = [], savedRows = [], quoteLines = []) {
-    return buildAcceptanceRowsFromWorkItems(workItems, savedRows, quoteLines)
+  resolveInitialAcceptanceItems(workItems = [], savedRows = [], quoteLines = [], unbuiltItems = []) {
+    return buildAcceptanceRowsFromWorkItems(workItems, savedRows, quoteLines, unbuiltItems).map(
+      (row) => ({ ...row, unbuiltReasonLabel: unbuiltReasonLabel(row.unbuiltReason) }),
+    )
   },
 
   /** 本单施工项目（交车验收的行使）：工单节点 findings → 已定稿 workItems */
@@ -5390,24 +5397,27 @@ Page({
     if (!adviceId || !advice.acceptance) return
     const target = (advice.acceptance.items || []).find((row) => row.adviceId === adviceId)
     if (!target || !target.canApply) return
-    // 未施工项：草稿里没有，新建一行并写备注
+    // 未施工项：行由规则生成，只写已有行的备注（不再新建重复行）
     if (target.unbuilt) {
-      const newRow = {
-        id: `acc_unbuilt_${Date.now()}`,
-        kind: 'work',
-        name: String(target.name || '').trim(),
-        images: [],
-        result: '',
-        note: String(target.note || target.basis || '本项未施工').trim(),
+      const name = String(target.name || '').trim()
+      let touched = false
+      const acceptanceItems = (this.data.acceptanceItems || []).map((row) => {
+        const same = (target.id && row.id === target.id) || (name && row.name === name)
+        if (!same || String(row.note || '').trim()) return row
+        touched = true
+        return { ...row, note: String(target.note || target.basis || '').trim() }
+      })
+      if (!touched) {
+        wx.showToast({ title: '该行已有说明', icon: 'none' })
+        return
       }
-      const acceptanceItems = [...(this.data.acceptanceItems || []), newRow]
       this.setData({ acceptanceItems, autoSaveLabel: '保存中…' }, () => {
         this.setData(
           { deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) },
           () => this.commitAppliedPhotoDraft(),
         )
       })
-      wx.showToast({ title: '已标记未施工', icon: 'none' })
+      wx.showToast({ title: '已写入该项', icon: 'none' })
       return
     }
     const acceptanceItems = (this.data.acceptanceItems || []).map((row) => {
@@ -6510,17 +6520,21 @@ Page({
       name: String((row && row.name) || '').trim(),
       result: String((row && row.result) || '').trim(),
       note: String((row && row.note) || '').trim(),
+      unbuiltReason: String((row && row.unbuiltReason) || '').trim(),
     }))
     // 逐行判断：AI 给了结果或描述、且本行还空着，才可应用；点了才写入，写入后仍可改
     const acceptanceDraftItems = draftRows.map((item, index) => {
       const hit = liveItems.find(
         (row) => (item.id && row.id === item.id) || (item.name && row.name === item.name),
       )
+      // 施工节点已交代的未施工行：已定稿，不再给「应用」
+      const liveUnbuilt = Boolean(hit && hit.unbuiltReason)
       const unbuilt = Boolean(item && item.unbuilt)
-      // 未施工项：草稿里不存在，应用时新建并写入备注
-      const canApply = unbuilt
-        ? true
-        : Boolean(hit && ((item.result && !hit.result) || (item.note && !hit.note)))
+      const canApply = liveUnbuilt
+        ? false
+        : unbuilt
+          ? Boolean(hit)
+          : Boolean(hit && ((item.result && !hit.result) || (item.note && !hit.note)))
       const resultLabel =
         (ACCEPTANCE_RESULT_OPTIONS.find((opt) => opt.value === item.result) || {}).label || ''
       return {
@@ -7785,26 +7799,6 @@ Page({
           this._forceStageOpen = true
         }
         await this.loadFlow({ silent: true })
-        const unstartedWarning = (Array.isArray(res && res.warnings) ? res.warnings : []).find(
-          (row) => row && row.code === 'QUOTE_ITEMS_NOT_STARTED',
-        )
-        if (unstartedWarning) {
-          const names = (unstartedWarning.items || []).map((row) => row && row.name).filter(Boolean)
-          const acknowledged = this._workWarnAcknowledged
-          this._workWarnAcknowledged = false
-          // 已在前置弹窗里选择「忽略完成」的不再重复打扰；否则兜底再提醒一次
-          if (!acknowledged) {
-            wx.showModal({
-              title: `还有 ${unstartedWarning.total} 项报价未施工`,
-              content: `${names.slice(0, 4).join('、')}${names.length > 4 ? ' 等' : ''}\n施工已完结，可回施工节点补做，或去报价单核对。`,
-              confirmText: '去报价单',
-              cancelText: '知道了',
-              success: (r) => {
-                if (r.confirm) this.openStage('quote')
-              },
-            })
-          }
-        }
         if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
         else if (kind === 'inspection') this.openStage('inspect')
       } catch (e) {
@@ -7815,7 +7809,8 @@ Page({
     }
 
     if (kind === 'work') {
-      // 非阻塞提醒：报价有、工单没有 → 补施工项；工单有、报价没有 → 补报价
+      // 未施工报价项必须在施工节点交代清楚（系统录入错误 / 客户要求不做），交代完才能完成；
+      // 交车节点只做汇总展示，不再要求商家处理。
       let diff = null
       try {
         wx.showLoading({ title: '核对报价…', mask: true })
@@ -7824,42 +7819,36 @@ Page({
         wx.hideLoading()
       }
       if (!diff) diff = { unstarted: { total: 0, items: [] }, outside: [] }
-      const unstartedNames = diff.unstarted.items.map((row) => row.name).filter(Boolean)
+      let unbuiltQuoteItems = []
+      if (diff.unstarted.items.length) {
+        const rows = await this.promptUnbuiltReasons(diff.unstarted.items)
+        if (!rows) {
+          wx.showToast({ title: '要先交代未施工的报价项', icon: 'none' })
+          return
+        }
+        unbuiltQuoteItems = rows
+      }
       const outsideNames = diff.outside
-      if (unstartedNames.length || outsideNames.length) {
-        const brief = []
-        if (unstartedNames.length) {
-          brief.push(
-            `未施工 ${unstartedNames.length} 项：${unstartedNames.slice(0, 3).join('、')}${
-              unstartedNames.length > 3 ? ' 等' : ''
-            }`,
-          )
-        }
-        if (outsideNames.length) {
-          brief.push(
-            `不在报价 ${outsideNames.length} 项：${outsideNames.slice(0, 3).join('、')}${
-              outsideNames.length > 3 ? ' 等' : ''
-            }`,
-          )
-        }
+      if (outsideNames.length) {
         wx.showModal({
-          title: '施工和报价对不上',
-          content: `${brief.join('\n')}\n\n可以先补齐，也可以忽略继续完成。`,
-          confirmText: '去处理',
-          cancelText: '忽略完成',
+          title: `有 ${outsideNames.length} 项不在报价里`,
+          content: `${outsideNames.slice(0, 4).join('、')}${
+            outsideNames.length > 4 ? ' 等' : ''
+          }\n建议补一张补充报价单，不补也可继续完成。`,
+          confirmText: '去补报价',
+          cancelText: '继续完成',
           success: (res) => {
             if (res.confirm) {
-              this.promptWorkDiffActions({ unstartedNames, outsideNames })
-            } else if (res.cancel) {
-              this._workWarnAcknowledged = true
-              run(this.buildAiReviewAckExtra())
+              this.setData({ adviceOpen: false })
+              this.onAddAddonPlan()
+              return
             }
+            run(this.buildAiReviewAckExtra(), { unbuiltQuoteItems })
           },
         })
         return
       }
-      this._workWarnAcknowledged = false
-      await run(this.buildAiReviewAckExtra())
+      await run(this.buildAiReviewAckExtra(), { unbuiltQuoteItems })
       return
     }
     if (kind === 'intake_inspection' || kind === 'intake' || kind === 'inspection') {
@@ -7967,25 +7956,54 @@ Page({
     return { unstarted, outside }
   },
 
-  /** 差异处理入口：补施工项 / 补报价 / 先不完成 */
-  promptWorkDiffActions({ unstartedNames = [], outsideNames = [] } = {}) {
-    const items = []
-    if (unstartedNames.length) items.push('补充施工项')
-    if (outsideNames.length) items.push('补充报价')
-    items.push('先不完成')
-    wx.showActionSheet({
-      itemList: items,
-      success: (res) => {
-        const pick = items[res.tapIndex]
-        if (pick === '补充施工项') {
-          if (!this.data.adviceOpen) this.openAdvicePanel()
-          wx.showToast({ title: '点施工建议里的「新增」补项', icon: 'none' })
-        } else if (pick === '补充报价') {
-          this.setData({ adviceOpen: false })
-          this.onAddAddonPlan()
-        }
-      },
-    })
+  /**
+   * 完成施工前逐项交代未施工的报价项：系统录入错误 / 客户要求不做，可附备注。
+   * 返回交代数组；商家取消或选「先不完成」返回 null（本次不完成）。
+   */
+  promptUnbuiltReasons(items = []) {
+    const list = (Array.isArray(items) ? items : []).filter((row) => row && row.name)
+    if (!list.length) return Promise.resolve([])
+    const labels = UNBUILT_REASON_OPTIONS.map((row) => row.label)
+    const askNote = (row, reason) =>
+      new Promise((resolve) => {
+        wx.showModal({
+          title: row.name,
+          content: '',
+          editable: true,
+          placeholderText: '备注（选填）：如客户现场取消，已告知风险',
+          confirmText: '保存',
+          cancelText: '跳过',
+          success: (res) => {
+            resolve({
+              quoteLineId: String(row.id || ''),
+              name: String(row.name || ''),
+              reason,
+              note: res.confirm ? String(res.content || '').trim() : '',
+              at: new Date().toISOString(),
+            })
+          },
+          fail: () => resolve({ quoteLineId: String(row.id || ''), name: String(row.name || ''), reason, note: '', at: new Date().toISOString() }),
+        })
+      })
+    const step = (index, acc) => {
+      if (index >= list.length) return Promise.resolve(acc)
+      const row = list[index]
+      return new Promise((resolve) => {
+        wx.showActionSheet({
+          alertText: `「${row.name}」未施工，请说明原因`,
+          itemList: labels.concat(['先不完成']),
+          success: (res) => {
+            const picked = UNBUILT_REASON_OPTIONS[res.tapIndex]
+            if (!picked) return resolve(null)
+            askNote(row, picked.value).then((record) => {
+              step(index + 1, acc.concat([record])).then(resolve)
+            })
+          },
+          fail: () => resolve(null),
+        })
+      })
+    }
+    return step(0, [])
   },
 
   buildDocPayloadForSave() {

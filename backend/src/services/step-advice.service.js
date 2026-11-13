@@ -27,6 +27,7 @@ const {
   contentOfFlowNode,
   buildQuoteLedger,
   buildAcceptanceRowsFromWorkItems,
+  collectUnbuiltQuoteItems,
   normalizeItemName,
   resolvePresetItemName,
 } = resolveShared('utils/service-flow-docs.js')
@@ -154,6 +155,14 @@ function workRemindKind(row) {
 function parseWorkAdvice(raw, items, slots, options = {}) {
   const parsed = parseReviewModelJson(raw) || {}
   const quoteLines = Array.isArray(options && options.quoteLines) ? options.quoteLines : []
+  const accountedRows = Array.isArray(options && options.unbuiltQuoteItems) ? options.unbuiltQuoteItems : []
+  // 施工节点已交代的未施工项：不再当缺项提醒
+  const isAccounted = (line) =>
+    accountedRows.some(
+      (item) =>
+        (line.id && item.quoteLineId === line.id) ||
+        (item.name && resolvePresetItemName(item.name, [line.name]) === line.name),
+    )
   const byId = new Map()
   const byName = new Map()
   adviceRows(parsed, '填写建议', 'items').forEach((row) => {
@@ -476,7 +485,7 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
           item.quoteName === name ||
           item.name === name,
       )
-      if (covered) return null
+      if (covered || isAccounted(line)) return null
       const photos = quotePhotoMap.get(name) || []
       const hit = fillByName.get(name) || null
       return {
@@ -1287,10 +1296,13 @@ function contextOf(album, extraNotes = {}) {
   const workSlots = workPhotoSlots(works)
   const workItemRows = works.reduce((all, node) => all.concat(workRows(node)), [])
   // 验收行由规则生成：施工项 ∪ 总报价行（首次 + 历次补充），施工图按行名带进验收行；大模型只做逐行评估
+  // 施工节点已交代的未施工行带原因，交车只读，不再要求商家操作
+  const unbuiltQuoteItems = collectUnbuiltQuoteItems(nodes)
   const acceptanceRows = buildAcceptanceRowsFromWorkItems(
     workAcceptanceItems(works),
     draft.acceptanceItems,
     quoteLedger.lines,
+    unbuiltQuoteItems,
   )
   const deliverySlots = deliveryPhotoSlots(acceptanceRows)
   const deliveryUrls = deliverySlots.map((row) => row.url)
@@ -1352,6 +1364,8 @@ function contextOf(album, extraNotes = {}) {
       note: row.note || '',
       quoteLabel: row.quoteLabel || '',
     })),
+    // 施工节点已交代的未施工项（系统录入错误 / 客户要求不做）：交车只读，不再要求商家处理
+    unbuiltQuoteItems,
     quoteSummary,
     workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
     workPhotoSlots: workFreshSlots,
@@ -1378,6 +1392,8 @@ function contextOf(album, extraNotes = {}) {
         kind: row && row.kind === 'exterior' ? 'exterior' : 'work',
         note: text(row && row.note).slice(0, 200),
         result: text(row && row.result).slice(0, 20),
+        unbuiltReason: text(row && row.unbuiltReason),
+        unbuiltNote: text(row && row.unbuiltNote).slice(0, 120),
         imageSlots: acceptanceImageSlots(row),
         evidenceImageCount: (Array.isArray(row && row.images) ? row.images : []).length,
       })),
@@ -1388,6 +1404,7 @@ function contextOf(album, extraNotes = {}) {
     ),
     deliveryPhotoSlots: deliveryFreshSlots,
     deliveryPhotoUrls: deliverySplit.fresh,
+    deliverySplit,
     deliveryNoted: deliverySplit.noted.map((row) => {
       const hit = deliverySlots.find((slot) => slot.url === row.url)
       return { partName: hit ? hit.partName : '', note: row.note }
@@ -1631,18 +1648,31 @@ async function runLlm(instruction, urls, label, options = {}) {
 
 function workInstruction(ctx) {
   const slots = ctx.workPhotoSlots || []
+  const accountedRows = Array.isArray(ctx.unbuiltQuoteItems) ? ctx.unbuiltQuoteItems : []
+  const accountedOf = (row) =>
+    accountedRows.find(
+      (item) =>
+        (row.id && item.quoteLineId === row.id) ||
+        (item.name && resolvePresetItemName(item.name, [row.name]) === row.name),
+    )
   const quoteItems = (Array.isArray(ctx.quoteItemRows) ? ctx.quoteItemRows : []).map((row) => {
     const covered = (ctx.workItems || []).some(
       (item) =>
         (row.id && item.quoteLineId === row.id) ||
         (item.name && resolvePresetItemName(item.name, [row.name]) === row.name),
     )
+    const accounted = accountedOf(row)
     return {
       报价项: row.name,
       金额: row.amount || '',
       备注: row.note || '',
       来源: row.quoteLabel || '首次报价',
       工单: covered ? '已有' : '无',
+      交代: accounted
+        ? `未施工·${accounted.reason === 'system_error' ? '系统录入错误' : '客户要求不做'}${
+            accounted.note ? `（${accounted.note}）` : ''
+          }`
+        : '',
     }
   })
   const material = {
@@ -1672,6 +1702,7 @@ function workInstruction(ctx) {
     '2. 同一个项目的不同叫法必须归到预设名（例：报价只有「划痕修复」，底部划痕、门边划痕都归「划痕修复」）。',
     '3. 不同项目不得合并。',
     '4. 只建议，店员点应用才执行；不改价格，不自己挪图。',
+    '5. 报价项里「交代」非空的，是商家已确认未施工（系统录入错误 / 客户要求不做）：不得再列进缺项、未施工、漏记提醒，也不要建议补做。',
     '',
     '按下面六步思考，结果都写进这一个 JSON：',
     '',
@@ -1830,6 +1861,7 @@ function deliveryInstruction(ctx) {
       note: String(row.note || '').slice(0, 60),
     })),
     deliveryPhotosNoted: (ctx.deliveryNoted || []).slice(0, 12).map((row) => ({
+      part: String((row && row.partName) || '').slice(0, 40),
       note: String((row && row.note) || '').slice(0, 60),
     })),
     newPhotoCount: (ctx.deliverySplit && ctx.deliverySplit.fresh ? ctx.deliverySplit.fresh.length : 0) || 0,
@@ -1847,6 +1879,8 @@ function deliveryInstruction(ctx) {
     '   - 没图也没文字：给「验收标准」「验收方法」「拍照建议」；「建议结果」留空字符串，「描述」留空，「依据」写清缺什么（如「还没有胶套安装图」）。',
     '   - 有图或有文字：「建议结果」只能是「合格」「建议观察」「需返工」。「描述」写这行实际状态；证据不足时在描述里明确写「建议补传XX图」或「建议返工XX」（不加新枚举）。「依据」引用「图N」（deliveryPhotoSlots 里有 slot 与所属行名）、workPhotos 的观察结论或商家已写文字。',
     '   - 报价有但施工没做的行：「状态」写「未施工」，其余按没图没文字处理。',
+    '   - 带 unbuiltReason 的行是商家在施工节点已交代的未施工项（system_error=系统录入错误，customer_declined=客户要求不做）：',
+    '     不要求补图、不给建议结果（「建议结果」留空），只在「依据」写清交代原因；不要把它算作缺证据。',
     '   「类别」填「施工」或「外观」。不写「已验合格」这类无依据结论，不写承诺句。店员点应用才写入，你不代点。',
     '   证据判断口径：能看出「做的是这一项、状态正常且可辨识」才算充分；只拍了旧件/只拍了整车远景/图与行名对不上，都算不足并指出补拍要求。',
     '2. 拆分建议：验收图挂错行时，写「项目」（目标验收行名）、「图片」、「描述」。已经挂对的不要写。',
@@ -1946,7 +1980,10 @@ async function runJob(albumId, kind, options = {}) {
       llmOpts,
     )
     let parsed = kind === 'work'
-      ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots, { quoteLines: ctx.quoteItemRows })
+      ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots, {
+          quoteLines: ctx.quoteItemRows,
+          unbuiltQuoteItems: ctx.unbuiltQuoteItems,
+        })
       : kind === 'inspect'
         ? parseInspectionAdvice(raw, ctx.inspectItems, urls, ctx.inspectPhotoSlots)
         : parseDeliveryAdvice(raw, ctx.deliveryPhotoSlots)

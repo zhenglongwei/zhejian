@@ -15,6 +15,7 @@ const {
   ACCEPTANCE_EXTERIOR_MAX,
   ACCEPTANCE_ITEM_MAX_IMAGES,
   isValidAcceptanceResult,
+  isValidUnbuiltReason,
   emptyAcceptanceItem,
   isValidFindingResult,
   findingAdviceRequired,
@@ -668,6 +669,10 @@ function normalizeNodeContent(raw = {}) {
   if (raw.totalAmount != null && raw.totalAmount !== '') {
     base.totalAmount = raw.totalAmount
   }
+  // 施工节点：未施工报价项的交代记录（交车只读汇总）
+  if (Array.isArray(raw.unbuiltQuoteItems)) {
+    base.unbuiltQuoteItems = normalizeUnbuiltQuoteItems(raw.unbuiltQuoteItems)
+  }
   return base
 }
 
@@ -709,6 +714,9 @@ function mergeNodeContent(prev = {}, patch = {}) {
   }
   if (patch.totalAmount != null && patch.totalAmount !== '') {
     next.totalAmount = patch.totalAmount
+  }
+  if (patch.unbuiltQuoteItems != null) {
+    next.unbuiltQuoteItems = normalizeUnbuiltQuoteItems(patch.unbuiltQuoteItems)
   }
   return normalizeNodeContent(next)
 }
@@ -1020,12 +1028,68 @@ function resolvePresetItemName(rawName, presetNames = []) {
 }
 
 /**
+ * 未施工报价项的交代记录（施工节点 content.unbuiltQuoteItems）
+ * 施工节点完成前必须二选一，交车节点只读汇总，不再要求商家操作。
+ */
+function normalizeUnbuiltQuoteItem(raw) {
+  const obj = raw && typeof raw === 'object' ? raw : {}
+  const name = String(obj.name || '').trim().slice(0, 60)
+  if (!name) return null
+  return {
+    quoteLineId: String(obj.quoteLineId || '').trim(),
+    name,
+    reason: isValidUnbuiltReason(obj.reason) ? obj.reason : '',
+    note: String(obj.note || '').trim().slice(0, 200),
+    at: String(obj.at || '').trim(),
+  }
+}
+
+/** 按 quoteLineId / 行名去重，后者覆盖前者（重进施工节点重选即覆盖） */
+function normalizeUnbuiltQuoteItems(list) {
+  const map = new Map()
+  ;(Array.isArray(list) ? list : []).forEach((raw) => {
+    const item = normalizeUnbuiltQuoteItem(raw)
+    if (!item || !item.reason) return
+    const key = item.quoteLineId || normalizeItemName(item.name)
+    if (!key) return
+    map.set(key, item)
+  })
+  return [...map.values()]
+}
+
+/** 汇总本单所有施工节点的交代记录 */
+function collectUnbuiltQuoteItems(flowNodes = []) {
+  const all = []
+  ;(flowNodes || []).forEach((node) => {
+    if (!node || node.kind !== 'work') return
+    const rows = contentOfFlowNode(node).unbuiltQuoteItems
+    if (Array.isArray(rows)) all.push(...rows)
+  })
+  return normalizeUnbuiltQuoteItems(all)
+}
+
+/** 交代索引：按 quoteLineId 与去空行名各建一份，便于 id / 名双命中 */
+function unbuiltQuoteIndex(items = []) {
+  const byId = new Map()
+  const byName = new Map()
+  ;(Array.isArray(items) ? items : []).forEach((raw) => {
+    const item = normalizeUnbuiltQuoteItem(raw)
+    if (!item || !item.reason) return
+    if (item.quoteLineId) byId.set(item.quoteLineId, item)
+    byName.set(normalizeItemName(item.name), item)
+  })
+  return { byId, byName }
+}
+
+/**
  * 报价项未施工：报价有、工单无。
  * 有图的漏记由 AI 逐图归类另行处置，这里只按单据链判定「没有任何工单项承接」。
+ * 商家在施工节点已交代（系统录入错误 / 客户要求不做）的不算未施工。
  */
 function computeUnstartedQuoteItems(flowNodes = []) {
   const quoteLines = collectConfirmedQuoteLines(flowNodes).filter((line) => line.name)
   if (!quoteLines.length) return { items: [], total: 0 }
+  const accounted = unbuiltQuoteIndex(collectUnbuiltQuoteItems(flowNodes))
   const quoteNames = quoteLines.map((line) => line.name)
   const usedIds = new Set()
   const usedNames = new Set()
@@ -1043,6 +1107,11 @@ function computeUnstartedQuoteItems(flowNodes = []) {
   })
   const items = quoteLines
     .filter((line) => !(line.id && usedIds.has(line.id)) && !usedNames.has(line.name))
+    .filter(
+      (line) =>
+        !(line.id && accounted.byId.has(line.id)) &&
+        !accounted.byName.has(normalizeItemName(line.name)),
+    )
     .map((line) => ({ id: line.id, name: line.name, amount: line.amount || '', note: line.note || '' }))
   return { items, total: items.length }
 }
@@ -1576,7 +1645,9 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
     gaps.push('请填写交付人')
   }
   // 清单一列到底：每行（含外观行）都要选结果；施工项图与描述选填
+  // 例外：施工节点已交代的未施工行（unbuiltReason）只读展示，不再要求选结果
   accItems.forEach((item) => {
+    if (item.unbuiltReason) return
     const label = `「${item.name}」`
     if (!item.result) gaps.push(`${label}请选择验收结果`)
     else if (item.result === ACCEPTANCE_RESULT.REWORK) {
@@ -1886,6 +1957,9 @@ function normalizeAcceptanceItemObj(raw, index) {
     images: normalizePendingImages(obj.images).slice(0, maxImages),
     result: isValidAcceptanceResult(obj.result) ? obj.result : '',
     note: String(obj.note || '').trim().slice(0, 300),
+    // 未施工交代（施工节点写入）：交车行只读展示，不要求选结果
+    unbuiltReason: !isExterior && isValidUnbuiltReason(obj.unbuiltReason) ? obj.unbuiltReason : '',
+    unbuiltNote: isExterior ? '' : String(obj.unbuiltNote || '').trim().slice(0, 200),
   }
 }
 
@@ -1921,7 +1995,7 @@ function resolveAcceptanceItems(raw = {}) {
  * 旧结构里没有逐项信息（例如首轮迁移压成的一行「整体验收」）不参与配对，
  * 只有本单确实没有施工项也没有报价行时才保留旧行，避免清单空白。
  */
-function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = [], quoteLines = []) {
+function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = [], quoteLines = [], unbuiltItems = []) {
   const saved = normalizeAcceptanceItems(savedRows)
   const exterior = saved.find((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
   const savedWork = saved.filter((row) => row.kind === ACCEPTANCE_KIND.WORK)
@@ -1929,13 +2003,17 @@ function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = [], quoteL
   savedWork.forEach((row) => {
     if (!byName[row.name]) byName[row.name] = row
   })
+  // 施工节点已交代的未施工报价项：行上带原因，交车只读
+  const accounted = unbuiltQuoteIndex(unbuiltItems)
+  const accountedOf = (name) => accounted.byName.get(normalizeItemName(name)) || null
   const rows = []
   const seen = {}
-  const pushRow = (rawName, images = []) => {
+  const pushRow = (rawName, images = [], accountedRow = null) => {
     const name = String(rawName || '').trim().slice(0, 60)
     if (!name || seen[name] || rows.length >= 19) return
     seen[name] = true
     const hit = byName[name]
+    const unbuilt = hit && hit.unbuiltReason ? hit : accountedRow
     rows.push(
       emptyAcceptanceItem({
         id: hit ? hit.id : `acc_${rows.length + 1}`,
@@ -1946,6 +2024,8 @@ function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = [], quoteL
             : normalizePendingImages(images),
         result: hit ? hit.result : '',
         note: hit ? hit.note : '',
+        unbuiltReason: unbuilt ? unbuilt.unbuiltReason || unbuilt.reason : '',
+        unbuiltNote: unbuilt ? unbuilt.unbuiltNote || unbuilt.note : '',
       }),
     )
   }
@@ -1953,7 +2033,7 @@ function buildAcceptanceRowsFromWorkItems(workItems = [], savedRows = [], quoteL
     pushRow(item && item.name, (item && item.images) || [])
   })
   ;(Array.isArray(quoteLines) ? quoteLines : []).forEach((line) => {
-    pushRow(line && line.name)
+    pushRow(line && line.name, [], accountedOf(line && line.name))
   })
   const exteriorRow = emptyAcceptanceItem({
     kind: ACCEPTANCE_KIND.EXTERIOR,
@@ -2521,6 +2601,9 @@ module.exports = {
   seedWorkFindingsFromQuoteLines,
   normalizeItemName,
   resolvePresetItemName,
+  normalizeUnbuiltQuoteItem,
+  normalizeUnbuiltQuoteItems,
+  collectUnbuiltQuoteItems,
   computeUnstartedQuoteItems,
   unmatchedCheckpoints,
   buildPriorOrganizeFacts,

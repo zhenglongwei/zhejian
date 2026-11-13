@@ -66,6 +66,29 @@ function isValidAcceptanceResult(value) {
   return ACCEPTANCE_RESULT_OPTIONS.some((row) => row.value === value)
 }
 
+/**
+ * 报价有、工单无（未施工）项的交代原因（2026-11-13）
+ * 施工节点完成前必须二选一，交车节点只读展示，不再要求商家操作。
+ */
+const UNBUILT_REASON = {
+  SYSTEM_ERROR: 'system_error',
+  CUSTOMER_DECLINED: 'customer_declined',
+}
+
+const UNBUILT_REASON_OPTIONS = [
+  { value: UNBUILT_REASON.SYSTEM_ERROR, label: '系统录入错误', prompt: '报价多录了这一项' },
+  { value: UNBUILT_REASON.CUSTOMER_DECLINED, label: '客户要求不做', prompt: '客户现场确认不做' },
+]
+
+function isValidUnbuiltReason(value) {
+  return UNBUILT_REASON_OPTIONS.some((row) => row.value === value)
+}
+
+function unbuiltReasonLabel(value) {
+  const hit = UNBUILT_REASON_OPTIONS.find((row) => row.value === value)
+  return hit ? hit.label : ''
+}
+
 /** 验收项工厂：产出全部业务字段，不留半空对象（name 由调用方填入） */
 function emptyAcceptanceItem(overrides = {}) {
   const patch = overrides && typeof overrides === 'object' ? overrides : {}
@@ -78,6 +101,8 @@ function emptyAcceptanceItem(overrides = {}) {
     images: Array.isArray(patch.images) ? patch.images : [],
     result: isValidAcceptanceResult(patch.result) ? patch.result : '',
     note: String(patch.note || '').trim(),
+    unbuiltReason: isExterior ? '' : isValidUnbuiltReason(patch.unbuiltReason) ? patch.unbuiltReason : '',
+    unbuiltNote: isExterior ? '' : String(patch.unbuiltNote || '').trim(),
   }
 }
 
@@ -342,7 +367,11 @@ module.exports = {
   ACCEPTANCE_EXTERIOR_NAME,
   ACCEPTANCE_EXTERIOR_MAX,
   ACCEPTANCE_ITEM_MAX_IMAGES,
+  UNBUILT_REASON,
+  UNBUILT_REASON_OPTIONS,
   isValidAcceptanceResult,
+  isValidUnbuiltReason,
+  unbuiltReasonLabel,
   emptyAcceptanceItem,
   QUOTE_CONFIRM_COPY,
   QUOTE_CONFIRM_COPY_TEARDOWN,
