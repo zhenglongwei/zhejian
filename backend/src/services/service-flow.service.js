@@ -1648,6 +1648,23 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
 
     nodes[index] = nextNode
+    // 交车报告保存/发送时同步公开说明镜像：提交完工照那一刻简述与问答通常还没填，
+    // 只靠完工照分支写 archiveCopy 会让店页摘要一直为空、被迫手填。
+    if (nextNode.kind === 'repair_report') {
+      const {
+        archiveCopyFromRepairPayload,
+        mergeArchiveCopyIntoPackage,
+      } = require('../utils/album-archive-copy')
+      const copy = archiveCopyFromRepairPayload(contentOfFlowNode(nextNode), {
+        source: 'repair_report',
+      })
+      if (copy) {
+        return mergeArchiveCopyIntoPackage(
+          { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes },
+          copy,
+        )
+      }
+    }
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
 
