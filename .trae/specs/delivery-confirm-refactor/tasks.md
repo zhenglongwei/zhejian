@@ -94,11 +94,11 @@
 5. `node --test "utils/*.test.js"`（已知 3 个与 merchant-album-overview / merchant-stage-board 的失败为既有问题，不新增失败）
 6. 若存在 step-advice 相关测试，同步更新并通过。
 
-## T7 部署（预发）
+## [x] T7 部署（预发）
 
 1. 本地 `git status --short` / `git diff` 复核，只提交本次相关文件。
 2. `git commit` → `git push staging main`。
 3. 服务器：`cd /var/www/zhejian-staging/backend && npm install && npm run sync:shared-utils && pm2 restart zhejian-api-staging`。
 4. `curl -s https://staging.zhejian.simplewin.cn/api/v1/health`。
-5. 小程序重新编译体验版，按 spec 第 7 节用例逐条验证。
-6. 生产部署需用户另行确认。
+5. 待用户：小程序重新编译体验版，按 spec 第 7 节用例逐条验证。
+6. 待用户确认：生产部署。
