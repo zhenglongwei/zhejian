@@ -19,7 +19,6 @@ const {
 const {
   buildInspectionReportPayload,
   buildRepairReportPayload,
-  buildQuoteLinesFromFindings,
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
   collectQuoteConfirmGaps,
@@ -433,13 +432,6 @@ function albumQuoteOpts(album = {}) {
     templateId: album.templateId || '',
     serviceName: album.serviceName || '',
   }
-}
-
-function quoteLinesForAlbum(findings, album, existingLines = []) {
-  const named = (existingLines || []).some((row) => String((row && row.name) || '').trim())
-  if (named) return existingLines
-  const lines = buildQuoteLinesFromFindings(findings, albumQuoteOpts(album))
-  return lines.length ? lines : [{ name: '', amount: '', note: '' }]
 }
 
 function quoteCopyForAlbum(album, existingCopy = '') {
@@ -1130,7 +1122,8 @@ async function ensureFlowPackage(albumId, album, albumNodes) {
   return prisma.album.findUnique({ where: { id: albumId } })
 }
 
-async function healQuotePrefillAfterReport(albumId, album = null) {
+/** 报告送达后解锁报价节点；报价行只由店员手填，不再按检测结果预填 */
+async function healQuoteUnlockAfterReport(albumId, album = null) {
   const { loadAlbum } = require('./service-album.service')
   const row = album || (await loadAlbum(albumId))
   await writeFlowPackage(albumId, (pkg) => {
@@ -1142,70 +1135,30 @@ async function healQuotePrefillAfterReport(albumId, album = null) {
     const report = nodes[reportIdx]
     const quote = nodes[quoteIdx]
     const reportDoc = report.document || {}
-    const findings = contentOfFlowNode(report).findings || []
-    const existingLines = contentOfFlowNode(quote).lines || []
-    const hasNamedLine = existingLines.some((row) => String((row && row.name) || '').trim())
-    const assistStatus = String((quote.quoteAssist && quote.quoteAssist.status) || '')
-    const assistBusy = assistStatus === 'queued' || assistStatus === 'running'
-    let changed = false
+    const delivered = reportDoc.status === 'delivered' || report.status === 'completed'
+    const quoteLocked = quote.status === 'locked' || quote.status === 'pending'
+    if (!delivered || !quoteLocked) return pkg
 
-    // 正在出建议报价：不要用类目规则抢先铺行
-    if (assistBusy) return pkg
-
-    // 报告草稿已出、方案行仍空 → 预填（保持锁定）
-    if (
-      reportDoc.status === 'draft' &&
-      (report.status === 'in_progress' || report.status === 'pending') &&
-      !hasNamedLine &&
-      assistStatus !== 'ready'
-    ) {
-      const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
-      nodes[quoteIdx] = {
-        ...quote,
-        document: {
-          ...prevQuoteDoc,
-          status: 'draft',
-          payload: {
-            ...(prevQuoteDoc.payload || {}),
-            lines: quoteLinesForAlbum(findings, row, existingLines),
-            confirmCopy: quoteCopyForAlbum(
-              row,
-              prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
-            ),
-            evidenceRef: report.id,
-          },
+    const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
+    nodes[quoteIdx] = {
+      ...quote,
+      status: 'in_progress',
+      document: {
+        ...prevQuoteDoc,
+        status: 'draft',
+        payload: {
+          ...(prevQuoteDoc.payload || {}),
+          lines: contentOfFlowNode(quote).lines || [],
+          confirmCopy: quoteCopyForAlbum(
+            row,
+            prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
+          ),
+          evidenceRef: report.id,
         },
-      }
-      changed = true
+      },
     }
 
-    // 存量：报告已单独送达、方案仍锁住 → 解锁并预填，便于补金额后发送
-    if (
-      (reportDoc.status === 'delivered' || report.status === 'completed') &&
-      (quote.status === 'locked' || quote.status === 'pending')
-    ) {
-      const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
-      nodes[quoteIdx] = {
-        ...quote,
-        status: 'in_progress',
-        document: {
-          ...prevQuoteDoc,
-          status: 'draft',
-          payload: {
-            ...(prevQuoteDoc.payload || {}),
-            lines: quoteLinesForAlbum(findings, row, existingLines),
-            confirmCopy: quoteCopyForAlbum(
-              row,
-              prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
-            ),
-            evidenceRef: report.id,
-          },
-        },
-      }
-      changed = true
-    }
-
-    return changed ? { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes } : pkg
+    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
 }
 
@@ -1281,7 +1234,7 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   } catch (e) {
     console.warn('[flow] heal media ownership on getFlow failed', albumId, e && e.message)
   }
-  await healQuotePrefillAfterReport(albumId, album)
+  await healQuoteUnlockAfterReport(albumId, album)
   album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
   try {
@@ -1957,11 +1910,9 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           const existingLines =
             contentOfFlowNode(prevQuote).lines ||
             ((prevQuote.document && prevQuote.document.payload && prevQuote.document.payload.lines) || [])
-          const hasNamed = existingLines.some((row) => String((row && row.name) || '').trim())
           const quoteContent = mergeNodeContent(contentOfFlowNode(prevQuote), {
-            lines: hasNamed
-              ? existingLines
-              : quoteLinesForAlbum(draft.findings, album, existingLines),
+            // 报价行只由店员手填，规则不再按检测结果预填
+            lines: existingLines,
             confirmCopy: quoteCopyForAlbum(
               album,
               contentOfFlowNode(prevQuote).confirmCopy ||
@@ -2139,13 +2090,12 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       throw err
     }
     const prevQuoteDoc = nodes[quoteIdx].document || emptyDocument('quote_confirm')
-    let quoteLines = Array.isArray(payload.quote && payload.quote.payload && payload.quote.payload.lines)
+    const sentLines = Array.isArray(payload.quote && payload.quote.payload && payload.quote.payload.lines)
       ? payload.quote.payload.lines
       : null
-    if (!quoteLines || !quoteLines.length) {
-      const existing = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
-      quoteLines = quoteLinesForAlbum(mergedPayload.findings, album, existing)
-    }
+    // 报价行只由店员手填：未提交时沿用已有行，提交空数组则保持空表
+    const quoteLines =
+      sentLines === null ? (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || [] : sentLines
     const quotePayload = {
       ...(prevQuoteDoc.payload || {}),
       ...((payload.quote && payload.quote.payload) || {}),
@@ -2195,13 +2145,12 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
     }
     const quoteIdx = nodes.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
     const prevQuoteDoc = nodes[quoteIdx].document || emptyDocument('quote_confirm')
-    let quoteLines = Array.isArray(payload.quote && payload.quote.payload && payload.quote.payload.lines)
+    const sentLines = Array.isArray(payload.quote && payload.quote.payload && payload.quote.payload.lines)
       ? payload.quote.payload.lines
       : null
-    if (!quoteLines || !quoteLines.length) {
-      const existing = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
-      quoteLines = quoteLinesForAlbum(mergedPayload.findings, album, existing)
-    }
+    // 报价行只由店员手填：未提交时沿用已有行，提交空数组则保持空表
+    const quoteLines =
+      sentLines === null ? (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || [] : sentLines
     const quotePayload = {
       ...(prevQuoteDoc.payload || {}),
       ...((payload.quote && payload.quote.payload) || {}),

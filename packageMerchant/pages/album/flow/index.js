@@ -1915,43 +1915,16 @@ Page({
           )
           const quotePayload =
             (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
+          // 报价行只认店员已填内容，规则不再按检测结果预填
           const fromQuote = quoteLinesOf(quoteNode).map((line) => normalizeQuoteLine(line))
-          const hasNamed = fromQuote.some((row) => String(row.name || '').trim())
+          quoteLines = fromQuote.length
+            ? fromQuote
+            : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           const quoteDraft = buildQuoteDraft({
             findings,
             templateId: album.templateId,
             serviceName: album.serviceName,
           })
-          const assist = quoteNode && quoteNode.quoteAssist
-          const skipRuleRefresh = Boolean(
-            assist &&
-              (assist.status === 'queued' ||
-                assist.status === 'running' ||
-                assist.status === 'ready'),
-          )
-          const unpriced =
-            !fromQuote.some((row) => {
-              const n = Number(row.amount)
-              return Number.isFinite(n) && n > 0
-            })
-          const canRefreshOpenDraft =
-            !skipRuleRefresh &&
-            unpriced &&
-            quoteDraft.mode === 'teardown' &&
-            (!hasNamed || String((fromQuote[0] && fromQuote[0].name) || '') === '拆检')
-          quoteLines =
-            hasNamed && !canRefreshOpenDraft
-              ? fromQuote
-              : skipRuleRefresh
-                ? fromQuote.length
-                  ? fromQuote
-                  : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
-                : quoteDraft.lines.length
-                  ? quoteDraft.lines.map((line) => normalizeQuoteLine(line))
-                  : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
-          if (!quoteLines.length) {
-            quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
-          }
           confirmCopy = quotePayload.confirmCopy || quoteDraft.confirmCopy
           this._quoteDraftHint = quoteDraft.merchantHint
           this._quoteNodeId = (quoteNode && quoteNode.id) || ''
@@ -2000,35 +1973,14 @@ Page({
               report.document.payload.findings) ||
             []
           quoteEvidenceFindings = this.expandQuoteEvidence(reportFindings)
-          const quoteAssistNode = flowNodes.find(
-            (n) => n && n.kind === 'quote_confirm' && !n.insertedReason,
-          )
-          const quoteAssist = (quoteAssistNode && quoteAssistNode.quoteAssist) || null
-          const assistBusy =
-            quoteAssist &&
-            (quoteAssist.status === 'queued' || quoteAssist.status === 'running')
-          if (
-            !(quoteLines || []).some((row) => String(row.name || '').trim()) &&
-            !assistBusy
-          ) {
-            const quoteDraft = buildQuoteDraft({
-              findings: reportFindings,
-              templateId: album.templateId,
-              serviceName: album.serviceName,
-            })
-            this._quoteDraftHint = quoteDraft.merchantHint
-            if (quoteDraft.lines.length) {
-              quoteLines = quoteDraft.lines.map((line) => normalizeQuoteLine(line))
-            }
-            if (!String(confirmCopy || '').trim()) confirmCopy = quoteDraft.confirmCopy
-          } else {
-            const quoteDraft = buildQuoteDraft({
-              findings: reportFindings,
-              templateId: album.templateId,
-              serviceName: album.serviceName,
-            })
-            this._quoteDraftHint = quoteDraft.merchantHint
-          }
+          // 报价行只认店员已填内容，规则不再按检测结果预填
+          const quoteDraft = buildQuoteDraft({
+            findings: reportFindings,
+            templateId: album.templateId,
+            serviceName: album.serviceName,
+          })
+          this._quoteDraftHint = quoteDraft.merchantHint
+          if (!String(confirmCopy || '').trim()) confirmCopy = quoteDraft.confirmCopy
         }
       }
       if (
