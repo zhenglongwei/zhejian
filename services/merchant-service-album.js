@@ -230,6 +230,7 @@ async function generateHostedGeoDraft(albumId, options = {}) {
   return post(
     `/merchant/service-albums/${albumId}/host/generate-geo`,
     withStore({ forceRegen: Boolean(options.forceRegen) }),
+    { timeout: 120000 },
   )
 }
 
