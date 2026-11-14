@@ -65,4 +65,4 @@
 - [x] 更新 `backend/src/services/case-hosting.smoke.test.js`：删除 `collectUnanalyzedNodeIds` 用例，新增节点类型过滤与描述收集用例，补 15 条描述不截断断言。
 - [x] `node --check` 改动文件；`cd backend && npm run test:case-hosting` 通过。
 - [x] 搜索确认：`collectUnanalyzedNodeIds` 无引用；`collectImageDescriptions` 无 12 条上限；`ensureAlbumImageVisionCache` 无 `vision.maxImages`。
-- [ ] 本地 commit → `git push staging main` → 预发 `git pull`、`npm install`、`npm run sync:shared-utils`、`pm2 restart zhejian-api-staging` → health 通过。
+- [x] 本地 commit（9a5c3153）→ `git push staging main` → 预发 `npm install`、`npm run sync:shared-utils`、`pm2 restart zhejian-api-staging` → health 通过。
