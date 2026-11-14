@@ -2198,7 +2198,6 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
 
 module.exports = {
   queueWorkAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'work', options),
-  queueDeliveryAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'delivery', options),
   queueInspectionAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'inspect', options),
   fingerprintFor,
   contextOf,

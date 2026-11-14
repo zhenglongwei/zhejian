@@ -91,7 +91,18 @@
         </view>
 
         <view wx:if="{{!hosted && hostMode === 'public'}}" class="merchant-host-page__copy">
-          <text class="text-body merchant-host-page__label">店页摘要</text>
+          <view class="merchant-host-page__copy-head">
+            <text class="text-body merchant-host-page__label">店页摘要</text>
+            <ui-button
+              type="ghost"
+              size="sm"
+              loading="{{geoGenerating}}"
+              disabled="{{geoGenerating || working}}"
+              bind:btntap="onRegenerateGeoDraft"
+            >AI 生成</ui-button>
+          </view>
+          <text wx:if="{{geoGenerating}}" class="text-caption text-secondary">正在读整单记录，整理简述与问答…</text>
+          <text wx:elif="{{geoImagePending}}" class="text-caption text-secondary">图片分析中，稍后点「AI 生成」补全。</text>
           <textarea
             class="merchant-host-page__textarea"
             value="{{geoSummary}}"

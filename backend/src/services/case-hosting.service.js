@@ -424,7 +424,120 @@ function sanitizeHostedNodeStories(raw) {
     .slice(0, 5)
 }
 
-async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) {
+const NODE_ADVICE_FIELDS = [
+  'intakeAdvice',
+  'inspectionAdvice',
+  'workAdvice',
+  'quoteAssist',
+  'deliveryAdvice',
+]
+const NODE_KIND_ADVICE = {
+  intake: 'intakeAdvice',
+  inspection_report: 'inspectionAdvice',
+  work: 'workAdvice',
+  quote_confirm: 'quoteAssist',
+  delivery: 'deliveryAdvice',
+  delivery_photos: 'deliveryAdvice',
+  repair_report: 'deliveryAdvice',
+}
+
+function nodeAdviceValue(node) {
+  if (!node || typeof node !== 'object') return null
+  const preferred = NODE_KIND_ADVICE[String(node.kind || '')]
+  if (preferred && node[preferred]) return node[preferred]
+  for (const field of NODE_ADVICE_FIELDS) {
+    if (node[field]) return node[field]
+  }
+  return null
+}
+
+function isUsefulAdviceText(value) {
+  const text = String(value || '').trim()
+  if (text.length < 6) return false
+  if (/^https?:\/\//i.test(text)) return false
+  if (/^data:image\//i.test(text)) return false
+  if (/^[A-Za-z0-9_\-:.]+$/.test(text)) return false
+  return true
+}
+
+function collectAdviceStrings(value, out, depth = 0) {
+  if (!value || depth > 6) return
+  if (typeof value === 'string') {
+    if (isUsefulAdviceText(value)) out.push(value.trim())
+    return
+  }
+  if (Array.isArray(value)) {
+    value.forEach((row) => collectAdviceStrings(row, out, depth + 1))
+    return
+  }
+  if (typeof value === 'object') {
+    Object.keys(value).forEach((key) => {
+      if (/^(id|.*Id|.*At|url|.*Url|fingerprint|promptVersion|model|status|kind)$/i.test(key)) return
+      collectAdviceStrings(value[key], out, depth + 1)
+    })
+  }
+}
+
+/** 跑过 AI 的节点：只用节点里已有的分析结论/图说文字，不重复分析图片 */
+function collectNodeAiContext(flowNodes) {
+  const parts = []
+  const seen = new Set()
+  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
+    const advice = nodeAdviceValue(node)
+    if (!advice) return
+    const texts = []
+    collectAdviceStrings(advice, texts)
+    const title = String((node && (node.title || node.kind)) || '节点').trim()
+    texts.forEach((text) => {
+      const key = text.slice(0, 80)
+      if (seen.has(key)) return
+      seen.add(key)
+      parts.push(`【${title}】${text}`)
+    })
+  })
+  return parts.join('；').slice(0, 4000)
+}
+
+/** 没跑过 AI 的节点：这些节点的原图需要在托管预览时补分析 */
+function collectUnanalyzedNodeIds(flowNodes) {
+  const ids = new Set()
+  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
+    if (!node || !node.id) return
+    if (!nodeAdviceValue(node)) ids.add(String(node.id))
+  })
+  return ids
+}
+
+/** 汇总每张图的内容分析：识图缓存结果 + 已分析节点里已有的图说 */
+function collectImageDescriptions(visionResults, flowNodes) {
+  const out = []
+  const seen = new Set()
+  const push = (text) => {
+    const t = String(text || '').trim()
+    if (t.length < 4 || t.length > 400) return
+    const key = t.slice(0, 60)
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(t)
+  }
+  ;(Array.isArray(visionResults) ? visionResults : []).forEach((row) => {
+    if (row && row.description) push(row.description)
+  })
+  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
+    if (!nodeAdviceValue(node)) return
+    const draft = node && node.photoDraft
+    if (!draft || typeof draft !== 'object') return
+    ;(Array.isArray(draft.publicCaptions) ? draft.publicCaptions : []).forEach((row) => {
+      push(row && (row.note || row.caption || row.text))
+    })
+    ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
+      push(row && (row.note || row.caption || row.text))
+    })
+  })
+  return out.slice(0, 12)
+}
+
+async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album, extra = {}) {
   const fs = require('fs')
   const path = require('path')
   const { config } = require('../config')
@@ -466,6 +579,9 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) 
           missing: factPack.missing,
         }
       : null,
+    nodeAiContext: String(extra.nodeAiContext || ''),
+    imageDescriptions: Array.isArray(extra.imageDescriptions) ? extra.imageDescriptions : [],
+    imageAnalysisPending: Boolean(extra.imageAnalysisPending),
   })
   try {
     const completion = await chatCompletion({
@@ -507,12 +623,13 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) 
 
 /**
  * 公开托管：店页说明草稿
- * 优先复用交车 AI 写入的 archiveCopy；forceRegen 时才重跑模型。
+ * 读整单：已跑 AI 的节点复用分析结论；没跑过的节点图片在预览步补一次识图。
  * 规则拼句仅兜底。真源：15_ §6.1 · 17_ §0
  */
 async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen = false } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
-  const { readPublicCopyFromAlbum, mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
+  const { mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
+  const { isServiceAlbumRepairDone } = require('../constants/v2')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -520,72 +637,86 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     throw err
   }
   assertMerchantAlbum(album, storeId, merchantId)
-  const prev = readHostMeta(album)
-  if (!prev.hosted) {
-    const err = new Error('请先托管到案例站')
+  const status = String(album.status || '')
+  if (!isServiceAlbumRepairDone(status) && status !== 'completed') {
+    const err = new Error('请先完成服务流程并整单完工')
     err.status = 409
+    err.code = 'ALBUM_NOT_COMPLETED'
     throw err
   }
+  const prev = readHostMeta(album)
   // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
+
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const unanalyzedNodeIds = collectUnanalyzedNodeIds(flowNodes)
+  const imageIds = (Array.isArray(album.images) ? album.images : [])
+    .filter((img) => img && unanalyzedNodeIds.has(String(img.nodeId || '')))
+    .map((img) => String(img.id))
+    .filter(Boolean)
+  let imageAnalysisPending = false
+  let visionResults = []
+  if (imageIds.length) {
+    try {
+      const { ensureAlbumImageVisionCache } = require('./album-vision-ondemand.service')
+      const vision = await ensureAlbumImageVisionCache(albumId, imageIds)
+      if (vision.status === 'pre_mask_pending') imageAnalysisPending = true
+      else visionResults = vision.results || []
+    } catch (e) {
+      console.warn('[case-hosting] image vision failed', e && e.message)
+    }
+  }
+  const nodeAiContext = collectNodeAiContext(flowNodes)
+  const imageDescriptions = collectImageDescriptions(visionResults, flowNodes)
 
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
-  const existingCopy = readPublicCopyFromAlbum(album)
   let geoDraft = null
-  let message = '店页说明已生成，请核对后公开'
+  let message = '已按整单记录整理出院摘要与问答，请核对后公开'
 
-  if (!forceRegen && existingCopy && existingCopy.summary) {
-    geoDraft = {
-      summary: existingCopy.summary,
-      highlights: [],
-      faq: existingCopy.faq || [],
-      faqHasMaterial: Boolean((existingCopy.faq || []).length),
-      faultDesc: '',
-      inspectResult: '',
-      repairPlan: '',
-      resultConfirm: '',
-      generatedAt: existingCopy.generatedAt || new Date().toISOString(),
-      source: existingCopy.source || 'repair_report',
+  const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album, {
+    nodeAiContext,
+    imageDescriptions,
+    imageAnalysisPending,
+  })
+  geoDraft = llmDraft || {
+    ...ruleGeo.geoDraft,
+    highlights: [],
+    source: llmDraft ? llmDraft.source : 'rule_fallback',
+  }
+  if (geoDraft && geoDraft.summary) {
+    try {
+      const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
+        summary: geoDraft.summary,
+        faq: geoDraft.faq,
+        source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
+      })
+      const { prisma } = require('../lib/prisma')
+      await prisma.album.update({
+        where: { id: albumId },
+        data: { contentPackageJson: nextPkg },
+      })
+    } catch (_) {
+      /* 草稿落相册失败不挡托管 */
     }
-    message = '已载入交车报告中的说明，请核对后公开'
-  } else {
-    const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album)
-    geoDraft = llmDraft || {
-      ...ruleGeo.geoDraft,
-      highlights: [],
-      source: llmDraft ? llmDraft.source : 'rule_fallback',
-    }
-    if (geoDraft && geoDraft.summary) {
-      try {
-        const pkg =
-          album.contentPackageJson && typeof album.contentPackageJson === 'object'
-            ? album.contentPackageJson
-            : {}
-        const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
-          summary: geoDraft.summary,
-          faq: geoDraft.faq,
-          source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
-        })
-        const { prisma } = require('../lib/prisma')
-        await prisma.album.update({
-          where: { id: albumId },
-          data: { contentPackageJson: nextPkg },
-        })
-      } catch (_) {
-        /* 草稿落相册失败不挡托管 */
-      }
-    }
-    if (!llmDraft) {
-      message = '自动说明暂不可用，以下为简要草稿，请自行改写'
-    }
+  }
+  if (!llmDraft) {
+    message = '自动说明暂不可用，以下为简要草稿，请自行改写'
+  }
+  if (imageAnalysisPending) {
+    message = '图片分析中，已先生成文字草稿；完成后可点「AI 生成」补全'
   }
 
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
 
-  // 未过隐私前保持 awaiting_privacy；已过则进入待确认店页说明
-  const nextStage = prev.privacyAuditPassedAt
-    ? 'awaiting_geo_confirm'
-    : prev.publicPublishStage || 'awaiting_privacy'
+  // 未托管/未过隐私时保持当前阶段；托管且已过隐私才进入待确认店页说明
+  const nextStage =
+    prev.hosted && prev.privacyAuditPassedAt
+      ? 'awaiting_geo_confirm'
+      : prev.publicPublishStage || (prev.hosted ? 'awaiting_privacy' : '')
   const meta = await writeHostMeta(albumId, {
     geoDraft,
     publicPublishStage: nextStage,
@@ -595,6 +726,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     geoDraft,
     preview: ruleGeo.preview,
     qualitySuggestions: assessHostPublicContent({ album, view, geoDraft }).suggestions,
+    imageAnalysisPending,
     ...meta,
     message,
   }
@@ -1389,6 +1521,9 @@ module.exports = {
   hostAlbum,
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
+  collectNodeAiContext,
+  collectUnanalyzedNodeIds,
+  collectImageDescriptions,
   confirmHostedPublicPublish,
   cancelPublicHostIntent,
   getHostPublicFacePreview,

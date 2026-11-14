@@ -1307,7 +1307,6 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     isNodeEditFrozen(previewNodes, preview) &&
     !payload.startIntakeAdvice &&
     !payload.startWorkAdvice &&
-    !payload.startDeliveryAdvice &&
     !payload.startInspectionAdvice &&
     !payload.startQuoteAssist &&
     !payload.startAiReview
@@ -1361,20 +1360,17 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
   }
 
-  if (payload.startWorkAdvice || payload.startDeliveryAdvice || payload.startInspectionAdvice) {
-    const kind = payload.startWorkAdvice ? 'work' : payload.startInspectionAdvice ? 'inspect' : 'delivery'
+  if (payload.startWorkAdvice || payload.startInspectionAdvice) {
+    const kind = payload.startWorkAdvice ? 'work' : 'inspect'
     const {
       queueWorkAdviceIfNeeded,
-      queueDeliveryAdviceIfNeeded,
       queueInspectionAdviceIfNeeded,
     } = require('./step-advice.service')
     const startAlbum = await loadAlbum(albumId)
     const queueOpts = { force: forceAdviceRefresh }
     const queued = kind === 'work'
       ? await queueWorkAdviceIfNeeded(startAlbum, queueOpts)
-      : kind === 'inspect'
-        ? await queueInspectionAdviceIfNeeded(startAlbum, queueOpts)
-        : await queueDeliveryAdviceIfNeeded(startAlbum, queueOpts)
+      : await queueInspectionAdviceIfNeeded(startAlbum, queueOpts)
     const fresh = await loadAlbum(albumId)
     const startNode = sortFlowNodes(readFlowNodesRaw(fresh)).find((n) => n && n.id === id)
     const viewNodes = mapNodesForView(fresh)
@@ -1383,7 +1379,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       queued: Boolean(queued && queued.queued),
       reuse: Boolean(queued && queued.reuse),
       stale: Boolean(queued && queued.stale),
-      nextAction: kind === 'work' ? 'work_advice' : 'delivery_advice',
+      nextAction: kind === 'work' ? 'work_advice' : 'inspection_advice',
       unlockedNext: false,
       node: startNode ? mapFlowNodeForView(startNode, viewNodes, adviceFingerprints) : null,
     }

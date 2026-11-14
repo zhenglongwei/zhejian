@@ -101,32 +101,6 @@
     </view>
   </view>
 </template>
-<template name="deliveryAdvicePanel">
-  <view wx:if="{{advice.warrantyText}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">质保期限建议</text>
-    <view class="merchant-flow-page__advice-card {{advice.canApplyWarranty ? 'merchant-flow-page__advice-card--actionable' : ''}}">
-      <view class="merchant-flow-page__advice-card-head">
-        <view class="merchant-flow-page__advice-card-title-wrap">
-          <text class="merchant-flow-page__advice-card-text">{{advice.warrantyText}}</text>
-        </view>
-        <text
-          wx:if="{{advice.canApplyWarranty}}"
-          class="merchant-flow-page__advice-apply"
-          data-kind="warranty"
-          catchtap="onApplyDeliveryAdvice"
-        >应用</text>
-        <text wx:else class="merchant-flow-page__advice-state">已填</text>
-      </view>
-    </view>
-  </view>
-  <view wx:if="{{advice.hasTips}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">本步提醒</text>
-    <view wx:for="{{advice.tips}}" wx:key="id" class="merchant-flow-page__advice-ask">
-      <text wx:if="{{item.hasTitle}}" class="merchant-flow-page__advice-ask-title">{{item.title}}</text>
-      <text wx:if="{{item.hasBody}}" class="merchant-flow-page__advice-ask-body">{{item.body}}</text>
-    </view>
-  </view>
-</template>
 <template name="aiFieldHint"></template>
 <view class="page merchant-flow-page">
   <block wx:if="{{status === 'loading'}}">
@@ -1721,7 +1695,7 @@
                 </view>
               </view>
               <view
-                wx:if="{{!readOnly && (!isAddonQuote || addonDiscoveryReady || confirmAwaitingOwner)}}"
+                wx:if="{{!readOnly}}"
                 class="merchant-flow-page__doc-actions"
               >
                 <text wx:if="{{showAutoSave}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
@@ -1754,14 +1728,6 @@
                 </block>
                 <ui-button
                   wx:if="{{isAddonQuote}}"
-                  type="ghost"
-                  block="{{true}}"
-                  loading="{{confirming}}"
-                  bind:btntap="onOpenCancelAddon"
-                >取消本项</ui-button>
-              </view>
-              <view wx:elif="{{!readOnly && isAddonQuote}}" class="merchant-flow-page__doc-actions">
-                <ui-button
                   type="ghost"
                   block="{{true}}"
                   loading="{{confirming}}"
@@ -1903,9 +1869,9 @@
   </block>
 
   <ai-fab
-    wx:if="{{workOpen && stageBoard}}"
+    wx:if="{{workOpen && stageBoard && stageBoard.family !== 'finish'}}"
     hidden="{{adviceOpen || recordPreview || docBrief || showCancelAddonModal || showPickSheet}}"
-    waiting="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}"
+    waiting="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}"
     bind:tap="onAiFab"
   />
 
@@ -1927,11 +1893,11 @@
         class="text-caption text-secondary merchant-flow-page__advice-stale"
       >本步内容有更新，点「刷新」按最新内容重新分析</text>
       <scroll-view scroll-y class="merchant-flow-page__advice-body">
-        <view wx:if="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}" class="merchant-flow-page__ai-status">
+        <view wx:if="{{advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)}}" class="merchant-flow-page__ai-status">
           <view class="merchant-flow-page__ai-status-spin"></view>
           <text class="merchant-flow-page__ai-status-text">{{adviceWaitHint || '正在出意见'}}</text>
         </view>
-        <block wx:if="{{(stageBoard.family === 'work' && workAdvice.hasContent) || (stageBoard.family === 'finish' && deliveryAdvice.hasContent) || (stageBoard.family === 'inspect' && inspectionAdvice.hasContent) || (stageBoard.family === 'intake' && intakeAdvice.hasContent) || (stageBoard.family === 'quote' && quoteAssist.hasContent) || !((advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'finish' && deliveryAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)))}}">
+        <block wx:if="{{(stageBoard.family === 'work' && workAdvice.hasContent) || (stageBoard.family === 'inspect' && inspectionAdvice.hasContent) || (stageBoard.family === 'intake' && intakeAdvice.hasContent) || (stageBoard.family === 'quote' && quoteAssist.hasContent) || !((advicePaintWaiting || (stageBoard.family === 'work' && workAdvice.isWaiting) || (stageBoard.family === 'inspect' && inspectionAdvice.isWaiting) || (stageBoard.family === 'intake' && intakeAdvice.isWaiting) || (stageBoard.family === 'quote' && quoteAssist.isWaiting)))}}">
           <block wx:if="{{stageBoard.family === 'work' && workAdvice.hasContent}}">
             <view wx:if="{{workAdvice.hasOutsideQuoteItems}}" class="merchant-flow-page__advice-sec">
               <view class="merchant-flow-page__advice-row">
@@ -2180,9 +2146,6 @@
               </view>
             </view>
           </block>
-          <block wx:elif="{{stageBoard.family === 'finish' && deliveryAdvice.hasContent}}">
-            <template is="deliveryAdvicePanel" data="{{advice: deliveryAdvice}}" />
-          </block>
           <block wx:elif="{{stageBoard.family === 'intake' && intakeAdvice.hasContent}}">
             <template is="intakeAdvicePanel" data="{{advice: intakeAdvice, askReadonly: false}}" />
           </block>
@@ -2243,8 +2206,8 @@
               </view>
             </view>
           </block>
-          <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || deliveryAdvice.isWaiting || quoteAssist.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
-          <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || deliveryAdvice.status === 'failed' || quoteAssist.status === 'failed'}}" class="text-caption text-secondary">{{inspectionAdvice.errorMessage || intakeAdvice.errorMessage || workAdvice.errorMessage || deliveryAdvice.errorMessage || quoteAssist.errorMessage || '这次没出成，点刷新再试'}}</view>
+          <view wx:elif="{{inspectionAdvice.isWaiting || intakeAdvice.isWaiting || workAdvice.isWaiting || quoteAssist.isWaiting}}" class="text-caption text-secondary">正在出意见…</view>
+          <view wx:elif="{{inspectionAdvice.status === 'failed' || intakeAdvice.status === 'failed' || workAdvice.status === 'failed' || quoteAssist.status === 'failed'}}" class="text-caption text-secondary">{{inspectionAdvice.errorMessage || intakeAdvice.errorMessage || workAdvice.errorMessage || quoteAssist.errorMessage || '这次没出成，点刷新再试'}}</view>
           <view wx:else class="text-caption text-secondary">还没有可展示的意见</view>
         </block>
       </scroll-view>

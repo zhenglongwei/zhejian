@@ -2042,9 +2042,8 @@ Page({
         (flowNodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
         sections,
       )
-      const deliveryAdvice = this.decorateDeliveryAdvice(
-        (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice,
-      )
+      const deliveryAdvice =
+        (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice || null
       const inspectionAdvice = this.decorateInspectionAdvice(
         (flowNodes.find((n) => n && n.kind === 'inspection') || {}).inspectionAdvice,
         sections,
@@ -3321,7 +3320,12 @@ Page({
     if (this.data.confirming) return
     const kind =
       key === 'inspect' ? 'inspection_report' : key === 'quote' ? 'quote_confirm' : key === 'finish' ? 'repair_report' : ''
-    const node = (this._flowNodes || []).find((item) => item && item.kind === kind && item.document)
+    // 当前正在看的节点优先：补充报价也属于 quote_confirm，不能回落到首报去判断状态
+    const active = this.data.activeNode
+    const node =
+      active && active.kind === kind && active.document
+        ? active
+        : (this._flowNodes || []).find((item) => item && item.kind === kind && item.document)
     if (!node) {
       wx.showToast({ title: '还没有可发的报告', icon: 'none' })
       return
@@ -5367,9 +5371,6 @@ Page({
     if (!field) return
     if (this.data.isDeliveryPhotoStep) {
       this.setData({ [field]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
-        if (field === 'repairBrief') {
-          this.setData({ deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) })
-        }
         this.scheduleAutoSavePhotos()
       })
       return
@@ -5529,26 +5530,6 @@ Page({
     }
   },
 
-
-  /** 交车 AI 建议：只应用质保期限，验收建议已移到施工节点 */
-  onApplyDeliveryAdvice(e) {
-    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
-    const dataset = (e.currentTarget && e.currentTarget.dataset) || {}
-    const kind = String(dataset.kind || '')
-    const advice = this.data.deliveryAdvice
-    if (!advice || kind !== 'warranty') return
-    if (!advice.canApplyWarranty || !advice.warrantyText) return
-    this.setData(
-      { warrantyPeriod: advice.warrantyText, autoSaveLabel: '保存中…' },
-      () => {
-        this.setData(
-          { deliveryAdvice: this.decorateDeliveryAdvice(this.data.deliveryAdvice) },
-          () => this.commitAppliedPhotoDraft(),
-        )
-      },
-    )
-    wx.showToast({ title: '已写入质保期限', icon: 'none' })
-  },
 
   noop() {},
 
@@ -6501,77 +6482,6 @@ Page({
     }
   },
 
-  decorateDeliveryAdvice(raw) {
-    // 交车不再做验收判定：面板只保留质保建议与本步提醒
-    const empty = {
-      status: '',
-      isWaiting: false,
-      hasContent: false,
-      repairBrief: '',
-      ownerFaqs: [],
-      acceptance: null,
-      acceptanceEmpty: false,
-      splitGroups: [],
-      hasSplitGroups: false,
-      tips: [],
-      hasTips: false,
-      warrantyText: '',
-      canApplyWarranty: false,
-      stale: false,
-    }
-    if (!raw || typeof raw !== 'object') return empty
-    const status = String(raw.status || '')
-    const repairBrief = String(raw.repairBrief || '').trim()
-    const ownerFaqs = (Array.isArray(raw.ownerFaqs) ? raw.ownerFaqs : [])
-      .map((row, index) => {
-        const question = String((row && (row.question || row.q)) || '').trim()
-        const answer = String((row && (row.answer || row.a)) || '').trim()
-        if (!question) return null
-        return {
-          id: String((row && row.id) || `suggest_${index + 1}`),
-          question,
-          answer,
-        }
-      })
-      .filter(Boolean)
-      .slice(0, 5)
-    const warrantyText = String((raw.warranty && raw.warranty.body) || '').trim()
-    const liveWarranty = String(this.data.warrantyPeriod || '').trim()
-    const canApplyWarranty = Boolean(warrantyText) && !liveWarranty
-    const tips = (Array.isArray(raw.tips) ? raw.tips : [])
-      .map((row, index) => {
-        const title = String((row && row.title) || '').trim()
-        const body = String((row && row.body) || '').trim()
-        if (!title && !body) return null
-        return { id: `tip_${index}`, title, body, hasTitle: Boolean(title), hasBody: Boolean(body) }
-      })
-      .filter(Boolean)
-    const hasContent = Boolean(warrantyText || tips.length)
-    return {
-      status,
-      repairBrief,
-      ownerFaqs,
-      acceptance: null,
-      acceptanceEmpty: false,
-      splitGroups: [],
-      hasSplitGroups: false,
-      tips,
-      hasTips: tips.length > 0,
-      warrantyText,
-      canApplyWarranty,
-      hasContent,
-      stale: Boolean(raw.stale),
-      isWaiting: status === 'queued' || status === 'running',
-      waitHint:
-        raw.waitHint ||
-        (status === 'queued' || status === 'running'
-          ? hasContent
-            ? '正在更新'
-            : '正在出意见'
-          : ''),
-    }
-  },
-
   mergeAskPicksIntoComplaint(askOwner) {
     const base = String(this._askComplaintBase || this.data.chiefComplaint || '').trim()
     const picks = []
@@ -7226,9 +7136,8 @@ Page({
     const assistWaiting = Boolean(this.data.quoteAssist && this.data.quoteAssist.isWaiting)
     const intakeWaiting = Boolean(this.data.intakeAdvice && this.data.intakeAdvice.isWaiting)
     const workWaiting = Boolean(this.data.workAdvice && this.data.workAdvice.isWaiting)
-    const deliveryWaiting = Boolean(this.data.deliveryAdvice && this.data.deliveryAdvice.isWaiting)
     const inspectionWaiting = Boolean(this.data.inspectionAdvice && this.data.inspectionAdvice.isWaiting)
-    if (assistWaiting || intakeWaiting || workWaiting || deliveryWaiting || inspectionWaiting) this.startQuoteAssistPoll()
+    if (assistWaiting || intakeWaiting || workWaiting || inspectionWaiting) this.startQuoteAssistPoll()
     else this.stopQuoteAssistPoll()
   },
 
@@ -7300,9 +7209,8 @@ Page({
       (nodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
       sections,
     )
-    const deliveryAdvice = this.decorateDeliveryAdvice(
-      (nodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice,
-    )
+    const deliveryAdvice =
+      (nodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice || null
     const inspectionAdvice = this.decorateInspectionAdvice(
       (nodes.find((n) => n && n.kind === 'inspection') || {}).inspectionAdvice,
       sections,
@@ -7321,7 +7229,6 @@ Page({
         this.syncAdviceChrome()
         this.settleAdvicePaintWaiting()
         this.resumeQuoteAssistPoll()
-        this.autoAdoptDeliveryCopy()
         this.maybeRefreshStaleQuoteAssist(quoteAssist, quoteAssistRaw)
       },
     )
@@ -7337,31 +7244,6 @@ Page({
     if (this._staleAssistRefreshedFor === key) return
     this._staleAssistRefreshedFor = key
     this.onStartQuoteAiCheck({ force: true })
-  },
-
-  /** 简述/问答不在界面展示：AI 已生成时静默写入本单内容（只供托管预览与公网），已有字不覆盖 */
-  autoAdoptDeliveryCopy() {
-    if (this.data.readOnly || !this.data.isDeliveryPhotoStep) return
-    const advice = this.data.deliveryAdvice || {}
-    const patch = {}
-    if (!String(this.data.repairBrief || '').trim() && String(advice.repairBrief || '').trim()) {
-      patch.repairBrief = String(advice.repairBrief).trim()
-    }
-    if (
-      !(Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : []).filter(
-        (row) => row && String(row.question || '').trim(),
-      ).length &&
-      Array.isArray(advice.ownerFaqs) &&
-      advice.ownerFaqs.length
-    ) {
-      patch.ownerFaqs = advice.ownerFaqs.map((row, index) => ({
-        id: String((row && row.id) || `faq_${index + 1}`),
-        question: String((row && row.question) || '').trim(),
-        answer: String((row && row.answer) || '').trim(),
-      }))
-    }
-    if (!Object.keys(patch).length) return
-    this.setData({ ...patch, autoSaveLabel: '保存中…' }, () => this.scheduleAutoSaveDraftOnly())
   },
 
   applyInspectionProposal(id) {
@@ -8107,7 +7989,6 @@ Page({
     if (family === 'inspect') return this.data.inspectionAdvice
     if (family === 'quote') return this.data.quoteAssist
     if (family === 'work') return this.data.workAdvice
-    if (family === 'finish') return this.data.deliveryAdvice
     return null
   },
 
@@ -8147,7 +8028,6 @@ Page({
     else if (family === 'inspect') patch.inspectionAdvice = next
     else if (family === 'quote') patch.quoteAssist = next
     else if (family === 'work') patch.workAdvice = next
-    else if (family === 'finish') patch.deliveryAdvice = next
     else {
       patch.inspectionAdvice = next
       patch.intakeAdvice = next
@@ -8184,7 +8064,6 @@ Page({
     else if (family === 'inspect') patch.inspectionAdvice = next
     else if (family === 'quote') patch.quoteAssist = next
     else if (family === 'work') patch.workAdvice = next
-    else if (family === 'finish') patch.deliveryAdvice = next
     else patch.inspectionAdvice = next
     this.setData(patch, () => this.syncAdviceChrome())
   },
@@ -8218,6 +8097,7 @@ Page({
       return
     }
     const family = (this.data.stageBoard && this.data.stageBoard.family) || ''
+    if (family === 'finish') return
     const advice = this.currentAdviceBundle()
     const hasPrior = Boolean(
       advice && (advice.hasContent || advice.isWaiting || advice.status === 'failed'),
@@ -8230,7 +8110,6 @@ Page({
     if (family === 'inspect') return this.onStartInspectionAdvice({ force })
     if (family === 'quote') return this.onStartQuoteAiCheck({ force })
     if (family === 'work') return this.onStartWorkAdvice({ force })
-    if (family === 'finish') return this.onStartDeliveryStepAdvice({ force })
   },
 
   onRefreshAdvice() {
@@ -8266,7 +8145,6 @@ Page({
     if (family === 'inspect') return this.onInspectionAi()
     if (family === 'quote') return this.onToggleAdvice()
     if (family === 'work') return this.onWorkHeaderAi()
-    if (family === 'finish') return this.onToggleAdvice()
   },
 
   onToggleAdvice() {
@@ -8948,10 +8826,6 @@ Page({
     await this.startStepAdvice('startWorkAdvice', '先有报价或施工项', options)
   },
 
-  async onStartDeliveryStepAdvice(options = {}) {
-    await this.startStepAdvice('startDeliveryAdvice', '未能出意见', options)
-  },
-
   async startStepAdvice(flag, emptyTitle, options = {}) {
     const force = Boolean(options && options.force)
     if (this.data.readOnly || this.data.confirming) return
@@ -8974,31 +8848,6 @@ Page({
       this.abortAdviceStart(e, emptyTitle)
     } finally {
       this.setData({ confirming: false })
-    }
-  },
-
-  async onStartDeliveryAdvice() {
-    if (this.data.readOnly || this.data.confirming || this.data.aiReviewBusy) return
-    if (this.data.aiReview && this.data.aiReview.isWaiting) return
-    if (!this._nodeAiReviewEntitled) return
-    const node = this.data.activeNode
-    if (!node) return
-    this.setData({ confirming: true, aiReviewBusy: true, adviceOpen: true })
-    try {
-      const res = await this.saveFlowNode(node.id, {
-        startAiReview: true,
-      })
-      if (res && res.nextAction === 'ai_review') {
-        this.applyInlineAiReview(
-          res.review,
-          node.kind === 'delivery_photos' ? 'complete' : 'notify',
-        )
-        return
-      }
-    } catch (e) {
-      this.abortAdviceStart(e, '未能出意见')
-    } finally {
-      this.setData({ confirming: false, aiReviewBusy: false })
     }
   },
 

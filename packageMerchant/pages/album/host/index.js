@@ -374,6 +374,8 @@ Page({
     geoHighlightsEmptyHint: '',
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
+    geoGenerating: false,
+    geoImagePending: false,
     summaryHint: '',
     faqHint: '',
   },
@@ -966,8 +968,7 @@ Page({
   },
 
   async ensureGeoDraftForPreview() {
-    if (!this.data.hosted) {
-      this.seedGeoFromArchiveCopy()
+    if (shouldKeepExistingGeoDraft(this.data) && (this.data.hosted || this._geoDraftFetched)) {
       this.setData(
         decorateGeoCopyState(
           this._baseQualitySuggestions,
@@ -977,31 +978,45 @@ Page({
       )
       return
     }
-    if (shouldKeepExistingGeoDraft(this.data)) {
-      this.setData(
-        decorateGeoCopyState(
-          this._baseQualitySuggestions,
-          this.data.geoSummary,
-          this.data.geoFaq,
-        ),
-      )
-      return
-    }
+    await this.runGeoDraftGeneration({ forceRegen: false })
+  },
+
+  async runGeoDraftGeneration({ forceRegen = false } = {}) {
+    if (this.data.geoGenerating) return
+    this.setData({ geoGenerating: true })
     try {
-      const res = await generateHostedGeoDraft(this.albumId)
+      const res = await generateHostedGeoDraft(this.albumId, { forceRegen })
       const draft = res.geoDraft || {}
       const qualitySuggestions = Array.isArray(res.qualitySuggestions)
         ? res.qualitySuggestions
         : this.data.qualitySuggestions
       this._baseQualitySuggestions = qualitySuggestions
+      this._geoDraftFetched = true
       this.setData({
         ...applyGeoDraftToPageData(draft),
+        geoImagePending: Boolean(res.imageAnalysisPending),
         publicPublishStage: res.publicPublishStage || this.data.publicPublishStage,
         ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
       })
+      if (forceRegen) wx.showToast({ title: '已按整单记录整理', icon: 'none' })
     } catch (_) {
-      /* 摘要可手填 */
+      if (!this.data.hosted) this.seedGeoFromArchiveCopy()
+      this.setData(
+        decorateGeoCopyState(
+          this._baseQualitySuggestions,
+          this.data.geoSummary,
+          this.data.geoFaq,
+        ),
+      )
+      if (forceRegen) wx.showToast({ title: '整理失败，可先手填', icon: 'none' })
+    } finally {
+      this.setData({ geoGenerating: false })
     }
+  },
+
+  onRegenerateGeoDraft() {
+    if (this.data.working || this.data.geoGenerating) return
+    return this.runGeoDraftGeneration({ forceRegen: true })
   },
 
   onDismissPrivacyAgreement() {

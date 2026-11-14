@@ -5,6 +5,9 @@ const assert = require('assert')
 const {
   buildHostedArchiveSnapshot,
   readHostMeta,
+  collectNodeAiContext,
+  collectUnanalyzedNodeIds,
+  collectImageDescriptions,
 } = require('./case-hosting.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 
@@ -163,6 +166,66 @@ function testGenerateGeoNoLongerRequiresPrivacyGate() {
   )
 }
 
+/** 预览步即可生成草稿，不再要求先托管 */
+function testGenerateGeoNoLongerRequiresHosted() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'case-hosting.service.js'), 'utf8')
+  const start = src.indexOf('async function generateHostedGeoDraft')
+  const end = src.indexOf('\nasync function ', start + 10)
+  const fnSrc = src.slice(start, end > start ? end : undefined)
+  assert.ok(start > 0, '未找到 generateHostedGeoDraft')
+  assert.ok(
+    !/请先托管到案例站/.test(fnSrc),
+    'generateHostedGeoDraft 不应再要求先托管（预览步就要出草稿）',
+  )
+}
+
+/** 只有没跑过 AI 的节点图片才需要补识图 */
+function testCollectUnanalyzedNodeIds() {
+  const ids = collectUnanalyzedNodeIds([
+    { id: 'n1', kind: 'inspection_report', inspectionAdvice: { findings: [{ text: '前片磨损严重' }] } },
+    { id: 'n2', kind: 'work' },
+    { id: 'n3', kind: 'quote_confirm', quoteAssist: { items: [{ note: '建议同步换刹车盘' }] } },
+    { id: 'n4', kind: 'delivery_photos' },
+  ])
+  assert.strictEqual(ids.has('n1'), false)
+  assert.strictEqual(ids.has('n2'), true)
+  assert.strictEqual(ids.has('n3'), false)
+  assert.strictEqual(ids.has('n4'), true)
+}
+
+function testCollectNodeAiContext() {
+  const text = collectNodeAiContext([
+    { id: 'n1', kind: 'work', title: '施工', workAdvice: { items: [{ name: '更换前刹车片', note: '拆下发现磨损到极限' }] } },
+    { id: 'n2', kind: 'work', title: '未分析' },
+  ])
+  assert.ok(text.includes('更换前刹车片'))
+  assert.ok(text.includes('拆下发现磨损到极限'))
+  assert.strictEqual(collectNodeAiContext([]), '')
+  assert.strictEqual(collectNodeAiContext(null), '')
+}
+
+function testCollectImageDescriptions() {
+  const list = collectImageDescriptions(
+    [
+      { description: '左前轮刹车片磨损到报警线' },
+      { description: '左前轮刹车片磨损到报警线' },
+      { skipped: true },
+    ],
+    [
+      {
+        id: 'n1',
+        kind: 'work',
+        workAdvice: { items: [] },
+        photoDraft: { publicCaptions: [{ note: '拆下的旧片有明显沟槽' }] },
+      },
+    ],
+  )
+  assert.strictEqual(list.length, 2)
+  assert.ok(list.includes('左前轮刹车片磨损到报警线'))
+  assert.ok(list.includes('拆下的旧片有明显沟槽'))
+  assert.deepStrictEqual(collectImageDescriptions([], []), [])
+}
+
 testArchiveSnapshotExcludesDraft()
 testArchiveSnapshotStoreFallback()
 testReadHostMetaPublished()
@@ -203,7 +266,7 @@ function testMapHostedCaseListVisibilityAndPath() {
       contentPackageJson: { hostMeta: { hosted: true, visibility: 'public' } },
       publicCase: {
         id: 'case_meta',
-        status: PUBLIC_CASE_STATUS.AUDIT_PASSED,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
         storefrontHidden: false,
         slug: '',
       },
@@ -229,6 +292,10 @@ testContentPackagePreservesHostMeta()
 testMapHostedCaseListVisibilityAndPath()
 
 testGenerateGeoNoLongerRequiresPrivacyGate()
+testGenerateGeoNoLongerRequiresHosted()
+testCollectUnanalyzedNodeIds()
+testCollectNodeAiContext()
+testCollectImageDescriptions()
 
 ;(async () => {
   await testGenerateCaseBlockedForNewAlbum()
