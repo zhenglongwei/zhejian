@@ -7,19 +7,33 @@ const { collectBagImageRefs } = require('./flow-photo-mask-writeback')
 const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 
-/** 接车 / 报价图仅留档，不上网（对标旧 always_private） */
+/** 接车 / 首次报价图仅留档，不上网（对标旧 always_private）；补充报价按过程图公开 */
 const PRIVATE_FLOW_KINDS = new Set([
   'intake',
   'intake_inspection',
   'quote_confirm',
 ])
 
+/** 补充报价虽沿用 quote_confirm，但属于过程节点，图上公开 */
+function isAddonNode(node) {
+  return Boolean(
+    node &&
+      ((node.kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon') ||
+        node.kind === 'addon_quote_confirm' ||
+        (node.kind === 'work' && String(node.insertedReason || '') === 'addon')),
+  )
+}
+
 function flowNodesOf(album) {
   const pkg =
     album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
       : {}
-  return Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const nodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  // 案例快照/公开页严格按节点发生顺序展示
+  return nodes
+    .slice()
+    .sort((a, b) => Number((a && a.sortOrder) || 0) - Number((b && b.sortOrder) || 0))
 }
 
 function albumUsesFlowNodes(album) {
@@ -36,7 +50,7 @@ function collectPublicizableFlowPhotos(album) {
   flowNodesOf(album).forEach((node) => {
     if (!node || typeof node !== 'object') return
     const kind = String(node.kind || '').trim()
-    if (PRIVATE_FLOW_KINDS.has(kind)) return
+    if (PRIVATE_FLOW_KINDS.has(kind) && !isAddonNode(node)) return
     const refs = []
     collectBagImageRefs(node.content, refs)
     collectBagImageRefs(node.photoDraft, refs)
@@ -95,8 +109,14 @@ function countAllFlowPhotos(album) {
 function buildFlowNodeViews(album) {
   return flowNodesOf(album).map((node, idx) => {
     const kind = String((node && node.kind) || '').trim()
+    const payload =
+      node && node.document && node.document.payload && typeof node.document.payload === 'object'
+        ? node.document.payload
+        : null
     const content =
-      node && node.content && typeof node.content === 'object' ? node.content : {}
+      node && node.content && typeof node.content === 'object' && Object.keys(node.content).length
+        ? node.content
+        : payload || {}
     const note = String((node && node.note) || '').trim()
     return {
       id: String((node && (node.id || node.nodeId)) || `flow_${idx}`),
@@ -104,7 +124,10 @@ function buildFlowNodeViews(album) {
       title: String((node && node.title) || '').trim(),
       kind,
       status: String((node && node.status) || 'pending'),
-      note: note || String(content.conclusion || '').trim(),
+      note:
+        note ||
+        String(content.conclusion || '').trim() ||
+        String((content.discovery && content.discovery.note) || '').trim(),
       content,
       document: node && node.document ? node.document : null,
       images: [],

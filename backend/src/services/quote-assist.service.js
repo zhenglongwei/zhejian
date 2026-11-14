@@ -89,17 +89,29 @@ function collectWorkFindings(nodes) {
   return rows
 }
 
+/** 补充报价单上的「新发现」：说明 + 照片（图可能是字符串或 {url, maskedUrl}） */
+function addonDiscoveryOf(node) {
+  const bag = contentOfFlowNode(node)
+  const discovery = bag.discovery && typeof bag.discovery === 'object' ? bag.discovery : {}
+  const images = (Array.isArray(discovery.images) ? discovery.images : [])
+    .map((row) => text(typeof row === 'string' ? row : row && (row.url || row.rawUrl || row.src)))
+    .filter(Boolean)
+  return { note: text(discovery.note).slice(0, 300), images }
+}
+
 function buildAssistFingerprint(album, targetNode) {
   const nodes = readFlowNodes(album)
   const target = targetNode || findQuoteTarget(nodes)
   if (isAddonQuote(target)) {
     const firstQuote = findQuoteTarget(nodes)
+    const discovery = addonDiscoveryOf(target)
     return crypto
       .createHash('sha1')
       .update(
         JSON.stringify({
-          v: 'addon-assist-v1',
+          v: 'addon-assist-v2',
           id: text(target.id),
+          d: { note: discovery.note, images: discovery.images },
           w: collectWorkFindings(nodes),
           q: quoteLinesOf(firstQuote),
           t: quoteLinesOf(target),
@@ -276,8 +288,8 @@ async function runGenerateLlm(facts, category) {
 }
 
 /**
- * 补充报价 AI：只看施工记录 + 首次报价（排除已报项目）+ 当前补充报价行。
- * 与首次报价不同，检测结论只作辅助，不作为报价依据。
+ * 补充报价 AI：新发现说明/照片 + 施工记录 + 首次报价（排除已报项目）+ 当前补充报价行。
+ * 先给处置结论（并入原报价 / 单独列 / 先拆检），再给逐项必要性、市场价区间、是否可选。
  */
 async function runAddonGenerateLlm(facts, category) {
   const engines = pickGenerateEngines()
@@ -286,25 +298,32 @@ async function runAddonGenerateLlm(facts, category) {
   const { responsesCompletion } = require('../lib/responses-chat')
   const instruction = [
     'You assist a Chinese auto shop clerk on the ADD-ON quote step (补充报价).',
-    'Context: the first quote is already confirmed and the car is in the workshop. Extra problems were found during work. Produce only billable add-on rows for work findings that the first quote does NOT cover.',
+    'Context: extra problems were found either mid-work or during handover. The add-on quote is an independent node, not an attachment to the work node.',
+    'Evidence available (use all of it): discoveryNote = what the clerk wrote about the new problem; discoveryImageCount = how many photos the clerk attached; workFindings = work records; firstQuoteLines = already quoted (never re-quote); addonLines = rows already on this add-on quote; inspection = inspection report findings.',
+    'Required output 1 — disposition: decide how to handle this discovery.',
+    '- verdict "merge": the new problem can be folded into an existing first-quote line (same part/service/area). Put the target line or category in "target".',
+    '- verdict "separate": it must be its own add-on quote line (why it cannot merge).',
+    '- verdict "inspect": need teardown / more photos / a test drive before pricing.',
+    '- reason: one short paragraph in owner-friendly Simplified Chinese explaining the call.',
+    'Required output 2 — suggestedLines / omissions: one row per concrete billable service.',
+    '- name, note, kind=parts|labor, market bands, reason (necessity: why now + risk if skipped), optional (true when the owner may decline).',
     'Hard rules:',
-    '- Only use workFindings as evidence. Never invent defects that are not in workFindings.',
+    '- Base rows on discoveryNote + workFindings + inspection. Never invent defects with no evidence.',
     '- Exclude anything already covered by firstQuoteLines (same part or same service, even if wording differs). Never re-quote the same service.',
     '- outsideQuote=true findings always qualify. Findings without a matching quoteLineId whose name is not covered by firstQuoteLines also qualify.',
-    '- Check/inspection-only findings with no repair action must NOT become charge lines (they stay 0 yuan).',
-    '- One row = one concrete billable service. Merge different descriptions of the same repair into one row; keep different parts separate.',
-    '- Name must come from workFindings.partName or its caption. Do not invent package names or umbrella titles.',
-    '- kind=parts (parts or materials): oem/brand/economy bands like "约800-1500", leave dealer/indie empty.',
-    '- kind=labor (teardown, diagnosis, labor hour): dealer and indie bands, leave oem/brand/economy empty.',
-    '- reason must explain why it is needed now, in owner-friendly words, and must not mention 图1/画面/图中.',
-    '- If addonLines already has rows: suggestedLines should align one row per existing line (same name). Put the remaining qualifying rows into omissions.',
-    '- If addonLines is empty: put all qualifying rows into suggestedLines; the clerk applies each row separately.',
-    '- Never auto-add lines yourself. Skipped findings (already quoted) must not appear anywhere.',
-    '- Simplified Chinese only in natural-language values.',
+    '- Check/inspection-only findings with no repair action must NOT become charge lines.',
+    '- One row = one concrete billable service. No umbrella titles such as 建议补充常规保养项目.',
+    '- kind=parts: oem/brand/economy bands like "约800-1500", leave dealer/indie empty.',
+    '- kind=labor: dealer and indie bands, leave oem/brand/economy empty.',
+    '- reason must not mention 图1/画面/图中.',
+    '- If addonLines already has rows: suggestedLines should align one row per existing line (same name). Put remaining qualifying rows into omissions.',
+    '- If addonLines is empty: put all qualifying rows into suggestedLines.',
+    '- If discoveryNote is empty and discoveryImageCount is 0 and no qualifying work finding exists: return verdict "inspect" and tell the clerk to add a description or photos. Never invent rows.',
+    '- Never auto-add lines yourself. Simplified Chinese only in natural-language values.',
     MECHANIC_VOICE_RULES,
     `Category constraint: ${JSON.stringify(facts.constraint)}`,
     `Job facts JSON: ${JSON.stringify(facts.body)}`,
-    'Return JSON only: {"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}],"omissions":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}]}',
+    'Return JSON only: {"disposition":{"verdict":"merge|separate|inspect","target":"","reason":""},"suggestedLines":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}],"omissions":[{"name","note","kind":"parts|labor","oem","brand","economy","dealer","indie","reason","optional"}]}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -320,7 +339,7 @@ async function runAddonGenerateLlm(facts, category) {
           {
             role: 'system',
             content:
-              'Reply with JSON only. Natural-language string values must be Simplified Chinese. Only quote what the work findings prove.',
+              'Reply with JSON only. Natural-language string values must be Simplified Chinese. Only quote what the evidence proves.',
           },
           { role: 'user', content: instruction },
         ],
@@ -331,11 +350,13 @@ async function runAddonGenerateLlm(facts, category) {
       })
       const parsed = parseQuoteAssistPayload(result && result.text, { category })
       const bandRows = parsed.suggestedLines.length ? parsed.suggestedLines : parsed.omissions
-      if (!bandRows.length) {
-        console.warn('[quote-assist] 补充报价模型未给出任何建议行', { engine: engine.id })
+      const hasDisposition = Boolean(parsed.disposition && text(parsed.disposition.reason))
+      if (!bandRows.length && !hasDisposition) {
+        console.warn('[quote-assist] 补充报价模型未给出处置结论或建议行', { engine: engine.id })
         continue
       }
-      if (!bandRows.some((row) => lineHasMarketBand(row))) {
+      // 有建议行但全无参考区间时换下一家；纯处置结论（先拆检/先补拍）可以没有报价行
+      if (bandRows.length && !bandRows.some((row) => lineHasMarketBand(row))) {
         console.warn('[quote-assist] 补充报价建议行全部缺少参考区间', {
           engine: engine.id,
           count: bandRows.length,
@@ -399,6 +420,7 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
     const chiefComplaint = text(contentOfFlowNode(intake).chiefComplaint || payload.chiefComplaint)
     const quoteLines = quoteLinesOf(quote)
     const workFindings = addon ? collectWorkFindings(nodes) : []
+    const discovery = addon ? addonDiscoveryOf(quote) : { note: '', images: [] }
     const draft = buildQuoteDraft({
       findings: addon
         ? workFindings.map((row) => ({ partName: row.partName, result: '', advice: row.caption }))
@@ -417,6 +439,8 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
         },
         body: {
           chiefComplaint,
+          discoveryNote: discovery.note,
+          discoveryImageCount: discovery.images.length,
           workFindings: workFindings.slice(0, 40),
           firstQuoteLines: quoteLinesOf(findQuoteTarget(nodes)).map((row) => ({
             name: row.name,
@@ -496,10 +520,23 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
       omissions: [],
       objections: [],
       suggestedLines: [],
+      disposition: null,
     }
     let engineId = ''
     let status = 'failed'
-    if (capability.llmEnabled) {
+    let errorMessage = ''
+    // 完全没有依据时不白跑模型，直接告诉店员缺什么
+    const addonEvidenceEmpty =
+      addon &&
+      !discovery.note &&
+      !discovery.images.length &&
+      !workFindings.length &&
+      !quoteLines.some((row) => row.name)
+    if (addonEvidenceEmpty) {
+      status = 'failed'
+      errorMessage = '还没有填写新发现说明或照片，补充依据后再算'
+      console.warn('[quote-assist] 补充报价缺少依据，跳过生成', { albumId, nodeId: quote.id })
+    } else if (capability.llmEnabled) {
       const fromModel = addon
         ? await runAddonGenerateLlm(facts, draft.category)
         : await runGenerateLlm(facts, draft.category)
@@ -517,6 +554,7 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
           findings: findings.length,
           findingsSource: findingsResolved.source,
         })
+        errorMessage = addon ? '没有拿到可用建议，补充说明或照片后再试' : '未能出方案'
       }
     } else {
       console.warn('[quote-assist] 当前商户未开通大模型，跳过生成', { albumId })
@@ -545,7 +583,8 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
             omissions: parsed.omissions || [],
             objections: [],
             suggestedLines: parsed.suggestedLines,
-            errorMessage: status === 'failed' ? '未能出方案' : '',
+            disposition: parsed.disposition || null,
+            errorMessage: status === 'failed' ? errorMessage || '未能出方案' : '',
             updatedAt: new Date().toISOString(),
           },
         }

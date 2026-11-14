@@ -1,5 +1,12 @@
 <template name="quoteMerchantBrief">
   <view wx:if="{{brief.hasContent}}" class="merchant-flow-page__quote-brief">
+    <view wx:if="{{brief.hasDisposition}}" class="merchant-flow-page__advice-sec">
+      <text class="merchant-flow-page__advice-sec-title">处理建议</text>
+      <view class="merchant-flow-page__advice-card">
+        <text wx:if="{{brief.disposition.headline}}" class="merchant-flow-page__advice-card-title">{{brief.disposition.headline}}</text>
+        <text wx:if="{{brief.disposition.reason}}" class="merchant-flow-page__advice-card-text">{{brief.disposition.reason}}</text>
+      </view>
+    </view>
     <view wx:if="{{brief.hasQuoteRefs}}" class="merchant-flow-page__advice-sec">
       <text class="merchant-flow-page__advice-sec-title">报价参考</text>
       <view class="merchant-flow-page__advice-list">

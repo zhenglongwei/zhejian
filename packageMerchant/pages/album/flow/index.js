@@ -5752,6 +5752,8 @@ Page({
         hasQuoteRefs: false,
         hasOmissions: false,
         omissions: [],
+        disposition: { verdict: '', verdictLabel: '', target: '', reason: '', headline: '' },
+        hasDisposition: false,
         summary: '',
       }
     }
@@ -5837,6 +5839,21 @@ Page({
         }
       })
       .filter(Boolean)
+    const dispositionRaw =
+      raw.disposition && typeof raw.disposition === 'object' ? raw.disposition : null
+    const verdictLabel = String(
+      (dispositionRaw && (dispositionRaw.verdictLabel || dispositionRaw.verdict)) || '',
+    ).trim()
+    const target = String((dispositionRaw && dispositionRaw.target) || '').trim()
+    const dispositionReason = String((dispositionRaw && dispositionRaw.reason) || '').trim()
+    const disposition = {
+      verdict: String((dispositionRaw && dispositionRaw.verdict) || ''),
+      verdictLabel,
+      target,
+      reason: dispositionReason,
+      headline: verdictLabel && target ? `${verdictLabel}：${target}` : verdictLabel,
+    }
+    const hasDisposition = Boolean(dispositionReason || verdictLabel)
     const hasQuoteRefs = quoteRefs.length > 0
     const hasOmissions = omissions.length > 0
     return {
@@ -5847,7 +5864,9 @@ Page({
       hasQuoteRefs,
       omissions,
       hasOmissions,
-      hasContent: hasQuoteRefs || hasOmissions,
+      disposition,
+      hasDisposition,
+      hasContent: hasDisposition || hasQuoteRefs || hasOmissions,
       stale: Boolean(raw.stale),
       isWaiting: status === 'queued' || status === 'running',
       waitHint:
@@ -7303,8 +7322,21 @@ Page({
         this.settleAdvicePaintWaiting()
         this.resumeQuoteAssistPoll()
         this.autoAdoptDeliveryCopy()
+        this.maybeRefreshStaleQuoteAssist(quoteAssist, quoteAssistRaw)
       },
     )
+  },
+
+  /** 新发现说明/照片改过 → 旧意见作废，打开报价页时自动重算一次 */
+  maybeRefreshStaleQuoteAssist(quoteAssist, raw) {
+    if (!quoteAssist || !quoteAssist.stale || quoteAssist.isWaiting) return
+    if (!this.data.adviceOpen || !this._nodeAiReviewEntitled) return
+    const active = this.data.activeNode
+    if (!active || (active.kind !== 'quote_confirm' && active.kind !== 'addon_quote_confirm')) return
+    const key = `${active.id}:${String((raw && raw.fingerprint) || '')}`
+    if (this._staleAssistRefreshedFor === key) return
+    this._staleAssistRefreshedFor = key
+    this.onStartQuoteAiCheck({ force: true })
   },
 
   /** 简述/问答不在界面展示：AI 已生成时静默写入本单内容（只供托管预览与公网），已有字不覆盖 */

@@ -33,7 +33,8 @@ function familyOfKind(kind, node = null) {
     if (k === 'addon_quote_confirm' || text(node && node.insertedReason) === 'addon') return 'addon'
     return 'quote'
   }
-  if (k === 'work') return 'work'
+  // 补充施工随补充报价走，不受交车报告发出后的施工冻结影响
+  if (k === 'work') return text(node && node.insertedReason) === 'addon' ? 'addon' : 'work'
   if (k === 'delivery_photos' || k === 'repair_report') return 'finish'
   return ''
 }

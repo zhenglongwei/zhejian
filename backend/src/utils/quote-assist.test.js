@@ -125,3 +125,28 @@ test('legacy objections are discarded; reason carries necessity', () => {
   assert.equal(got.objections.length, 0)
   assert.match(got.suggestedLines[0].reason, /方案范围/)
 })
+
+test('补充报价处置结论：三选一 + 理由，单独结论也算有内容', () => {
+  const got = parseQuoteAssistPayload({
+    disposition: {
+      verdict: 'merge',
+      target: '更换前刹车片',
+      reason: '右前轮异响和已报的前刹车片是同一处，并进原报价即可。',
+    },
+    suggestedLines: [],
+  })
+  assert.equal(got.disposition.verdict, 'merge')
+  assert.equal(got.disposition.verdictLabel, '建议并入原报价')
+  assert.equal(got.disposition.target, '更换前刹车片')
+  assert.match(got.disposition.reason, /同一处/)
+  assert.equal(quoteAssistHasContent(got), true)
+})
+
+test('先拆检结论可以没有报价行', () => {
+  const got = parseQuoteAssistPayload({
+    disposition: { verdict: 'inspect', reason: '只拍到轮毂，需要拆下轮胎确认扎钉位置。' },
+  })
+  assert.equal(got.disposition.verdict, 'inspect')
+  assert.equal(got.suggestedLines.length, 0)
+  assert.equal(quoteAssistHasContent(got), true)
+})

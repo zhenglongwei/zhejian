@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const { buildStandardFlowNodes, requiresOwnerConfirm } = require('../constants/service-flow-nodes')
 const { buildFlowProgressView, isFlowNodeDone } = require('./service-flow-progress')
 const { presentMerchantTimeline } = require('./merchant-flow-steps')
-const { applyAddonInsert, reopenWorkBesideOpenAddon } = require('./service-flow-addon-insert')
+const { applyAddonInsert, healAddonWorkLocks } = require('./service-flow-addon-insert')
 const {
   collectInspectionReportGaps,
   collectQuoteConfirmGaps,
@@ -156,12 +156,15 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
     ['更换机油', '下摆臂胶套'],
   )
   const addon = afterFirst.find((n) => n.id === 'fn_addon_q_101')
-  assert.equal(addon.title, '施工中新发现')
+  assert.equal(addon.title, '补充报价')
+  assert.equal(addon.parentNodeId, '')
   assert.equal(addon.document.payload.lines.length, 1)
   assert.equal(addon.document.payload.lines[0].name, '下摆臂胶套')
   assert.equal(addon.document.payload.lines[0].amount, '')
   assert.equal(addon.document.payload.discovery.images[0], 'arm.jpg')
-  assert.equal(afterFirst.some((n) => n.id === 'fn_addon_work_101'), false)
+  // 施工还没完结：只插补充报价，不新增施工节点
+  assert.equal(afterFirst.some((n) => n.id === 'fn_addon_w_101'), false)
+  assert.equal(afterFirst.some((n) => n.kind === 'work' && n.insertedReason === 'addon'), false)
   assert.equal(activeKind(afterFirst), 'work')
   assert.equal(afterFirst.find((n) => n.kind === 'delivery_photos').status, 'locked')
 
@@ -247,8 +250,8 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.equal(nodes.find((n) => n.kind === 'quote_confirm' && !n.insertedReason).title, '方案确认')
 })
 
-test('确认并继续之后，没确认的补充报价不再把施工改回施工中', () => {
-  const healed = reopenWorkBesideOpenAddon([
+test('施工已完结时补充报价后新增补充施工节点，确认后才解锁；未完结则不新增', () => {
+  const base = [
     {
       id: 'w1',
       kind: 'work',
@@ -256,28 +259,39 @@ test('确认并继续之后，没确认的补充报价不再把施工改回施�
       status: 'completed',
       photoDraft: { findings: [{ id: 'f1', partName: '拆检', images: [{ url: 'a.jpg' }] }] },
     },
-    {
-      id: 'q1',
-      kind: 'quote_confirm',
-      sortOrder: 1,
-      insertedReason: 'addon',
-      parentNodeId: 'w1',
-      document: { status: 'draft', payload: { lines: [] } },
-    },
-    {
-      id: 'w2',
-      kind: 'work',
-      sortOrder: 2,
-      status: 'locked',
-      insertedReason: 'addon',
-      parentNodeId: 'q1',
-      photoDraft: { findings: [] },
-    },
-  ])
-  assert.equal(healed.changed, true)
-  assert.equal(healed.nodes.find((node) => node.id === 'w1').status, 'completed')
-  assert.equal(healed.nodes.some((node) => node.id === 'w2'), false)
-  assert.equal(healed.nodes.find((node) => node.id === 'w1').photoDraft.findings[0].partName, '拆检')
+    { id: 'd1', kind: 'delivery_photos', sortOrder: 1, status: 'locked', photoDraft: {} },
+  ]
+  const inserted = applyAddonInsert(base, {
+    now: 401,
+    discovery: { note: '右后轮扎钉', images: ['tire.jpg'] },
+  })
+  assert.equal(inserted.error, '')
+  assert.equal(inserted.workStageFinished, true)
+  assert.equal(inserted.nodes[1].id, 'fn_addon_q_401')
+  assert.equal(inserted.nodes[1].title, '补充报价')
+  assert.deepEqual(inserted.nodes[1].document.payload.discovery.images, ['tire.jpg'])
+  // 施工已完结：旧施工里的「报价没有这项」不再重复报
+  assert.equal(
+    inserted.nodes[1].document.payload.lines.filter((line) => line.name).length,
+    0,
+  )
+  const addonWork = inserted.nodes[2]
+  assert.equal(addonWork.id, 'fn_addon_w_401')
+  assert.equal(addonWork.title, '补充施工')
+  assert.equal(addonWork.status, 'locked')
+  assert.equal(addonWork.parentNodeId, 'fn_addon_q_401')
+  assert.equal(inserted.nodes[0].status, 'completed')
+
+  // 补充报价未确认：补充施工保持锁定
+  const locked = healAddonWorkLocks(inserted.nodes)
+  assert.equal(locked.nodes.find((node) => node.id === 'fn_addon_w_401').status, 'locked')
+
+  // 补充报价确认后解锁
+  inserted.nodes[1].document.status = 'confirmed'
+  const unlocked = healAddonWorkLocks(inserted.nodes)
+  assert.equal(unlocked.changed, true)
+  assert.equal(unlocked.nodes.find((node) => node.id === 'fn_addon_w_401').status, 'in_progress')
+  assert.equal(unlocked.nodes.find((node) => node.id === 'w1').status, 'completed')
 })
 
 test('工单金额没把增项算进去时，交车对账会拦住', () => {

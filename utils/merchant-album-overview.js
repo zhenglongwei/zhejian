@@ -189,7 +189,7 @@ function groupTitle(kind, quoteIndex) {
   if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
     return { key: `quote:${quoteIndex}`, title: quoteIndex === 0 ? '首次报价' : '补充报价' }
   }
-  if (kind === 'work') return { key: `work:${quoteIndex}`, title: '维修施工' }
+  if (kind === 'work') return { key: `work:${quoteIndex}`, title: quoteIndex === 0 ? '维修施工' : '补充施工' }
   if (kind === 'delivery_photos' || kind === 'repair_report') return { key: 'finish', title: '完工交车' }
   return null
 }
@@ -207,7 +207,13 @@ function addonQuoteHasProcess(node) {
 }
 
 function bucketOnTimeline(bucket) {
-  if (!bucket || !String(bucket.key).startsWith('quote') || bucket.key === 'quote:0') return true
+  if (!bucket) return true
+  const key = String(bucket.key)
+  // 补充施工要等补充报价确认、节点解锁后才进时间线
+  if (key.indexOf('work') === 0 && key !== 'work:0') {
+    return (bucket.nodes || []).some((node) => String(node.status || '') !== 'locked')
+  }
+  if (!key.startsWith('quote') || key === 'quote:0') return true
   return (bucket.nodes || []).some((node) => addonQuoteHasProcess(node))
 }
 

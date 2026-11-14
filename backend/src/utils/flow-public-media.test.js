@@ -88,3 +88,48 @@ test('节点视图用流程域 nodeId 和标题，说明回落检测结论', () 
     { id: 'fn_002', kind: 'inspect', content: { findings: [{ images: [{ url: 'https://x/i1.jpg' }, { url: 'https://x/d.jpg' }] }] } },
   ])), 3)
 })
+
+test('补充报价的图可公示，节点视图按 sortOrder 输出并带新发现说明', () => {
+  const album = albumWithFlow([
+    {
+      id: 'fn_work',
+      kind: 'work',
+      sortOrder: 3,
+      title: '维修工单',
+      status: 'completed',
+      content: { findings: [] },
+    },
+    {
+      id: 'fn_addon_q',
+      kind: 'quote_confirm',
+      insertedReason: 'addon',
+      sortOrder: 2,
+      title: '补充报价',
+      status: 'in_progress',
+      document: {
+        status: 'pending_confirm',
+        payload: {
+          lines: [],
+          discovery: { note: '右后轮扎钉', images: ['https://x/tire.jpg'] },
+        },
+      },
+    },
+    {
+      id: 'fn_addon_w',
+      kind: 'work',
+      insertedReason: 'addon',
+      sortOrder: 4,
+      title: '补充施工',
+      status: 'locked',
+      content: { findings: [] },
+    },
+  ])
+  const urls = collectPublicizableFlowPhotos(album).map((row) => row.url)
+  assert.deepEqual(urls, ['https://x/tire.jpg'])
+  const views = buildFlowNodeViews(album)
+  assert.deepEqual(
+    views.map((view) => view.id),
+    ['fn_addon_q', 'fn_work', 'fn_addon_w'],
+  )
+  assert.equal(views[0].note, '右后轮扎钉')
+})

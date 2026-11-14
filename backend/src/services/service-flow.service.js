@@ -50,7 +50,11 @@ const {
   formatClerkAtForDoc,
 } = resolveShared('utils/owner-preview-doc.js')
 const { quoteFace } = resolveShared('utils/service-flow-quote-draft.js')
-const { applyAddonInsert, reopenWorkBesideOpenAddon } = resolveShared('utils/service-flow-addon-insert.js')
+const {
+  applyAddonInsert,
+  healAddonWorkLocks,
+  workStageFinished,
+} = resolveShared('utils/service-flow-addon-insert.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
@@ -798,16 +802,6 @@ function unlockNextNode(nodes, index) {
   return nodes
 }
 
-function unlockNextLocked(nodes, index) {
-  for (let i = index + 1; i < nodes.length; i += 1) {
-    const next = nodes[i]
-    if (!next || next.status === 'completed') continue
-    if (next.status === 'locked' || next.status === 'pending') next.status = 'in_progress'
-    return nodes
-  }
-  return nodes
-}
-
 function unlockAfterWorkComplete(nodes, index) {
   for (let i = index + 1; i < nodes.length; i += 1) {
     const next = nodes[i]
@@ -1165,7 +1159,7 @@ async function healQuoteUnlockAfterReport(albumId, album = null) {
 async function healOpenAddonBesideWork(albumId) {
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
-    const healed = reopenWorkBesideOpenAddon(nodes)
+    const healed = healAddonWorkLocks(nodes)
     if (!healed.changed) return pkg
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: healed.nodes }
   })
@@ -2296,6 +2290,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
 
   const existingNodes = sortFlowNodes(readFlowNodesRaw(album))
   const reportAlreadySent = deliveryReportSent(existingNodes)
+  const workFinished = workStageFinished(existingNodes)
   const workForSeed =
     existingNodes.find((n) => n && n.kind === 'work' && n.status === 'in_progress') ||
     existingNodes.find((n) => n && n.kind === 'work' && n.status !== 'locked') ||
@@ -2327,7 +2322,12 @@ async function insertAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
     let seededIntoOpen = false
     const openStatus = String((openAddon.document && openAddon.document.status) || 'draft')
     const openPayload = (openAddon.document && openAddon.document.payload) || {}
-    if (openStatus === 'draft' && addonDraft.seeded && addonDraftStillBlank(openPayload)) {
+    // 施工已完结时只合并现场新发现，不再把旧施工记录灌进这张单
+    const canSeedLines =
+      openStatus === 'draft' && addonDraft.seeded && !workFinished && addonDraftStillBlank(openPayload)
+    const canMergeDiscovery =
+      openStatus === 'draft' && Boolean(discoveryNote || discoveryImages.length)
+    if (canSeedLines || canMergeDiscovery) {
       await writeFlowPackage(albumId, (pkg) => {
         const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
         const nextNodes = nodes.map((n) => {
@@ -2341,8 +2341,8 @@ async function insertAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
               ...document,
               payload: {
                 ...payload,
-                lines: addonDraft.lines,
-                discovery: addonDraft.discovery,
+                lines: canSeedLines ? addonDraft.lines : payload.lines,
+                discovery: canMergeDiscovery ? addonDraft.discovery : payload.discovery,
                 confirmCopy: payload.confirmCopy || QUOTE_CONFIRM_COPY,
               },
             },
@@ -2367,7 +2367,11 @@ async function insertAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
   let inserted = null
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
-    inserted = applyAddonInsert(nodes)
+    // 施工已完结：新发现只认交车现场填的说明和照片，不沿用施工里的旧记录
+    const discovery = workFinished
+      ? { note: discoveryNote, images: discoveryImages }
+      : addonDraft.discovery
+    inserted = applyAddonInsert(nodes, { discovery })
     if (inserted.error) {
       const err = new Error(inserted.error)
       err.status = 400
@@ -2382,9 +2386,18 @@ async function insertAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
 
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
+  // 生成后自动算一次 AI 建议，不阻塞保存与页面返回
+  if (inserted && inserted.quoteNodeId) {
+    const { queueQuoteAssistIfNeeded } = require('./quote-assist.service')
+    queueQuoteAssistIfNeeded(refreshed, merchantId || refreshed.merchantId || '', {
+      nodeId: inserted.quoteNodeId,
+      force: true,
+    }).catch(() => {})
+  }
   return {
     ...buildFlowView(refreshed, viewNodes),
     addonSeeded: Boolean(inserted && inserted.seeded),
+    addonWorkCreated: Boolean(inserted && inserted.workNodeId),
     needsRevision: reportAlreadySent,
   }
 }
@@ -2562,9 +2575,10 @@ async function createFollowUpAlbum(albumId, storeId, merchantId = '', payload = 
 }
 
 /**
- * 作废增项「施工中新发现」：
+ * 作废补充报价（独立节点，与施工平级）：
  * - 未发送（draft）：无痕删除（当误点），不填原因、不通知车主
- * - 已发送待确认：必填原因并留痕，车主可见；撤后续未开工单/施工；回到原施工
+ * - 已发送待确认：必填原因并留痕，车主可见；紧跟的补充施工节点一并撤掉
+ * - 原施工状态始终不动
  */
 async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
@@ -2648,6 +2662,10 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
       })
     }
     collectDescendants(quote.id)
+    // 补充报价后面紧跟的补充施工节点随单撤销（兼容没有 parentNodeId 的旧数据）
+    nodes.forEach((n) => {
+      if (n && n.id !== quote.id && String(n.parentNodeId || '') === quote.id) removeIds.add(n.id)
+    })
     for (let i = quoteIdx + 1; i < nodes.length; i += 1) {
       const n = nodes[i]
       if (!n || String(n.insertedReason || '') !== 'addon') break
@@ -2658,74 +2676,36 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
       }
     }
 
-    const workId = String(quote.parentNodeId || '').trim()
-    let work = workId ? nodes.find((n) => n && n.id === workId) : null
-    if (!work || work.kind !== 'work') {
-      for (let i = quoteIdx - 1; i >= 0; i -= 1) {
-        if (nodes[i] && nodes[i].kind === 'work') {
-          work = nodes[i]
-          break
-        }
-      }
-    }
-    if (!work) {
-      const err = new Error('未找到可恢复的施工步骤')
-      err.status = 400
-      throw err
-    }
-
-    // 未发送：整段删除，不留作废记录
+    // 未发送：整段删除，不留作废记录；原施工状态不动
     if (docStatus === 'draft') {
       removeIds.add(quote.id)
       const rebuilt = renumberSortOrders(
-        sortFlowNodes(
-          nodes
-            .filter((n) => n && !removeIds.has(n.id))
-            .map((n) => (n.id === work.id ? { ...n, status: 'in_progress' } : n)),
-        ),
+        sortFlowNodes(nodes.filter((n) => n && !removeIds.has(n.id))),
       )
       return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: rebuilt }
     }
 
-    // 已发送待确认：留痕 + 原因
+    // 已发送待确认：留痕 + 原因；补充施工节点一并撤掉
     const nextNodes = nodes
       .filter((n) => n && !removeIds.has(n.id))
       .map((n) => {
-        if (n.id === quote.id) {
-          return {
-            ...n,
-            status: 'completed',
-            document: {
-              ...doc,
-              status: 'cancelled',
-              cancelReason,
-              cancelledBy: 'merchant',
-              cancelledAt: new Date().toISOString(),
-              cancelledFromStatus: docStatus,
-              statusLabel: '门店已取消',
-            },
-          }
+        if (n.id !== quote.id) return n
+        return {
+          ...n,
+          status: 'completed',
+          document: {
+            ...doc,
+            status: 'cancelled',
+            cancelReason,
+            cancelledBy: 'merchant',
+            cancelledAt: new Date().toISOString(),
+            cancelledFromStatus: docStatus,
+            statusLabel: '门店已取消',
+          },
         }
-        if (n.id === work.id) {
-          return {
-            ...n,
-            status: 'in_progress',
-          }
-        }
-        return n
       })
 
-    const ordered = sortFlowNodes(nextNodes)
-    const q = ordered.find((n) => n.id === quote.id)
-    const w = ordered.find((n) => n.id === work.id)
-    const beforeWork = ordered.filter(
-      (n) => n.id !== quote.id && n.id !== work.id && Number(n.sortOrder) < Number(w.sortOrder),
-    )
-    const afterWork = ordered.filter(
-      (n) => n.id !== quote.id && n.id !== work.id && Number(n.sortOrder) >= Number(w.sortOrder),
-    )
-    const rebuilt = beforeWork.concat([q, w], afterWork)
-    renumberSortOrders(rebuilt)
+    const rebuilt = renumberSortOrders(sortFlowNodes(nextNodes))
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: rebuilt }
   })
 
@@ -2870,6 +2850,7 @@ function mapOwnerWorkSheetCard(node = {}, album = {}) {
   const records = workRecordsFromNode(node)
   const preview = buildOwnerPreviewDoc({
     family: 'work',
+    addon: String(node.insertedReason || '') === 'addon',
     album: previewAlbumOf(album),
     workItems: records.length
       ? records.map((row) => ({
@@ -3073,7 +3054,12 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
   const cancelledBy = String(doc.cancelledBy || '')
   const ownerRejectReason = String(doc.ownerRejectReason || '').trim()
   const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
-  const discoveryImages = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
+  const discoveryImages = (Array.isArray(discovery.images) ? discovery.images : [])
+    .map((row) =>
+      typeof row === 'string' ? row : row && (row.maskedUrl || row.url || row.rawUrl || row.src),
+    )
+    .map((url) => String(url || '').trim())
+    .filter(Boolean)
   const finishDoc =
     kind === 'repair_report'
       ? signPreviewMedia(
@@ -3510,22 +3496,14 @@ function applyQuoteConfirmedSideEffects(nodes, index) {
     unlockNextNode(nodes, index)
     return
   }
-  // 补充报价确认或代确认后：回到施工（交车未发出前可继续补）
-  if (!deliveryReportSent(nodes)) {
-    let reopened = false
-    ;(nodes || []).forEach((item) => {
-      if (!item || item.kind !== 'work') return
-      const status = String(item.status || '')
-      if (status === 'completed' || status === 'locked' || status === 'pending') {
-        item.status = 'in_progress'
-        reopened = true
-      }
-    })
-    if (reopened) return
-    const parent = nodes.find((item) => item && node.parentNodeId && item.id === node.parentNodeId)
-    if (parent && parent.kind === 'work' && parent.status !== 'completed') return
+  // 补充报价确认：只解锁紧跟它的补充施工节点。
+  // 施工未完结时没有补充施工节点，新项目继续在原施工节点上做，不动原施工状态。
+  const addonWork = (nodes || []).find(
+    (item) => item && item.kind === 'work' && String(item.parentNodeId || '') === node.id,
+  )
+  if (addonWork && (addonWork.status === 'locked' || addonWork.status === 'pending')) {
+    addonWork.status = 'in_progress'
   }
-  unlockNextLocked(nodes, index)
 }
 
 async function tryCompleteAlbumAfterRepairConfirm(

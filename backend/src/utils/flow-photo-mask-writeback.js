@@ -194,6 +194,15 @@ function patchPayloadOrDraft(bag, rawKeys, meta) {
 
   ;['photos', 'discoveryImages', 'pendingImages'].forEach(patchArr)
 
+  // 补充报价的新发现图：打码结果要写回 discovery.images 对应位置
+  if (next.discovery && typeof next.discovery === 'object') {
+    const r = patchUrlList(next.discovery.images, rawKeys, meta)
+    if (r.changed) {
+      next = { ...next, discovery: { ...next.discovery, images: r.next } }
+      changed = true
+    }
+  }
+
   ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
     if (!Array.isArray(next[key])) return
     let rowChanged = false
@@ -319,6 +328,13 @@ function collectBagImageRefs(bag, list) {
   ;['photos', 'discoveryImages', 'pendingImages', 'images'].forEach((key) => {
     ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((slot) => pushImageRef(list, slot))
   })
+  // 补充报价的新发现图存在 discovery.images，必须和普通节点图一样进照片清单
+  const discovery = bag.discovery
+  if (discovery && typeof discovery === 'object') {
+    ;(Array.isArray(discovery.images) ? discovery.images : []).forEach((slot) =>
+      pushImageRef(list, slot),
+    )
+  }
   ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
     ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
       if (!row) return

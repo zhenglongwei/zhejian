@@ -230,8 +230,8 @@ test('补充报价单独占一格，施工图留在原来的施工', () => {
     },
   )
   const quote = buildMerchantStageBoard(album(), list, 'quote:1')
-  assert.equal(quote.title, '施工中新发现')
-  assert.equal(quote.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,补充报价,施工,交车')
+  assert.equal(quote.title, '补充报价')
+  assert.equal(quote.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,补充报价,补充施工,交车')
   assert.equal(quote.quote.lines[0].name, '下摆臂胶套')
   assert.equal(quote.quote.discoveryNote, '胶套开裂')
   const firstWork = buildMerchantStageBoard(album(), list, 'work:0')

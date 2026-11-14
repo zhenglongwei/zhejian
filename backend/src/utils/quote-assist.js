@@ -155,6 +155,26 @@ function parseOwnerAsks(raw, max = 6) {
   return out.slice(0, max)
 }
 
+const DISPOSITION_LABELS = {
+  merge: '建议并入原报价',
+  separate: '建议单独补充报价',
+  inspect: '建议先拆检/补拍再定',
+}
+
+/** 补充报价处置结论：三选一 + 理由 */
+function parseDisposition(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const verdictRaw = text(raw.verdict || raw.decision || raw.type || raw.conclusion).toLowerCase()
+  let verdict = ''
+  if (/merge|并入|合并|由原报价/.test(verdictRaw)) verdict = 'merge'
+  else if (/inspect|拆检|补拍|检查|观察/.test(verdictRaw)) verdict = 'inspect'
+  else if (/separate|单列|单独|补充|新增/.test(verdictRaw)) verdict = 'separate'
+  const reason = text(raw.reason || raw.body || raw.text || raw.why).slice(0, 240)
+  const target = text(raw.target || raw.line || raw.into).slice(0, 40)
+  if (!verdict && !reason) return null
+  return { verdict, verdictLabel: DISPOSITION_LABELS[verdict] || '', reason, target }
+}
+
 function parseQuoteAssistPayload(raw) {
   const parsed = parseReviewModelJson(raw) || {}
   const analysis = parsed.analysis && typeof parsed.analysis === 'object' ? parsed.analysis : parsed
@@ -185,6 +205,7 @@ function parseQuoteAssistPayload(raw) {
     ),
     objections: [],
     suggestedLines,
+    disposition: parseDisposition(parsed.disposition || analysis.disposition),
   }
 }
 
@@ -194,7 +215,10 @@ function quoteAssistHasContent(assist) {
   const hasLineAdvice = lines.some(
     (row) => lineHasMarketBand(row) || text(row && row.reason) || text(row && row.name),
   )
-  return Boolean(hasLineAdvice || (assist.omissions && assist.omissions.length))
+  const hasDisposition = Boolean(assist.disposition && text(assist.disposition.reason))
+  return Boolean(
+    hasLineAdvice || hasDisposition || (assist.omissions && assist.omissions.length),
+  )
 }
 
 function sanitizeQuoteAssistForView(assist, options = {}) {
@@ -216,6 +240,7 @@ function sanitizeQuoteAssistForView(assist, options = {}) {
     stale,
     suggestedLines,
     omissions: parseOmissionLines(assist.omissions),
+    disposition: parseDisposition(assist.disposition),
     objections: [],
     priceIssues: [],
     necessity: [],
@@ -232,6 +257,7 @@ module.exports = {
   isUmbrellaQuoteName,
   parseSuggestedLines,
   parseOmissionLines,
+  parseDisposition,
   parseOwnerAsks,
   parseQuoteAssistPayload,
   quoteAssistHasContent,

@@ -397,6 +397,9 @@ function stageReviewForm(board, focus, nodes) {
   if (family === 'quote' && focus && (focus.kind === 'addon_quote_confirm' || String(focus.insertedReason || '') === 'addon')) {
     return isAddonNodeFrozen(focus)
   }
+  if (family === 'work' && focus && String(focus.insertedReason || '') === 'addon') {
+    return false
+  }
   if (family === 'intake' || family === 'inspect' || family === 'quote' || family === 'work' || family === 'finish') {
     return isStageFrozen(list, family)
   }
@@ -453,7 +456,7 @@ function tabShort(row, extraQuoteCount, extraSeen) {
   if (family === 'intake') return '接车'
   if (family === 'inspect') return '检测'
   if (family === 'finish') return '交车'
-  if (family === 'work') return '施工'
+  if (family === 'work') return row.key === 'work:0' ? '施工' : '补充施工'
   if (family === 'quote' && row.key === 'quote:0') return '报价'
   if (family === 'quote') return extraQuoteCount > 1 ? `补充报价${extraSeen}` : '补充报价'
   return row.title || ''
@@ -509,7 +512,9 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
     : family === 'quote'
       ? '首次报价'
       : family === 'work'
-        ? '维修施工'
+        ? selected === 'work:0' || !selected
+          ? '维修施工'
+          : '补充施工'
         : (STAGES.find((item) => item.key === family) || STAGES[0]).title
   return {
     title,
