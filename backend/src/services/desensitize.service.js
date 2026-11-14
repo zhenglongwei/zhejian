@@ -1176,6 +1176,7 @@ async function runAutoMask(taskId, options = {}) {
     lookupHostMaskOutcomeRow,
     loadHostMaskOutcomeIndex,
     loadHostNodeImageUrlKeys,
+    loadHostDescribeUrlKeys,
   } = require('./hosted-public-mask.service')
 
   let nodeOutcomeIndex = new Map()
@@ -1279,7 +1280,14 @@ async function runAutoMask(taskId, options = {}) {
     if (llmUrls.length) {
       try {
         const { rerunHostPrivacyLlmForUrls } = require('./host-privacy-llm.service')
-        await rerunHostPrivacyLlmForUrls(llmUrls, { albumId: task.bizId })
+        // 同一次模型调用里顺带给检测/施工未分析图补内容描述
+        let describeUrlKeys = null
+        try {
+          describeUrlKeys = await loadHostDescribeUrlKeys(task.bizId)
+        } catch (_) {
+          describeUrlKeys = null
+        }
+        await rerunHostPrivacyLlmForUrls(llmUrls, { albumId: task.bizId, describeUrlKeys })
       } catch (error) {
         console.warn('[runAutoMask] host privacy llm batch failed', error && error.message)
       }

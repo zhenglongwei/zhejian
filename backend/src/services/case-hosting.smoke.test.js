@@ -6,7 +6,7 @@ const {
   buildHostedArchiveSnapshot,
   readHostMeta,
   collectNodeAiContext,
-  collectUnanalyzedNodeIds,
+  collectAnalyzableImageDescriptions,
   collectImageDescriptions,
 } = require('./case-hosting.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
@@ -179,18 +179,37 @@ function testGenerateGeoNoLongerRequiresHosted() {
   )
 }
 
-/** 只有没跑过 AI 的节点图片才需要补识图 */
-function testCollectUnanalyzedNodeIds() {
-  const ids = collectUnanalyzedNodeIds([
-    { id: 'n1', kind: 'inspection_report', inspectionAdvice: { findings: [{ text: '前片磨损严重' }] } },
-    { id: 'n2', kind: 'work' },
-    { id: 'n3', kind: 'quote_confirm', quoteAssist: { items: [{ note: '建议同步换刹车盘' }] } },
-    { id: 'n4', kind: 'delivery_photos' },
+/** 只收检测/施工节点的图描述；接车、完工照、报价排除 */
+function testCollectAnalyzableImageDescriptions() {
+  const list = collectAnalyzableImageDescriptions([
+    {
+      id: 'n1',
+      kind: 'inspection',
+      content: { photos: [{ url: 'https://x/i1.jpg', contentDescription: '左前减震器渗油' }] },
+    },
+    {
+      id: 'n2',
+      kind: 'work',
+      content: { findings: [{ url: 'https://x/w1.jpg', contentDescription: '更换前刹车片' }] },
+    },
+    {
+      id: 'n3',
+      kind: 'intake',
+      content: { photos: [{ url: 'https://x/a.jpg', contentDescription: '进场前杠划痕' }] },
+    },
+    {
+      id: 'n4',
+      kind: 'delivery_photos',
+      content: { photos: [{ url: 'https://x/d.jpg', contentDescription: '完工全车照' }] },
+    },
+    {
+      id: 'n5',
+      kind: 'quote_confirm',
+      document: { payload: { photos: [{ url: 'https://x/q.jpg', contentDescription: '报价单' }] } },
+    },
   ])
-  assert.strictEqual(ids.has('n1'), false)
-  assert.strictEqual(ids.has('n2'), true)
-  assert.strictEqual(ids.has('n3'), false)
-  assert.strictEqual(ids.has('n4'), true)
+  assert.deepStrictEqual(list, ['左前减震器渗油', '更换前刹车片'])
+  assert.deepStrictEqual(collectAnalyzableImageDescriptions([]), [])
 }
 
 function testCollectNodeAiContext() {
@@ -206,11 +225,7 @@ function testCollectNodeAiContext() {
 
 function testCollectImageDescriptions() {
   const list = collectImageDescriptions(
-    [
-      { description: '左前轮刹车片磨损到报警线' },
-      { description: '左前轮刹车片磨损到报警线' },
-      { skipped: true },
-    ],
+    ['左前轮刹车片磨损到报警线', '左前轮刹车片磨损到报警线'],
     [
       {
         id: 'n1',
@@ -224,6 +239,10 @@ function testCollectImageDescriptions() {
   assert.ok(list.includes('左前轮刹车片磨损到报警线'))
   assert.ok(list.includes('拆下的旧片有明显沟槽'))
   assert.deepStrictEqual(collectImageDescriptions([], []), [])
+
+  // 描述不再限 12 条
+  const many = Array.from({ length: 15 }, (_, i) => `第${i + 1}张过程图说明文字`)
+  assert.strictEqual(collectImageDescriptions(many, []).length, 15)
 }
 
 testArchiveSnapshotExcludesDraft()
@@ -293,7 +312,7 @@ testMapHostedCaseListVisibilityAndPath()
 
 testGenerateGeoNoLongerRequiresPrivacyGate()
 testGenerateGeoNoLongerRequiresHosted()
-testCollectUnanalyzedNodeIds()
+testCollectAnalyzableImageDescriptions()
 testCollectNodeAiContext()
 testCollectImageDescriptions()
 

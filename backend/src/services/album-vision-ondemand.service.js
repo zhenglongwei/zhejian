@@ -516,8 +516,8 @@ async function ensureAlbumImageVisionCache(albumId, imageIds = [], options = {})
   const lookup = await buildPreMaskUrlLookup(albumId)
   const idSet = new Set((imageIds || []).map(String).filter(Boolean))
   const rows = (album.images || []).filter((img) => !idSet.size || idSet.has(String(img.id)))
-  const vision = getAlbumVisionConfig()
-  const limited = rows.slice(0, vision.maxImages)
+  // 不再按 maxImages 截断：检测/报价/施工内容全上网，逐张复用缓存
+  const limited = rows
   const results = []
   for (const row of limited) {
     const maskedUrl = lookupMaskedUrl(row.rawUrl, lookup)

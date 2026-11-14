@@ -24,10 +24,24 @@ function regionsFor(masks, row, index) {
   return Array.isArray(regions) ? regions : []
 }
 
+/**
+ * 模型给这张图的说明文字（同一次调用返回）。
+ * @returns {null|string} null=模型没给该图条目；''=给了但为空
+ */
+function descriptionFor(masks, row, index) {
+  const list = Array.isArray(masks) ? masks : []
+  if (!list.length) return null
+  const slot = slotOf(row, index)
+  const hit = list.find((item) => Number(item && item.imageSlot) === slot)
+  if (!hit) return null
+  return String(hit.description || hit.content || '').trim().slice(0, 400)
+}
+
 async function applyModelMasks(rows, masks, options = {}) {
   const list = Array.isArray(rows) ? rows : []
   if (!list.length) return []
   const albumId = String((options && options.albumId) || '').trim()
+  const contentAnalyzedAt = new Date().toISOString()
   const { ensureMediaRecordFromUrl, runMediaDesensitize } = require('./media.service')
   const pairs = []
   for (let index = 0; index < list.length; index += 1) {
@@ -37,6 +51,10 @@ async function applyModelMasks(rows, masks, options = {}) {
     ).trim()
     if (!rawUrl) continue
     const regions = regionsFor(masks, row, index)
+    const description = descriptionFor(masks, row, index)
+    const contentPatch = description
+      ? { contentDescription: description, contentAnalyzedAt }
+      : {}
     // 模型没给这张判定（masks 缺条目 / 整份为空）→ 未跑通，记 llm_failed。
     // 禁止把「没判」当「看过且无敏感」，否则失败态被洗成 ok_no_privacy。
     if (regions == null) {
@@ -45,6 +63,7 @@ async function applyModelMasks(rows, masks, options = {}) {
         rawUrl,
         maskedUrl: '',
         maskOutcome: 'llm_failed',
+        ...contentPatch,
       })
       continue
     }
@@ -56,6 +75,7 @@ async function applyModelMasks(rows, masks, options = {}) {
           maskedUrl: '',
           maskOutcome: 'llm_failed',
           maskRegions: regions,
+          ...contentPatch,
         })
         continue
       }
@@ -79,6 +99,7 @@ async function applyModelMasks(rows, masks, options = {}) {
         maskOutcome,
         maskSource: maskedUrl ? 'auto' : '',
         maskRegions: regions,
+        ...contentPatch,
       })
     } catch (_) {
       pairs.push({
@@ -86,6 +107,7 @@ async function applyModelMasks(rows, masks, options = {}) {
         maskedUrl: '',
         maskOutcome: regions.length ? 'mask_failed' : 'llm_failed',
         maskRegions: regions,
+        ...contentPatch,
       })
     }
   }
@@ -146,4 +168,5 @@ module.exports = {
   applyModelMasks,
   queueApplyModelMasks,
   regionsFor,
+  descriptionFor,
 }

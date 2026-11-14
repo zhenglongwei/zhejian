@@ -342,6 +342,41 @@ function isDocumentFlowNode(node = {}) {
   return node.nodeCategory === NODE_CATEGORY.DOCUMENT || Boolean(node.document)
 }
 
+/** 托管预览补图分析只覆盖这两个节点类型（补充施工/返工也是 work；报价节点无图） */
+const ANALYZABLE_PHOTO_KINDS = ['inspection', 'work']
+
+const NODE_ADVICE_FIELDS = [
+  'intakeAdvice',
+  'inspectionAdvice',
+  'workAdvice',
+  'quoteAssist',
+  'deliveryAdvice',
+]
+const NODE_KIND_ADVICE = {
+  intake: 'intakeAdvice',
+  inspection_report: 'inspectionAdvice',
+  work: 'workAdvice',
+  quote_confirm: 'quoteAssist',
+  delivery: 'deliveryAdvice',
+  delivery_photos: 'deliveryAdvice',
+  repair_report: 'deliveryAdvice',
+}
+
+/** 节点是否已跑过 AI：优先按节点类型的建议字段，其余按通用字段兜底 */
+function nodeAdviceValue(node) {
+  if (!node || typeof node !== 'object') return null
+  const preferred = NODE_KIND_ADVICE[String(node.kind || '')]
+  if (preferred && node[preferred]) return node[preferred]
+  for (const field of NODE_ADVICE_FIELDS) {
+    if (node[field]) return node[field]
+  }
+  return null
+}
+
+function hasNodeAiAdvice(node) {
+  return Boolean(nodeAdviceValue(node))
+}
+
 /** 需车主确认：方案确认、完工确认（及增项方案）。接车照片只发给车主看。 */
 function requiresOwnerConfirm(node = {}) {
   const docType = (node.document && node.document.docType) || ''
@@ -382,6 +417,11 @@ module.exports = {
   findingAdviceRequired,
   ownerFindingResultLabel,
   STANDARD_FLOW_CHAIN,
+  ANALYZABLE_PHOTO_KINDS,
+  NODE_ADVICE_FIELDS,
+  NODE_KIND_ADVICE,
+  nodeAdviceValue,
+  hasNodeAiAdvice,
   FLOW_KIND_META,
   buildStandardFlowNodes,
   getFlowKindMeta,

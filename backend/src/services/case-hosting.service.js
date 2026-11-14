@@ -10,6 +10,10 @@ const { publicCaseIdForAlbum } = require('../utils/public-case-id')
 const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { hostPublicTitle } = require('../utils/host-public-title')
+const {
+  ANALYZABLE_PHOTO_KINDS,
+  nodeAdviceValue,
+} = require('../../vendor/shared/constants/service-flow-nodes')
 
 function readHostMeta(album) {
   const pkg =
@@ -424,33 +428,6 @@ function sanitizeHostedNodeStories(raw) {
     .slice(0, 5)
 }
 
-const NODE_ADVICE_FIELDS = [
-  'intakeAdvice',
-  'inspectionAdvice',
-  'workAdvice',
-  'quoteAssist',
-  'deliveryAdvice',
-]
-const NODE_KIND_ADVICE = {
-  intake: 'intakeAdvice',
-  inspection_report: 'inspectionAdvice',
-  work: 'workAdvice',
-  quote_confirm: 'quoteAssist',
-  delivery: 'deliveryAdvice',
-  delivery_photos: 'deliveryAdvice',
-  repair_report: 'deliveryAdvice',
-}
-
-function nodeAdviceValue(node) {
-  if (!node || typeof node !== 'object') return null
-  const preferred = NODE_KIND_ADVICE[String(node.kind || '')]
-  if (preferred && node[preferred]) return node[preferred]
-  for (const field of NODE_ADVICE_FIELDS) {
-    if (node[field]) return node[field]
-  }
-  return null
-}
-
 function isUsefulAdviceText(value) {
   const text = String(value || '').trim()
   if (text.length < 6) return false
@@ -498,18 +475,49 @@ function collectNodeAiContext(flowNodes) {
   return parts.join('；').slice(0, 4000)
 }
 
-/** 没跑过 AI 的节点：这些节点的原图需要在托管预览时补分析 */
-function collectUnanalyzedNodeIds(flowNodes) {
-  const ids = new Set()
+/**
+ * 检测/施工节点照片槽上已由大模型写下的内容描述。
+ * 打码与内容描述同住一个槽（contentDescription / contentAnalyzedAt），这里只读不调模型。
+ */
+function collectAnalyzableImageDescriptions(flowNodes) {
+  const out = []
+  const seen = new Set()
+  const push = (value) => {
+    const t = String(value || '').trim()
+    if (!t) return
+    const key = t.slice(0, 60)
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(t)
+  }
+  const walkBag = (bag) => {
+    if (!bag || typeof bag !== 'object') return
+    ;['photos', 'discoveryImages', 'pendingImages'].forEach((key) => {
+      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((slot) => {
+        if (slot && typeof slot === 'object') push(slot.contentDescription)
+      })
+    })
+    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
+      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
+        if (!row || typeof row !== 'object') return
+        push(row.contentDescription)
+        ;(Array.isArray(row.images) ? row.images : []).forEach((img) => {
+          if (img && typeof img === 'object') push(img.contentDescription)
+        })
+      })
+    })
+  }
   ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
-    if (!node || !node.id) return
-    if (!nodeAdviceValue(node)) ids.add(String(node.id))
+    if (!node || !ANALYZABLE_PHOTO_KINDS.includes(String(node.kind || ''))) return
+    walkBag(node.content)
+    walkBag(node.photoDraft)
+    if (node.document && node.document.payload) walkBag(node.document.payload)
   })
-  return ids
+  return out
 }
 
-/** 汇总每张图的内容分析：识图缓存结果 + 已分析节点里已有的图说 */
-function collectImageDescriptions(visionResults, flowNodes) {
+/** 汇总每张图的内容分析：节点槽里的描述 + 已分析节点里已有的图说；全部纳入，不截条数 */
+function collectImageDescriptions(descriptions, flowNodes) {
   const out = []
   const seen = new Set()
   const push = (text) => {
@@ -520,8 +528,9 @@ function collectImageDescriptions(visionResults, flowNodes) {
     seen.add(key)
     out.push(t)
   }
-  ;(Array.isArray(visionResults) ? visionResults : []).forEach((row) => {
-    if (row && row.description) push(row.description)
+  ;(Array.isArray(descriptions) ? descriptions : []).forEach((row) => {
+    if (typeof row === 'string') push(row)
+    else if (row && row.description) push(row.description)
   })
   ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
     if (!nodeAdviceValue(node)) return
@@ -534,7 +543,7 @@ function collectImageDescriptions(visionResults, flowNodes) {
       push(row && (row.note || row.caption || row.text))
     })
   })
-  return out.slice(0, 12)
+  return out
 }
 
 async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album, extra = {}) {
@@ -652,25 +661,13 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
       ? album.contentPackageJson
       : {}
   const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
-  const unanalyzedNodeIds = collectUnanalyzedNodeIds(flowNodes)
-  const imageIds = (Array.isArray(album.images) ? album.images : [])
-    .filter((img) => img && unanalyzedNodeIds.has(String(img.nodeId || '')))
-    .map((img) => String(img.id))
-    .filter(Boolean)
-  let imageAnalysisPending = false
-  let visionResults = []
-  if (imageIds.length) {
-    try {
-      const { ensureAlbumImageVisionCache } = require('./album-vision-ondemand.service')
-      const vision = await ensureAlbumImageVisionCache(albumId, imageIds)
-      if (vision.status === 'pre_mask_pending') imageAnalysisPending = true
-      else visionResults = vision.results || []
-    } catch (e) {
-      console.warn('[case-hosting] image vision failed', e && e.message)
-    }
-  }
   const nodeAiContext = collectNodeAiContext(flowNodes)
-  const imageDescriptions = collectImageDescriptions(visionResults, flowNodes)
+  // 图片内容描述已在打码那次模型调用里写进节点照片槽；这里只读，不再调视觉模型
+  const imageDescriptions = collectImageDescriptions(
+    collectAnalyzableImageDescriptions(flowNodes),
+    flowNodes,
+  )
+  const imageAnalysisPending = false
 
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
@@ -705,9 +702,6 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   }
   if (!llmDraft) {
     message = '自动说明暂不可用，以下为简要草稿，请自行改写'
-  }
-  if (imageAnalysisPending) {
-    message = '图片分析中，已先生成文字草稿；完成后可点「AI 生成」补全'
   }
 
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
@@ -1522,7 +1516,7 @@ module.exports = {
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
   collectNodeAiContext,
-  collectUnanalyzedNodeIds,
+  collectAnalyzableImageDescriptions,
   collectImageDescriptions,
   confirmHostedPublicPublish,
   cancelPublicHostIntent,

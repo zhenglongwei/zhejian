@@ -50,7 +50,10 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   const outcome = text(meta.maskOutcome)
   const source = text(meta.maskSource)
   const regions = meta.maskRegions !== undefined ? normalizeRegions(meta.maskRegions) : null
-  if (!product && !outcome && regions == null) return { next: slot, changed: false }
+  const hasContent = meta.contentDescription !== undefined
+  const contentDescription = hasContent ? text(meta.contentDescription) : ''
+  const contentAnalyzedAt = text(meta.contentAnalyzedAt)
+  if (!product && !outcome && regions == null && !hasContent) return { next: slot, changed: false }
 
   if (typeof slot === 'string') {
     if (!urlsMatch(slot, rawKeys)) return { next: slot, changed: false }
@@ -59,6 +62,10 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
     if (outcome) next.maskOutcome = outcome
     if (source) next.maskSource = source
     if (regions) next.maskRegions = regions
+    if (contentDescription) {
+      next.contentDescription = contentDescription
+      next.contentAnalyzedAt = contentAnalyzedAt || new Date().toISOString()
+    }
     return { next, changed: true }
   }
   if (!slot || typeof slot !== 'object') return { next: slot, changed: false }
@@ -68,6 +75,14 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
 
   let next = { ...slot }
   let changed = false
+  if (contentDescription && text(next.contentDescription) !== contentDescription) {
+    next = {
+      ...next,
+      contentDescription,
+      contentAnalyzedAt: contentAnalyzedAt || new Date().toISOString(),
+    }
+    changed = true
+  }
   if (product) {
     if (text(next.maskedUrl) !== product) {
       next.maskedUrl = product
@@ -227,7 +242,13 @@ function writeMaskResultIntoFlowNodes(flowNodes, rawUrl, meta = {}) {
   if (!rawKeys.size || !Array.isArray(flowNodes)) {
     return { nodes: flowNodes, changed: false }
   }
-  if (!product && !outcome && meta.maskRegions === undefined && !text(meta.maskSource)) {
+  if (
+    !product &&
+    !outcome &&
+    meta.maskRegions === undefined &&
+    !text(meta.maskSource) &&
+    meta.contentDescription === undefined
+  ) {
     return { nodes: flowNodes, changed: false }
   }
 
@@ -291,6 +312,8 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
       maskOutcome: pair.maskOutcome,
       maskSource: pair.maskSource,
       maskRegions: pair.maskRegions,
+      contentDescription: pair.contentDescription,
+      contentAnalyzedAt: pair.contentAnalyzedAt,
     })
     nodes = r.nodes
     if (r.changed) changed = true
