@@ -11,17 +11,18 @@ function text(v) {
   return String(v || '').trim()
 }
 
-function rowsFromUrls(urls, describeKeys) {
+function rowsFromUrls(urls, describeKeys, describeOnlyKeys) {
   const { rawUrlLookupKeys } = require('./desensitize.constants')
   return (Array.isArray(urls) ? urls : [])
     .map((url, index) => {
       const rawUrl = text(typeof url === 'string' ? url : url && (url.rawUrl || url.url))
       if (!rawUrl) return null
-      const wantDescription =
-        describeKeys && describeKeys.size
-          ? rawUrlLookupKeys(rawUrl).some((key) => describeKeys.has(key))
-          : false
-      return { url: rawUrl, rawUrl, label: `图${index + 1}`, wantDescription }
+      const lookupKeys = rawUrlLookupKeys(rawUrl)
+      const matches = (keys) =>
+        keys && keys.size ? lookupKeys.some((key) => keys.has(key)) : false
+      const wantDescription = matches(describeKeys)
+      const descriptionOnly = matches(describeOnlyKeys)
+      return { url: rawUrl, rawUrl, label: `图${index + 1}`, wantDescription, descriptionOnly }
     })
     .filter(Boolean)
 }
@@ -132,7 +133,9 @@ async function markUrlsLlmFailed(albumId, urls) {
 async function rerunHostPrivacyLlmForUrls(urls, options = {}) {
   const albumId = text(options.albumId)
   const describeKeys = options.describeUrlKeys instanceof Set ? options.describeUrlKeys : null
-  const all = rowsFromUrls(urls, describeKeys)
+  const describeOnlyKeys =
+    options.describeOnlyUrlKeys instanceof Set ? options.describeOnlyUrlKeys : null
+  const all = rowsFromUrls(urls, describeKeys, describeOnlyKeys)
   if (!all.length) return { ok: 0, failed: 0 }
 
   const { applyModelMasks } = require('./model-mask.service')

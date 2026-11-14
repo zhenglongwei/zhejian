@@ -136,6 +136,33 @@ test('同一张图写回打码结论和内容描述（字符串槽升对象）',
   })
 })
 
+test('补充报价 evidenceUrl 写回内容描述', () => {
+  const { writeMaskedPairsIntoFlowNodes } = require('./flow-photo-mask-writeback')
+  const { nodes, changed } = writeMaskedPairsIntoFlowNodes(
+    [
+      {
+        kind: 'quote_confirm',
+        subKind: 'add_on_quote',
+        document: { payload: { items: [{ name: '补充项目', evidenceUrl: RAW }] } },
+      },
+    ],
+    [
+      {
+        rawUrl: RAW,
+        maskedUrl: '',
+        maskOutcome: 'ok_no_privacy',
+        maskRegions: [],
+        contentDescription: '拆下的旧刹车片已经磨损到极限',
+        contentAnalyzedAt: '2026-11-14T00:00:00.000Z',
+      },
+    ],
+  )
+  assert.equal(changed, true)
+  const row = nodes[0].document.payload.items[0]
+  assert.equal(row.evidenceContentDescription, '拆下的旧刹车片已经磨损到极限')
+  assert.equal(row.evidenceContentAnalyzedAt, '2026-11-14T00:00:00.000Z')
+})
+
 test('ok_no_privacy 清空冒充产物的 maskedUrl 并写结论', () => {
   const { writeMaskedPairsIntoFlowNodes } = require('./flow-photo-mask-writeback')
   const { nodes, changed } = writeMaskedPairsIntoFlowNodes(

@@ -342,8 +342,14 @@ function isDocumentFlowNode(node = {}) {
   return node.nodeCategory === NODE_CATEGORY.DOCUMENT || Boolean(node.document)
 }
 
-/** 托管预览补图分析只覆盖这两个节点类型（补充施工/返工也是 work；报价节点无图） */
-const ANALYZABLE_PHOTO_KINDS = ['inspection', 'work']
+/** 托管预览补图分析覆盖全部公开图片；接车与首次报价只留档，不进入公开分析 */
+const ANALYZABLE_PHOTO_KINDS = ['inspection', 'work', 'delivery_photos']
+
+function isAnalyzablePhotoNode(node = {}) {
+  const kind = String(node.kind || '')
+  if (kind === 'quote_confirm') return String(node.subKind || '') === 'add_on_quote'
+  return ANALYZABLE_PHOTO_KINDS.includes(kind)
+}
 
 const NODE_ADVICE_FIELDS = [
   'intakeAdvice',
@@ -418,6 +424,7 @@ module.exports = {
   ownerFindingResultLabel,
   STANDARD_FLOW_CHAIN,
   ANALYZABLE_PHOTO_KINDS,
+  isAnalyzablePhotoNode,
   NODE_ADVICE_FIELDS,
   NODE_KIND_ADVICE,
   nodeAdviceValue,

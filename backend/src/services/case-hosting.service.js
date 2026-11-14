@@ -11,7 +11,7 @@ const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { hostPublicTitle } = require('../utils/host-public-title')
 const {
-  ANALYZABLE_PHOTO_KINDS,
+  isAnalyzablePhotoNode,
   nodeAdviceValue,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
@@ -476,7 +476,7 @@ function collectNodeAiContext(flowNodes) {
 }
 
 /**
- * 检测/施工节点照片槽上已由大模型写下的内容描述。
+ * 公开节点照片槽上已由大模型写下的内容描述（含完工照、补充报价图）。
  * 打码与内容描述同住一个槽（contentDescription / contentAnalyzedAt），这里只读不调模型。
  */
 function collectAnalyzableImageDescriptions(flowNodes) {
@@ -501,6 +501,7 @@ function collectAnalyzableImageDescriptions(flowNodes) {
       ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
         if (!row || typeof row !== 'object') return
         push(row.contentDescription)
+        push(row.evidenceContentDescription)
         ;(Array.isArray(row.images) ? row.images : []).forEach((img) => {
           if (img && typeof img === 'object') push(img.contentDescription)
         })
@@ -508,7 +509,7 @@ function collectAnalyzableImageDescriptions(flowNodes) {
     })
   }
   ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
-    if (!node || !ANALYZABLE_PHOTO_KINDS.includes(String(node.kind || ''))) return
+    if (!node || !isAnalyzablePhotoNode(node)) return
     walkBag(node.content)
     walkBag(node.photoDraft)
     if (node.document && node.document.payload) walkBag(node.document.payload)

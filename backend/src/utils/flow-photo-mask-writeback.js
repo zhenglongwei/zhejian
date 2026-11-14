@@ -189,6 +189,15 @@ function patchFindingLike(row, rawKeys, meta) {
       next = { ...next, evidenceMaskedUrl: product }
       changed = true
     }
+    const contentDescription = text(meta.contentDescription)
+    if (contentDescription && text(next.evidenceContentDescription) !== contentDescription) {
+      next = {
+        ...next,
+        evidenceContentDescription: contentDescription,
+        evidenceContentAnalyzedAt: text(meta.contentAnalyzedAt) || new Date().toISOString(),
+      }
+      changed = true
+    }
   }
 
   return { next, changed }

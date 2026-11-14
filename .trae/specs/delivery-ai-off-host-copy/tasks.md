@@ -51,7 +51,7 @@
 - [x] `backend/src/utils/flow-photo-mask-writeback.js`：槽位支持 `contentDescription / contentAnalyzedAt`，字符串槽升级为对象，早退条件与 pair 透传同步。
 - [x] `backend/src/services/model-mask.service.js`：新增 `descriptionFor`；`applyModelMasks` 写入非空描述与时间戳（含 `llm_failed` 但有描述的情况）。
 - [x] `backend/src/services/host-privacy-llm.service.js`：prompt 同时返回 `masks[].description`；`rerunHostPrivacyLlmForUrls` 接收 `describeUrlKeys` 并标记 `wantDescription`。
-- [x] `backend/src/services/hosted-public-mask.service.js`：新增 `loadHostDescribeUrlKeys(albumId, { maxImages: 30 })`，只取 inspection/work 且未跑 AI 的节点图片。
+- [x] `backend/src/services/hosted-public-mask.service.js`：新增 `loadHostDescribeUrlKeys(albumId, { maxImages: 30 })`，取全部公开且未跑 AI、尚无描述的节点图片（含完工照、补充报价图）。
 - [x] `backend/src/services/desensitize.service.js`：`runAutoMask` 的 hostPublic 分支取描述键集合并透传。
 
 ## T7 汇总侧只读节点

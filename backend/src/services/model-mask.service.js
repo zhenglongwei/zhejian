@@ -55,6 +55,11 @@ async function applyModelMasks(rows, masks, options = {}) {
     const contentPatch = description
       ? { contentDescription: description, contentAnalyzedAt }
       : {}
+    // 已成功打码的图只补内容描述，不能用本次返回的 regions 覆盖既有打码结论或人工产物。
+    if (row && typeof row === 'object' && row.descriptionOnly) {
+      pairs.push({ rawUrl, ...contentPatch })
+      continue
+    }
     // 模型没给这张判定（masks 缺条目 / 整份为空）→ 未跑通，记 llm_failed。
     // 禁止把「没判」当「看过且无敏感」，否则失败态被洗成 ok_no_privacy。
     if (regions == null) {

@@ -1244,12 +1244,28 @@ async function runAutoMask(taskId, options = {}) {
   if (hostPublic) {
     const llmUrls = []
     const restampItems = []
+    let describeOnly = 0
+    const describeOnlyUrlKeys = new Set()
+    let describeUrlKeys = null
+    try {
+      describeUrlKeys = await loadHostDescribeUrlKeys(task.bizId)
+    } catch (_) {
+      describeUrlKeys = null
+    }
+    const { rawUrlLookupKeys } = require('../services/desensitize.constants')
     ;(task.assets || []).forEach((asset) => {
       if (!asset) return
       const url = String(asset.rawUrl || '').trim()
       if (!url) return
       const classified = classifyAsset(asset)
-      if (classified.hostAction === 'rerun_llm') {
+      // 已经打过码但没内容描述的公开图，也要进同一次视觉调用补齐描述。
+      const needsDescription =
+        describeUrlKeys && rawUrlLookupKeys(url).some((key) => describeUrlKeys.has(key))
+      if (classified.hostAction === 'rerun_llm' || needsDescription) {
+        if (classified.hostAction !== 'rerun_llm') {
+          describeOnly += 1
+          rawUrlLookupKeys(url).forEach((key) => describeOnlyUrlKeys.add(key))
+        }
         llmUrls.push(url)
         return
       }
@@ -1268,6 +1284,7 @@ async function runAutoMask(taskId, options = {}) {
       albumId: task.bizId,
       totalAssets: (task.assets || []).length,
       needLlm: llmUrls.length,
+      needDescribeOnly: describeOnly,
       needRestamp: restampItems.length,
     })
     if (restampItems.length) {
@@ -1280,14 +1297,11 @@ async function runAutoMask(taskId, options = {}) {
     if (llmUrls.length) {
       try {
         const { rerunHostPrivacyLlmForUrls } = require('./host-privacy-llm.service')
-        // 同一次模型调用里顺带给检测/施工未分析图补内容描述
-        let describeUrlKeys = null
-        try {
-          describeUrlKeys = await loadHostDescribeUrlKeys(task.bizId)
-        } catch (_) {
-          describeUrlKeys = null
-        }
-        await rerunHostPrivacyLlmForUrls(llmUrls, { albumId: task.bizId, describeUrlKeys })
+        await rerunHostPrivacyLlmForUrls(llmUrls, {
+          albumId: task.bizId,
+          describeUrlKeys,
+          describeOnlyUrlKeys,
+        })
       } catch (error) {
         console.warn('[runAutoMask] host privacy llm batch failed', error && error.message)
       }

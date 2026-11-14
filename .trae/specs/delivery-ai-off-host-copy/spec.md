@@ -127,14 +127,14 @@
 - **不重复分析**：节点已跑过 AI 的图不再送模型，只把节点里已有文字当上下文。
 - **汇总不再看图**：`generateHostedGeoDraft` 只读节点描述 + 节点文案，交给文本模型出 summary / FAQ，全程不调视觉模型。
 - **触发点不变**：只在点击「公开预览」时由 `ensureAutoMaskOnReview` 触发，不做后台预热。
-- **范围**：只描述 `inspection` / `work`（补充施工、返工也是 `work`）节点图片；排除 `intake` / `delivery_photos`；`quote_confirm` 无图；待描述图片上限 30 张。
+- **范围（已按实测反馈修订）**：描述全部公开图片，包括 `inspection` / `work`（补充施工、返工也是 `work`）、`delivery_photos` 完工照，以及 `subKind === 'add_on_quote'` 的补充报价图；排除只留档的 `intake` 与首次报价；待描述图片上限 30 张。已有打码结论但缺描述的图也要补一次视觉分析，已有描述的不重复分析。
 - **取消旧限制**：去掉整本脱敏就绪门槛、去掉 12 条描述上限、托管链路不再用 8 张上限。
 
 ## 8.3 改动清单（精确到文件与函数）
 
 ### 8.3.1 `constants/service-flow-nodes.js`
 
-- 新增 `ANALYZABLE_PHOTO_KINDS = ['inspection', 'work']`。
+- 新增 `ANALYZABLE_PHOTO_KINDS = ['inspection', 'work', 'delivery_photos']` 与 `isAnalyzablePhotoNode(node)`；后者额外纳入补充报价节点、排除首次报价节点。
 - 新增 `NODE_ADVICE_FIELDS`、`NODE_KIND_ADVICE`、`nodeAdviceValue(node)`、`hasNodeAiAdvice(node)`（把 `case-hosting.service.js` L427-452 的判定搬过来，语义不变）。
 - `hasNodeAiAdvice(node)` = `Boolean(nodeAdviceValue(node))`。
 
@@ -212,8 +212,8 @@
 - `backend/src/services/case-hosting.smoke.test.js`：
   - 删除 `testCollectUnanalyzedNodeIds`。
   - 新增 `testCollectAnalyzableImageDescriptions`：
-    - `inspection` / `work` 节点的槽位 `contentDescription` 被收集；
-    - `intake` / `delivery_photos` / `quote_confirm` 被排除；
+    - `inspection` / `work` / `delivery_photos` / 补充报价节点的槽位 `contentDescription` 被收集；
+    - `intake` 与首次报价节点被排除；
     - 空节点返回 `[]`。
   - `testCollectImageDescriptions`：改用描述数组入参，并断言 15 条描述全部保留（不被截断）。
 - `flow-photo-mask-writeback` 相关测试（若现有测试文件存在则补用例）：`writeMaskedPairsIntoFlowNodes` 同时写 `maskedUrl` 与 `contentDescription`，字符串槽升级为对象。
@@ -242,7 +242,7 @@
    - 点「公开预览」，后端日志 `[runAutoMask] host privacy queue` 后，视觉模型只按批调用一次；
    - 节点照片槽出现 `contentDescription`，`maskOutcome` 仍正确；
    - 店页摘要/FAQ 用到了多条图片描述；
-   - 接车/完工照节点无 `contentDescription`。
+   - 接车与首次报价节点无 `contentDescription`；完工照与补充报价图有 `contentDescription`。
 5. 部署：本地 commit → `git push staging main` → 服务器 `git pull`、`npm install`、`npm run sync:shared-utils`、`pm2 restart zhejian-api-staging` → health 通过。
 
 ## 8.6 待确认
