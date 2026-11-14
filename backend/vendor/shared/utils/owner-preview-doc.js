@@ -306,7 +306,7 @@ function buildOwnerPreviewDoc(input = {}) {
     return {
       doc: {
         kind: 'work',
-        title: '维修工单',
+        title: input.addon ? '补充施工' : '维修工单',
         styleVariant: 'document',
         storeName,
         items,

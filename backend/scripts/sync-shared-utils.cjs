@@ -31,6 +31,10 @@ const FILES = [
   'utils/service-flow-docs.js',
   'utils/service-flow-placeholders.js',
   'utils/service-flow-quote-draft.js',
+  /** 补充报价节点的插入与补充施工的锁状态 */
+  'utils/service-flow-addon-insert.js',
+  /** 阶段锁与可编辑判断（补充施工按增项处理） */
+  'utils/flow-stage-locks.js',
   'utils/owner-preview-doc.js',
 ]
 
