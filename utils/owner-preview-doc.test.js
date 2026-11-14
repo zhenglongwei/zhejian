@@ -53,24 +53,23 @@ test('交车报告不展示简述与问答（只供托管预览/公网）', () =
   assert.equal(preview.doc.ownerFaqs, undefined)
 })
 
-test('交车报告带上外观行的整车与部位图（去重）', () => {
+test('交车报告施工项目清单带施工图（去重）', () => {
   const preview = buildOwnerPreviewDoc({
     family: 'finish',
-    acceptanceItems: [
+    workItems: [
       {
-        id: 'exterior',
-        kind: 'exterior',
-        name: '外观',
-        result: 'pass',
+        name: '右前门补漆',
+        note: '打磨后喷漆，色差可接受。',
         images: [{ url: 'from-work.jpg' }, { url: 'uploaded.jpg' }, { url: 'from-work.jpg' }],
       },
     ],
   })
-  const exterior = preview.doc.acceptanceItems.find((row) => row.kind === 'exterior')
+  const item = preview.doc.workItems.find((row) => row.name === '右前门补漆')
   assert.deepEqual(
-    exterior.images.map((row) => row.url),
+    item.images.map((row) => row.url),
     ['from-work.jpg', 'uploaded.jpg'],
   )
+  assert.equal(preview.doc.acceptanceItems, undefined)
 })
 
 test('施工记录转报告项只保留有名称的项', () => {

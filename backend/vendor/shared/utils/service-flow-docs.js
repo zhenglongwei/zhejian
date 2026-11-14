@@ -2186,11 +2186,6 @@ function buildRepairReportPayload({
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
 
   void deliveryImages
-  // 外观已并入验收清单最后一行（kind=exterior），不再单独存外观照；每行自带本项图片
-  const acceptanceItems = withExteriorAcceptanceRow(photoDraft.acceptanceItems).map((item) => ({
-    ...item,
-    images: mapPhotoRows(item.images),
-  }))
 
   return {
     chiefComplaint: String(chiefComplaint || '').trim(),
@@ -2198,7 +2193,6 @@ function buildRepairReportPayload({
     totalAmount: computedTotal == null ? 0 : computedTotal,
     repairBrief,
     ownerFaqs,
-    acceptanceItems,
     warrantyPeriod: period,
     warrantyNotes: notes,
     // 兼容旧读侧：不再写入空话默认；存量字段置空

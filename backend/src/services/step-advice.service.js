@@ -5,20 +5,8 @@
  */
 const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
-const {
-  FLOW_VERSION,
-  isValidAcceptanceResult,
-} = require('../../vendor/shared/constants/service-flow-nodes')
+const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 
-/** 模型输出中文结果 → 枚举 */
-const ACCEPTANCE_RESULT_TEXT = {
-  合格: 'pass',
-  通过: 'pass',
-  建议观察: 'observe',
-  观察: 'observe',
-  需返工: 'rework',
-  返工: 'rework',
-}
 const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
@@ -389,16 +377,18 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
   ;(Array.isArray(parsed['证据']) ? parsed['证据'] : []).forEach((row) => {
     const name = resolvePresetItemName(text(row && (row['项目'] || row.partName || row.name)), workNames)
     if (!name || evidenceByName.has(name)) return
-    const flag = text(row && (row['证据'] || row.evidence))
+    const flag = text(row && (row['判定'] || row['证据'] || row.evidence))
+    // 完成判定：已完成 / 待确认；兼容老结果的 充分 / 不足
     const evidence =
-      flag === '充分' || flag === 'sufficient'
-        ? 'sufficient'
-        : flag === '不足' || flag === 'insufficient'
-          ? 'insufficient'
+      flag === '已完成' || flag === 'done' || flag === '充分' || flag === 'sufficient'
+        ? 'done'
+        : flag === '待确认' || flag === 'pending' || flag === '不足' || flag === 'insufficient'
+          ? 'pending'
           : 'unknown'
     evidenceByName.set(name, {
       evidence,
-      gap: text(row && (row['缺什么'] || row.gap)).slice(0, 120),
+      basis: text(row && (row['依据'] || row.basis)).slice(0, 150),
+      gap: text(row && (row['缺少'] || row['缺什么'] || row.gap)).slice(0, 120),
     })
   })
   // 第 4 步补充：结构化补拍清单 + 疑似返工（施工节点完成前必须补齐留证）
@@ -435,16 +425,17 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
     })
     .filter(Boolean)
     .slice(0, 4)
-  // 第 5 步：填写建议
+  // 说明建议：说明为空给「建议描述」，已写说明给「修改建议」（完整替换句）
   const fillByName = new Map()
   adviceRows(parsed, '填写建议', 'items').forEach((row) => {
     const rawName = text(row && (row['项目'] || row.partName || row.name))
     const name = resolvePresetItemName(rawName, workNames) || resolvePresetItemName(rawName, quoteNames)
     if (!name || fillByName.has(name)) return
-    const body = text(row && (row['建议描述'] || row['描述'] || row.body)).slice(0, 160)
+    const body = text(row && (row['建议描述'] || row.body)).slice(0, 200)
+    const polish = text(row && (row['修改建议'] || row['润色建议'] || row.polish)).slice(0, 200)
     const supplement = text(row && (row['补充建议'] || row.supplement)).slice(0, 120)
-    if (!body && !supplement) return
-    fillByName.set(name, { body, supplement })
+    if (!body && !polish && !supplement) return
+    fillByName.set(name, { body, polish, supplement })
   })
   const photosOfFinding = (findingId) =>
     (Array.isArray(slots) ? slots : [])
@@ -461,6 +452,7 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
       const hit = fillByName.get(name) || (quoteName ? fillByName.get(quoteName) : null) || null
       const ev = evidenceByName.get(name) || null
       const body = !written && hit ? text(hit.body) : ''
+      const polish = written && hit ? text(hit.polish) : ''
       const supplement = written && hit ? text(hit.supplement) : ''
       return {
         id: text(row && row.id),
@@ -471,9 +463,14 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
         photos: photosOfFinding(row && row.id),
         written,
         evidence: ev ? ev.evidence : 'unknown',
+        completionBasis: ev ? ev.basis : '',
         evidenceGap: ev ? ev.gap : '',
-        advice: { body: body.slice(0, 120), supplement: supplement.slice(0, 120) },
-        action: body ? 'fill' : supplement ? 'supplement' : 'none',
+        advice: {
+          body: body.slice(0, 200),
+          polish: polish.slice(0, 200),
+          supplement: supplement.slice(0, 120),
+        },
+        action: body ? 'fill' : polish ? 'polish' : supplement ? 'supplement' : 'none',
       }
     })
     .filter(Boolean)
@@ -562,7 +559,7 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
     photoPlan = shootPlan
   } else if (!photoPlan.length) {
     photoPlan = workItemsOut
-      .filter((row) => row.evidence === 'insufficient')
+      .filter((row) => row.evidence === 'pending' && row.evidenceGap)
       .slice(0, 6)
       .map((row) => ({
         title: row.name,
@@ -667,86 +664,9 @@ function parseDeliveryAdvice(raw, slots) {
     })
     .filter(Boolean)
     .slice(0, 4)
-  // 验收（2026-11-10 二次收敛）：按本单施工项目逐行 + 外观行，给 {项目,建议结果,验收描述,依据}。
-  // 项目名必须是本单已有施工项目或「外观」（应用侧只填空行，不新增）；建议结果只是建议，点「应用」才写入。
-  const accSource = parsed['验收'] || parsed.acceptance
-  const accList = Array.isArray(accSource)
-    ? accSource
-    : accSource && typeof accSource === 'object'
-      ? [accSource]
-      : []
-  const accItems = accList
-    .map((row) => {
-      const obj = row && typeof row === 'object' ? row : {}
-      const name = text(obj['项目'] || obj['验收项'] || obj.name).slice(0, 60)
-      if (!name) return null
-      const isExterior =
-        text(obj['类别'] || obj.kind) === 'exterior' || text(obj['类别'] || obj.kind) === '外观' || name === '外观'
-      const resultText = text(obj['建议结果'] || obj['状态'] || obj.result).slice(0, 20)
-      const resultEnum =
-        ACCEPTANCE_RESULT_TEXT[resultText] && isValidAcceptanceResult(ACCEPTANCE_RESULT_TEXT[resultText])
-          ? ACCEPTANCE_RESULT_TEXT[resultText]
-          : isValidAcceptanceResult(resultText)
-            ? resultText
-            : ''
-      const note = text(obj['描述'] || obj['验收描述'] || obj.note).slice(0, 300)
-      // 证据是否足以说明该项状态：充分→可应用润色文案与状态；不足→只给补充意见，不可应用
-      const evidenceText = text(obj['证据'] || obj.evidence)
-      const evidence =
-        evidenceText === '充分' || evidenceText === 'sufficient'
-          ? 'sufficient'
-          : evidenceText === '不足' || evidenceText === 'insufficient'
-            ? 'insufficient'
-            : resultEnum || note
-              ? 'sufficient'
-              : 'insufficient'
-      return {
-        name: isExterior ? '外观' : name,
-        kind: isExterior ? 'exterior' : 'work',
-        unbuilt: false,
-        evidence,
-        standard: text(obj['验收标准'] || obj.standard).slice(0, 200),
-        method: text(obj['验收方法'] || obj.method).slice(0, 160),
-        photoAdvice: text(obj['拍照建议'] || obj.photoAdvice).slice(0, 160),
-        result: resultEnum,
-        note,
-        // 交车只做减法：证据不足统一写「施工节点留证不足」，不再要求交车补拍
-        supplement:
-          evidence === 'insufficient'
-            ? '施工节点留证不足'
-            : text(obj['补充建议'] || obj['补充意见'] || obj['缺什么'] || obj.supplement).slice(0, 200),
-        basis: text(obj['依据'] || obj.basis).slice(0, 150),
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 20)
-  const acceptance = accItems.length ? { items: accItems } : null
-  // 拆分建议：验收图挂错行，挪到目标验收行
-  const slotByNum = new Map((Array.isArray(slots) ? slots : []).map((row) => [Number(row.slot), row]))
-  const splitGroups = (Array.isArray(parsed['拆分建议']) ? parsed['拆分建议'] : [])
-    .map((row) => {
-      const partName = text(row && (row['项目'] || row['检测项目'] || row.partName || row.title)).slice(0, 60)
-      if (!partName) return null
-      const nums = collectGroupSlotNumbers({
-        imageSlots: slotTokens(row['图片']).concat(slotTokens(row.imageSlots)),
-        imageNames: slotTokens(row.imageNames),
-        imageName: row.imageName,
-        photoNames: row.photoNames,
-      })
-      if (!nums.length) return null
-      const images = nums
-        .map((n) => slotByNum.get(n))
-        .filter(Boolean)
-        .map((shot) => ({ slot: shot.slot, url: shot.url }))
-      return {
-        partName,
-        slots: nums.slice().sort((a, b) => a - b),
-        images,
-        body: text(row && (row['描述'] || row.body || row.advice)).slice(0, 160),
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 6)
+  // 验收已前移到施工节点：交车 AI 不再产出验收建议与图片挪行建议
+  const acceptance = null
+  const splitGroups = []
   const warrantyPeriod = text(parsed['质保'] || parsed.warrantyPeriod).slice(0, 60)
   return {
     repairBrief,
@@ -792,11 +712,10 @@ function adviceHasContent(advice, kind) {
       (Array.isArray(advice.shop) && advice.shop.length > 0)
   }
   return Boolean(
-    (advice.acceptance && Array.isArray(advice.acceptance.items) && advice.acceptance.items.length > 0) ||
-      (Array.isArray(advice.groups) && advice.groups.length > 0) ||
-      filled(advice.warranty) ||
+    filled(advice.warranty) ||
       text(advice.repairBrief) ||
-      (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0),
+      (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0) ||
+      (Array.isArray(advice.tips) && advice.tips.length > 0),
   )
 }
 
@@ -1477,8 +1396,8 @@ function contextOf(album, extraNotes = {}) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        // v8：施工节点是唯一留证节点，逐项判证据；交代记录参与指纹，变更后重出建议
-        v: 'work_v8',
+        // v9：施工即验收，逐项按一般验收标准判完成度；说明建议含润色（完整替换句）
+        v: 'work_v9',
         quoteLines: (ctx.quoteItemRows || []).map((row) => ({
           id: row.id,
           name: row.name,
@@ -1518,12 +1437,11 @@ function fingerprintFor(kind, ctx) {
             .sort(),
         }
       : {
-        // v7：交车只看施工记录与验收项图文，报价单/接车单不再参与判断
-        v7: 'delivery_v7',
+        // v8：验收已前移到施工节点，交车只产出质保/提醒/简述/问答/图说
+        v7: 'delivery_v8',
         workItems: ctx.workItems,
         warrantyPeriod: ctx.warrantyPeriod,
         warrantyNotes: ctx.warrantyNotes,
-        acceptance: ctx.acceptance || null,
         workAdviceAt: ctx.workAdviceAt,
       }
   return crypto.createHash('sha1').update(JSON.stringify({ v: kind, ...picked })).digest('hex')
@@ -1758,7 +1676,7 @@ function workInstruction(ctx) {
   }
   return [
     '你是修理厂的施工顾问，帮店员整理施工这一步的意见。',
-    '定位：施工节点是本单唯一留证节点。本步完成后照片锁定，交车节点不再补拍、不再补验收结果，所以留证必须在这里补齐。',
+    '定位：施工节点是本单唯一留证与验收节点。施工说明写清做了什么、怎么做、结果如何，再配上图片，这一项就视为验收通过；交车节点不再重复验收，也不再补拍。',
     '本步有两份单据，必须分清：报价项是车主已确认的方案行，是预设清单；工单项是按报价项预生成的施工记录，允许与报价项不同。',
     '',
     '硬规则：',
@@ -1769,25 +1687,31 @@ function workInstruction(ctx) {
     '5. 报价项里「交代」非空的，是商家已确认未施工（系统录入错误 / 客户要求不做）：不得再列进缺项、未施工、漏记提醒，也不要建议补做。报价有、工单无、又没交代的，必须提醒「报价有、施工无」。',
     '6. 禁止出现「交车时补拍」「交车再确认」这类把责任推给下一步的说法；缺图只能在本步补。',
     '',
+    '判断是否施工完成，按一般维修验收标准，不只看照片够不够：',
+    '- 更换件（胶套、刹车片、电瓶、轮胎等）：旧件已拆下、新件装配到位、紧固/扭矩已复紧、试车或功能检查无异常。',
+    '- 油液类（机油、变速箱油、冷媒等）：液位符合要求、无渗漏、规格和用量匹配。',
+    '- 钣喷类：底材处理到位、色差可接受、平整度/缝隙正常、无流挂。',
+    '- 检查/清洁类：检查结论明确、处理动作已执行、结果可复核。',
+    '- 改装/加装类：安装牢固、线路/管路规范、功能可用、不影响原车功能。',
+    '判定只有两档：「已完成」或「待确认」。说明或图片能支持上述要点、无明显缺失就是「已完成」；说明缺关键动作/结果，或图片无法证明完成，就是「待确认」，并在「缺少」写明缺什么。',
+    '',
     '按下面六步思考，结果都写进这一个 JSON：',
     '',
-    '1. 报价项建议：逐条报价项给「做法」（先做什么再做什么）和「拍照建议」（该拍哪些图，如新旧件对比、关键工序、装车效果）。写入「报价项建议」。',
+    '1. 完成判定：逐工单项判断是否已施工完成，写「项目」「判定」「依据」「缺少」。',
+    '   判定只填「已完成」或「待确认」。依据引用已写说明或具体图片（例：图2 可见新胶套已压装、螺栓已复紧）。检查类项目看说明里的结论是否明确，不要求施工图。',
     '2. 逐图归类：按图1、图2顺序，每张图独立看，只写这张图里实际有的内容。每张图给「图」「内容」「归属」；归属先找工单项目，工单没有再看报价项，两者都没有写「新增」。',
     '3. 拆分建议：同一工单项里混了多个项目的图才拆，写「项目」「图片」「描述」；项目只能取预设名。已经挂对的图不要写。',
-    '4. 证据：逐工单项判断留证是否充分，写「项目」「证据」（充分或不足）、「缺什么」。',
-    '   每项留证看三类：拆检/施工过程、新旧件对比、完工效果。至少 1 张图；三类齐全才算「充分」，缺哪类就在「缺什么」里写明（例：缺新旧对比）。检查类项目只看结论文字，不要求施工图。',
-    '5. 补拍清单：证据不足的工单项逐条写「项目」「缺哪类」「怎么拍」「严重度」。',
-    '   「怎么拍」必须可执行：拍什么对象、从哪个角度、要不要新旧件同框。例：新旧胶套并排放在举升台上俯拍同框。禁止写「补拍一下」「多拍几张」这类空话。',
-    '   「严重度」只能填「必须」或「建议」：完全没图、图对不上项目为「必须」；已有过程图但缺新旧对比/完工效果为「建议」。',
-    '6. 填写建议：证据充分的工单项才给「建议描述」，写清做了什么、换什么件、关键工序、结果；已经写了描述的只给「补充建议」。证据不足的工单项不写描述，只进补拍清单。',
-    '   疑似返工：从照片看得出返工迹象（旧件未拆、装配不到位、漏装、油污未清等）时，在「返工提醒」写「项目」「依据」，依据必须指向具体图和画面；只提醒，不擅自把状态改成返工。',
-    '7. 新增项：工单和报价都没有的图才列，写「项目」「图片」「描述」；识别不出项目就留空。',
+    '4. 说明建议：给每个工单项一条，写「项目」「建议描述」「修改建议」。',
+    '   - 说明为空：给「建议描述」，按“做了什么 + 怎么做的 + 结果”写成一句可交付的话。',
+    '   - 说明已写：给「修改建议」，输出完整替换句，保留原意，补上关键工序、用料参数和结果，不凭空加事实。',
+    '5. 返工提醒：从照片看得出返工迹象（旧件未拆、装配不到位、漏装、油污未清等）时，写「项目」「依据」，依据必须指向具体图和画面；只提醒，不擅自把状态改成返工。',
+    '6. 新增项：工单和报价都没有的图才列，写「项目」「图片」「描述」；识别不出项目就留空。',
     '',
     '只写画面和单据里实际有的内容，不编。',
     '',
     `参考材料：${JSON.stringify(material)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"报价项建议":[{"报价项":"下摆臂胶套更换","做法":"先拆旧胶套再压入新胶套，最后复紧螺栓。","拍照建议":"拍新旧胶套对比、压入过程、装车后螺栓特写。"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"证据":[{"项目":"下摆臂胶套更换","证据":"充分","缺什么":""},{"项目":"变速箱油更换","证据":"不足","缺什么":"缺新旧对比"}],"补拍清单":[{"项目":"变速箱油更换","缺哪类":"新旧对比","怎么拍":"旧油放出的油盆与新油桶并排俯拍同框，带上放油口","严重度":"必须"}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，螺栓已复紧。","补充建议":""}],"返工提醒":[{"项目":"下摆臂胶套更换","依据":"图1 可见旧胶套仍装在车上，未见拆装痕迹"}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"证据":[{"项目":"下摆臂胶套更换","判定":"已完成","依据":"图2 可见新胶套已压装，螺栓已复紧","缺少":""},{"项目":"变速箱油更换","判定":"待确认","依据":"说明只写了已换油","缺少":"放油口旧油颜色和加注量没有说明或图片"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，旧件已拆下，新件压装到位，螺栓按标准扭矩复紧，路试无异常。","修改建议":""},{"项目":"变速箱油更换","建议描述":"","修改建议":"已更换变速箱油，放出旧油颜色发黑，加注新油至标准液位，检查放油口无渗漏，试车换挡正常。"}],"返工提醒":[{"项目":"下摆臂胶套更换","依据":"图1 可见旧胶套仍装在车上，未见拆装痕迹"}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1913,12 +1837,11 @@ function multiPhotoFindingIds(ctx) {
 
 function deliveryInstruction(ctx) {
   const { scrubPiiDeep } = require('../utils/scrub-pii-text')
-  // 报价单、接车单在各自节点完成后已锁定：交车只依据施工记录与验收项的图文判断证据是否充分。
+  // 验收已在施工节点完成并锁定：交车只产出交付文案、质保建议与提醒
   const safeFacts = scrubPiiDeep({
     workItems: ctx.workItems,
     warrantyPeriod: ctx.warrantyPeriod,
     warrantyNotes: ctx.warrantyNotes,
-    acceptance: ctx.acceptance || null,
     // 已经用模型看过的图，直接用观察结论，不重复看图
     workPhotos: (ctx.workNoted || []).slice(0, 12).map((row) => ({
       part: row.partName,
@@ -1930,34 +1853,22 @@ function deliveryInstruction(ctx) {
     })),
     newPhotoCount: (ctx.deliverySplit && ctx.deliverySplit.fresh ? ctx.deliverySplit.fresh.length : 0) || 0,
     exteriorCount: ctx.exteriorCount,
-    deliveryPhotoSlots: ctx.deliveryPhotoSlots,
   })
   return [
-    '你是修理厂的交车顾问。只看本单施工记录（workItems）和验收项上商家实际传的图、写的字，逐项判断证据是否足以说明该项状态。',
+    '你是修理厂的交车顾问。验收已在施工节点完成并锁定：施工说明 + 图片即视为验收通过，本步不再逐项判断验收，也不再要求补拍。',
     '报价单、接车单在各自节点完成后已经锁定，不再作为判断依据：不要引用、不要对比，也不要因为和报价或接车诉求不符而下结论。',
     '',
-    '按下面四步思考，结果都写进这一个 JSON：',
+    '按下面三步思考，结果都写进这一个 JSON：',
     '',
-    '1. 逐项证据判断（最重要）：验收行已由系统规则给出（见参考材料 acceptance.items，末行「外观」）。',
-    '   你必须对 acceptance.items 的**每一行**各输出一条，不增行、不漏行、不改行名。',
-    '   证据 = 这一行能对得上的图（deliveryPhotoSlots 里有「图N」与所属行名，workPhotos 里有已看过的图观察结论）或商家已写的文字。',
-    '   - 证据充分（看得出做的是这一项，状态可辨识）：「证据」写「充分」，并给「建议结果」「描述」「依据」。',
-    '     「建议结果」只能是「合格」「建议观察」「需返工」。「描述」把这行的验收文字润色到准确、可交付，只写证据里实际有的内容。',
-    '     「依据」引用「图N」或商家已写文字。店员点「应用」才写入，你不代点。',
-    '   - 证据不足（没图没字、只有旧件图、只有整车远景、图与行名对不上等）：「证据」写「不足」，「建议结果」和「描述」都留空字符串，',
-    '     「补充建议」固定写「施工节点留证不足」，「依据」一句话说明缺哪类证据。禁止要求补拍——施工节点完成即锁定，交车不再补拍。证据不足时一律不写结论。',
-    '   - 带 unbuiltReason 的行是施工节点已交代的未施工项：不判断证据、不要求补图、不给建议结果和补充建议，只在「依据」写清交代原因。',
-    '   「类别」填「施工」或「外观」。不写「已验合格」这类无依据结论，不写承诺句。店员点应用才写入，你不代点。',
-    '   证据判断口径：能看出「做的是这一项、状态正常且可辨识」才算充分；只拍了旧件/只拍了整车远景/图与行名对不上，都算不足。',
-    '2. 拆分建议：验收图挂错行时，写「项目」（目标验收行名）、「图片」、「描述」。已经挂对的不要写。',
-    '3. 质保：只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
-    '4. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖四件事——①这次做了哪些项目；②关键工艺与用料（不写价格）；③修完怎么确认的（验收方法与结果）；④交车叮嘱与质保。不写价格和隐私，不编没做的事。',
+    '1. 质保：只写一行期限建议，如「12 个月或 2 万公里，以先到为准」，不写范围条款。',
+    '2. 简述（静默）：120到200字，只进公网完工章与托管预览，不展示给店员。按自然顺序覆盖四件事——①这次做了哪些项目；②关键工艺与用料（不写价格）；③修完怎么确认的（施工说明与照片）；④交车叮嘱与质保。不写价格和隐私，不编没做的事。',
     '   问答（静默）：3到8条，用于公开案例页与托管预览（不展示在交车页）：问句用消费者真实会问的自然问法，尽量带上车型与项目并含「这例」。优先覆盖①本次维修注意事项（修后护理、复查时机、禁忌、质保与返修）至少各一条；②同类问题修前怎么判断和由这例稍作延伸的普遍问题，答句末尾点明「具体以到店检测为准」。',
     '   图说：对本次附图（图1、图2…）各写一句15到30字的公开图说，描述画面可见的部件、动作或状态；只写与维修和车辆直接相关的主体，不写推测结论，不写车牌与人脸。',
+    '3. 提醒：给店员 0 到 3 条交车提醒（如交付前绕车检查、钥匙与旧件交接、质保说明），写「标题」「正文」，不重复施工内容，不要求补拍。',
     '',
     `参考材料：${JSON.stringify(safeFacts)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"验收":[{"项目":"左下摆臂胶套更换","类别":"施工","证据":"充分","建议结果":"合格","描述":"更换了开裂的下摆臂胶套，螺栓已复紧，安装位无渗油。","补充建议":"","依据":"图1 举升下胶套安装到位"},{"项目":"变速箱油更换","类别":"施工","证据":"不足","建议结果":"","描述":"","补充建议":"补拍放油口旧油颜色和加注新油的照片","依据":"只有工单文字，没有该项验收图"},{"项目":"外观","类别":"外观","证据":"不足","建议结果":"","描述":"","补充建议":"绕车补拍车头、车尾、左右侧各一张","依据":"还没有外观图或文字"}],"拆分建议":[{"项目":"外观","图片":["图3"],"描述":"这张是整车外观。"}],"质保":"12 个月或 2 万公里，以先到为准","简述":"…120到200字…","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"}],"图说":[{"图":"图1","说":"举升后安装到位的下摆臂胶套。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"质保":"12 个月或 2 万公里，以先到为准","简述":"…120到200字…","问答":[{"问":"这例下摆臂胶套换完要注意什么？","答":"这例已更换新胶套并做过路试，近期少过剧烈颠簸，磨合几天。"}],"图说":[{"图":"图1","说":"举升后安装到位的下摆臂胶套。"}],"提醒":[{"标题":"交付前绕车检查","正文":"确认外观照已拍、车内物品已清点后再交钥匙。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 

@@ -4,7 +4,6 @@
 const {
   ownerFindingResultLabel,
   REPAIR_CONFIRM_COPY,
-  unbuiltReasonLabel,
 } = require('../constants/service-flow-nodes')
 const { quoteFace, resolveQuoteConfirmCopy } = require('./service-flow-quote-draft')
 
@@ -327,49 +326,16 @@ function buildOwnerPreviewDoc(input = {}) {
       .map((row) => ({
         name: String((row && (row.name || row.partName)) || '').trim(),
         brand: String((row && row.brand) || '').trim(),
+        material: String((row && row.material) || '').trim(),
+        qty: String((row && row.qty) || '').trim(),
         note: String((row && (row.note || row.caption)) || '').trim(),
         amount: row && row.amount != null ? row.amount : '',
+        // 施工说明 + 图片即验收：报告项目清单直接带施工图
+        images: photoRows((row && row.images) || []),
       }))
       .filter((row) => row.name)
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
-    // 验收项（2026-11-10 二次收敛）：一行一项（施工项目 + 外观末行），只有图片/结果/描述
-    const acceptanceLabels = { pass: '合格', observe: '建议观察', rework: '需返工' }
-    const acceptanceTones = { pass: 'pass', observe: 'observe', rework: 'rework' }
-    const acceptanceRows = (Array.isArray(input.acceptanceItems) ? input.acceptanceItems : [])
-      .map((row, index) => {
-        const obj = row && typeof row === 'object' ? row : {}
-        const isExterior = obj.kind === 'exterior'
-        const name = String(obj.name || (isExterior ? '外观' : '')).trim()
-        if (!name) return null
-        const result = ['pass', 'observe', 'rework'].includes(obj.result) ? obj.result : ''
-        // 未施工交代（施工节点写入）：车主单只读展示「未施工 · 原因」
-        const unbuiltReason = ['system_error', 'customer_declined'].includes(obj.unbuiltReason)
-          ? obj.unbuiltReason
-          : ''
-        return {
-          id: String(obj.id || (isExterior ? 'exterior' : `acc_${index + 1}`)),
-          kind: isExterior ? 'exterior' : 'work',
-          name,
-          note: String(obj.note || obj.unbuiltNote || '').trim(),
-          images: photoRows(obj.images),
-          result,
-          resultLabel: unbuiltReason
-            ? `未施工 · ${unbuiltReasonLabel(unbuiltReason)}`
-            : result
-              ? acceptanceLabels[result]
-              : '',
-          resultTone: unbuiltReason ? 'unbuilt' : result ? acceptanceTones[result] : '',
-          unbuiltReason,
-          unbuiltNote: String(obj.unbuiltNote || '').trim(),
-          // 外观照选填（2026-11-11）：缺图如实标注，车主确认单展示「商家未留外观照」
-          missingPhoto: Boolean(isExterior && photoRows(obj.images).length === 0),
-        }
-      })
-      .filter(Boolean)
-    const acceptanceItems = acceptanceRows
-      .slice()
-      .sort((a, b) => (a.kind === 'exterior' ? 1 : 0) - (b.kind === 'exterior' ? 1 : 0))
     const lineTotal = moneySum(workItems)
     const quoted = Number(input.totalAmount)
     const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
@@ -379,7 +345,6 @@ function buildOwnerPreviewDoc(input = {}) {
         title: '交车报告',
         styleVariant: 'document',
         storeName,
-        acceptanceItems,
         workItems,
         warrantyPeriod,
         warrantyNotes,
@@ -393,9 +358,7 @@ function buildOwnerPreviewDoc(input = {}) {
         signAtLabel: signAtLabel || '完工时间',
       },
       quoteLines: [],
-      hasBody: Boolean(
-        acceptanceItems.length || workItems.length || warrantyPeriod || warrantyNotes,
-      ),
+      hasBody: Boolean(workItems.length || warrantyPeriod || warrantyNotes),
     }
   }
   return { doc: null, quoteLines: [], hasBody: false }

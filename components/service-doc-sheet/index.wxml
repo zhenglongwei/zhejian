@@ -214,6 +214,16 @@
         <text wx:if="{{row.brand}}" class="service-doc-sheet__note">品牌：{{row.brand}}</text>
         <text wx:if="{{row.qty}}" class="service-doc-sheet__note">数量：{{row.qty}}</text>
         <text wx:if="{{row.note}}" class="service-doc-sheet__note">{{row.note}}</text>
+        <view wx:if="{{row.images.length}}" class="service-doc-sheet__line-thumbs">
+          <image
+            wx:for="{{row.images}}"
+            wx:for-item="pic"
+            wx:key="url"
+            class="service-doc-sheet__line-thumb"
+            src="{{pic.url}}"
+            mode="aspectFill"
+          />
+        </view>
       </view>
       <view wx:if="{{totalAmountText}}" class="service-doc-sheet__total">
         <text class="service-doc-sheet__total-label">合计</text>

@@ -675,12 +675,12 @@ test('施工项五种状态：工单/新增 × 证据充分/不足，报价项�
   ]
   const got = parseWorkAdvice({
     证据: [
-      { 项目: '划痕修复', 证据: '不足', 缺什么: '补新旧件对比' },
-      { 项目: '平衡杆', 证据: '充分' },
+      { 项目: '划痕修复', 判定: '待确认', 依据: '只有旧件图', 缺少: '补新旧件对比' },
+      { 项目: '平衡杆', 判定: '已完成', 依据: '图1 新件安装到位' },
     ],
     填写建议: [
       { 项目: '划痕修复', 建议描述: '打磨后补漆。' },
-      { 项目: '平衡杆', 建议描述: '', 补充建议: '旧件已拍照留档。' },
+      { 项目: '平衡杆', 建议描述: '', 修改建议: '已更换平衡杆，旧件已拍照留档。' },
     ],
   }, [
     { id: 'a', name: '划痕修复', note: '', photos: 1, quoteLineId: 'ql1' },
@@ -695,15 +695,16 @@ test('施工项五种状态：工单/新增 × 证据充分/不足，报价项�
   const scratch = got.workItems.find((row) => row.name === '划痕修复')
   assert.equal(scratch.origin, 'quote')
   assert.equal(scratch.quoteLineId, 'ql1')
-  assert.equal(scratch.evidence, 'insufficient')
+  assert.equal(scratch.evidence, 'pending')
+  assert.equal(scratch.completionBasis, '只有旧件图')
   assert.equal(scratch.evidenceGap, '补新旧件对比')
   assert.equal(scratch.action, 'fill')
   assert.equal(scratch.advice.body, '打磨后补漆。')
   const bar = got.workItems.find((row) => row.name === '平衡杆')
   assert.equal(bar.origin, 'extra')
-  assert.equal(bar.evidence, 'sufficient')
-  assert.equal(bar.action, 'supplement')
-  assert.equal(bar.advice.supplement, '旧件已拍照留档。')
+  assert.equal(bar.evidence, 'done')
+  assert.equal(bar.completionBasis, '图1 新件安装到位')
+  assert.equal(bar.advice.polish, '已更换平衡杆，旧件已拍照留档。')
   assert.equal(got.quoteOnlyItems.length, 1)
   assert.equal(got.quoteOnlyItems[0].name, '底盘检查')
   assert.equal(got.quoteOnlyItems[0].kind, 'unstarted')
@@ -805,42 +806,25 @@ test('交车认统一中文信封：简述、问答、提醒', () => {
   assert.equal(got.tips.length, 1)
 })
 
-test('交车只出逐项验收与质保建议；简述问答静默、不进面板', () => {
+test('交车不再出验收建议，只出质保与交付文案', () => {
   const got = parseDeliveryAdvice({
     简述: '换了下摆臂胶套并做过路试。',
     验收: [
       { 项目: '下摆臂胶套更换', 标准: '安装到位无渗油', 怎么验: '举升目视', 建议结果: '合格', 依据: '图1' },
       { 项目: '路试', 标准: '无异响', 怎么验: '路试', 建议结果: '瞎写', 依据: '' },
     ],
+    拆分建议: [{ 项目: '外观', 图片: ['图1'], 描述: '这张是整车外观。' }],
     质保: '12 个月或 2 万公里',
     问答: [{ 问: '多久复查？', 答: '500 公里后。' }],
+    提醒: [{ 标题: '交付前绕车检查', 正文: '确认外观与物品。' }],
   })
-  assert.equal(got.acceptance.items.length, 2)
-  assert.equal(got.acceptance.items[0].result, 'pass')
-  assert.equal(got.acceptance.items[0].basis, '图1')
-  // 证据充分才可应用；非法结果不写入
-  assert.equal(got.acceptance.items[0].evidence, 'sufficient')
-  assert.equal(got.acceptance.items[1].result, '')
-  assert.equal(got.acceptance.items[1].evidence, 'insufficient')
+  // 验收已前移到施工节点：交车 AI 结果里的验收/拆分建议一律忽略
+  assert.equal(got.acceptance, null)
+  assert.deepEqual(got.groups, [])
   assert.equal(got.warranty.body, '12 个月或 2 万公里')
   assert.match(got.repairBrief, /下摆臂胶套/)
   assert.equal(got.ownerFaqs.length, 1)
-})
-
-test('交车逐项：证据充分给状态与润色文案，证据不足只提示施工节点留证不足', () => {
-  const got = parseDeliveryAdvice({
-    验收: [
-      { 项目: '变速箱油更换', 类别: '施工', 证据: '不足', 补充建议: '补拍放油口旧油颜色和加注新油的照片', 依据: '只有工单文字' },
-      { 项目: '下摆臂胶套更换', 类别: '施工', 证据: '充分', 建议结果: '建议观察', 描述: '胶套安装到位，建议观察几天是否渗油。', 依据: '图2' },
-    ],
-  })
-  assert.equal(got.acceptance.items[0].evidence, 'insufficient')
-  // 交车只做减法：不足统一写「施工节点留证不足」，不再要求补拍
-  assert.equal(got.acceptance.items[0].supplement, '施工节点留证不足')
-  assert.equal(got.acceptance.items[0].result, '')
-  assert.equal(got.acceptance.items[1].evidence, 'sufficient')
-  assert.equal(got.acceptance.items[1].result, 'observe')
-  assert.match(got.acceptance.items[1].note, /安装到位/)
+  assert.equal(got.tips.length, 1)
 })
 
 test('AI 上下文从节点 content 读主诉、检测项和图', () => {

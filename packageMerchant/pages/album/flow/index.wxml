@@ -95,82 +95,6 @@
   </view>
 </template>
 <template name="deliveryAdvicePanel">
-  <view wx:if="{{advice.acceptanceEmpty}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-lead">AI 没有返回逐项验收建议，请点「刷新」重新分析</text>
-  </view>
-  <view
-    wx:if="{{advice.acceptance && advice.acceptance.items.length}}"
-    class="merchant-flow-page__advice-sec"
-  >
-    <view class="merchant-flow-page__advice-row">
-      <text class="merchant-flow-page__advice-sec-title">验收建议</text>
-      <text class="merchant-flow-page__accept-summary">{{advice.acceptanceSummaryText}}</text>
-    </view>
-    <view class="merchant-flow-page__advice-list">
-      <view
-        wx:for="{{advice.acceptance.items}}"
-        wx:key="adviceId"
-        class="merchant-flow-page__advice-card {{item.canApply ? 'merchant-flow-page__advice-card--actionable' : ''}} {{item.tone ? 'merchant-flow-page__advice-card--' + item.tone : ''}} {{item.unbuilt ? 'merchant-flow-page__advice-card--muted' : ''}}"
-      >
-        <view class="merchant-flow-page__advice-card-head">
-          <view class="merchant-flow-page__advice-card-title-wrap">
-            <text class="merchant-flow-page__advice-card-title">{{item.kind === 'exterior' ? '外观' : item.name}}</text>
-            <text wx:if="{{item.unbuilt}}" class="merchant-flow-page__accept-badge">{{item.unbuiltReasonLabel || '未施工'}}</text>
-            <text
-              wx:if="{{item.resultLabel}}"
-              class="merchant-flow-page__accept-badge merchant-flow-page__accept-badge--{{item.tone || 'muted'}}"
-            >{{item.resultLabel}}</text>
-            <text
-              wx:elif="{{item.evidence === 'insufficient' && !item.unbuilt}}"
-              class="merchant-flow-page__accept-badge merchant-flow-page__accept-badge--muted"
-            >施工节点留证不足</text>
-          </view>
-          <text
-            wx:if="{{item.canApply}}"
-            class="merchant-flow-page__advice-apply"
-            data-kind="acceptance"
-            data-advice-id="{{item.adviceId}}"
-            catchtap="onApplyDeliveryAdvice"
-          >应用</text>
-          <text wx:elif="{{item.unbuilt}}" class="merchant-flow-page__advice-state">已交代</text>
-          <text wx:elif="{{item.resultLabel || item.note}}" class="merchant-flow-page__advice-state">已填</text>
-        </view>
-        <view wx:if="{{item.supplement && !item.unbuilt}}" class="merchant-flow-page__advice-card-field">
-          <text class="merchant-flow-page__advice-card-label">补充建议</text>
-          <text class="merchant-flow-page__advice-card-value">{{item.supplement}}</text>
-        </view>
-        <text wx:if="{{item.note}}" class="merchant-flow-page__advice-card-text">{{item.note}}</text>
-        <view wx:if="{{item.basis}}" class="merchant-flow-page__advice-card-field">
-          <text class="merchant-flow-page__advice-card-label">依据</text>
-          <text class="merchant-flow-page__advice-card-value">{{item.basis}}</text>
-        </view>
-      </view>
-    </view>
-  </view>
-  <view wx:if="{{advice.hasSplitGroups}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-sec-title">图片挪行建议</text>
-    <view class="merchant-flow-page__advice-list">
-      <view
-        wx:for="{{advice.splitGroups}}"
-        wx:key="id"
-        class="merchant-flow-page__advice-card {{item.canApply ? 'merchant-flow-page__advice-card--actionable' : ''}}"
-      >
-        <view class="merchant-flow-page__advice-card-head">
-          <view class="merchant-flow-page__advice-card-title-wrap">
-            <text class="merchant-flow-page__advice-card-title">{{item.partName}}</text>
-          </view>
-          <text
-            wx:if="{{item.canApply}}"
-            class="merchant-flow-page__advice-apply"
-            data-kind="split"
-            data-advice-id="{{item.id}}"
-            catchtap="onApplyDeliveryAdvice"
-          >应用</text>
-        </view>
-        <text wx:if="{{item.body}}" class="merchant-flow-page__advice-card-text">{{item.body}}</text>
-      </view>
-    </view>
-  </view>
   <view wx:if="{{advice.warrantyText}}" class="merchant-flow-page__advice-sec">
     <text class="merchant-flow-page__advice-sec-title">质保期限建议</text>
     <view class="merchant-flow-page__advice-card {{advice.canApplyWarranty ? 'merchant-flow-page__advice-card--actionable' : ''}}">
@@ -986,7 +910,8 @@
                             />
                           </view>
                           <view class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">施工说明</text>
+                            <text wx:if="{{!readOnly}}" class="text-caption text-secondary">写清做了什么、怎么做的、结果如何；说明 + 图片即视为验收通过</text>
                             <textarea
                               class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                               placeholder="{{finding.captionPlaceholder || workCaptionPlaceholder}}"
@@ -1203,22 +1128,15 @@
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <view class="merchant-flow-page__key-fill-field">
                   <view class="merchant-flow-page__key-fill-label-row">
-                    <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">交付验收</text>
-                    <text class="merchant-flow-page__key-fill-req">（施工节点已留证，这里只读确认）</text>
+                    <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">交车外观照</text>
+                    <text class="merchant-flow-page__key-fill-req">（选填）</text>
                   </view>
-                  <text wx:if="{{!acceptanceWorkCount}}" class="text-caption text-secondary merchant-flow-page__delivery-hint">还没有施工项目：请先在施工节点完成施工项并留证。</text>
-                  <view wx:for="{{acceptanceItems}}" wx:key="id" class="merchant-flow-page__owner-faq merchant-flow-page__acc-row">
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">整车外观留档；不拍也可以，完成后确认豁免即可。</text>
+                  <view wx:for="{{acceptanceItems}}" wx:key="id" wx:if="{{item.kind === 'exterior'}}" class="merchant-flow-page__owner-faq merchant-flow-page__acc-row">
                     <view class="merchant-flow-page__owner-faq-head">
-                      <text class="text-body merchant-flow-page__acc-name">{{item.kind === 'exterior' ? '外观（整车，选填）' : item.name}}</text>
-                      <text wx:if="{{item.unbuiltReason}}" class="merchant-flow-page__acc-unbuilt">未施工 · {{item.unbuiltReasonLabel || '已交代'}}</text>
-                      <text wx:elif="{{item.resultLabel}}" class="merchant-flow-page__acc-badge merchant-flow-page__acc-badge--{{item.resultTone}}">{{item.resultLabel}}</text>
-                      <text wx:elif="{{item.photosMissing}}" class="merchant-flow-page__acc-badge merchant-flow-page__acc-badge--muted">施工节点未留证</text>
-                      <text wx:elif="{{item.kind !== 'exterior'}}" class="merchant-flow-page__acc-badge merchant-flow-page__acc-badge--ok">已留证</text>
+                      <text class="text-body merchant-flow-page__acc-name">外观（整车，选填）</text>
                     </view>
-                    <view wx:if="{{item.unbuiltReason}}" class="merchant-flow-page__acc-unbuilt-body">
-                      <text class="text-caption text-secondary">{{item.unbuiltNote}}</text>
-                    </view>
-                    <block wx:else>
+                    <block>
                       <view wx:if="{{item.images.length}}" class="merchant-flow-page__delivery-pool">
                         <view
                           wx:for="{{item.images}}"
@@ -1265,8 +1183,6 @@
                           <text class="text-caption merchant-flow-page__delivery-add-label">外观照（选填）</text>
                         </view>
                       </view>
-                      <text wx:if="{{item.note}}" class="text-caption text-secondary merchant-flow-page__acc-note">{{item.note}}</text>
-                      <text wx:elif="{{item.kind !== 'exterior' && item.photosMissing}}" class="text-caption merchant-flow-page__acc-note merchant-flow-page__acc-note--muted">施工节点未留证，交车不再补拍；如证据不足请走「发现问题」处理。</text>
                     </block>
                   </view>
                 </view>
@@ -2083,7 +1999,7 @@
                 <view
                   wx:for="{{workAdvice.workItems}}"
                   wx:key="id"
-                  class="merchant-flow-page__advice-card {{item.canApply || item.canSupplement ? 'merchant-flow-page__advice-card--actionable' : ''}}"
+                  class="merchant-flow-page__advice-card {{item.canApply || item.canPolish || item.canSupplement ? 'merchant-flow-page__advice-card--actionable' : ''}}"
                 >
                   <view class="merchant-flow-page__advice-card-head">
                     <view class="merchant-flow-page__advice-card-title-wrap">
@@ -2098,14 +2014,22 @@
                       catchtap="onApplyWorkItemAdvice"
                     >应用</text>
                     <text
+                      wx:elif="{{item.canPolish}}"
+                      class="merchant-flow-page__advice-apply"
+                      data-id="{{item.id}}"
+                      catchtap="onApplyWorkItemAdvice"
+                    >润色</text>
+                    <text
                       wx:elif="{{item.canSupplement}}"
                       class="merchant-flow-page__advice-apply"
                       data-id="{{item.id}}"
                       catchtap="onApplyWorkItemAdvice"
                     >补充</text>
                   </view>
+                  <text wx:if="{{item.completionBasis}}" class="merchant-flow-page__advice-card-text">依据：{{item.completionBasis}}</text>
                   <text wx:if="{{item.evidenceGap}}" class="merchant-flow-page__advice-card-text">缺：{{item.evidenceGap}}</text>
                   <text wx:if="{{item.adviceBody}}" class="merchant-flow-page__advice-card-text">{{item.adviceBody}}</text>
+                  <text wx:if="{{item.polish}}" class="merchant-flow-page__advice-card-text">润色建议：{{item.polish}}</text>
                   <text wx:if="{{item.supplement}}" class="merchant-flow-page__advice-card-text">补充：{{item.supplement}}</text>
                   <view wx:if="{{item.photos.length}}" class="merchant-flow-page__advice-card-media">
                     <image
