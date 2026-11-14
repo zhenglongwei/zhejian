@@ -2602,6 +2602,25 @@ function foldInspectionPendingDraft(photoDraft = {}) {
   return { ...photoDraft, findings, pendingImages: [] }
 }
 
+/**
+ * 历次报价汇总：首报 + 所有未撤销的补充报价（可用 excludeNodeId 排除当前这张）。
+ * 后续 AI（补充报价、工单核对、交车检查）判断「这项报过没有」都以这份汇总为准，
+ * 避免第二次补充报价又把上一次已报的项目建议一遍。
+ */
+function collectQuotedLines(nodes = [], options = {}) {
+  const excludeNodeId = String((options && options.excludeNodeId) || '')
+  const list = (Array.isArray(nodes) ? nodes : [])
+    .slice()
+    .sort((a, b) => Number((a && a.sortOrder) || 0) - Number((b && b.sortOrder) || 0))
+  return buildQuoteLedger(list).lines
+    .filter((line) => !excludeNodeId || String(line.quoteNodeId || '') !== excludeNodeId)
+    .map((line) => ({
+      ...line,
+      sourceNodeId: String(line.quoteNodeId || ''),
+      source: line.isAddon ? 'addon' : 'first',
+    }))
+}
+
 module.exports = {
   mapPhotoRows,
   mediaKey,
@@ -2635,6 +2654,7 @@ module.exports = {
   buildAcceptanceRowsFromWorkItems,
   normalizeQuoteLine,
   buildAddonDraftFromWorkFindings,
+  collectQuotedLines,
   addonDraftStillBlank,
   listQuoteLineEvidenceUrls,
   isQuoteEvidenceFinding,

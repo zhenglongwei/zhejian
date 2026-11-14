@@ -28,7 +28,7 @@ const { isAckStale, canReuseReviewThisRound } = require('../utils/node-ai-review
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 const { resolveShared } = require('../utils/resolve-shared')
-const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+const { contentOfFlowNode, collectQuotedLines } = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -194,14 +194,16 @@ function buildReviewContext(album, node, extra = {}) {
   const doc = (node.document && node.document.payload) || {}
   const reviewStep =
     extra.step || (node.aiReview && node.aiReview.reviewStep) || resolveReviewStep(node.kind)
-  const quoteNode = extra.quoteNode || readFlowNodes(album).find(
+  const flowNodes = readFlowNodes(album)
+  const quoteNode = extra.quoteNode || flowNodes.find(
     (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
   )
   const quotePayload = (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
-  const reportNode = readFlowNodes(album).find((item) => item && item.kind === 'inspection_report')
+  const reportNode = flowNodes.find((item) => item && item.kind === 'inspection_report')
   const reportPayload = (reportNode && reportNode.document && reportNode.document.payload) || {}
+  const allQuoteLines = collectQuotedLines(flowNodes)
   /**
-   * 只读参考：已确认（或已随通知送达）的检测报告与报价方案。
+   * 只读参考：检测报告与历次报价汇总（首报 + 各次未撤销补充报价）。
    * 只用来把本步描述写准；**不得**对它提修改意见，也**不写回**。
    * 与「本步检查对象」分开存放，避免模型把两者混为一谈
    * （docs/04_维修过程相册/26_ 确认前检查 · 哪些步）
@@ -210,9 +212,11 @@ function buildReviewContext(album, node, extra = {}) {
     reportFindings: [],
     quoteLines: [],
   }
-  const fillConfirmedReference = () => {
+  const fillConfirmedReference = (excludeNodeId = '') => {
     reference.reportFindings = Array.isArray(reportPayload.findings) ? reportPayload.findings : []
-    reference.quoteLines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
+    reference.quoteLines = excludeNodeId
+      ? collectQuotedLines(flowNodes, { excludeNodeId })
+      : allQuoteLines
   }
   let findings = draft.findings || doc.findings || []
   let quoteLines = extra.quoteLines || quotePayload.lines || []
@@ -231,7 +235,7 @@ function buildReviewContext(album, node, extra = {}) {
     // 工单定稿：这份单据如实记录了施工过程，要拿它核对检测报告与报价方案。
     // 检测/报价都是定好的、不可改；工单完成不再排队，对账改在交车
     findings = Array.isArray(draft.findings) ? draft.findings : []
-    quoteLines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
+    quoteLines = allQuoteLines
     orderItems = findings.map((row) => ({
       name: text(row.partName),
       brand: text(row.brand),
@@ -255,7 +259,9 @@ function buildReviewContext(album, node, extra = {}) {
         url: images[0] || '',
       },
     ])
+    // 当前补充报价是检查对象；历史依据排除当前单，避免把自己当已报项目
     quoteLines = Array.isArray(doc.lines) ? doc.lines : []
+    fillConfirmedReference(node.id)
   } else if (
     reviewStep === 'delivery' &&
     (node.kind === 'repair_report' || node.kind === 'delivery_photos')
@@ -490,7 +496,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     ctx.rubric.step === 'quote_check'
       ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是给店员看的检查结果，不写进车主字段。issues/omissions/objections 每条必须是 {"title","body"}：title 4到12个字写部位或问题名，body 一两句人话。不要写发现项序号、字段名、规范、违反规定。omissions 只提醒可能漏查/漏报，不要编成收费行，不要放进 suggestions。objections 每条用 ask、heard、ours、say：ask 是车主原话，heard 是没看见这台车时的常见说法，ours 只引用本单已有内容，say 是当面怎么讲。不要把这四行写进车主字段，不要改金额。事故车不要写维修费数字。priceBands 按已有报价行：换件/用料 kind=parts 给 oem/brand/economy；纯工时/拆检 kind=labor 给 dealer(4S)/indie(修理厂)；宽区间不是实时行情。不要改金额，不要自动加报价行。'
       : ctx.rubric.step === 'addon_check'
-        ? '这是通知车主前的核对。suggestions 只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。merchantBrief 同样要核已写内容和可能漏了什么，漏项只提醒不自动加行。不要改金额。不要改已经确认过的首次检测和首次报价。'
+        ? '这是通知车主前的核对。suggestions 只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。merchantBrief 同样要核已写内容和可能漏了什么，漏项只提醒不自动加行。confirmedReference.quoteLines 是首报与以往未撤销补充报价的汇总，已覆盖项目不要当作漏项重复提醒。不要改金额。不要改已经确认过的检测和历次报价。'
         : ctx.rubric.step === 'delivery'
           ? '这是完工通知车主验收前的整单对账。接车、检测、已确认报价只作背景，不要建议改那些确认件。只指出工单、验收照片、验收说明（标准/过程/结果）、质保的错项或漏项：验收说明空着或只有套话（如「一切正常」）要提醒补写实际的验收方法和结果。已经写了的字不要润色、不要给 suggestedText。不要把意见留到公开案例。不要改金额。'
           : ctx.rubric.step === 'work'
@@ -990,8 +996,7 @@ async function maybeStartAiReview({ album, node, merchantId, payload = {} }) {
   const quoteNode = readFlowNodes(album).find(
     (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
   )
-  const quoteFromAlbum =
-    (quoteNode && quoteNode.document && quoteNode.document.payload && quoteNode.document.payload.lines) || []
+  const quoteFromAlbum = collectQuotedLines(readFlowNodes(album))
   const quoteLines =
     kind === 'quote_confirm' && Array.isArray(doc.lines)
       ? doc.lines
@@ -1064,6 +1069,7 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
 }
 
 module.exports = {
+  buildReviewContext,
   sanitizeAiReviewForView,
   resolveCapabilityForMerchant,
   publicNodeAiReviewCapability,

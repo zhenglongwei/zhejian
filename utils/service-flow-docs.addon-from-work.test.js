@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const {
   buildAddonDraftFromWorkFindings,
   addonDraftStillBlank,
+  collectQuotedLines,
 } = require('./service-flow-docs')
 
 test('no outside-quote items stay a blank addon draft', () => {
@@ -69,4 +70,53 @@ test('blank detector ignores empty shell lines', () => {
     }),
     false,
   )
+})
+
+test('历次报价汇总按节点顺序包含补充报价，排除当前单和撤销单', () => {
+  const nodes = [
+    {
+      id: 'q2',
+      kind: 'quote_confirm',
+      insertedReason: 'addon',
+      sortOrder: 3,
+      content: { lines: [{ name: '第二次补充项目', amount: '300' }] },
+      document: { status: 'draft', payload: {} },
+    },
+    {
+      id: 'q0',
+      kind: 'quote_confirm',
+      sortOrder: 1,
+      content: { lines: [{ id: 'l0', name: '首次报价项目', amount: 100, note: '首报' }, { name: ' ' }] },
+      document: { status: 'confirmed', payload: {} },
+    },
+    {
+      id: 'q1',
+      kind: 'quote_confirm',
+      insertedReason: 'addon',
+      sortOrder: 2,
+      content: {},
+      document: {
+        status: 'confirmed',
+        payload: { lines: [{ name: '第一次补充项目', amount: '200' }] },
+      },
+    },
+    {
+      id: 'qx',
+      kind: 'quote_confirm',
+      insertedReason: 'addon',
+      sortOrder: 4,
+      content: { lines: [{ name: '已撤销项目', amount: '400' }] },
+      document: { status: 'cancelled', payload: {} },
+    },
+  ]
+
+  const all = collectQuotedLines(nodes)
+  assert.deepEqual(all.map((row) => row.name), ['首次报价项目', '第一次补充项目', '第二次补充项目'])
+  assert.deepEqual(all.map((row) => row.source), ['first', 'addon', 'addon'])
+  assert.deepEqual(all.map((row) => row.quoteLabel), ['首次报价', '补充报价1', '补充报价2'])
+  assert.equal(all[0].amount, '100')
+
+  const prior = collectQuotedLines(nodes, { excludeNodeId: 'q2' })
+  assert.deepEqual(prior.map((row) => row.name), ['首次报价项目', '第一次补充项目'])
+  assert.equal(prior.some((row) => row.name === '已撤销项目'), false)
 })

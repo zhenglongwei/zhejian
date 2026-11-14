@@ -15,7 +15,11 @@ const {
 } = require('../utils/quote-assist')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 
-const { buildQuoteDraft, contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+const {
+  buildQuoteDraft,
+  contentOfFlowNode,
+  collectQuotedLines,
+} = resolveShared('utils/service-flow-docs.js')
 
 const jobsInFlight = new Set()
 
@@ -103,17 +107,16 @@ function buildAssistFingerprint(album, targetNode) {
   const nodes = readFlowNodes(album)
   const target = targetNode || findQuoteTarget(nodes)
   if (isAddonQuote(target)) {
-    const firstQuote = findQuoteTarget(nodes)
     const discovery = addonDiscoveryOf(target)
     return crypto
       .createHash('sha1')
       .update(
         JSON.stringify({
-          v: 'addon-assist-v2',
+          v: 'addon-assist-v3',
           id: text(target.id),
           d: { note: discovery.note, images: discovery.images },
           w: collectWorkFindings(nodes),
-          q: quoteLinesOf(firstQuote),
+          q: collectQuotedLines(nodes, { excludeNodeId: target.id }),
           t: quoteLinesOf(target),
         }),
       )
@@ -288,7 +291,7 @@ async function runGenerateLlm(facts, category) {
 }
 
 /**
- * 补充报价 AI：新发现说明/照片 + 施工记录 + 首次报价（排除已报项目）+ 当前补充报价行。
+ * 补充报价 AI：新发现说明/照片 + 施工记录 + 历次报价汇总（排除已报项目）+ 当前补充报价行。
  * 先给处置结论（并入原报价 / 单独列 / 先拆检），再给逐项必要性、市场价区间、是否可选。
  */
 async function runAddonGenerateLlm(facts, category) {
@@ -299,9 +302,9 @@ async function runAddonGenerateLlm(facts, category) {
   const instruction = [
     'You assist a Chinese auto shop clerk on the ADD-ON quote step (补充报价).',
     'Context: extra problems were found either mid-work or during handover. The add-on quote is an independent node, not an attachment to the work node.',
-    'Evidence available (use all of it): discoveryNote = what the clerk wrote about the new problem; discoveryImageCount = how many photos the clerk attached; workFindings = work records; firstQuoteLines = already quoted (never re-quote); addonLines = rows already on this add-on quote; inspection = inspection report findings.',
+    'Evidence available (use all of it): discoveryNote = what the clerk wrote about the new problem; discoveryImageCount = how many photos the clerk attached; workFindings = work records; priorQuoteLines = the first quote plus all other non-cancelled add-on quotes (already quoted, never re-quote); addonLines = rows already on this add-on quote; inspection = inspection report findings.',
     'Required output 1 — disposition: decide how to handle this discovery.',
-    '- verdict "merge": the new problem can be folded into an existing first-quote line (same part/service/area). Put the target line or category in "target".',
+    '- verdict "merge": the new problem can be folded into an existing prior-quote line (same part/service/area). Put the target line or category in "target".',
     '- verdict "separate": it must be its own add-on quote line (why it cannot merge).',
     '- verdict "inspect": need teardown / more photos / a test drive before pricing.',
     '- reason: one short paragraph in owner-friendly Simplified Chinese explaining the call.',
@@ -309,8 +312,8 @@ async function runAddonGenerateLlm(facts, category) {
     '- name, note, kind=parts|labor, market bands, reason (necessity: why now + risk if skipped), optional (true when the owner may decline).',
     'Hard rules:',
     '- Base rows on discoveryNote + workFindings + inspection. Never invent defects with no evidence.',
-    '- Exclude anything already covered by firstQuoteLines (same part or same service, even if wording differs). Never re-quote the same service.',
-    '- outsideQuote=true findings always qualify. Findings without a matching quoteLineId whose name is not covered by firstQuoteLines also qualify.',
+    '- Exclude anything already covered by priorQuoteLines (same part or same service, even if wording differs). Never re-quote the same service.',
+    '- outsideQuote=true findings qualify only when not already covered by priorQuoteLines. Findings without a matching quoteLineId follow the same rule.',
     '- Check/inspection-only findings with no repair action must NOT become charge lines.',
     '- One row = one concrete billable service. No umbrella titles such as 建议补充常规保养项目.',
     '- kind=parts: oem/brand/economy bands like "约800-1500", leave dealer/indie empty.',
@@ -430,7 +433,7 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
     })
     let facts
     if (addon) {
-      // 补充报价：施工记录是唯一依据；首次报价行只用于排除重复
+      // 补充报价：施工记录是新项目依据；首报 + 以往未撤销补充报价只用于排除重复
       facts = {
         constraint: {
           category: draft.category,
@@ -442,10 +445,11 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
           discoveryNote: discovery.note,
           discoveryImageCount: discovery.images.length,
           workFindings: workFindings.slice(0, 40),
-          firstQuoteLines: quoteLinesOf(findQuoteTarget(nodes)).map((row) => ({
+          priorQuoteLines: collectQuotedLines(nodes, { excludeNodeId: quote.id }).map((row) => ({
             name: row.name,
             amount: row.amount,
             note: row.note,
+            source: row.quoteLabel,
           })),
           addonLines: quoteLines.map((row) => ({
             name: row.name,
