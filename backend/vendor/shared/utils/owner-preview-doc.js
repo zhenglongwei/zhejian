@@ -338,6 +338,8 @@ function buildOwnerPreviewDoc(input = {}) {
         qty: String((row && row.qty) || '').trim(),
         note: String((row && (row.note || row.caption)) || '').trim(),
         amount: row && row.amount != null ? row.amount : '',
+        // 返工重新施工的记录如实保留，报告上标「返工」
+        rework: Boolean(row && row.rework),
         // 施工说明 + 图片即验收：报告项目清单直接带施工图
         images: photoRows((row && row.images) || []),
       }))
