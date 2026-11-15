@@ -65,7 +65,7 @@
 ## 10. 联调与部署
 - [x] 10.1 `cd backend && npm run sync:shared-utils`
 - [x] 10.2 本地静态验证：`node --check` + 报告构建器冒烟（接车/交车里程、返工、验收项）
-- [ ] 10.3 本地 git 提交
-- [ ] 10.4 `git push staging main`
-- [ ] 10.5 预发部署：`git pull` → `npm install` → `sync:shared-utils` → `db:setup:prod` → `pm2 restart zhejian-api-staging` → 健康检查
+- [x] 10.3 本地 git 提交
+- [x] 10.4 `git push staging main`
+- [x] 10.5 预发部署：`git pull` → `npm install` → `sync:shared-utils` → `db:setup:prod` → `pm2 restart zhejian-api-staging` → 健康检查
 - [ ] 10.6 预发按验收清单逐条验证，通过后再申请生产发布
