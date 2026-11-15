@@ -199,11 +199,9 @@ function addonQuoteHasProcess(node) {
   const addon = node.kind === 'addon_quote_confirm' || String(node.insertedReason || '') === 'addon'
   if (!addon) return node.kind === 'quote_confirm'
   const status = String((node.document && node.document.status) || 'draft')
-  // draft 状态 = 用户只是打开过补充报价、还没点"通知车主"。
-  // 即使有 seed 进来的 outsideQuote 工单项名（系统自动铺的），也不算"已保存"。
-  // 只有状态离开 draft（pending_confirm/confirmed/delivered/cancelled）才算。
-  if (status === 'draft') return false
-  return status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled'
+  // 节点一旦插入就是商家真实在做的工作：中途退出、AI 分析未完成都不能让它从流程里消失。
+  // 只有主动「撤销补充报价」才会移除节点（连带移除其补充施工）。
+  return status !== 'cancelled'
 }
 
 function bucketOnTimeline(bucket) {
@@ -242,7 +240,7 @@ function bucketDone(bucket) {
   const nodes = bucket.nodes || []
   if (!nodes.length) return true
   if (String(bucket.key).startsWith('quote') && bucket.key !== 'quote:0') {
-    // 未保存（draft）的补充报价：时间线里不展示（见 bucketOnTimeline），也不算完成
+    // 补充报价只要节点还在就要展示；是否完成仍按节点本身状态判断
     if (!nodes.some((node) => addonQuoteHasProcess(node))) return false
   }
   return nodes.every((node) => isFlowNodeDone(node))
