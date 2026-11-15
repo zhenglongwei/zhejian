@@ -3251,8 +3251,13 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
   const vehicleBrand = String(payload.vehicleBrand || vehicle.brand || '').trim()
   const vehicleSeries = String(payload.vehicleSeries || vehicle.series || '').trim()
   const mileageKm = String(payload.mileageKm || '').trim()
+  const albumMileage = Number(vehicle.mileage)
   const mileageText = String(
-    payload.mileageText || (mileageKm ? `里程 ${mileageKm} km` : ''),
+    payload.mileageText ||
+      (mileageKm ? `里程 ${mileageKm} km` : '') ||
+      (Number.isFinite(albumMileage) && albumMileage > 0
+        ? `里程 ${albumMileage.toLocaleString('zh-CN')} km`
+        : ''),
   ).trim()
   const reportDate = String(
     payload.reportDate || doc.confirmedAt || doc.deliveredAt || '',
@@ -3324,6 +3329,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
     storeName: (finishDoc && finishDoc.storeName) || storeName,
     metaLine:
       (finishDoc && finishDoc.metaLine) ||
+      (snapDoc && snapDoc.metaLine) ||
       buildDocMetaLine({
         reportDate,
         vehicleBrand,
