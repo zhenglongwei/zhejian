@@ -2106,6 +2106,7 @@ Page({
       const workAdvice = this.decorateWorkAdvice(
         pickWorkAdviceRaw(flowNodes, active && active.id),
         sections,
+        active,
       )
       const deliveryAdvice =
         (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice || null
@@ -6028,7 +6029,31 @@ Page({
     }
   },
 
-  decorateWorkAdvice(raw, sections) {
+  /**
+   * 施工面板的报价项只取本节点对应的报价单：
+   * 原施工＝首次报价；补充施工＝它自己的补充报价；返工施工没有新报价单。
+   */
+  resolveWorkQuoteLines(scopeNode) {
+    const nodes = Array.isArray(this._flowNodes) ? this._flowNodes : []
+    const node =
+      scopeNode && scopeNode.kind === 'work'
+        ? nodes.find((row) => row && row.id === scopeNode.id) || scopeNode
+        : null
+    if (!node) return collectConfirmedQuoteLines(nodes)
+    const reason = String(node.insertedReason || '').trim()
+    if (reason === 'rework') return []
+    if (reason === 'addon') {
+      const parent = nodes.find((row) => row && row.id === String(node.parentNodeId || ''))
+      return parent ? collectConfirmedQuoteLines([parent]) : []
+    }
+    const original = nodes.find(
+      (row) => row && row.kind === 'quote_confirm' && String(row.insertedReason || '') !== 'addon',
+    )
+    return original ? collectConfirmedQuoteLines([original]) : []
+  },
+
+  decorateWorkAdvice(raw, sections, scopeNode) {
+    const scope = scopeNode || this.data.activeNode
     if (!raw || typeof raw !== 'object') {
       return { status: '', isWaiting: false, hasContent: false, hasLines: false, lines: [], items: [], sequence: [], splitGroups: [], newItems: [] }
     }
@@ -6261,8 +6286,8 @@ Page({
           : '报价有这项，工单和施工图都还没有。',
       })
     })
-    // 报价单口径：历次报价（首次 + 各次补充报价）实时汇总；AI 结果里还没有的行也补进列表
-    const liveQuoteLines = collectConfirmedQuoteLines(this._flowNodes || [])
+    // 报价单口径：只取本施工节点对应的报价单，AI 结果里还没有的行也补进列表
+    const liveQuoteLines = this.resolveWorkQuoteLines(scope)
     const listedQuoteNames = new Set(quoteAdvice.map((row) => nameKey(row.name)))
     liveQuoteLines.forEach((line) => {
       const key = nameKey(line.name)
