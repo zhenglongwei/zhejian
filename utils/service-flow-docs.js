@@ -2258,6 +2258,8 @@ function buildRepairReportPayload({
       qty: String(item.qty || '').trim(),
       amount: parseAmount(item.amount) == null ? 0 : parseAmount(item.amount),
       note: String(item.note || '').trim(),
+      // 返工重新施工的记录如实保留，报告上标「返工」
+      rework: Boolean(item.rework),
       images,
     }
   })

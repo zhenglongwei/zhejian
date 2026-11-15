@@ -239,10 +239,15 @@ function buildRenderDocForNode(node = {}, album = {}, allNodes = []) {
     const intakeMileageText =
       String(content.intakeMileageText || '').trim() ||
       (intakeKm > 0 ? `接车里程 ${intakeKm.toLocaleString('zh-CN')} km` : '')
+    // 交车里程：优先用生成报告时写好的文案，缺失时由交付里程兜底
+    const deliveryKm = Number(parseMileageKm(content.deliveryMileage)) || 0
+    const mileageText =
+      String(content.mileageText || '').trim() ||
+      (deliveryKm > 0 ? `交车里程 ${deliveryKm.toLocaleString('zh-CN')} km` : '')
     const built = buildOwnerPreviewDoc({
       family: 'finish',
       album: previewAlbumOf(album),
-      mileageText: String(content.mileageText || '').trim(),
+      mileageText,
       intakeMileageText,
       workItems: Array.isArray(content.workItems) ? content.workItems : [],
       totalAmount: content.totalAmount,

@@ -1655,7 +1655,7 @@ Page({
         delivererName: String(this.data.delivererName || '').trim(),
         // 交付确认（2026-11-13）：交车时间、交付里程必填；finishedAt 保留兼容旧读侧
         deliveredAt: String(this.data.finishedAt || '').trim(),
-        deliveryMileage: String(this.data.deliveryMileage || '').trim(),
+        deliveryMileage: String(this.data.deliveryMileage || this._albumMileage || '').trim(),
         finishedAt: String(this.data.finishedAt || '').trim(),
         exteriorPhotoWaived: this.data.exteriorPhotoWaived === true,
         confirmCopy: REPAIR_CONFIRM_COPY,
@@ -2254,6 +2254,7 @@ Page({
           ? String(
               parseMileageKm(photoDraft.deliveryMileage) ||
                 parseMileageKm(this.data.deliveryMileage) ||
+                this._albumMileage ||
                 '',
             )
           : this.data.deliveryMileage,
