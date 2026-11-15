@@ -2106,7 +2106,6 @@ Page({
       const workAdvice = this.decorateWorkAdvice(
         pickWorkAdviceRaw(flowNodes, active && active.id),
         sections,
-        active,
       )
       const deliveryAdvice =
         (flowNodes.find((n) => n && n.kind === 'delivery_photos') || {}).deliveryAdvice || null
@@ -6029,31 +6028,7 @@ Page({
     }
   },
 
-  /**
-   * 施工面板的报价项只取本节点对应的报价单：
-   * 原施工＝首次报价；补充施工＝它自己的补充报价；返工施工没有新报价单。
-   */
-  resolveWorkQuoteLines(scopeNode) {
-    const nodes = Array.isArray(this._flowNodes) ? this._flowNodes : []
-    const node =
-      scopeNode && scopeNode.kind === 'work'
-        ? nodes.find((row) => row && row.id === scopeNode.id) || scopeNode
-        : null
-    if (!node) return collectConfirmedQuoteLines(nodes)
-    const reason = String(node.insertedReason || '').trim()
-    if (reason === 'rework') return []
-    if (reason === 'addon') {
-      const parent = nodes.find((row) => row && row.id === String(node.parentNodeId || ''))
-      return parent ? collectConfirmedQuoteLines([parent]) : []
-    }
-    const original = nodes.find(
-      (row) => row && row.kind === 'quote_confirm' && String(row.insertedReason || '') !== 'addon',
-    )
-    return original ? collectConfirmedQuoteLines([original]) : []
-  },
-
-  decorateWorkAdvice(raw, sections, scopeNode) {
-    const scope = scopeNode || this.data.activeNode
+  decorateWorkAdvice(raw, sections) {
     if (!raw || typeof raw !== 'object') {
       return { status: '', isWaiting: false, hasContent: false, hasLines: false, lines: [], items: [], sequence: [], splitGroups: [], newItems: [] }
     }
@@ -6211,21 +6186,45 @@ Page({
       const note = String(raw.note || '').trim()
       if (note) lines.push({ id: 'note', body: note, canApply: false })
     }
-    // 新契约：报价项建议 / 工单项；报价待施工合并进第一条列表，不再单列
+    // 报价项建议只保留模型给了「做法 / 拍照建议」的内容，按报价行挂到工单项上
+    const quoteAdviceRows = (Array.isArray(raw.quoteAdvice) ? raw.quoteAdvice : [])
+      .map((row) => {
+        const name = String((row && row.name) || '').trim()
+        const how = String((row && row.how) || '').trim()
+        const photo = String((row && row.photo) || '').trim()
+        if (!how && !photo) return null
+        return { id: String((row && row.id) || '').trim(), name, how, photo }
+      })
+      .filter(Boolean)
+    const adviceById = new Map(
+      quoteAdviceRows.filter((row) => row.id).map((row) => [row.id, row]),
+    )
+    const adviceByName = new Map(
+      quoteAdviceRows.filter((row) => row.name).map((row) => [nameKey(row.name), row]),
+    )
+    // 报价有、工单无：规则算出的漏项，单独一块，点「新增」补建工单项
     const quoteOnlyItems = (Array.isArray(raw.quoteOnlyItems) ? raw.quoteOnlyItems : [])
       .map((row, index) => {
         const name = String((row && row.name) || '').trim()
         if (!name) return null
         // 兼容二次 decorate：装饰后的行没有 kind，用 missed 还原
         const kind = String((row && row.kind) || (row && row.missed ? 'work_missing' : ''))
+        const id = String((row && row.id) || `qo_${index}`)
+        const hit = adviceById.get(id) || adviceByName.get(nameKey(name)) || null
+        const how = (hit ? hit.how : '') || String((row && row.how) || '').trim()
+        const photo = (hit ? hit.photo : '') || String((row && row.photo) || '').trim()
         return {
-          id: String((row && row.id) || `qo_${index}`),
+          id,
           name,
           amount: String((row && row.amount) || '').trim(),
           note: String((row && row.note) || '').trim(),
           unstarted: kind !== 'work_missing',
           missed: kind === 'work_missing',
           adviceBody: String((row && row.advice && row.advice.body) || (row && row.adviceBody) || '').trim(),
+          how,
+          photo,
+          hasHow: Boolean(how),
+          hasPhoto: Boolean(photo),
           photos: (Array.isArray(row && row.photos) ? row.photos : [])
             .map((img) => ({ url: String((img && img.url) || '') }))
             .filter((img) => img.url),
@@ -6235,80 +6234,6 @@ Page({
       .filter(Boolean)
       // 已经建过工单项的报价项不再给「新增」
       .filter((row) => !coveredQuote(row))
-    const onlyById = new Map(quoteOnlyItems.map((row) => [row.id, row]))
-    const onlyByName = new Map(quoteOnlyItems.map((row) => [row.name, row]))
-    const quoteAdvice = (Array.isArray(raw.quoteAdvice) ? raw.quoteAdvice : [])
-      .map((row, index) => {
-        const name = String((row && row.name) || '').trim()
-        const how = String((row && row.how) || '').trim()
-        const photo = String((row && row.photo) || '').trim()
-        if (!name && !how && !photo) return null
-        const only = onlyById.get(String((row && row.id) || '')) || onlyByName.get(name) || null
-        return {
-          id: String((row && row.id) || `qa_${index}`),
-          name,
-          how,
-          photo,
-          amount: String((row && row.amount) || (only && only.amount) || '').trim(),
-          hasHow: Boolean(how),
-          hasPhoto: Boolean(photo),
-          canApply: Boolean(only && only.canApply),
-          onlyId: only ? only.id : '',
-          unstarted: Boolean(only && only.unstarted),
-          missed: Boolean(only && only.missed),
-          photos: only ? only.photos : [],
-          tip: only
-            ? only.missed
-              ? '报价有这项、工单没有，但有施工图。新增后图会挂到工单项。'
-              : '报价有这项，工单和施工图都还没有。'
-            : '',
-        }
-      })
-      .filter(Boolean)
-    // 有报价项但模型没给建议时也列出来，保证「新增」入口不丢
-    quoteOnlyItems.forEach((row) => {
-      if (quoteAdvice.some((item) => item.onlyId === row.id)) return
-      quoteAdvice.push({
-        id: row.id,
-        name: row.name,
-        how: '',
-        photo: '',
-        amount: row.amount,
-        hasHow: false,
-        hasPhoto: false,
-        canApply: row.canApply,
-        onlyId: row.id,
-        unstarted: row.unstarted,
-        missed: row.missed,
-        photos: row.photos,
-        tip: row.missed
-          ? '报价有这项、工单没有，但有施工图。新增后图会挂到工单项。'
-          : '报价有这项，工单和施工图都还没有。',
-      })
-    })
-    // 报价单口径：只取本施工节点对应的报价单，AI 结果里还没有的行也补进列表
-    const liveQuoteLines = this.resolveWorkQuoteLines(scope)
-    const listedQuoteNames = new Set(quoteAdvice.map((row) => nameKey(row.name)))
-    liveQuoteLines.forEach((line) => {
-      const key = nameKey(line.name)
-      if (!key || listedQuoteNames.has(key)) return
-      listedQuoteNames.add(key)
-      quoteAdvice.push({
-        id: String(line.id || `qa_live_${quoteAdvice.length}`),
-        name: String(line.name || '').trim(),
-        how: '',
-        photo: '',
-        amount: String(line.amount || '').trim(),
-        hasHow: false,
-        hasPhoto: false,
-        canApply: false,
-        onlyId: '',
-        unstarted: false,
-        missed: false,
-        photos: [],
-        tip: '',
-      })
-    })
     const workItemsNew = (Array.isArray(raw.workItems) ? raw.workItems : [])
       .map((row) => {
         const findingId = String((row && row.id) || '').trim()
@@ -6329,6 +6254,16 @@ Page({
           evidence === 'done' || evidence === 'sufficient'
             ? '已完成'
             : '待确认'
+        // 报价项的做法/拍照建议挂到同名（或同 quoteLineId）的工单项上
+        const adviceLine =
+          (String((row && row.quoteLineId) || '').trim() &&
+            adviceById.get(String(row.quoteLineId).trim())) ||
+          adviceByName.get(nameKey(name)) ||
+          adviceByName.get(nameKey(row && row.quoteName)) ||
+          null
+        // 兼容二次 decorate：装饰后的行已经带 how/photo
+        const how = (adviceLine ? adviceLine.how : '') || String((row && row.how) || '').trim()
+        const photo = (adviceLine ? adviceLine.photo : '') || String((row && row.photo) || '').trim()
         return {
           id: `wi_${findingId || name}`,
           findingId,
@@ -6340,6 +6275,10 @@ Page({
           evidenceLabel,
           completionBasis: String((row && row.completionBasis) || '').trim(),
           evidenceGap: String((row && row.evidenceGap) || '').trim(),
+          how,
+          photo,
+          hasHow: Boolean(how),
+          hasPhoto: Boolean(photo),
           adviceBody: body,
           supplement,
           polish,
@@ -6352,18 +6291,19 @@ Page({
         }
       })
       .filter(Boolean)
-    const hasQuoteAdvice = quoteAdvice.length > 0
     const hasWorkItemsNew = workItemsNew.length > 0
     const hasQuoteOnlyItems = quoteOnlyItems.length > 0
-    const showLegacy = !hasQuoteAdvice && !hasWorkItemsNew
+    const hasOutsideQuoteItems = outsideQuoteItems.length > 0
+    const showLegacy = !hasWorkItemsNew && !hasQuoteOnlyItems && !hasOutsideQuoteItems
     const hasContent =
       lines.length > 0 ||
       photoPlan.length > 0 ||
       sequence.length > 0 ||
       splitGroups.length > 0 ||
       newItems.length > 0 ||
-      hasQuoteAdvice ||
-      hasWorkItemsNew
+      hasWorkItemsNew ||
+      hasQuoteOnlyItems ||
+      hasOutsideQuoteItems
     return {
       status,
       scope: String(raw.scope || ''),
@@ -6375,16 +6315,14 @@ Page({
       splitGroups,
       newItems,
       photoPlan,
-      quoteAdvice,
       workItems: workItemsNew,
       quoteOnlyItems,
       outsideQuoteItems,
-      hasOutsideQuoteItems: outsideQuoteItems.length > 0,
+      hasOutsideQuoteItems,
       hasPhotoPlan: photoPlan.length > 0,
       hasSequence: sequence.length > 0,
       hasSplitGroups: splitGroups.length > 0,
       hasNewItems: newItems.length > 0,
-      hasQuoteAdvice,
       hasWorkItems: hasWorkItemsNew,
       hasQuoteOnlyItems,
       showLegacy,

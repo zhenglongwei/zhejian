@@ -364,13 +364,6 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
       return { id: text(line.id) || `qa_${name}`, name, how, photo, amount: text(line.amount) }
     })
     .filter(Boolean)
-  // 报价项没拿到建议也照样列出，前端在第一条列表里直接给「新增」
-  const adviceNames = new Set(quoteAdvice.map((row) => row.name))
-  quoteLines.forEach((line) => {
-    const name = text(line && line.name)
-    if (!name || adviceNames.has(name)) return
-    quoteAdvice.push({ id: text(line.id) || `qa_${name}`, name, how: '', photo: '', amount: text(line.amount) })
-  })
   quoteAdvice.splice(30)
   // 第 4 步：证据
   const evidenceByName = new Map()
