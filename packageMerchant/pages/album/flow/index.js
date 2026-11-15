@@ -649,7 +649,7 @@ Page({
     finishedAt: '',
     finishedAtDate: '',
     finishedAtTime: '',
-    // 交付确认（2026-11-13）：交付里程默认检测里程；外观照选填，无图豁免留痕
+    // 交车里程必填、由交车节点单独填写（不默认建档里程）；外观照选填，无图豁免留痕
     deliveryMileage: '',
     exteriorPhotoWaived: false,
     deliveryIssueOpen: false,
@@ -1653,9 +1653,10 @@ Page({
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes,
         delivererName: String(this.data.delivererName || '').trim(),
-        // 交付确认（2026-11-13）：交车时间、交付里程必填；finishedAt 保留兼容旧读侧
+        // 交付确认（2026-11-13）：交车时间、交车里程必填；finishedAt 保留兼容旧读侧
         deliveredAt: String(this.data.finishedAt || '').trim(),
-        deliveryMileage: String(this.data.deliveryMileage || this._albumMileage || '').trim(),
+        // 交车里程是交车节点单独填的，不能拿建档里程顶替
+        deliveryMileage: String(this.data.deliveryMileage || '').trim(),
         finishedAt: String(this.data.finishedAt || '').trim(),
         exteriorPhotoWaived: this.data.exteriorPhotoWaived === true,
         confirmCopy: REPAIR_CONFIRM_COPY,
@@ -2254,7 +2255,6 @@ Page({
           ? String(
               parseMileageKm(photoDraft.deliveryMileage) ||
                 parseMileageKm(this.data.deliveryMileage) ||
-                this._albumMileage ||
                 '',
             )
           : this.data.deliveryMileage,
@@ -3011,8 +3011,8 @@ Page({
     const deliveryDraft = this.nodeDraft(delivery)
     const repair = nodes.find((node) => node && node.kind === 'repair_report')
     const repairPayload = (repair && repair.document && repair.document.payload) || {}
-    // 交车报告页眉：接车里程与交车里程分开写，交车里程缺失才回落到建档里程
-    const intakeKm = parseMileageKm(intakeDraft.mileageKm)
+    // 交车报告页眉：接车里程取建档里程，交车里程只认交车节点填的值
+    const intakeKm = parseMileageKm(vehicle.mileage)
     const intakeMileageText = intakeKm
       ? `接车里程 ${Number(intakeKm).toLocaleString('zh-CN')} km`
       : ''
@@ -3021,7 +3021,7 @@ Page({
     )
     const finishMileageText = deliveryKm
       ? `交车里程 ${Number(deliveryKm).toLocaleString('zh-CN')} km`
-      : mileageText
+      : ''
     if (title === '接车报告') {
       const issued = this.intakeDocumentSent()
       // 发出后与车主同读定稿；未发出跟当前留证（与屏上列表一致）
@@ -5477,7 +5477,7 @@ Page({
     })
   },
 
-  /** 交付里程：只留数字，默认带检测里程，可改 */
+  /** 交车里程：只留数字，必填，由商家在交车节点单独填写 */
   onDeliveryMileageInput(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const value = String((e.detail && e.detail.value) || '').replace(/[^\d]/g, '').slice(0, 7)

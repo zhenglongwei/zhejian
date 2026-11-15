@@ -94,11 +94,11 @@ test('交车确认：任一「需返工」拒绝定稿', () => {
   assert.ok(gaps.some((gap) => gap.includes('需返工') && gap.includes('重验')))
 })
 
-test('交车确认：质保 / 交付人 / 交车时间 / 交付里程分别提示；简述问答不拦', () => {
+test('交车确认：质保 / 交付人 / 交车时间 / 交车里程分别提示；简述问答不拦', () => {
   assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, warrantyPeriod: '' }).includes('请填写质保期限'))
   assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, delivererName: '' }).includes('请填写交付人'))
   assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, deliveredAt: '' }).includes('请填写交车时间'))
-  assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, deliveryMileage: '' }).includes('请填写交付里程'))
+  assert.ok(collectDeliveryPhotoDraftGaps({ ...filled, deliveryMileage: '' }).includes('请填写交车里程'))
   assert.deepEqual(collectDeliveryPhotoDraftGaps({ ...filled, repairBrief: '', ownerFaqs: [] }), [])
 })
 

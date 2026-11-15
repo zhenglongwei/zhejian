@@ -1774,7 +1774,7 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
     gaps.push('交车时间格式不对，请重新选择')
   }
   if (!parseMileageKm(payload.deliveryMileage)) {
-    gaps.push('请填写交付里程')
+    gaps.push('请填写交车里程')
   }
   // 交付确认不再逐行选结果；只拦截已确认「需返工」但未处理的行
   accItems.forEach((item) => {

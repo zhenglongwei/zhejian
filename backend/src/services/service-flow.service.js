@@ -236,8 +236,14 @@ function buildRenderDocForNode(node = {}, album = {}, allNodes = []) {
       (row) => row && (row.kind === 'intake' || row.kind === 'intake_inspection'),
     )
     const intakeKm = Number(parseMileageKm(contentOfFlowNode(intakeNode).mileageKm)) || 0
+    // 接车里程取建档里程；存量缺建档里程时才回落到接车节点填的里程
+    const albumIntakeText =
+      Number.isFinite(albumMileage) && albumMileage > 0
+        ? `接车里程 ${albumMileage.toLocaleString('zh-CN')} km`
+        : ''
     const intakeMileageText =
       String(content.intakeMileageText || '').trim() ||
+      albumIntakeText ||
       (intakeKm > 0 ? `接车里程 ${intakeKm.toLocaleString('zh-CN')} km` : '')
     // 交车里程：优先用生成报告时写好的文案，缺失时由交付里程兜底
     const deliveryKm = Number(parseMileageKm(content.deliveryMileage)) || 0
@@ -436,6 +442,11 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}, options = {}) 
   const draftCaptions =
     draft.publicCaptions && typeof draft.publicCaptions === 'object' ? draft.publicCaptions : {}
   const publicCaptions = { ...adviceCaptions, ...draftCaptions }
+  // 接车里程取建档里程；交车里程只认交车节点填的值
+  const albumVehicle = (album && (album.vehicle || album.vehicleJson)) || {}
+  const albumKm = Number(albumVehicle.mileage) || 0
+  const intakeMileageText =
+    albumKm > 0 ? `接车里程 ${albumKm.toLocaleString('zh-CN')} km` : ''
   return buildRepairReportPayload({
     chiefComplaint:
       (inspectionReport &&
@@ -448,6 +459,7 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}, options = {}) 
     photoDraft: { ...draft, publicCaptions },
     totalAmount: collectConfirmedQuoteTotal(nodes),
     confirmCopy: REPAIR_CONFIRM_COPY,
+    intakeMileageText,
     revision,
   })
 }
@@ -2188,7 +2200,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
         const prevContent = contentOfFlowNode(repair)
         const prevRevision = Math.max(0, Number(prevPayload.revision || prevContent.revision) || 0)
         const revision = wasSent ? prevRevision + 1 : prevRevision
-        const draft = buildFinishReportFromFrozenNodes(list, {}, { revision })
+        const draft = buildFinishReportFromFrozenNodes(list, album, { revision })
         // 已发报告重新生成：旧版本归档到 document.revisions[]，车主可追溯
         const revisions = wasSent
           ? (Array.isArray(prevDoc.revisions) ? prevDoc.revisions : [])

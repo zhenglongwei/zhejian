@@ -1200,7 +1200,7 @@
                   </picker>
                 </view>
                 <text wx:else class="st-quote">{{finishedAt || '未填'}}</text>
-                <text class="text-body merchant-flow-page__label">交付里程（必填，默认检测里程）</text>
+                <text class="text-body merchant-flow-page__label">交车里程（必填）</text>
                 <view class="st-field-row">
                   <input
                     class="st-field"
