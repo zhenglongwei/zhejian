@@ -985,6 +985,28 @@ function collectConfirmedQuoteLines(flowNodes = []) {
   return lines
 }
 
+/**
+ * 施工项播种的报价行必须按施工节点限定范围，不能跨报价串台：
+ * - 补充施工节点（parentNodeId 指向某补充报价）：只认它的父补充报价
+ * - 原施工节点：只认首次报价（非 addon 的 quote_confirm）
+ */
+function collectConfirmedQuoteLinesForWorkNode(flowNodes = [], workNode = {}) {
+  const nodes = Array.isArray(flowNodes) ? flowNodes : []
+  const work = workNode && typeof workNode === 'object' ? workNode : {}
+  const parentQuoteId = String(work.parentNodeId || '').trim()
+  if (parentQuoteId) {
+    const parent = nodes.find((n) => n && String(n.id || '') === parentQuoteId)
+    return parent ? collectConfirmedQuoteLines([parent]) : []
+  }
+  const originalQuote = nodes.find(
+    (n) =>
+      n &&
+      n.kind === 'quote_confirm' &&
+      String(n.insertedReason || '') !== 'addon',
+  )
+  return originalQuote ? collectConfirmedQuoteLines([originalQuote]) : []
+}
+
 function seedWorkFindingsFromQuoteLines(findings = [], quoteLines = []) {
   const rows = (findings || []).map((row, index) => normalizeWorkFinding(row, index))
   if (rows.some((row) => String(row.partName || '').trim() || row.images.length || row.quoteLineId)) {
@@ -2710,6 +2732,7 @@ module.exports = {
   foldInspectionPendingDraft,
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
+  collectConfirmedQuoteLinesForWorkNode,
   buildQuoteLedger,
   seedWorkFindingsFromQuoteLines,
   normalizeItemName,

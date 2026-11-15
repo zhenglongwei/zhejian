@@ -106,6 +106,7 @@ const {
   foldInspectionPendingDraft,
   collectConfirmedQuoteNames,
   collectConfirmedQuoteLines,
+  collectConfirmedQuoteLinesForWorkNode,
   seedWorkFindingsFromQuoteLines,
   unmatchedCheckpoints,
   workOutsideQuoteOf,
@@ -1835,7 +1836,7 @@ Page({
             ...photoDraft,
             findings: seedWorkFindingsFromQuoteLines(
               photoDraft.findings,
-              collectConfirmedQuoteLines(flowNodes),
+              collectConfirmedQuoteLinesForWorkNode(flowNodes, active),
             ),
           }
         }
