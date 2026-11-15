@@ -552,8 +552,15 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     ctx.priorFacts ? `前面各步结果：${JSON.stringify(ctx.priorFacts)}` : '',
   ].filter(Boolean).join('\n')
 
-  const labeled = Array.isArray(maskedUrls) ? maskedUrls.slice(0, 6) : []
-  const buildUserContent = () => {
+  const VISION_IMAGES_PER_CALL = 6
+  const imageRows = Array.isArray(maskedUrls) ? maskedUrls : []
+  // 模型单次最多只吃 6 张图，但所有图都必须被看过：分批调用，逐批写回打码结论
+  const chunks = []
+  for (let i = 0; i < imageRows.length; i += VISION_IMAGES_PER_CALL) {
+    chunks.push(imageRows.slice(i, i + VISION_IMAGES_PER_CALL))
+  }
+  if (!chunks.length) chunks.push([])
+  const buildUserContent = (labeled) => {
     if (!labeled.length) return instruction
     return [{ type: 'text', text: instruction }].concat(
       labeled.flatMap((row) => {
@@ -568,76 +575,93 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
     )
   }
 
-  // 按序换模型：单个模型不可用就换下一个，全部不可用才回退规则建议
+  // 按序换模型：单个模型不可用就换下一个；失败批次带到下一个模型重试
   const failures = []
-  let called = false
+  let picked = null
+  let pending = chunks
   console.info('[node-ai-review] llm start', {
     step: ctx.rubric && ctx.rubric.step,
-    imageCount: labeled.length,
+    imageCount: imageRows.length,
+    batches: chunks.length,
     engines: engines.map((e) => `${e.vendor}/${e.model}`),
   })
   for (const engine of engines) {
-    try {
-      // 豆包走 Responses API（input/input_image），通义走 chat/completions（messages/image_url）
-      const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
-      const result = await callModel({
-        apiUrl: engine.apiUrl,
-        apiKey: engine.apiKey,
-        model: engine.model,
-        messages: [
-          {
-            role: 'system',
-            content: '先想清楚再回答。最终只输出一个 JSON。建议必须可执行，不要空话。',
-          },
-          { role: 'user', content: buildUserContent() },
-        ],
-        temperature: 0.2,
-        // 不强制 response_format：带 masks 时通义 json_object 易中途掐断
-        responseFormat: undefined,
-        enableThinking: engine.vendor === 'dashscope' ? false : undefined,
-        timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
-      })
-      called = true
-      const parsed = parseReviewModelJson(result && result.text)
-      if (!parsed) {
-        console.warn('[node-ai-review] empty parse', {
+    if (!pending.length) break
+    const stillPending = []
+    for (const labeled of pending) {
+      try {
+        // 豆包走 Responses API（input/input_image），通义走 chat/completions（messages/image_url）
+        const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
+        const result = await callModel({
+          apiUrl: engine.apiUrl,
+          apiKey: engine.apiKey,
+          model: engine.model,
+          messages: [
+            {
+              role: 'system',
+              content: '先想清楚再回答。最终只输出一个 JSON。建议必须可执行，不要空话。',
+            },
+            { role: 'user', content: buildUserContent(labeled) },
+          ],
+          temperature: 0.2,
+          // 不强制 response_format：带 masks 时通义 json_object 易中途掐断
+        })
+        const parsed = parseReviewModelJson(result && result.text)
+        if (!parsed) {
+          console.warn('[node-ai-review] empty parse', {
+            vendor: engine.vendor,
+            model: engine.model,
+            rawLen: String((result && result.text) || '').length,
+          })
+          stillPending.push(labeled)
+          continue
+        }
+        try {
+          const { applyModelMasks } = require('./model-mask.service')
+          // albumId 必须带上：打码结论要写回节点，否则下次托管当未分析重跑
+          await applyModelMasks(labeled, parsed.masks, { albumId: text(options.albumId) })
+        } catch (error) {
+          console.warn('[node-ai-review] mask writeback failed', {
+            message: String((error && error.message) || '').slice(0, 160),
+          })
+        }
+        if (!picked) {
+          picked = {
+            suggestions: keepCompletenessSuggestions(parseModelSuggestions(parsed, []), ctx),
+            merchantBrief: parseMerchantBrief(parsed, ctx),
+            source: 'llm',
+            engine: engine.id,
+          }
+        }
+      } catch (error) {
+        console.warn('[node-ai-review] llm fail', {
           vendor: engine.vendor,
           model: engine.model,
-          rawLen: String((result && result.text) || '').length,
+          error: text(error && error.message).slice(0, 220),
         })
-        continue
+        failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
+        stillPending.push(labeled)
       }
-      const suggestions = keepCompletenessSuggestions(parseModelSuggestions(parsed, []), ctx)
-      const merchantBrief = parseMerchantBrief(parsed, ctx)
-      try {
-        const { applyModelMasks } = require('./model-mask.service')
-        // albumId 必须带上：打码结论要写回节点，否则下次托管当未分析重跑
-        await applyModelMasks(labeled, parsed.masks, { albumId: text(options.albumId) })
-      } catch (error) {
-        console.warn('[node-ai-review] mask writeback failed', {
-          message: String((error && error.message) || '').slice(0, 160),
-        })
-      }
-      console.info('[node-ai-review] llm ok', {
-        vendor: engine.vendor,
-        model: engine.model,
-        suggestions: Array.isArray(suggestions) ? suggestions.length : 0,
-      })
-      return { suggestions, merchantBrief, source: 'llm', engine: engine.id }
-    } catch (error) {
-      console.warn('[node-ai-review] llm fail', {
-        vendor: engine.vendor,
-        model: engine.model,
-        error: text(error && error.message).slice(0, 220),
-      })
-      failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
     }
+    pending = stillPending
   }
-  if (!called && failures.length) {
-    await markNodeVisionLlmFailed(options.albumId, labeled, 'call_failed')
+  if (picked) {
+    if (pending.length) {
+      await markNodeVisionLlmFailed(options.albumId, pending.flat(), 'call_failed')
+    }
+    console.info('[node-ai-review] llm ok', {
+      engine: picked.engine,
+      suggestions: Array.isArray(picked.suggestions) ? picked.suggestions.length : 0,
+      batches: chunks.length,
+      failedBatches: pending.length,
+    })
+    return picked
+  }
+  if (failures.length) {
+    await markNodeVisionLlmFailed(options.albumId, imageRows, 'call_failed')
     throw new Error(`模型不可用：${failures.join('；')}`)
   }
-  await markNodeVisionLlmFailed(options.albumId, labeled, 'no_result')
+  await markNodeVisionLlmFailed(options.albumId, imageRows, 'no_result')
   return null
 }
 
