@@ -1105,7 +1105,29 @@ function workRecordsFromNode(n) {
 
 /** 完工报告的施工项：取自工单（work 节点）如实登记的施工记录，不再由报价派生 */
 function collectAllWorkOrderItems(nodes = []) {
-  return (nodes || []).filter((n) => n && n.kind === 'work').flatMap(workRecordsFromNode)
+  // 返工新开的施工节点会重复登记原施工已做过的项目，交车报告按项目只留一条：
+  // 先出现的（原施工）优先，返工记录交给「返工记录」单独说明
+  const seenId = new Set()
+  const seenName = new Set()
+  const items = []
+  ;(nodes || [])
+    .filter((n) => n && n.kind === 'work')
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+    .forEach((node) => {
+      workRecordsFromNode(node).forEach((row) => {
+        const id = String((row && row.quoteLineId) || '').trim()
+        const name = String((row && row.name) || '').trim()
+        if (id) {
+          if (seenId.has(id)) return
+        } else if (name && seenName.has(name)) {
+          return
+        }
+        if (id) seenId.add(id)
+        if (name) seenName.add(name)
+        items.push(row)
+      })
+    })
+  return items
 }
 
 function collectOwnerRepairWorkItems(nodes = [], payload = {}) {
