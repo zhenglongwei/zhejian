@@ -167,6 +167,13 @@ function buildRenderDocForNode(node = {}, album = {}, allNodes = []) {
   const kind = String(node.kind || '')
   const content = contentOfFlowNode(node)
   const nodes = Array.isArray(allNodes) ? allNodes : []
+  // 报告抬头里程：与商家端 reportPreviewFor 同口径，优先相册建档里程
+  const albumVehicle = (album && (album.vehicle || album.vehicleJson)) || {}
+  const albumMileage = Number(albumVehicle.mileage)
+  const albumMileageText =
+    Number.isFinite(albumMileage) && albumMileage > 0
+      ? `里程 ${albumMileage.toLocaleString('zh-CN')} km`
+      : ''
   if (kind === 'intake' || kind === 'intake_inspection') {
     const mileageKm = Number(parseMileageKm(content.mileageKm)) || 0
     const mileageText =
@@ -188,6 +195,7 @@ function buildRenderDocForNode(node = {}, album = {}, allNodes = []) {
     const built = buildOwnerPreviewDoc({
       family: 'inspect',
       album: previewAlbumOf(album),
+      mileageText: albumMileageText,
       findings: Array.isArray(content.findings) ? content.findings : [],
       chiefComplaint: content.chiefComplaint,
       signName: content.inspectorName,
@@ -208,6 +216,7 @@ function buildRenderDocForNode(node = {}, album = {}, allNodes = []) {
     const built = buildOwnerPreviewDoc({
       family: 'quote',
       album: previewAlbumOf(album),
+      mileageText: albumMileageText,
       isAddon,
       lines: Array.isArray(content.lines) ? content.lines : [],
       discoveryNote: discovery.note,
