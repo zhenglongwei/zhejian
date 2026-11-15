@@ -85,12 +85,18 @@ const shouldArchive =
 
 ### C. 返工
 
+原则：如实记录维修顺序。原施工已完结，返工**新开一张「返工施工」节点**，原施工保持已完成；施工未完结时新增补充报价不建新节点，回原施工继续。
+
 | 文件 | 改动 |
 | --- | --- |
-| `backend/src/services/service-flow.service.js` | `reopenMerchantWorkForRework` 把 `reworkRecords` 写入**施工节点 content**（交车节点保留副本）；施工节点回 `in_progress`。 |
+| `backend/src/services/service-flow.service.js` | `reopenMerchantWorkForRework` 在交车节点前插入「返工施工」work 节点（`insertedReason: 'rework'`，`parentNodeId` = 原施工节点），返工项目写入其 `content.findings`，`reworkRecords` 同时写入该节点与交车节点；原施工节点保持 `completed`。 |
+| 同上 | 返工项目名称优先取交车验收行，缺失时回退施工节点验收行/施工项，保证 `itemNames` 不空。 |
+| 同上 | 返工施工节点完成时把 `doneAt` 同步回交车节点副本，交车报告的返工记录带完成情况。 |
+| `utils/service-flow-addon-insert.js` | `workStageFinished` 改为判断「首次施工是否已完结」，不再要求所有施工节点都完成。 |
+| `utils/service-flow-docs.js` | `collectConfirmedQuoteLinesForWorkNode`：补充施工只认父补充报价；返工施工不从报价播种；原施工只补入施工期新增且没有自己施工节点的补充报价。 |
 | `backend/vendor/shared/utils/owner-preview-doc.js` | finish 分支透出 `reworkRecords`。 |
 | `components/service-doc-sheet/*` | 新增「返工记录」区块渲染（原因 / 项目 / 时间）。 |
-| `packageMerchant/pages/album/flow/index.js` | 返工确认后 Toast 改为可停留 `wx.showModal`（说明去施工节点处理），确认后 `openStage('work')`。 |
+| `packageMerchant/pages/album/flow/index.js` | 返工确认后 `wx.showModal` 说明已新开返工施工节点，确认后 `openStage('work')`。 |
 | 同上 + `index.wxml` | 施工节点顶部展示「待返工 N 项」与原因列表；施工完成时回写 `doneAt`。 |
 
 ### D. 交车推进

@@ -10,6 +10,8 @@ const {
   isPhotoFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
+  emptyPhotoDraft,
+  NODE_CATEGORY,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
   INTAKE_CONFIRM_COPY,
@@ -2047,6 +2049,31 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           status: 'completed',
         }),
       }
+      // 返工完成时间同步回交车节点，交车报告的返工记录才能带上完成情况
+      const completedRecords = contentOfFlowNode(list[idx]).reworkRecords
+      if (Array.isArray(completedRecords) && completedRecords.length) {
+        const deliveryIdx = list.findIndex((n) => n && n.kind === 'delivery_photos')
+        if (deliveryIdx >= 0) {
+          const doneById = new Map(
+            completedRecords
+              .filter((row) => row && row.doneAt)
+              .map((row) => [String(row.id || ''), row.doneAt]),
+          )
+          const deliveryRecords = normalizeReworkRecords(
+            contentOfFlowNode(list[deliveryIdx]).reworkRecords,
+          )
+          if (deliveryRecords.some((row) => doneById.has(String(row.id || '')) && !row.doneAt)) {
+            list[deliveryIdx] = writeNodeContent(list[deliveryIdx], {
+              content: {
+                reworkRecords: deliveryRecords.map((row) => {
+                  const done = doneById.get(String(row.id || ''))
+                  return done && !row.doneAt ? { ...row, doneAt: done, status: 'done' } : row
+                }),
+              },
+            })
+          }
+        }
+      }
       unlockAfterWorkComplete(list, idx)
     } else unlockNextNode(list, idx)
 
@@ -2632,11 +2659,31 @@ async function reopenWorkForRework(albumId, storeId, merchantId = '', payload = 
   const nodes = sortFlowNodes(readFlowNodesRaw(album))
   const delivery = nodes.find((n) => n && n.kind === 'delivery_photos')
   const liveRows = resolveAcceptanceItems(delivery ? contentOfFlowNode(delivery) : {})
+  const workRows = nodes
+    .filter((n) => n && n.kind === 'work')
+    .reduce((acc, n) => acc.concat(resolveAcceptanceItems(contentOfFlowNode(n))), [])
+  const nameById = new Map()
+  ;(liveRows.length ? liveRows : workRows).forEach((row) => {
+    const id = String((row && row.id) || '').trim()
+    const name = String((row && row.name) || '').trim()
+    if (id && name) nameById.set(id, name)
+  })
+  if (!liveRows.length) {
+    // 交车表单没存验收行时，用施工项名称兜底，保证返工项目名不丢
+    nodes
+      .filter((n) => n && n.kind === 'work')
+      .forEach((n) => {
+        const findings = contentOfFlowNode(n).findings
+        if (!Array.isArray(findings)) return
+        findings.forEach((f) => {
+          const id = String((f && f.id) || '').trim()
+          const name = String((f && (f.partName || f.name)) || '').trim()
+          if (id && name && !nameById.has(id)) nameById.set(id, name)
+        })
+      })
+  }
   const idSet = new Set(itemIds)
-  const names = liveRows
-    .filter((row) => idSet.has(String(row.id || '')))
-    .map((row) => String(row.name || '').trim())
-    .filter(Boolean)
+  const names = itemIds.map((id) => nameById.get(id) || '').filter(Boolean)
 
   const reworkRecord = {
     id: `rw_${Date.now()}`,
@@ -2650,20 +2697,12 @@ async function reopenWorkForRework(albumId, storeId, merchantId = '', payload = 
   await writeFlowPackage(albumId, (pkg) => {
     const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     let changed = false
-    const next = list.map((node) => {
+    const originalWork =
+      list.find(
+        (node) => node && node.kind === 'work' && !String(node.insertedReason || '').trim(),
+      ) || list.find((node) => node && node.kind === 'work')
+    let next = list.map((node) => {
       if (!node) return node
-      if (node.kind === 'work') {
-        changed = true
-        // 返工在施工节点执行：记录写进施工节点，施工页据此展示待返工项
-        const draft = contentOfFlowNode(node)
-        const records = normalizeReworkRecords(draft.reworkRecords)
-        return {
-          ...writeNodeContent(node, {
-            content: { reworkRecords: records.concat([reworkRecord]) },
-          }),
-          status: 'in_progress',
-        }
-      }
       if (node.kind === 'delivery_photos') {
         changed = true
         const draft = contentOfFlowNode(node)
@@ -2719,6 +2758,43 @@ async function reopenWorkForRework(albumId, storeId, merchantId = '', payload = 
       }
       return node
     })
+    // 原施工已完结，返工必须新开一张施工节点，如实记录维修顺序
+    const deliveryIdx = next.findIndex((node) => node && node.kind === 'delivery_photos')
+    const insertAt = deliveryIdx >= 0 ? deliveryIdx : next.length
+    const reworkFindings = itemIds
+      .map((id, index) => ({
+        id: `wf_rework_${id}`,
+        partName: nameById.get(id) || '',
+        quoteLineId: '',
+        caption: reason,
+        images: [],
+        index,
+      }))
+      .filter((row) => row.partName)
+    const reworkWorkNode = {
+      id: `fn_rework_w_${Date.now()}`,
+      kind: 'work',
+      nodeCategory: NODE_CATEGORY.PHOTO,
+      sortOrder: insertAt,
+      title: '返工施工',
+      status: 'in_progress',
+      photos: [],
+      note: '',
+      content: {
+        ...emptyPhotoDraft(),
+        findings: reworkFindings,
+        reworkRecords: [reworkRecord],
+      },
+      document: null,
+      insertedReason: 'rework',
+      parentNodeId: originalWork ? originalWork.id : '',
+      segmentLabel: '返工',
+    }
+    next = next.slice(0, insertAt).concat([reworkWorkNode], next.slice(insertAt))
+    next.forEach((node, index) => {
+      node.sortOrder = index
+    })
+    changed = true
     return changed ? { ...pkg, flowVersion: FLOW_VERSION, flowNodes: next } : pkg
   })
 

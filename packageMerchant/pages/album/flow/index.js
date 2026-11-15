@@ -5586,7 +5586,7 @@ Page({
           title: '已转返工',
           content: `${
             rows.length ? `${rows.join('、')}\n` : ''
-          }已退回施工节点，请在「施工」重新处理并留证；返工记录会写进交车报告。`,
+          }原施工已完结，已为你新开「返工施工」节点，请在施工页处理并留证；返工记录会写进交车报告。`,
           showCancel: false,
           confirmText: '去施工',
           success: () => {

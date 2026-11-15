@@ -43,11 +43,15 @@ function addonDocStatus(node) {
   return text(node && node.document && node.document.status) || 'draft'
 }
 
-/** 施工是否已完结：有施工节点且全部完工 */
+/**
+ * 首次施工是否已完结：只认原施工节点（无 insertedReason 的那张）。
+ * 上一张补充施工是否还在进行中，不影响新补充报价新建自己的施工节点。
+ */
 function workStageFinished(nodes = []) {
-  const works = (nodes || []).filter((node) => node && node.kind === 'work')
+  const works = sortNodes(nodes).filter((node) => node && node.kind === 'work')
   if (!works.length) return false
-  return works.every((node) => text(node.status) === 'completed')
+  const original = works.find((node) => !text(node.insertedReason)) || works[0]
+  return text(original.status) === 'completed'
 }
 
 /** 补充报价的初始图文来源：当前正在做的那张施工节点 */

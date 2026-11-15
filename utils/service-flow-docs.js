@@ -987,16 +987,41 @@ function collectConfirmedQuoteLines(flowNodes = []) {
 
 /**
  * 施工项播种的报价行必须按施工节点限定范围，不能跨报价串台：
+ * - 返工施工节点（parentNodeId 指向施工节点）：自身项目已写入 content.findings，不再从报价播种
  * - 补充施工节点（parentNodeId 指向某补充报价）：只认它的父补充报价
- * - 原施工节点：只认首次报价（非 addon 的 quote_confirm）
+ * - 原施工节点：首次报价；已有施工项时只补入施工期间新增、且没有自己施工节点的补充报价
  */
 function collectConfirmedQuoteLinesForWorkNode(flowNodes = [], workNode = {}) {
   const nodes = Array.isArray(flowNodes) ? flowNodes : []
   const work = workNode && typeof workNode === 'object' ? workNode : {}
-  const parentQuoteId = String(work.parentNodeId || '').trim()
-  if (parentQuoteId) {
-    const parent = nodes.find((n) => n && String(n.id || '') === parentQuoteId)
+  const parentId = String(work.parentNodeId || '').trim()
+  if (parentId) {
+    const parent = nodes.find((n) => n && String(n.id || '') === parentId)
+    if (parent && parent.kind === 'work') return []
     return parent ? collectConfirmedQuoteLines([parent]) : []
+  }
+  const content = (work && (work.content || work.photoDraft)) || {}
+  const hasFindings = (Array.isArray(content.findings) ? content.findings : []).some((row) =>
+    String((row && row.partName) || '').trim(),
+  )
+  // 原施工已有施工项：只并入施工期间新增的补充报价，不改写原有项目
+  if (hasFindings) {
+    const ownedByAddonWork = new Set(
+      nodes
+        .filter(
+          (n) => n && n.kind === 'work' && String(n.insertedReason || '').trim() === 'addon',
+        )
+        .map((n) => String(n.parentNodeId || '').trim())
+        .filter(Boolean),
+    )
+    const addonQuotes = nodes.filter(
+      (n) =>
+        n &&
+        (n.kind === 'addon_quote_confirm' ||
+          (n.kind === 'quote_confirm' && String(n.insertedReason || '') === 'addon')) &&
+        !ownedByAddonWork.has(String(n.id || '').trim()),
+    )
+    return collectConfirmedQuoteLines(addonQuotes)
   }
   const originalQuote = nodes.find(
     (n) =>
@@ -1009,11 +1034,21 @@ function collectConfirmedQuoteLinesForWorkNode(flowNodes = [], workNode = {}) {
 
 function seedWorkFindingsFromQuoteLines(findings = [], quoteLines = []) {
   const rows = (findings || []).map((row, index) => normalizeWorkFinding(row, index))
-  if (rows.some((row) => String(row.partName || '').trim() || row.images.length || row.quoteLineId)) {
-    return rows
-  }
-  return (quoteLines || [])
+  const hasSubstance = rows.some(
+    (row) => String(row.partName || '').trim() || row.images.length || row.quoteLineId,
+  )
+  // 已有施工项时只补入尚未落进施工项的新报价行，避免把删掉的项目又长回来
+  const extra = (quoteLines || [])
     .filter((line) => String((line && line.name) || '').trim())
+    .filter((line) => {
+      const lineId = String((line && line.id) || '').trim()
+      const name = normalizeItemName(line && line.name)
+      return !rows.some(
+        (row) =>
+          (lineId && String(row.quoteLineId || '').trim() === lineId) ||
+          (name && normalizeItemName(row.partName) === name),
+      )
+    })
     .map((line, index) =>
       normalizeWorkFinding(
         {
@@ -1023,9 +1058,11 @@ function seedWorkFindingsFromQuoteLines(findings = [], quoteLines = []) {
           caption: '',
           images: [],
         },
-        index,
+        rows.length + index,
       ),
     )
+  if (!hasSubstance) return extra
+  return extra.length ? rows.concat(extra) : rows
 }
 
 function normalizeItemName(value = '') {
