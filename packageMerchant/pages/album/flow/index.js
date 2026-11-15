@@ -274,6 +274,19 @@ function pickQuoteAssistRaw(nodes, activeId) {
   return (firstQuote && firstQuote.quoteAssist) || null
 }
 
+/**
+ * 选 workAdvice：施工 AI 跟节点绑定。
+ * 当前是施工节点时只认它自己的结果，不能拿别的施工节点冒充。
+ * 非施工节点才回退到第一个有结果的施工节点。
+ */
+function pickWorkAdviceRaw(nodes, activeId) {
+  const list = Array.isArray(nodes) ? nodes : []
+  const active = activeId ? list.find((n) => n && n.id === activeId) : null
+  if (active && active.kind === 'work') return active.workAdvice || null
+  const hit = list.find((n) => n && n.kind === 'work' && n.workAdvice)
+  return (hit && hit.workAdvice) || null
+}
+
 function applyNodeContent(node, bag) {
   if (!node || typeof node !== 'object') return
   const next = bag && typeof bag === 'object' ? bag : {}
@@ -1840,9 +1853,7 @@ Page({
             ),
           }
         }
-        const workAdviceRaw =
-          (flowNodes.find((node) => node && node.kind === 'work' && node.workAdvice) || {}).workAdvice ||
-          {}
+        const workAdviceRaw = pickWorkAdviceRaw(flowNodes, active && active.id) || {}
         this._workExtraTitles = new Set(
           (Array.isArray(workAdviceRaw.gaps) ? workAdviceRaw.gaps : [])
             .filter((row) => row && (row.kind === 'extra' || row.kind === 'addon'))
@@ -2093,7 +2104,7 @@ Page({
           .intakeAdvice,
       )
       const workAdvice = this.decorateWorkAdvice(
-        (flowNodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
+        pickWorkAdviceRaw(flowNodes, active && active.id),
         sections,
       )
       const deliveryAdvice =
@@ -7290,7 +7301,7 @@ Page({
         .intakeAdvice,
     )
     const workAdvice = this.decorateWorkAdvice(
-      (nodes.find((n) => n && n.kind === 'work' && n.workAdvice) || {}).workAdvice,
+      pickWorkAdviceRaw(nodes, this.data.activeNode && this.data.activeNode.id),
       sections,
     )
     const deliveryAdvice =

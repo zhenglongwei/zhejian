@@ -232,10 +232,29 @@ function buildReviewContext(album, node, extra = {}) {
   let orderItems = []
   let workItems = []
   if (reviewStep === 'work_sheet') {
-    // 工单定稿：这份单据如实记录了施工过程，要拿它核对检测报告与报价方案。
-    // 检测/报价都是定好的、不可改；工单完成不再排队，对账改在交车
+    // 工单定稿：这份单据如实记录了施工过程，要拿它核对报价方案。
+    // 补充施工只对照它自己的补充报价单；返工施工没有新报价单，只按本节点返工项自评；
+    // 原施工节点对照首次报价。
     findings = Array.isArray(draft.findings) ? draft.findings : []
-    quoteLines = allQuoteLines
+    const insertedReason = text(node.insertedReason)
+    if (insertedReason === 'addon') {
+      const parent = flowNodes.find((item) => item && item.id === node.parentNodeId)
+      const parentDraft = contentOfFlowNode(parent)
+      const parentDoc = (parent && parent.document && parent.document.payload) || {}
+      quoteLines =
+        Array.isArray(parentDraft.lines) && parentDraft.lines.length
+          ? parentDraft.lines
+          : Array.isArray(parentDoc.lines)
+            ? parentDoc.lines
+            : []
+      fillConfirmedReference(node.parentNodeId)
+    } else if (insertedReason === 'rework') {
+      quoteLines = []
+      fillConfirmedReference()
+    } else {
+      quoteLines = allQuoteLines
+      fillConfirmedReference()
+    }
     orderItems = findings.map((row) => ({
       name: text(row.partName),
       brand: text(row.brand),
@@ -244,7 +263,6 @@ function buildReviewContext(album, node, extra = {}) {
       note: text(row.caption),
       amount: row.amount,
     }))
-    fillConfirmedReference()
   } else if (reviewStep === 'addon_check') {
     const parent = readFlowNodes(album).find((item) => item && item.id === node.parentNodeId)
     const workFindings = contentOfFlowNode(parent).findings || []
@@ -497,7 +515,9 @@ async function runLlmSuggestions(ctx, maskedUrls, capability, options = {}) {
       ? '这是发给车主确认前的核对。材料包括接车主诉、检测发现、本单报价。suggestions 只补空栏和缺图：栏里已经有字不要给 suggestedText，不要改句式。空栏才给一句可直接填的。merchantBrief 是给店员看的检查结果，不写进车主字段。issues/omissions/objections 每条必须是 {"title","body"}：title 4到12个字写部位或问题名，body 一两句人话。不要写发现项序号、字段名、规范、违反规定。omissions 只提醒可能漏查/漏报，不要编成收费行，不要放进 suggestions。objections 每条用 ask、heard、ours、say：ask 是车主原话，heard 是没看见这台车时的常见说法，ours 只引用本单已有内容，say 是当面怎么讲。不要把这四行写进车主字段，不要改金额。事故车不要写维修费数字。priceBands 按已有报价行：换件/用料 kind=parts 给 oem/brand/economy；纯工时/拆检 kind=labor 给 dealer(4S)/indie(修理厂)；宽区间不是实时行情。不要改金额，不要自动加报价行。'
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。suggestions 只查新发现说明和这次报价有没有空项、该有的故障图有没有。已经写了的字不要改。merchantBrief 同样要核已写内容和可能漏了什么，漏项只提醒不自动加行。confirmedReference.quoteLines 是首报与以往未撤销补充报价的汇总，已覆盖项目不要当作漏项重复提醒。不要改金额。不要改已经确认过的检测和历次报价。'
-        : ctx.rubric.step === 'delivery'
+        : ctx.rubric.step === 'work_sheet'
+          ? '这是施工单完成前的核对。只按本节点的施工项和本节点对应的报价单核对：施工项缺说明、缺图，施工项与报价项是否对得上。补充施工只看它自己的补充报价单，不要把整份报价单的项目说成本节点漏项；返工施工只看本节点返工项。已确认的检测报告和报价只作背景，不要对它们提修改意见，不要改金额。'
+          : ctx.rubric.step === 'delivery'
           ? '这是完工通知车主验收前的整单对账。接车、检测、已确认报价只作背景，不要建议改那些确认件。只指出工单、验收照片、验收说明（标准/过程/结果）、质保的错项或漏项：验收说明空着或只有套话（如「一切正常」）要提醒补写实际的验收方法和结果。已经写了的字不要润色、不要给 suggestedText。不要把意见留到公开案例。不要改金额。'
           : ctx.rubric.step === 'work'
             ? '只看本步是否缺说明、缺图。已经写了的字不要改。有新旧配件或关键工序就按项归；缺哪一类都不要当成必须补拍。不要对已确认检测和报价提修改意见，也不要改金额。'

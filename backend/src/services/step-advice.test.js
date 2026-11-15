@@ -891,3 +891,58 @@ test('AI 上下文从节点 content 读报价行（确认后 payload 只剩信�
   )
   assert.deepEqual(got.workItems.map((row) => row.name), ['划痕检测补漆'])
 })
+
+test('补充施工 AI 只结合自己的补充报价单与本节点施工项', () => {
+  const album = {
+    contentPackageJson: {
+      flowNodes: [
+        {
+          id: 'q0',
+          kind: 'quote_confirm',
+          sortOrder: 1,
+          document: { status: 'confirmed', payload: {} },
+          content: { lines: [{ id: 'ql_1', name: '首次报价项目', amount: '100' }] },
+        },
+        {
+          id: 'w1',
+          kind: 'work',
+          sortOrder: 2,
+          content: { findings: [{ id: 'wf1', partName: '首次报价项目', caption: '已处理' }] },
+        },
+        {
+          id: 'q1',
+          kind: 'quote_confirm',
+          insertedReason: 'addon',
+          sortOrder: 3,
+          document: { status: 'confirmed', payload: {} },
+          content: { lines: [{ id: 'ql_2', name: '补充报价项目', amount: '200' }] },
+        },
+        {
+          id: 'w2',
+          kind: 'work',
+          insertedReason: 'addon',
+          parentNodeId: 'q1',
+          sortOrder: 4,
+          content: { findings: [{ id: 'wf2', partName: '补充报价项目', caption: '处理中' }] },
+        },
+        {
+          id: 'w3',
+          kind: 'work',
+          insertedReason: 'rework',
+          parentNodeId: 'w1',
+          sortOrder: 5,
+          content: { findings: [{ id: 'wf3', partName: '返工项目', caption: '返工中' }] },
+        },
+      ],
+    },
+  }
+
+  const addon = contextOf(album, {}, { nodeId: 'w2' })
+  assert.deepEqual(addon.quoteLines.map((row) => row.name), ['补充报价项目'])
+  assert.deepEqual(addon.workItems.map((row) => row.name), ['补充报价项目'])
+
+  const rework = contextOf(album, {}, { nodeId: 'w3' })
+  assert.equal(rework.quoteLines.length, 0)
+  assert.deepEqual(rework.workItems.map((row) => row.name), ['返工项目'])
+})
+

@@ -761,7 +761,7 @@ function isAddonQuoteNode(node) {
 
 function buildAdviceFingerprints(album) {
   if (!album) {
-    return { quote: '', quotes: {}, intake: '', work: '', inspect: '', delivery: '' }
+    return { quote: '', quotes: {}, intake: '', work: '', works: {}, inspect: '', delivery: '' }
   }
   let quote = ''
   let intake = ''
@@ -769,6 +769,7 @@ function buildAdviceFingerprints(album) {
   let inspect = ''
   let delivery = ''
   const quotes = {}
+  const works = {}
   try {
     const { buildAssistFingerprint } = require('./quote-assist.service')
     // 每个报价节点（首次 + 补充报价）各自一份指纹，避免拿首次报价的指纹判 addon 是否过期
@@ -789,6 +790,12 @@ function buildAdviceFingerprints(album) {
   }
   try {
     const { fingerprintFor, contextOf } = require('./step-advice.service')
+    // 施工节点各自一份指纹：补充施工只看自己的报价单与本节点施工项
+    sortFlowNodes(readFlowNodesRaw(album))
+      .filter((node) => node && node.kind === 'work')
+      .forEach((node) => {
+        works[node.id] = fingerprintFor('work', contextOf(album, {}, { nodeId: node.id }))
+      })
     const ctx = contextOf(album)
     work = fingerprintFor('work', ctx)
     inspect = fingerprintFor('inspect', ctx)
@@ -796,7 +803,7 @@ function buildAdviceFingerprints(album) {
   } catch (_) {
     /* ignore */
   }
-  return { quote, quotes, intake, work, inspect, delivery }
+  return { quote, quotes, intake, work, works, inspect, delivery }
 }
 
 /** 读侧重签原图：小程序 <image> 无法带 Bearer；库内应是裸 URL */
@@ -885,8 +892,10 @@ function mapFlowNodeForView(node, albumNodes = [], adviceFingerprints = null) {
     workAdvice: (() => {
       try {
         const { sanitizeStepAdviceForView } = require('./step-advice.service')
+        // 施工建议按节点存：补充施工的指纹只算它自己的报价单与施工项
+        const workFp = String((fps.works && fps.works[node.id]) || fps.work || '')
         return sanitizeStepAdviceForView(node.workAdvice, 'work', {
-          contentFingerprint: stepContentFp('work'),
+          contentFingerprint: workFp,
         })
       } catch (_) {
         return null
@@ -1535,7 +1544,8 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       queueInspectionAdviceIfNeeded,
     } = require('./step-advice.service')
     const startAlbum = await loadAlbum(albumId)
-    const queueOpts = { force: forceAdviceRefresh }
+    // 施工 AI 跟节点绑定：补充施工只分析自己的补充报价单与本节点施工项
+    const queueOpts = { force: forceAdviceRefresh, nodeId: kind === 'work' ? id : '' }
     const queued = kind === 'work'
       ? await queueWorkAdviceIfNeeded(startAlbum, queueOpts)
       : await queueInspectionAdviceIfNeeded(startAlbum, queueOpts)

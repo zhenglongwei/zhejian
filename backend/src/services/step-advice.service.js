@@ -1240,7 +1240,7 @@ function foldPartHintsIntoOrder(advice) {
   return order.slice(0, 6)
 }
 
-function contextOf(album, extraNotes = {}) {
+function contextOf(album, extraNotes = {}, options = {}) {
   const nodes = readFlowNodes(album)
   const { buildCaseFactPack } = require('../utils/case-geo-factpack')
   const factPack = buildCaseFactPack(nodes)
@@ -1248,11 +1248,38 @@ function contextOf(album, extraNotes = {}) {
   const inspection = nodes.find((item) => item && item.kind === 'inspection')
   // 历次报价单（首次 + 各次补充报价）与其汇总：施工、交车都用汇总口径
   const quoteLedger = buildQuoteLedger(nodes)
+  // 施工 AI 跟节点绑定：补充施工只看它自己的补充报价单，返工施工没有新报价单
+  const scopedWorkId = text(options && options.nodeId)
+  const scopedWork = scopedWorkId
+    ? nodes.find((item) => item && item.id === scopedWorkId && item.kind === 'work') || null
+    : null
+  const confirmedOf = (entry) => entry.lines.filter((line) => line.confirmed)
+  let quoteSummaryEntries = quoteLedger.entries
+  if (scopedWork) {
+    const reason = text(scopedWork.insertedReason)
+    if (reason === 'addon') {
+      const entry = quoteLedger.entries.find(
+        (row) => row.nodeId === text(scopedWork.parentNodeId),
+      )
+      quoteSummaryEntries = entry ? [entry] : []
+    } else if (reason === 'rework') {
+      quoteSummaryEntries = []
+    } else {
+      // 原施工节点只对照首次报价；后续补充报价各自有补充施工节点
+      const firstEntries = quoteLedger.entries.filter((entry) => !entry.isAddon)
+      quoteSummaryEntries = firstEntries.length ? firstEntries : quoteLedger.entries
+    }
+  }
+  const workQuoteLines = quoteSummaryEntries.reduce((all, entry) => all.concat(entry.lines), [])
+  const workQuoteItems = quoteSummaryEntries.reduce(
+    (all, entry) => all.concat(confirmedOf(entry)),
+    [],
+  )
   const quoteSummary = {
-    count: quoteLedger.count,
-    total: quoteLedger.total,
-    confirmedTotal: quoteLedger.confirmedTotal,
-    entries: quoteLedger.entries.map((entry) => ({
+    count: quoteSummaryEntries.length,
+    total: quoteSummaryEntries.reduce((sum, entry) => sum + (Number(entry.total) || 0), 0),
+    confirmedTotal: workQuoteItems.reduce((sum, line) => sum + (Number(line.amount) || 0), 0),
+    entries: quoteSummaryEntries.map((entry) => ({
       label: entry.label,
       status: entry.status,
       lineCount: entry.lines.length,
@@ -1260,24 +1287,25 @@ function contextOf(album, extraNotes = {}) {
     })),
   }
   const works = nodes.filter((item) => item && item.kind === 'work')
+  const workScope = scopedWork ? [scopedWork] : works
   const delivery = nodes.find((item) => item && item.kind === 'delivery_photos')
   const repair = nodes.find((item) => item && item.kind === 'repair_report')
   const draft = contentOfFlowNode(delivery)
   const reportPayload = (repair && repair.document && repair.document.payload) || {}
   const intakeAdvice = (intake && intake.intakeAdvice) || {}
   const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
-  const workAdvice = (works.find((item) => item.workAdvice) || {}).workAdvice || {}
+  const workAdvice = (workScope.find((item) => item.workAdvice) || {}).workAdvice || {}
   const imageNotesMap = { ...(extraNotes || {}), ...collectImageNotesMap(nodes) }
   const intakeUrls = intakePhotoUrls(intake)
   const inspectSlots = inspectPhotoSlots(inspection)
   const inspectUrls = inspectSlots.map((row) => row.url)
-  const workSlots = workPhotoSlots(works)
-  const workItemRows = works.reduce((all, node) => all.concat(workRows(node)), [])
+  const workSlots = workPhotoSlots(workScope)
+  const workItemRows = workScope.reduce((all, node) => all.concat(workRows(node)), [])
   // 验收行由规则生成：施工项 ∪ 总报价行（首次 + 历次补充），施工图按行名带进验收行；大模型只做逐行评估
   // 施工节点已交代的未施工行带原因，交车只读，不再要求商家操作
-  const unbuiltQuoteItems = collectUnbuiltQuoteItems(nodes)
+  const unbuiltQuoteItems = collectUnbuiltQuoteItems(scopedWork ? [scopedWork] : nodes)
   const acceptanceRows = buildAcceptanceRowsFromWorkItems(
-    workAcceptanceItems(works),
+    workAcceptanceItems(workScope),
     draft.acceptanceItems,
     quoteLedger.lines,
     unbuiltQuoteItems,
@@ -1333,9 +1361,9 @@ function contextOf(album, extraNotes = {}) {
     inspectPhotoUrlsAll: inspectUrls,
     inspectPhotoSlots: inspectSlots,
     inspectNoted: inspectSplit.noted,
-    quoteLines: quoteLedger.lines,
-    // 未施工判定只认已确认的历次报价；行上带来源，便于 AI 说明是哪张单子的项目
-    quoteItemRows: quoteLedger.confirmedLines.map((row) => ({
+    quoteLines: workQuoteLines,
+    // 未施工判定只认已确认的报价；行上带来源，便于 AI 说明是哪张单子的项目
+    quoteItemRows: workQuoteItems.map((row) => ({
       id: row.id,
       name: row.name,
       amount: row.amount || '',
@@ -1345,7 +1373,7 @@ function contextOf(album, extraNotes = {}) {
     // 施工节点已交代的未施工项（系统录入错误 / 客户要求不做）：交车只读，不再要求商家处理
     unbuiltQuoteItems,
     quoteSummary,
-    workItems: works.reduce((all, node) => all.concat(workRows(node)), []),
+    workItems: workItemRows,
     workPhotoSlots: workFreshSlots,
     workNoted,
     workAdviceSummary: text(workAdvice.updatedAt)
@@ -1447,12 +1475,15 @@ function fingerprintFor(kind, ctx) {
   return crypto.createHash('sha1').update(JSON.stringify({ v: kind, ...picked })).digest('hex')
 }
 
-async function patchNode(albumId, kind, mutator) {
+async function patchNode(albumId, kind, mutator, options = {}) {
   const album = await prisma.album.findUnique({ where: { id: albumId } })
   if (!album) return null
   const pkg = album.contentPackageJson && typeof album.contentPackageJson === 'object' ? album.contentPackageJson : {}
   const nodes = sortFlowNodes(pkg.flowNodes)
-  const index = nodes.findIndex((item) => item && item.kind === kind)
+  const wantedId = text(options && options.nodeId)
+  const index = wantedId
+    ? nodes.findIndex((item) => item && item.id === wantedId)
+    : nodes.findIndex((item) => item && item.kind === kind)
   if (index < 0) return null
   nodes[index] = mutator(nodes[index]) || nodes[index]
   await prisma.album.update({
@@ -1665,7 +1696,7 @@ function workInstruction(ctx) {
       workNoted: ctx.workNoted,
     },
     报价项: quoteItems,
-    // 历次报价单（首次 + 各次补充报价）的汇总口径
+    // 本节点对应的报价单（原施工＝首次报价；补充施工＝它自己的补充报价）
     报价汇总: ctx.quoteSummary || null,
     工单项目: (ctx.workItems || []).map((row) => ({
       项目: row.name,
@@ -1686,6 +1717,7 @@ function workInstruction(ctx) {
     '4. 只建议，店员点应用才执行；不改价格，不自己挪图。',
     '5. 报价项里「交代」非空的，是商家已确认未施工（系统录入错误 / 客户要求不做）：不得再列进缺项、未施工、漏记提醒，也不要建议补做。报价有、工单无、又没交代的，必须提醒「报价有、施工无」。',
     '6. 禁止出现「交车时补拍」「交车再确认」这类把责任推给下一步的说法；缺图只能在本步补。',
+    '7. 报价项只来自本节点对应的那张报价单：原施工看首次报价，补充施工只看它自己的补充报价，别的报价单的项目不属于本节点，不要当成漏项；返工施工没有新报价单，只核对工单项目。',
     '',
     '判断是否施工完成，按一般维修验收标准，不只看照片够不够：',
     '- 更换件（胶套、刹车片、电瓶、轮胎等）：旧件已拆下、新件装配到位、紧固/扭矩已复紧、试车或功能检查无异常。',
@@ -1916,9 +1948,11 @@ async function runJob(albumId, kind, options = {}) {
     const { loadAlbum } = require('./service-album.service')
     const album = await loadAlbum(albumId)
     if (!album) return
-    const ctx = contextOf(album, await notesForAlbumImages(album))
+    const ctx = contextOf(album, await notesForAlbumImages(album), options)
     const fingerprint = fingerprintFor(kind, ctx)
     const { field, nodeKind } = nodeField(kind)
+    const nodeId = text(options && options.nodeId)
+    const patchOpts = { nodeId: kind === 'work' ? nodeId : '' }
     // 检测：默认只送还没有观察摘要的图。点刷新才把本步检测图再送进去。
     const inspectFresh = ctx.inspectPhotoUrls || []
     const inspectAll = ctx.inspectPhotoUrlsAll || inspectFresh
@@ -2036,7 +2070,7 @@ async function runJob(albumId, kind, options = {}) {
         next = mergeImageNotesFromUrlList(next, urls, notes)
       }
       return next
-    })
+    }, patchOpts)
     // 与接车一致：看图返回的 masks 落到本批附图；只打一次，不挡意见正文
     if (ok && urls.length) {
       try {
@@ -2056,6 +2090,7 @@ async function runJob(albumId, kind, options = {}) {
     }
   } catch (err) {
     const { field, nodeKind } = nodeField(kind)
+    const nodeId = kind === 'work' ? text(options && options.nodeId) : ''
     await patchNode(albumId, nodeKind, (item) => ({
       ...item,
       [field]: {
@@ -2064,7 +2099,7 @@ async function runJob(albumId, kind, options = {}) {
         errorMessage: text(err && err.message).slice(0, 80) || '未能出意见',
         updatedAt: new Date().toISOString(),
       },
-    })).catch(() => {})
+    }), { nodeId }).catch(() => {})
   } finally {
     jobsInFlight.delete(key)
   }
@@ -2074,7 +2109,7 @@ async function queueIfNeeded(album, kind, options = {}) {
   const { resolveCapabilityForMerchant } = require('./node-ai-review.service')
   const capability = await resolveCapabilityForMerchant(album.merchantId)
   if (!capability || !capability.entitled || !capability.llmEnabled) return { queued: false, skipped: true }
-  const ctx = contextOf(album, await notesForAlbumImages(album))
+  const ctx = contextOf(album, await notesForAlbumImages(album), options)
   if (
     kind === 'work' &&
     !ctx.quoteLines.length &&
@@ -2091,9 +2126,13 @@ async function queueIfNeeded(album, kind, options = {}) {
     throw err
   }
   const force = Boolean(options && options.force)
+  const nodeId = kind === 'work' ? text(options && options.nodeId) : ''
+  const patchOpts = { nodeId }
   const fingerprint = fingerprintFor(kind, ctx)
   const { field, nodeKind } = nodeField(kind)
-  const node = readFlowNodes(album).find((item) => item && item.kind === nodeKind)
+  const node = nodeId
+    ? readFlowNodes(album).find((item) => item && item.id === nodeId)
+    : readFlowNodes(album).find((item) => item && item.kind === nodeKind)
   const current = (node && node[field]) || {}
   const hasReady = current.status === 'ready' && adviceHasContent(current, kind)
   // 有上次结果默认复用；仅 force 才重跑
@@ -2119,9 +2158,9 @@ async function queueIfNeeded(album, kind, options = {}) {
         updatedAt: new Date().toISOString(),
       },
     }
-  })
+  }, patchOpts)
   setImmediate(() => {
-    runJob(album.id, kind, { force }).catch(() => {})
+    runJob(album.id, kind, { force, nodeId }).catch(() => {})
   })
   return { queued: true, stale: false }
 }
