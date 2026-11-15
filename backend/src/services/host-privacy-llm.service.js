@@ -128,7 +128,7 @@ async function markUrlsLlmFailed(albumId, urls) {
 
 /**
  * 对未分析/模型失败的原图重跑大模型并贴码写回节点。
- * @returns {{ ok: number, failed: number }}
+ * @returns {{ ok: number, failed: number, pairs: object[] }}
  */
 async function rerunHostPrivacyLlmForUrls(urls, options = {}) {
   const albumId = text(options.albumId)
@@ -136,11 +136,12 @@ async function rerunHostPrivacyLlmForUrls(urls, options = {}) {
   const describeOnlyKeys =
     options.describeOnlyUrlKeys instanceof Set ? options.describeOnlyUrlKeys : null
   const all = rowsFromUrls(urls, describeKeys, describeOnlyKeys)
-  if (!all.length) return { ok: 0, failed: 0 }
+  if (!all.length) return { ok: 0, failed: 0, pairs: [] }
 
   const { applyModelMasks } = require('./model-mask.service')
   let ok = 0
   let failed = 0
+  const allPairs = []
 
   for (let i = 0; i < all.length; i += BATCH) {
     const batch = all.slice(i, i + BATCH).map((row, idx) => ({
@@ -151,6 +152,7 @@ async function rerunHostPrivacyLlmForUrls(urls, options = {}) {
       const { masks } = await callPrivacyMasksModel(batch)
       const pairs = await applyModelMasks(batch, masks, { albumId })
       ok += Array.isArray(pairs) ? pairs.length : 0
+      if (Array.isArray(pairs)) allPairs.push(...pairs)
       const got = new Set(
         (Array.isArray(pairs) ? pairs : []).map((p) => text(p.rawUrl)),
       )
@@ -171,7 +173,7 @@ async function rerunHostPrivacyLlmForUrls(urls, options = {}) {
     }
   }
 
-  return { ok, failed }
+  return { ok, failed, pairs: allPairs }
 }
 
 module.exports = {
