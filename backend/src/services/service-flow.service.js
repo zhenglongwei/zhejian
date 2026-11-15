@@ -3358,8 +3358,10 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
   const vehicleSeries = String(payload.vehicleSeries || vehicle.series || '').trim()
   const mileageKm = String(payload.mileageKm || '').trim()
   const albumMileage = Number(vehicle.mileage)
+  const deliveryKm = Number(parseMileageKm(payload.deliveryMileage)) || 0
   const mileageText = String(
     payload.mileageText ||
+      (deliveryKm > 0 ? `交车里程 ${deliveryKm.toLocaleString('zh-CN')} km` : '') ||
       (mileageKm ? `里程 ${mileageKm} km` : '') ||
       (Number.isFinite(albumMileage) && albumMileage > 0
         ? `里程 ${albumMileage.toLocaleString('zh-CN')} km`

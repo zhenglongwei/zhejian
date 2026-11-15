@@ -3011,6 +3011,17 @@ Page({
     const deliveryDraft = this.nodeDraft(delivery)
     const repair = nodes.find((node) => node && node.kind === 'repair_report')
     const repairPayload = (repair && repair.document && repair.document.payload) || {}
+    // 交车报告页眉：接车里程与交车里程分开写，交车里程缺失才回落到建档里程
+    const intakeKm = parseMileageKm(intakeDraft.mileageKm)
+    const intakeMileageText = intakeKm
+      ? `接车里程 ${Number(intakeKm).toLocaleString('zh-CN')} km`
+      : ''
+    const deliveryKm = parseMileageKm(
+      repairPayload.deliveryMileage || deliveryDraft.deliveryMileage || this.data.deliveryMileage,
+    )
+    const finishMileageText = deliveryKm
+      ? `交车里程 ${Number(deliveryKm).toLocaleString('zh-CN')} km`
+      : mileageText
     if (title === '接车报告') {
       const issued = this.intakeDocumentSent()
       // 发出后与车主同读定稿；未发出跟当前留证（与屏上列表一致）
@@ -3115,7 +3126,8 @@ Page({
       return buildOwnerPreviewDoc({
         family: 'finish',
         album: previewAlbumOf(album),
-        mileageText,
+        mileageText: repairPayload.mileageText || finishMileageText,
+        intakeMileageText: repairPayload.intakeMileageText || intakeMileageText,
         workItems: Array.isArray(repairPayload.workItems) ? repairPayload.workItems : [],
         totalAmount: repairPayload.totalAmount,
         acceptanceItems: repairPayload.acceptanceItems,
@@ -3128,13 +3140,18 @@ Page({
     const works = nodes.filter((node) => node && node.kind === 'work')
     const { quoteByName, quoteTotal } = quoteTotalsFromNodes(nodes)
     const workItems = finishWorkItemsFromFindingsList(
-      works.map((node) => this.nodeDraft(node).findings || []),
+      // 返工是新开施工节点重做一遍，报告如实记录并给这一次打「返工」标记
+      works.map((node) => {
+        const rework = String(node.insertedReason || '') === 'rework'
+        return (this.nodeDraft(node).findings || []).map((row) => ({ ...row, rework }))
+      }),
       quoteByName,
     )
     return buildOwnerPreviewDoc({
       family: 'finish',
       album: previewAlbumOf(album),
-      mileageText,
+      mileageText: finishMileageText,
+      intakeMileageText,
       workItems,
       totalAmount: quoteTotal,
       acceptanceItems:

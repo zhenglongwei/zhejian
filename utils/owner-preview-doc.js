@@ -82,6 +82,7 @@ function workItemsFromFindings(findings = []) {
       images: photoRows((row && row.images) || (row && row.url ? [row.url] : [])),
       amount: row && row.amount != null ? row.amount : '',
       quoteLineId: String((row && row.quoteLineId) || '').trim(),
+      rework: Boolean(row && row.rework),
     }))
     .filter((row) => row.name)
 }
@@ -125,6 +126,7 @@ function finishWorkItemsFromFindingsList(findingsList = [], quoteByName = {}) {
         brand: item.brand,
         note: item.note,
         amount: Number.isFinite(own) && own > 0 ? own : fromQuote != null ? fromQuote : '',
+        rework: item.rework === true,
       })
     })
   })
