@@ -34,8 +34,8 @@ function ossConfig() {
 
 function publicHost() {
   const cfg = ossConfig()
-  const bucket = cfg.bucket || 'zhejianoss'
-  const endpoint = String(cfg.endpoint || 'oss-cn-hangzhou.aliyuncs.com').replace(/^https?:\/\//, '')
+  const bucket = cfg.bucket || 'zhejian-heyuan'
+  const endpoint = String(cfg.endpoint || 'oss-cn-heyuan.aliyuncs.com').replace(/^https?:\/\//, '')
   return `https://${bucket}.${endpoint}`
 }
 
@@ -95,7 +95,7 @@ function activeEndpointHost() {
   const host = preferInternal()
     ? String(cfg.internalEndpoint || cfg.endpoint || '').replace(/^https?:\/\//, '')
     : String(cfg.endpoint || '').replace(/^https?:\/\//, '')
-  return host || 'oss-cn-hangzhou.aliyuncs.com'
+  return host || 'oss-cn-heyuan.aliyuncs.com'
 }
 
 function withTimeout(promise, ms, label) {
@@ -357,7 +357,7 @@ async function signObjectUrl(objectKey, opts = {}) {
   const cfg = ossConfig()
   const creds = await resolveAliyunCreds()
   const expires = clampUrlExpiresSec(Number(opts.expires || cfg.signedUrlTtlSec || 7200), creds)
-  const publicEndpoint = String(cfg.endpoint || 'oss-cn-hangzhou.aliyuncs.com').replace(
+  const publicEndpoint = String(cfg.endpoint || 'oss-cn-heyuan.aliyuncs.com').replace(
     /^https?:\/\//,
     '',
   )

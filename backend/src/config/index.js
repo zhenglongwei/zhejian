@@ -329,12 +329,12 @@ const config = {
     /** 阿里云 OSS（B-MEDIA-01）；关闭时仍用本地 MEDIA_STORAGE_DIR */
     oss: {
       enabled: envBool('OSS_ENABLED'),
-      bucket: envStr('OSS_BUCKET', 'zhejianoss'),
-      region: envStr('OSS_REGION', 'cn-hangzhou'),
-      endpoint: envStr('OSS_ENDPOINT', 'oss-cn-hangzhou.aliyuncs.com'),
+      bucket: envStr('OSS_BUCKET', 'zhejian-heyuan'),
+      region: envStr('OSS_REGION', 'cn-heyuan'),
+      endpoint: envStr('OSS_ENDPOINT', 'oss-cn-heyuan.aliyuncs.com'),
       internalEndpoint: envStr(
         'OSS_INTERNAL_ENDPOINT',
-        'oss-cn-hangzhou-internal.aliyuncs.com',
+        'oss-cn-heyuan-internal.aliyuncs.com',
       ),
       /**
        * 生产默认走内网；若 ECS 访问 -internal 卡住，设 OSS_USE_INTERNAL_ENDPOINT=false
