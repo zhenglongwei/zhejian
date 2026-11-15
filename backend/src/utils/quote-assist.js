@@ -157,8 +157,38 @@ function parseOwnerAsks(raw, max = 6) {
 
 const DISPOSITION_LABELS = {
   merge: '建议并入原报价',
+  merge_addon: '本次补充报价已含该项目',
+  merge_generic: '建议合并处理',
   separate: '建议单独补充报价',
   inspect: '建议先拆检/补拍再定',
+}
+
+function dispositionLabel(verdict, scope) {
+  if (verdict !== 'merge') return DISPOSITION_LABELS[verdict] || ''
+  if (scope === 'addon') return DISPOSITION_LABELS.merge_addon
+  if (scope === 'prior') return DISPOSITION_LABELS.merge
+  return DISPOSITION_LABELS.merge_generic
+}
+
+function normalizeLineName(value) {
+  return text(value).replace(/\s+/g, '').toLowerCase()
+}
+
+/** 合并目标属于「本次补充报价自己的行」还是「以往报价」，决定结论措辞 */
+function refineDispositionScope(disposition, context = {}) {
+  if (!disposition || disposition.verdict !== 'merge') return disposition
+  const target = text(disposition.target)
+  if (!target) return { ...disposition, scope: '' }
+  const hit = (rows) =>
+    (Array.isArray(rows) ? rows : []).some((row) => {
+      const name = normalizeLineName(row && (row.name || row))
+      const key = normalizeLineName(target)
+      if (!name || !key) return false
+      return name === key || name.indexOf(key) >= 0 || key.indexOf(name) >= 0
+    })
+  if (hit(context.addonLines)) return { ...disposition, scope: 'addon' }
+  if (hit(context.priorQuoteLines)) return { ...disposition, scope: 'prior' }
+  return { ...disposition, scope: '' }
 }
 
 /** 补充报价处置结论：三选一 + 理由 */
@@ -172,7 +202,12 @@ function parseDisposition(raw) {
   const reason = text(raw.reason || raw.body || raw.text || raw.why).slice(0, 240)
   const target = text(raw.target || raw.line || raw.into).slice(0, 40)
   if (!verdict && !reason) return null
-  return { verdict, verdictLabel: DISPOSITION_LABELS[verdict] || '', reason, target }
+  const hasScope = Object.prototype.hasOwnProperty.call(raw, 'scope')
+  const scope = hasScope ? text(raw.scope) : undefined
+  const verdictLabel = hasScope
+    ? dispositionLabel(verdict, scope)
+    : DISPOSITION_LABELS[verdict] || ''
+  return { verdict, verdictLabel, reason, target, ...(hasScope ? { scope } : {}) }
 }
 
 function parseQuoteAssistPayload(raw) {
@@ -258,6 +293,8 @@ module.exports = {
   parseSuggestedLines,
   parseOmissionLines,
   parseDisposition,
+  dispositionLabel,
+  refineDispositionScope,
   parseOwnerAsks,
   parseQuoteAssistPayload,
   quoteAssistHasContent,

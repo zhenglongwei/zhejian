@@ -3,6 +3,9 @@ const assert = require('node:assert/strict')
 const {
   parseQuoteAssistPayload,
   parseSuggestedLines,
+  parseDisposition,
+  dispositionLabel,
+  refineDispositionScope,
   quoteAssistHasContent,
 } = require('./quote-assist')
 
@@ -149,4 +152,34 @@ test('先拆检结论可以没有报价行', () => {
   assert.equal(got.disposition.verdict, 'inspect')
   assert.equal(got.suggestedLines.length, 0)
   assert.equal(quoteAssistHasContent(got), true)
+})
+
+test('合并目标是本次补充报价自己的行时，不能叫原报价', () => {
+  const base = parseQuoteAssistPayload({
+    disposition: {
+      verdict: 'merge',
+      target: '划痕修复',
+      reason: '当前补充报价单中已列有「划痕修复」项目，无需单独新增报价行。',
+    },
+  })
+  const refined = refineDispositionScope(base.disposition, {
+    addonLines: [{ name: '划痕修复' }],
+    priorQuoteLines: [{ name: '底盘维修' }, { name: '进气门清洗' }],
+  })
+  assert.equal(refined.scope, 'addon')
+  assert.equal(dispositionLabel(refined.verdict, refined.scope), '本次补充报价已含该项目')
+  // 落库后重新解析（sanitize）仍保持同一措辞
+  assert.equal(parseDisposition(refined).verdictLabel, '本次补充报价已含该项目')
+})
+
+test('合并目标是以往报价的行时，维持并入原报价', () => {
+  const base = parseQuoteAssistPayload({
+    disposition: { verdict: 'merge', target: '底盘维修', reason: '同一处，并入原报价。' },
+  })
+  const refined = refineDispositionScope(base.disposition, {
+    addonLines: [{ name: '划痕修复' }],
+    priorQuoteLines: [{ name: '底盘维修' }],
+  })
+  assert.equal(refined.scope, 'prior')
+  assert.equal(dispositionLabel(refined.verdict, refined.scope), '建议并入原报价')
 })

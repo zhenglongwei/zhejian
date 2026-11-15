@@ -12,6 +12,8 @@ const {
   sanitizeQuoteAssistForView,
   quoteAssistHasContent,
   lineHasMarketBand,
+  refineDispositionScope,
+  dispositionLabel,
 } = require('../utils/quote-assist')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 
@@ -302,15 +304,17 @@ async function runAddonGenerateLlm(facts, category) {
   const instruction = [
     'You assist a Chinese auto shop clerk on the ADD-ON quote step (补充报价).',
     'Context: extra problems were found either mid-work or during handover. The add-on quote is an independent node, not an attachment to the work node.',
-    'Evidence available (use all of it): discoveryNote = what the clerk wrote about the new problem; discoveryImageCount = how many photos the clerk attached; workFindings = work records; priorQuoteLines = the first quote plus all other non-cancelled add-on quotes (already quoted, never re-quote); addonLines = rows already on this add-on quote; inspection = inspection report findings.',
+    'Evidence available (use all of it): discoveryNote = what the clerk wrote about the new problem; discoveryImageCount = how many photos the clerk attached; workFindings = work records; priorQuoteLines = the first quote plus OTHER non-cancelled add-on quotes, THIS add-on quote excluded (already quoted elsewhere, never re-quote); addonLines = rows already on THIS add-on quote; inspection = inspection report findings.',
     'Required output 1 — disposition: decide how to handle this discovery.',
-    '- verdict "merge": the new problem can be folded into an existing prior-quote line (same part/service/area). Put the target line or category in "target".',
+    '- verdict "merge": the new problem can be folded into an existing line. The target may be a priorQuoteLines row, or an addonLines row when THIS add-on quote already covers the problem. Put the target line name in "target".',
     '- verdict "separate": it must be its own add-on quote line (why it cannot merge).',
     '- verdict "inspect": need teardown / more photos / a test drive before pricing.',
     '- reason: one short paragraph in owner-friendly Simplified Chinese explaining the call.',
     'Required output 2 — suggestedLines / omissions: one row per concrete billable service.',
     '- name, note, kind=parts|labor, market bands, reason (necessity: why now + risk if skipped), optional (true when the owner may decline).',
     'Hard rules:',
+    '- addonLines are rows of THIS add-on quote. Never describe them as 原报价/首次报价/以往报价 in any string value.',
+    '- If addonLines already covers the discovery, verdict "merge" with target = that addonLines row, and the reason must say it is already included in this add-on quote (本次补充报价) — do not suggest adding a duplicate row.',
     '- Base rows on discoveryNote + workFindings + inspection. Never invent defects with no evidence.',
     '- Exclude anything already covered by priorQuoteLines (same part or same service, even if wording differs). Never re-quote the same service.',
     '- outsideQuote=true findings qualify only when not already covered by priorQuoteLines. Findings without a matching quoteLineId follow the same rule.',
@@ -352,6 +356,17 @@ async function runAddonGenerateLlm(facts, category) {
         timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
       })
       const parsed = parseQuoteAssistPayload(result && result.text, { category })
+      if (parsed.disposition) {
+        // 合并目标落在「本次补充报价自己的行」时，不能说成"并入原报价"
+        const refined = refineDispositionScope(parsed.disposition, {
+          addonLines: facts.body.addonLines,
+          priorQuoteLines: facts.body.priorQuoteLines,
+        })
+        parsed.disposition = {
+          ...refined,
+          verdictLabel: dispositionLabel(refined.verdict, refined.scope),
+        }
+      }
       const bandRows = parsed.suggestedLines.length ? parsed.suggestedLines : parsed.omissions
       const hasDisposition = Boolean(parsed.disposition && text(parsed.disposition.reason))
       if (!bandRows.length && !hasDisposition) {
