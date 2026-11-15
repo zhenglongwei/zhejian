@@ -361,7 +361,11 @@ async function signObjectUrl(objectKey, opts = {}) {
     /^https?:\/\//,
     '',
   )
-  const endpointStr = String((client.options && client.options.endpoint) || '')
+  // ali-oss 会把 endpoint 规范化成 URL 对象，需取 hostname 再判断内外网
+  const rawEndpoint = client.options && client.options.endpoint
+  const endpointStr = String(
+    (rawEndpoint && (rawEndpoint.hostname || rawEndpoint.host)) || rawEndpoint || '',
+  )
   let signClient = client
   if (endpointStr.includes('-internal')) {
     // eslint-disable-next-line global-require, import/no-extraneous-dependencies
