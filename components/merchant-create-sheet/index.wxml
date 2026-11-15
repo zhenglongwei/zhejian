@@ -64,6 +64,16 @@
           </view>
         </view>
         <text wx:if="{{vehicleHint}}" class="mch-create__hint">{{vehicleHint}}</text>
+        <view
+          wx:if="{{decodedVehicle.modelName || decodedVehicle.chassisCode || decodedVehicle.engineModel || decodedVehicle.displacement || decodedVehicle.gearbox}}"
+          class="mch-create__decoded"
+        >
+          <text wx:if="{{decodedVehicle.modelName}}" class="mch-create__decoded-row">车型 {{decodedVehicle.modelName}}</text>
+          <text wx:if="{{decodedVehicle.chassisCode}}" class="mch-create__decoded-row">底盘 {{decodedVehicle.chassisCode}}</text>
+          <text wx:if="{{decodedVehicle.engineModel}}" class="mch-create__decoded-row">发动机 {{decodedVehicle.engineModel}}</text>
+          <text wx:if="{{decodedVehicle.displacement}}" class="mch-create__decoded-row">排量 {{decodedVehicle.displacement}}</text>
+          <text wx:if="{{decodedVehicle.gearbox}}" class="mch-create__decoded-row">变速箱 {{decodedVehicle.gearbox}}</text>
+        </view>
       </view>
 
       <view class="mch-create__field">

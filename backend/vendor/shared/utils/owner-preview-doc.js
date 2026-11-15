@@ -160,7 +160,15 @@ function albumMetaLine(album, mileageText) {
     .map((part) => String(part || '').trim())
     .filter(Boolean)
     .join(' ')
-  return [plate, name, String(mileageText || '').trim()].filter(Boolean).join(' · ')
+  // 报告正文没带里程时用相册建档里程兜底（接车报告）
+  const explicit = String(mileageText || '').trim()
+  const albumMileage = Number(vehicle.mileage)
+  const mileage =
+    explicit ||
+    (Number.isFinite(albumMileage) && albumMileage > 0
+      ? `里程 ${albumMileage.toLocaleString('zh-CN')} km`
+      : '')
+  return [plate, name, mileage].filter(Boolean).join(' · ')
 }
 
 /**
@@ -339,6 +347,49 @@ function buildOwnerPreviewDoc(input = {}) {
     const lineTotal = moneySum(workItems)
     const quoted = Number(input.totalAmount)
     const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
+    const acceptanceItems = (Array.isArray(input.acceptanceItems) ? input.acceptanceItems : [])
+      .map((row, index) => {
+        const obj = row && typeof row === 'object' ? row : {}
+        const name = String(obj.name || '').trim()
+        if (!name) return null
+        const result = obj.rework
+          ? 'rework'
+          : ['pass', 'observe', 'rework'].includes(obj.result)
+            ? obj.result
+            : ''
+        const images = photoRows(obj.images || [])
+        return {
+          id: String(obj.id || '').trim() || `acc_${index + 1}`,
+          kind: obj.kind === 'exterior' ? 'exterior' : 'work',
+          name,
+          note: String(obj.note || '').trim(),
+          result,
+          resultLabel: result
+            ? { pass: '合格', observe: '建议观察', rework: '需返工' }[result]
+            : '',
+          resultTone: result || 'observe',
+          images,
+          missingPhoto: Boolean(obj.kind === 'exterior' && !images.length),
+        }
+      })
+      .filter(Boolean)
+    // 返工记录：交车时发现新问题并转返工，报告如实留痕
+    const reworkRecords = (Array.isArray(input.reworkRecords) ? input.reworkRecords : [])
+      .map((row) => ({
+        reason: String((row && row.reason) || '').trim(),
+        itemNames: (Array.isArray(row && row.itemNames) ? row.itemNames : [])
+          .map((name) => String(name || '').trim())
+          .filter(Boolean),
+        operator: String((row && row.operator) || '').trim(),
+        at: String((row && row.at) || '').trim(),
+        doneAt: String((row && row.doneAt) || '').trim(),
+      }))
+      .filter((row) => row.reason)
+    // 交车报告同时展示接车里程与交车里程
+    const intakeMileageText = String(input.intakeMileageText || '').trim()
+    const deliveryMileageText = String(input.mileageText || '').trim()
+    const mileageLine = [intakeMileageText, deliveryMileageText].filter(Boolean).join(' · ')
+    const finishMetaLine = albumMetaLine(album, mileageLine)
     return {
       doc: {
         kind: 'repair_report',
@@ -346,19 +397,23 @@ function buildOwnerPreviewDoc(input = {}) {
         styleVariant: 'document',
         storeName,
         workItems,
+        acceptanceItems,
         warrantyPeriod,
         warrantyNotes,
+        reworkRecords,
         totalAmountLabel: workItems.length ? `合计 ¥${total.toFixed(2)}` : '',
         confirmCopy: REPAIR_CONFIRM_COPY,
         needsConfirm: false,
-        metaLine,
+        metaLine: finishMetaLine,
         signLabel: signLabel || '交付人',
         signName,
         signAt,
         signAtLabel: signAtLabel || '完工时间',
       },
       quoteLines: [],
-      hasBody: Boolean(workItems.length || warrantyPeriod || warrantyNotes),
+      hasBody: Boolean(
+        workItems.length || acceptanceItems.length || warrantyPeriod || warrantyNotes || reworkRecords.length,
+      ),
     }
   }
   return { doc: null, quoteLines: [], hasBody: false }

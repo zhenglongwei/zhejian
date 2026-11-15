@@ -1346,6 +1346,38 @@ Page({
     return missing
   },
 
+  /** 施工项与报价的关联状态：已报价 / 补充报价中 / 待补充报价 */
+  resolveItemQuoteState(finding = {}) {
+    const findingId = String(finding.id || '')
+    const partName = String(finding.partName || '').replace(/\s+/g, '')
+    const nodes = this._flowNodes || []
+    let quoted = false
+    let pending = false
+    nodes.forEach((node) => {
+      if (!node || (node.kind !== 'quote_confirm' && node.kind !== 'addon_quote_confirm')) return
+      const status = String((node.document && node.document.status) || '')
+      if (status !== 'confirmed' && status !== 'delivered' && status !== 'pending_confirm') return
+      const lines = Array.isArray(this.nodeDraft(node).lines) ? this.nodeDraft(node).lines : []
+      lines.forEach((line) => {
+        const lineFindingId =
+          String((line && line.workFindingId) || '') ||
+          (/^ql_work_(.+)$/.exec(String((line && line.id) || '')) || [])[1] ||
+          ''
+        const lineName = String((line && line.name) || '').replace(/\s+/g, '')
+        const idHit = Boolean(findingId && lineFindingId === findingId)
+        const nameHit = Boolean(
+          partName && lineName && (lineName.includes(partName) || partName.includes(lineName)),
+        )
+        if (!idHit && !nameHit) return
+        if (status === 'pending_confirm') pending = true
+        else quoted = true
+      })
+    })
+    if (quoted) return { state: 'quoted', label: '已报价' }
+    if (pending) return { state: 'pending', label: '补充报价中' }
+    return { state: 'none', label: '' }
+  },
+
   decorateFinding(item = {}, expanded = false, listKey = '', findingKind = 'inspection') {
     const extras = {
       fromAi: Boolean(item.fromAi),
@@ -1369,6 +1401,7 @@ Page({
       const row = normalizeWorkFinding(item)
       const missing = this.countFindingMissingFields(row, findingKind)
       const hasPhoto = row.images.length > 0
+      const quoteState = this.resolveItemQuoteState(row)
       return {
         ...row,
         ...extras,
@@ -1386,9 +1419,12 @@ Page({
         summaryBody: row.caption || '',
         completenessLabel: !hasPhoto ? '待拍照' : missing > 0 ? '缺项目' : '',
         labelToneDanger: !hasPhoto || missing > 0,
+        quoteState: quoteState.state,
+        quoteStateLabel: quoteState.label,
         showQuoteAddon: Boolean(
-          row.outsideQuote ||
-            (this._workExtraTitles && this._workExtraTitles.has(String(row.partName || '').trim())),
+          quoteState.state === 'none' &&
+            (row.outsideQuote ||
+              (this._workExtraTitles && this._workExtraTitles.has(String(row.partName || '').trim()))),
         ),
         adviceRequired: false,
         resultTone: '',
@@ -1554,6 +1590,9 @@ Page({
         intakeResults: [],
       }
       if (pendingImages.length) intakeSave.pendingImages = pendingImages
+      // 接车里程写入节点 content，报告据此展示（不再依赖相册建档里程兜底）
+      const intakeMileage = Number(parseMileageKm(this.data.mileageKm || draft.mileageKm)) || 0
+      if (intakeMileage > 0) intakeSave.mileageKm = intakeMileage
       return intakeSave
     }
     // 检测＝细查：部位 findings + 结论（结论进检测报告）
@@ -1661,6 +1700,18 @@ Page({
         })
       }
       this._flowNodes = flowNodes
+      // 返工记录写在施工节点：施工页顶部提示待返工项
+      const pendingRework = flowNodes
+        .filter((node) => node && node.kind === 'work')
+        .reduce((rows, node) => rows.concat(this.nodeDraft(node).reworkRecords || []), [])
+        .filter((row) => row && row.reason && !row.doneAt)
+      this.setData({
+        workReworkRows: pendingRework.map((row) => ({
+          id: String(row.id || row.reason),
+          reason: String(row.reason || ''),
+          itemText: (Array.isArray(row.itemNames) ? row.itemNames : []).join('、'),
+        })),
+      })
       const progress = completedWorkNow
         ? buildFlowProgressView(flowNodes)
         : flow.progress || buildFlowProgressView(flowNodes)
@@ -2015,7 +2066,9 @@ Page({
 
       const albumVehicle = (album && album.vehicle) || {}
       this._albumMileage = parseMileageKm(albumVehicle.mileage || albumVehicle.mileageKm)
-      const mileageKm = isIntakePhotoStep ? '' : parseMileageKm(photoDraft.mileageKm)
+      const mileageKm = isIntakePhotoStep
+        ? parseMileageKm(photoDraft.mileageKm || this.data.mileageKm) || this._albumMileage || ''
+        : parseMileageKm(photoDraft.mileageKm)
       const vehicleBrand = isIntakePhotoStep
         ? String(photoDraft.vehicleBrand || albumVehicle.brand || '').trim()
         : String(photoDraft.vehicleBrand || '').trim()
@@ -2188,15 +2241,7 @@ Page({
         deliveryMileage: isDeliveryPhotoStep
           ? String(
               parseMileageKm(photoDraft.deliveryMileage) ||
-                parseMileageKm(
-                  nodeContentOf(
-                    flowNodes.find(
-                      (node) =>
-                        node && (node.kind === 'inspection' || node.kind === 'inspection_report' || node.kind === 'intake'),
-                    ),
-                  ).mileageKm,
-                ) ||
-                this._albumMileage ||
+                parseMileageKm(this.data.deliveryMileage) ||
                 '',
             )
           : this.data.deliveryMileage,
@@ -2918,6 +2963,28 @@ Page({
   reportPreviewFor(title, options = {}) {
     const album = this._album || {}
     const nodes = this._flowNodes || []
+    // 已发送的报告只读快照：与车主端逐字一致，不再本地重新拼装
+    const frozenFamily =
+      title === '接车报告'
+        ? 'intake'
+        : title === '检测报告'
+          ? 'inspect'
+          : title === '交车报告'
+            ? 'finish'
+            : 'quote'
+    const activeId = (this.data.activeNode && this.data.activeNode.id) || ''
+    const frozenNode =
+      nodes.find(
+        (node) => node && node.id === activeId && node.renderDoc && node.renderDoc.family === frozenFamily,
+      ) || nodes.find((node) => node && node.renderDoc && node.renderDoc.family === frozenFamily)
+    if (frozenNode) {
+      const frozen = frozenNode.renderDoc
+      return {
+        doc: frozen.doc,
+        quoteLines: Array.isArray(frozen.quoteLines) ? frozen.quoteLines : [],
+        hasBody: Boolean(frozen.hasBody),
+      }
+    }
     const vehicle = album.vehicle || {}
     const mileage = Number(vehicle.mileage)
     const mileageText = Number.isFinite(mileage) && mileage > 0 ? `里程 ${mileage.toLocaleString('zh-CN')} km` : ''
@@ -5502,13 +5569,29 @@ Page({
         return
       }
       if (mode === 'rework') {
-        const res = await reopenMerchantWorkForRework(this.albumId, {
+        await reopenMerchantWorkForRework(this.albumId, {
           reason: note,
           itemIds: this.data.deliveryIssueReworkIds || [],
         })
-        wx.showToast({ title: '已转返工，请重新施工留证', icon: 'none' })
         this.setData({ deliveryIssueOpen: false })
         await this.loadFlow({ silent: true })
+        // 返工要回施工节点做：给出可停留的说明并直接带过去
+        const reworkIdSet = new Set((this.data.deliveryIssueReworkIds || []).map(String))
+        const rows = (this.data.acceptanceItems || [])
+          .filter((row) => row && reworkIdSet.has(String(row.id || '')))
+          .map((row) => String(row.name || '').trim())
+          .filter(Boolean)
+        wx.showModal({
+          title: '已转返工',
+          content: `${
+            rows.length ? `${rows.join('、')}\n` : ''
+          }已退回施工节点，请在「施工」重新处理并留证；返工记录会写进交车报告。`,
+          showCancel: false,
+          confirmText: '去施工',
+          success: () => {
+            this.openStage('work')
+          },
+        })
         return
       }
       const res = await createMerchantFollowUpAlbum(this.albumId, { note })
@@ -7669,9 +7752,15 @@ Page({
           this._pendingStageKey = 'finish'
           this._forceStageOpen = true
         }
+        if (kind === 'delivery_photos') {
+          // 完成交车即发送：直接进入交车报告只读态，避免停在交车节点卡住
+          this._pendingStageKey = 'finish'
+          this._forceStageOpen = true
+        }
         await this.loadFlow({ silent: true })
         if (kind === 'intake' || kind === 'intake_inspection') this.openStage('inspect')
         else if (kind === 'inspection') this.openStage('inspect')
+        else if (kind === 'delivery_photos') this.openStage('finish')
       } catch (e) {
         wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
       } finally {
@@ -9061,6 +9150,11 @@ Page({
     this.setData({ addonDiscoveryReady: false }, () => {
       this.persistAddonDocument().catch(() => {})
     })
+  },
+
+  onContinueWork() {
+    // 补充报价已被车主确认：回到施工继续做新增项目
+    this.openStage('work')
   },
 
   onOpenCancelAddon() {

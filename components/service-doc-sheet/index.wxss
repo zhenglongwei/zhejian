@@ -410,6 +410,25 @@
   color: var(--color-text-secondary);
 }
 
+/* 交车报告·返工记录 */
+.service-doc-sheet__rework {
+  padding: var(--space-sm) 0;
+}
+
+.service-doc-sheet__rework-items {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-primary);
+}
+
+.service-doc-sheet__rework-time {
+  display: block;
+  margin-top: 4rpx;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+}
+
 /* 验收按项目分组 */
 .service-doc-sheet__acc-group {
   margin-bottom: var(--space-xs);

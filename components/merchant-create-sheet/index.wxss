@@ -179,6 +179,20 @@
   color: var(--color-mch-amber);
 }
 
+.mch-create__decoded {
+  margin-top: 12rpx;
+  padding: 12rpx var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-subtle, rgba(0, 0, 0, 0.04));
+}
+
+.mch-create__decoded-row {
+  display: block;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
 .mch-create__privacy {
   display: flex;
   align-items: flex-start;

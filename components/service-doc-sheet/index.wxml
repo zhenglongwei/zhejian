@@ -265,6 +265,14 @@
         </view>
       </view>
     </view>
+    <view wx:if="{{doc.reworkRecords && doc.reworkRecords.length}}" class="service-doc-sheet__block">
+      <text class="service-doc-sheet__section">返工记录</text>
+      <view wx:for="{{doc.reworkRecords}}" wx:key="index" class="service-doc-sheet__rework">
+        <text wx:if="{{item.itemNames.length}}" class="service-doc-sheet__rework-items">{{item.itemNames}}: </text>
+        <text class="service-doc-sheet__note">{{item.reason}}</text>
+        <text wx:if="{{item.doneAt}}" class="service-doc-sheet__rework-time">返工完成：{{item.doneAt}}</text>
+      </view>
+    </view>
     <view
       wx:if="{{doc.warrantyPeriod || doc.warrantyNotes || doc.warrantyScope || doc.warrantyExclusions}}"
       class="service-doc-sheet__block"

@@ -401,10 +401,33 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     .filter(Boolean)
     .join(' · ')
   const records = nodes.reduce((sum, node) => sum + (Number(node.photoCount) || 0), 0)
+  const modelName = String(vehicle.modelName || '').trim()
+  const brandSeriesYear = [vehicle.brand, vehicle.series, year ? `${year}款` : '']
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' ')
+  const mileageText = Number.isFinite(mileage) && mileage > 0 ? `${mileage.toLocaleString('zh-CN')} km` : ''
+  // 相册详情展示完整车辆信息（手机号仍打码）
+  const vehicleFacts = [
+    { key: '车牌', value: plateOf(vehicle) },
+    { key: '车架号', value: String(vehicle.vin || '').trim() },
+    { key: '完整车型', value: modelName || brandSeriesYear },
+    { key: '品牌车系', value: modelName === brandSeriesYear ? '' : brandSeriesYear },
+    { key: '底盘', value: String(vehicle.chassisCode || vehicle.chassis || '').trim() },
+    { key: '发动机', value: String(vehicle.engineModel || '').trim() },
+    { key: '排量', value: String(vehicle.displacement || '').trim() },
+    { key: '变速箱', value: String(vehicle.gearbox || '').trim() },
+    { key: '接车里程', value: mileageText },
+  ].filter((row) => row.value)
   return {
     plate: plateOf(vehicle),
     pill: heroPill(current, finished),
-    vehicleName: [vehicle.brand, vehicle.series, vehicle.model].map((part) => String(part || '').trim()).filter(Boolean).join(' ') || album.serviceName || '服务相册',
+    vehicleName:
+      modelName ||
+      brandSeriesYear ||
+      album.serviceName ||
+      '服务相册',
+    vehicleFacts,
     spec,
     meta,
     phone,

@@ -976,6 +976,9 @@ function collectConfirmedQuoteLines(flowNodes = []) {
         name,
         amount: line && line.amount != null ? String(line.amount) : '',
         note: String((line && line.note) || '').trim(),
+        // 保留与施工项的关联，未施工核对优先按 id 判定（不能只靠名称模糊匹配）
+        workFindingId: String((line && line.workFindingId) || '').trim(),
+        quoteLineId: String((line && line.quoteLineId) || '').trim(),
       })
     })
   })
@@ -1112,6 +1115,14 @@ function unbuiltQuoteIndex(items = []) {
   return { byId, byName }
 }
 
+/** 报价行 → 关联的施工项 id（新数据带 workFindingId，旧数据从 ql_work_ 前缀还原） */
+function findingIdOfQuoteLine(line = {}) {
+  const explicit = String((line && line.workFindingId) || '').trim()
+  if (explicit) return explicit
+  const matched = /^ql_work_(.+)$/.exec(String((line && line.id) || '').trim())
+  return matched ? String(matched[1] || '').trim() : ''
+}
+
 /**
  * 报价项未施工：报价有、工单无。
  * 有图的漏记由 AI 逐图归类另行处置，这里只按单据链判定「没有任何工单项承接」。
@@ -1124,12 +1135,16 @@ function computeUnstartedQuoteItems(flowNodes = []) {
   const quoteNames = quoteLines.map((line) => line.name)
   const usedIds = new Set()
   const usedNames = new Set()
+  // 施工记录里出现过的项视为已施工：有图或有文案的新增项更不该再提醒
+  const startedFindingIds = new Set()
   ;(flowNodes || []).forEach((node) => {
     if (!node || node.kind !== 'work') return
     const findings = contentOfFlowNode(node).findings || []
     ;(Array.isArray(findings) ? findings : []).forEach((row) => {
       const quoteLineId = String((row && row.quoteLineId) || '').trim()
       if (quoteLineId) usedIds.add(quoteLineId)
+      const findingId = String((row && row.id) || '').trim()
+      if (findingId) startedFindingIds.add(findingId)
       const partName = String((row && row.partName) || '').trim()
       if (!partName) return
       const preset = resolvePresetItemName(partName, quoteNames)
@@ -1137,7 +1152,13 @@ function computeUnstartedQuoteItems(flowNodes = []) {
     })
   })
   const items = quoteLines
-    .filter((line) => !(line.id && usedIds.has(line.id)) && !usedNames.has(line.name))
+    .filter((line) => {
+      const findingId = findingIdOfQuoteLine(line)
+      if (findingId && startedFindingIds.has(findingId)) return false
+      if (line.id && usedIds.has(line.id)) return false
+      if (usedNames.has(line.name)) return false
+      return true
+    })
     .filter(
       (line) =>
         !(line.id && accounted.byId.has(line.id)) &&
@@ -2142,6 +2163,7 @@ function buildRepairReportPayload({
   totalAmount = null,
   revision = 0,
   unbuiltItems = [],
+  intakeMileageText = '',
 } = {}) {
   const period = String(warranty.period || photoDraft.warrantyPeriod || '').trim()
   const notes = resolveWarrantyNotes({
@@ -2184,6 +2206,12 @@ function buildRepairReportPayload({
     totalAmount != null
       ? parseAmount(totalAmount)
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+  // 交车报告里程：交车里程单独成文，不再回退接车里程
+  const deliveryMileageKm = Number(parseMileageKm(photoDraft.deliveryMileage)) || 0
+  const mileageText =
+    deliveryMileageKm > 0
+      ? `交车里程 ${deliveryMileageKm.toLocaleString('zh-CN')} km`
+      : ''
 
   void deliveryImages
 
@@ -2191,6 +2219,8 @@ function buildRepairReportPayload({
     chiefComplaint: String(chiefComplaint || '').trim(),
     workItems: items,
     totalAmount: computedTotal == null ? 0 : computedTotal,
+    mileageText,
+    intakeMileageText: String(intakeMileageText || '').trim(),
     repairBrief,
     ownerFaqs,
     warrantyPeriod: period,

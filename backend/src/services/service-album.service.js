@@ -126,6 +126,9 @@ function normalizeVehicleJson(vehicle = {}) {
   if (vin) out.vin = vin
   const modelYear = String(vehicle.modelYear || vehicle.model_year || '').trim()
   if (modelYear) out.modelYear = modelYear
+  // 完整车型（VIN 解析的 modelName），相册详情展示用
+  const modelName = String(vehicle.modelName || '').trim()
+  if (modelName) out.modelName = modelName
   const mileageRaw = vehicle.mileage ?? vehicle.odometer
   if (mileageRaw !== undefined && mileageRaw !== null && String(mileageRaw).trim() !== '') {
     const mileage = Number(String(mileageRaw).replace(/[^\d.]/g, ''))

@@ -1104,6 +1104,12 @@
   color: var(--color-danger);
 }
 
+.merchant-flow-page__key-fill-opt {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+}
+
 .merchant-flow-page__textarea--key {
   width: 100%;
   height: auto;
@@ -1599,6 +1605,41 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-inverse);
   background-color: var(--color-primary);
+}
+
+.merchant-flow-page__quote-addon--state {
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-subtle, rgba(0, 0, 0, 0.05));
+}
+
+.merchant-flow-page__rework-banner {
+  margin: var(--space-md) 0;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-warning-bg, rgba(255, 149, 0, 0.08));
+}
+
+.merchant-flow-page__rework-banner-title {
+  display: block;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-warning);
+}
+
+.merchant-flow-page__rework-banner-row {
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__rework-banner-tip {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
 }
 
 .merchant-flow-page__quote-miss-text {
@@ -2397,6 +2438,38 @@
   margin-top: 16rpx;
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
+}
+
+.ov-vehicle {
+  margin: 20rpx 24rpx 0;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-card, var(--color-bg-surface));
+}
+
+.ov-vehicle__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: 8rpx 0;
+}
+
+.ov-vehicle__k {
+  flex-shrink: 0;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+}
+
+.ov-vehicle__v {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-primary);
+  word-break: break-all;
 }
 
 .ov-docs {

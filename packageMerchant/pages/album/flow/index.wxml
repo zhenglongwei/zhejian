@@ -134,6 +134,13 @@
           <text wx:if="{{overview.meta}}" class="ov-hero__meta">{{overview.meta}}</text>
         </view>
 
+        <view wx:if="{{overview.vehicleFacts.length}}" class="ov-vehicle">
+          <view wx:for="{{overview.vehicleFacts}}" wx:key="key" class="ov-vehicle__row">
+            <text class="ov-vehicle__k">{{item.key}}</text>
+            <text class="ov-vehicle__v">{{item.value}}</text>
+          </view>
+        </view>
+
         <view class="ov-docs">
           <view
             wx:for="{{overview.docs}}"
@@ -736,6 +743,15 @@
                 <text wx:else class="st-quote">{{workFinishedAt || '未填'}}</text>
               </view>
 
+              <view wx:if="{{stageKey === 'work' && workReworkRows.length}}" class="merchant-flow-page__rework-banner">
+                <text class="merchant-flow-page__rework-banner-title">待返工 {{workReworkRows.length}} 项</text>
+                <view wx:for="{{workReworkRows}}" wx:key="id" class="merchant-flow-page__rework-banner-row">
+                  <text wx:if="{{item.itemText}}">{{item.itemText}}：</text>
+                  <text>{{item.reason}}</text>
+                </view>
+                <text class="merchant-flow-page__rework-banner-tip">处理后重新留证，完成施工会写进交车报告</text>
+              </view>
+
               <view
                 wx:for="{{sections}}"
                 wx:for-item="section"
@@ -833,7 +849,11 @@
                         >×</text>
                       </view>
                       <text
-                        wx:if="{{section.findingKind === 'work' && finding.showQuoteAddon && !readOnly}}"
+                        wx:if="{{section.findingKind === 'work' && finding.quoteStateLabel}}"
+                        class="merchant-flow-page__quote-addon merchant-flow-page__quote-addon--state"
+                      >{{finding.quoteStateLabel}}</text>
+                      <text
+                        wx:elif="{{section.findingKind === 'work' && finding.showQuoteAddon && !readOnly}}"
                         class="merchant-flow-page__quote-addon"
                         catchtap="onAddAddonPlan"
                       >补充报价</text>
@@ -1110,7 +1130,7 @@
                 <view class="merchant-flow-page__key-fill-field">
                   <view class="merchant-flow-page__key-fill-label-row">
                     <text class="text-body merchant-flow-page__label merchant-flow-page__label--key">交车外观照</text>
-                    <text class="merchant-flow-page__key-fill-req">（选填）</text>
+                    <text class="merchant-flow-page__key-fill-opt">（选填）</text>
                   </view>
                   <text class="text-caption text-secondary merchant-flow-page__delivery-hint">整车外观留档；不拍也可以，完成后确认豁免即可。</text>
                   <view wx:for="{{acceptanceItems}}" wx:key="id" wx:if="{{item.kind === 'exterior'}}" class="merchant-flow-page__owner-faq merchant-flow-page__acc-row">
@@ -1807,8 +1827,9 @@
             </block>
           </view>
       </scroll-view>
-      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor && !stageLocked))}}" class="st-bar">
-        <view wx:if="{{isAddonQuote && stageEditor && !stageLocked}}" class="st-bar__btn" bindtap="onOpenCancelAddon">返回施工</view>
+      <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor && !stageLocked) || (isAddonQuote && (docStatus === 'confirmed' || docStatus === 'delivered')))}}" class="st-bar">
+        <view wx:if="{{isAddonQuote && (docStatus === 'confirmed' || docStatus === 'delivered')}}" class="st-bar__btn st-bar__btn--go" bindtap="onContinueWork">继续施工</view>
+        <view wx:if="{{isAddonQuote && stageEditor && !stageLocked}}" class="st-bar__btn" bindtap="onOpenCancelAddon">撤销补充报价</view>
         <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenOwnerView">预览报告</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
