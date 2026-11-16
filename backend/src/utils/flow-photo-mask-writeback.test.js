@@ -108,7 +108,7 @@ test('收集节点上的原图和打码图', () => {
   assert.deepEqual(refs, [{ url: RAW, maskedUrl: MASK, maskOutcome: '' }])
 })
 
-test('同一张图写回打码结论和内容描述（字符串槽升对象）', () => {
+test('同一张图写回打码结论（字符串槽升对象）', () => {
   const { writeMaskedPairsIntoFlowNodes } = require('./flow-photo-mask-writeback')
   const { nodes, changed } = writeMaskedPairsIntoFlowNodes(
     [{ kind: 'work', content: { photos: [RAW] } }],
@@ -119,8 +119,6 @@ test('同一张图写回打码结论和内容描述（字符串槽升对象）',
         maskOutcome: 'ok_masked',
         maskSource: 'auto',
         maskRegions: [{ kind: 'plate', left: 1, top: 2, width: 3, height: 4 }],
-        contentDescription: '左前轮拆下旧刹车片，新片已装回',
-        contentAnalyzedAt: '2026-11-14T00:00:00.000Z',
       },
     ],
   )
@@ -131,12 +129,10 @@ test('同一张图写回打码结论和内容描述（字符串槽升对象）',
     maskOutcome: 'ok_masked',
     maskSource: 'auto',
     maskRegions: [{ kind: 'plate', left: 1, top: 2, width: 3, height: 4 }],
-    contentDescription: '左前轮拆下旧刹车片，新片已装回',
-    contentAnalyzedAt: '2026-11-14T00:00:00.000Z',
   })
 })
 
-test('补充报价 evidenceUrl 写回内容描述', () => {
+test('补充报价 evidenceUrl 写回打码产物', () => {
   const { writeMaskedPairsIntoFlowNodes } = require('./flow-photo-mask-writeback')
   const { nodes, changed } = writeMaskedPairsIntoFlowNodes(
     [
@@ -149,18 +145,15 @@ test('补充报价 evidenceUrl 写回内容描述', () => {
     [
       {
         rawUrl: RAW,
-        maskedUrl: '',
-        maskOutcome: 'ok_no_privacy',
+        maskedUrl: MASK,
+        maskOutcome: 'ok_masked',
         maskRegions: [],
-        contentDescription: '拆下的旧刹车片已经磨损到极限',
-        contentAnalyzedAt: '2026-11-14T00:00:00.000Z',
       },
     ],
   )
   assert.equal(changed, true)
   const row = nodes[0].document.payload.items[0]
-  assert.equal(row.evidenceContentDescription, '拆下的旧刹车片已经磨损到极限')
-  assert.equal(row.evidenceContentAnalyzedAt, '2026-11-14T00:00:00.000Z')
+  assert.equal(row.evidenceMaskedUrl, MASK)
 })
 
 test('ok_no_privacy 清空冒充产物的 maskedUrl 并写结论', () => {

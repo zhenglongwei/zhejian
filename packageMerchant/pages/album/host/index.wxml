@@ -102,7 +102,6 @@
             >AI 生成</ui-button>
           </view>
           <text wx:if="{{geoGenerating}}" class="text-caption text-secondary">正在读整单记录，整理简述与问答…</text>
-          <text wx:elif="{{geoImagePending}}" class="text-caption text-secondary">图片分析中，稍后点「AI 生成」补全。</text>
           <textarea
             class="merchant-host-page__textarea"
             value="{{geoSummary}}"

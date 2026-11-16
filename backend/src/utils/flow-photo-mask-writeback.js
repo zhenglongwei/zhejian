@@ -50,9 +50,6 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   const outcome = text(meta.maskOutcome)
   const source = text(meta.maskSource)
   const regions = meta.maskRegions !== undefined ? normalizeRegions(meta.maskRegions) : null
-  const hasContent = meta.contentDescription !== undefined
-  const contentDescription = hasContent ? text(meta.contentDescription) : ''
-  const contentAnalyzedAt = text(meta.contentAnalyzedAt)
   const docLike = meta.docLike === true
   const docConfirmed = meta.docConfirmed === true
   const docKeepPrivate = meta.docKeepPrivate === true
@@ -60,7 +57,6 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
     !product &&
     !outcome &&
     regions == null &&
-    !hasContent &&
     !docLike &&
     !docConfirmed &&
     !docKeepPrivate
@@ -78,10 +74,6 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
     if (docLike) next.docLike = true
     if (docConfirmed) next.docConfirmed = true
     if (docKeepPrivate) next.docKeepPrivate = true
-    if (contentDescription) {
-      next.contentDescription = contentDescription
-      next.contentAnalyzedAt = contentAnalyzedAt || new Date().toISOString()
-    }
     return { next, changed: true }
   }
   if (!slot || typeof slot !== 'object') return { next: slot, changed: false }
@@ -101,14 +93,6 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   }
   if (docKeepPrivate && next.docKeepPrivate !== true) {
     next.docKeepPrivate = true
-    changed = true
-  }
-  if (contentDescription && text(next.contentDescription) !== contentDescription) {
-    next = {
-      ...next,
-      contentDescription,
-      contentAnalyzedAt: contentAnalyzedAt || new Date().toISOString(),
-    }
     changed = true
   }
   if (product) {
@@ -217,15 +201,6 @@ function patchFindingLike(row, rawKeys, meta) {
       next = { ...next, evidenceMaskedUrl: product }
       changed = true
     }
-    const contentDescription = text(meta.contentDescription)
-    if (contentDescription && text(next.evidenceContentDescription) !== contentDescription) {
-      next = {
-        ...next,
-        evidenceContentDescription: contentDescription,
-        evidenceContentAnalyzedAt: text(meta.contentAnalyzedAt) || new Date().toISOString(),
-      }
-      changed = true
-    }
   }
 
   return { next, changed }
@@ -284,7 +259,6 @@ function writeMaskResultIntoFlowNodes(flowNodes, rawUrl, meta = {}) {
     !outcome &&
     meta.maskRegions === undefined &&
     !text(meta.maskSource) &&
-    meta.contentDescription === undefined &&
     meta.docLike !== true &&
     meta.docConfirmed !== true &&
     meta.docKeepPrivate !== true
@@ -352,8 +326,6 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
       maskOutcome: pair.maskOutcome,
       maskSource: pair.maskSource,
       maskRegions: pair.maskRegions,
-      contentDescription: pair.contentDescription,
-      contentAnalyzedAt: pair.contentAnalyzedAt,
       docLike: pair.docLike,
       docConfirmed: pair.docConfirmed,
       docKeepPrivate: pair.docKeepPrivate,

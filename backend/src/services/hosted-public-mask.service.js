@@ -3,10 +3,6 @@
  * 任务行 / 媒体表是作业流水，不参与选图，也不参与判定。
  */
 const { prisma } = require('../lib/prisma')
-const {
-  isAnalyzablePhotoNode,
-  hasNodeAiAdvice,
-} = require('../../vendor/shared/constants/service-flow-nodes')
 
 /**
  * 节点图结论索引：打码结论只住节点。
@@ -123,72 +119,6 @@ function lookupHostMaskOutcomeRow(index, url) {
   return null
 }
 
-/** 托管预览待补内容描述的图上限（只约束本次要送模型的张数） */
-const HOST_DESCRIBE_MAX_IMAGES = 30
-
-/** 节点挂图游走（与 walkNodeImageSlots 同口径，但带节点上下文） */
-function visitNodeImageSlots(node, visit) {
-  const walkBag = (bag) => {
-    if (!bag || typeof bag !== 'object') return
-    ;['photos', 'discoveryImages', 'pendingImages'].forEach((key) => {
-      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach(visit)
-    })
-    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
-      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
-        if (!row || typeof row !== 'object') return
-        visit(row)
-        ;(Array.isArray(row.images) ? row.images : []).forEach(visit)
-        if (row.evidenceUrl) {
-          visit({
-            url: row.evidenceUrl,
-            contentDescription: row.evidenceContentDescription,
-            contentAnalyzedAt: row.evidenceContentAnalyzedAt,
-          })
-        }
-      })
-    })
-  }
-  if (node.content) walkBag(node.content)
-  if (node.photoDraft) walkBag(node.photoDraft)
-  if (node.document && node.document.payload) walkBag(node.document.payload)
-}
-
-/**
- * 本次需要大模型补内容描述的图片键集合：
- * 取全部公开图片（含完工照、补充报价图），节点还没跑过 AI 且单图尚无描述，最多 30 张。
- * 已分析节点或已有描述的图不在此列——它们的文字已作为上下文复用。
- */
-async function loadHostDescribeUrlKeys(albumId, options = {}) {
-  const maxImages = Math.max(1, Number(options.maxImages || HOST_DESCRIBE_MAX_IMAGES))
-  const { rawUrlLookupKeys } = require('./desensitize.constants')
-  const keys = new Set()
-  try {
-    const pkg = await loadAlbumContentPackage(albumId)
-    const seen = new Set()
-    let count = 0
-    ;(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
-      if (!node || count >= maxImages) return
-      if (!isAnalyzablePhotoNode(node)) return
-      if (hasNodeAiAdvice(node)) return
-      visitNodeImageSlots(node, (slot) => {
-        if (count >= maxImages || !slot || typeof slot !== 'object') return
-        if (String(slot.contentDescription || '').trim()) return
-        const raw = String(slot.url || slot.src || slot.rawUrl || '').trim()
-        if (!raw) return
-        const urlKeys = rawUrlLookupKeys(raw)
-        const identity = urlKeys[0] || raw
-        if (seen.has(identity)) return
-        seen.add(identity)
-        count += 1
-        urlKeys.forEach((key) => key && keys.add(key))
-      })
-    })
-  } catch (_) {
-    /* node optional */
-  }
-  return keys
-}
-
 /**
  * 节点上还有多少张图没跑过大模型（not_analyzed）。
  * 0 = 对账已开始过一轮；失败态（llm_failed / mask_failed）不在此列，不挡预览。
@@ -220,7 +150,6 @@ async function countUnanalyzedNodeImages(albumId, outcomeIndex) {
 module.exports = {
   loadHostMaskOutcomeIndex,
   lookupHostMaskOutcomeRow,
-  loadHostDescribeUrlKeys,
   countUnanalyzedNodeImages,
   loadHostNodeImageUrlKeys,
 }

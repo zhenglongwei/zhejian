@@ -57,14 +57,6 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
   if (!url) return null
   const product = String(masked.maskedUrl || '').trim()
   const outcome = String(masked.maskOutcome || '').trim()
-  // 模型同一次调用给的图片内容描述要一起落节点，否则下次托管又当「缺描述」重跑模型
-  const describe = String(masked.contentDescription || '').trim()
-  const describePatch = describe
-    ? {
-        contentDescription: describe,
-        contentAnalyzedAt: String(masked.contentAnalyzedAt || '').trim(),
-      }
-    : {}
   if (product) {
     return {
       rawUrl: url,
@@ -72,7 +64,6 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
       maskOutcome: outcome || 'ok_masked',
       maskSource: String(masked.maskSource || '').trim() || 'auto',
       maskRegions: Array.isArray(masked.maskRegions) ? masked.maskRegions : undefined,
-      ...describePatch,
     }
   }
   if (isNoPrivacyMaskResult(masked) || outcome === 'ok_no_privacy') {
@@ -81,7 +72,6 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
       maskedUrl: '',
       maskOutcome: 'ok_no_privacy',
       maskRegions: [],
-      ...describePatch,
     }
   }
   if (outcome) {
@@ -90,10 +80,8 @@ function writebackPairFromMaskResult(rawUrl, masked = {}) {
       maskedUrl: '',
       maskOutcome: outcome,
       maskRegions: Array.isArray(masked.maskRegions) ? masked.maskRegions : [],
-      ...describePatch,
     }
   }
-  if (describe) return { rawUrl: url, maskedUrl: '', maskOutcome: '', ...describePatch }
   return null
 }
 
@@ -119,11 +107,10 @@ async function persistMaskedPairsToAlbumFlow(albumId, pairs = []) {
   const id = String(albumId || '').trim()
   const list = (Array.isArray(pairs) ? pairs : []).filter((p) => {
     if (!p || !String(p.rawUrl || '').trim()) return false
-    // 有打码图、明确结论（含 ok_no_privacy），或只有模型给的图片描述，都要写回节点
+    // 有打码图或明确结论（含 ok_no_privacy）就写回节点
     return Boolean(
       String(p.maskedUrl || '').trim() ||
         String(p.maskOutcome || '').trim() ||
-        String(p.contentDescription || '').trim() ||
         p.docLike === true,
     )
   })
@@ -1193,7 +1180,6 @@ async function runAutoMask(taskId, options = {}) {
     lookupHostMaskOutcomeRow,
     loadHostMaskOutcomeIndex,
     loadHostNodeImageUrlKeys,
-    loadHostDescribeUrlKeys,
   } = require('./hosted-public-mask.service')
 
   let nodeOutcomeIndex = new Map()
@@ -1258,34 +1244,15 @@ async function runAutoMask(taskId, options = {}) {
     return classified
   }
 
-  // 本轮模型刚返回的图片结论（含 contentDescription），写节点时一起带上
-  let hostLlmPairs = []
-
   if (hostPublic) {
     const llmUrls = []
     const restampItems = []
-    let describeOnly = 0
-    const describeOnlyUrlKeys = new Set()
-    let describeUrlKeys = null
-    try {
-      describeUrlKeys = await loadHostDescribeUrlKeys(task.bizId)
-    } catch (_) {
-      describeUrlKeys = null
-    }
-    const { rawUrlLookupKeys } = require('../services/desensitize.constants')
     ;(task.assets || []).forEach((asset) => {
       if (!asset) return
       const url = String(asset.rawUrl || '').trim()
       if (!url) return
       const classified = classifyAsset(asset)
-      // 已经打过码但没内容描述的公开图，也要进同一次视觉调用补齐描述。
-      const needsDescription =
-        describeUrlKeys && rawUrlLookupKeys(url).some((key) => describeUrlKeys.has(key))
-      if (classified.hostAction === 'rerun_llm' || needsDescription) {
-        if (classified.hostAction !== 'rerun_llm') {
-          describeOnly += 1
-          rawUrlLookupKeys(url).forEach((key) => describeOnlyUrlKeys.add(key))
-        }
+      if (classified.hostAction === 'rerun_llm') {
         llmUrls.push(url)
         return
       }
@@ -1304,7 +1271,6 @@ async function runAutoMask(taskId, options = {}) {
       albumId: task.bizId,
       totalAssets: (task.assets || []).length,
       needLlm: llmUrls.length,
-      needDescribeOnly: describeOnly,
       needRestamp: restampItems.length,
     })
     if (restampItems.length) {
@@ -1317,12 +1283,9 @@ async function runAutoMask(taskId, options = {}) {
     if (llmUrls.length) {
       try {
         const { rerunHostPrivacyLlmForUrls } = require('./host-privacy-llm.service')
-        const llmRes = await rerunHostPrivacyLlmForUrls(llmUrls, {
+        await rerunHostPrivacyLlmForUrls(llmUrls, {
           albumId: task.bizId,
-          describeUrlKeys,
-          describeOnlyUrlKeys,
         })
-        hostLlmPairs = Array.isArray(llmRes && llmRes.pairs) ? llmRes.pairs : []
       } catch (error) {
         console.warn('[runAutoMask] host privacy llm batch failed', error && error.message)
       }
@@ -1454,12 +1417,6 @@ async function runAutoMask(taskId, options = {}) {
         const nodeRow = hostPublic
           ? lookupHostMaskOutcomeRow(nodeOutcomeIndex, asset.rawUrl)
           : null
-        const llmPair = hostLlmPairs.find(
-          (row) =>
-            row &&
-            stripUrlQuery(row.rawUrl || '') === bare &&
-            String(row.contentDescription || '').trim(),
-        )
         const nodeMasked = String(
           (nodeRow && (nodeRow.maskedUrl || nodeRow.preMaskedUrl)) || '',
         ).trim()
@@ -1486,8 +1443,6 @@ async function runAutoMask(taskId, options = {}) {
           maskOutcome: classified.outcome,
           maskSource: hostPublic ? (nodeRow && nodeRow.maskSource) || '' : '',
           maskRegions: (nodeRow && nodeRow.maskRegions) || [],
-          contentDescription: (llmPair && llmPair.contentDescription) || '',
-          contentAnalyzedAt: (llmPair && llmPair.contentAnalyzedAt) || '',
         })
         // 托管：失败态也必须登记，避免再次托管又当未分析
         if (
@@ -1502,16 +1457,6 @@ async function runAutoMask(taskId, options = {}) {
             maskedUrl: '',
             maskOutcome: classified.outcome,
             maskRegions: (nodeRow && nodeRow.maskRegions) || [],
-          }
-        }
-        // 只有模型描述、没有打码结论的图，也要把描述落节点，否则每次托管都重跑模型
-        if (!pair && llmPair) {
-          pair = {
-            rawUrl: asset.rawUrl,
-            maskedUrl: '',
-            maskOutcome: '',
-            contentDescription: String(llmPair.contentDescription || '').trim(),
-            contentAnalyzedAt: String(llmPair.contentAnalyzedAt || '').trim(),
           }
         }
         if (!pair) continue

@@ -5,9 +5,6 @@ const assert = require('assert')
 const {
   buildHostedArchiveSnapshot,
   readHostMeta,
-  collectNodeAiContext,
-  collectAnalyzableImageDescriptions,
-  collectImageDescriptions,
 } = require('./case-hosting.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 
@@ -179,138 +176,6 @@ function testGenerateGeoNoLongerRequiresHosted() {
   )
 }
 
-/** 收全部公开图描述；接车与首次报价排除，完工照和补充报价图保留 */
-function testCollectAnalyzableImageDescriptions() {
-  const list = collectAnalyzableImageDescriptions([
-    {
-      id: 'n1',
-      kind: 'inspection',
-      content: { photos: [{ url: 'https://x/i1.jpg', contentDescription: '左前减震器渗油' }] },
-    },
-    {
-      id: 'n2',
-      kind: 'work',
-      content: { findings: [{ url: 'https://x/w1.jpg', contentDescription: '更换前刹车片' }] },
-    },
-    {
-      id: 'n3',
-      kind: 'intake',
-      content: { photos: [{ url: 'https://x/a.jpg', contentDescription: '进场前杠划痕' }] },
-    },
-    {
-      id: 'n4',
-      kind: 'delivery_photos',
-      content: { photos: [{ url: 'https://x/d.jpg', contentDescription: '完工全车照' }] },
-    },
-    {
-      id: 'n5',
-      kind: 'quote_confirm',
-      document: { payload: { photos: [{ url: 'https://x/q.jpg', contentDescription: '首次报价单' }] } },
-    },
-    {
-      id: 'n6',
-      kind: 'quote_confirm',
-      subKind: 'add_on_quote',
-      document: { payload: { items: [{ evidenceUrl: 'https://x/aq.jpg', evidenceContentDescription: '补充报价证据图' }] } },
-    },
-  ])
-  assert.deepStrictEqual(list, ['左前减震器渗油', '更换前刹车片', '完工全车照', '补充报价证据图'])
-  assert.deepStrictEqual(collectAnalyzableImageDescriptions([]), [])
-}
-
-async function testDescribeOnlyPreservesMaskResult() {
-  const { applyModelMasks } = require('./model-mask.service')
-  const { rowsFromUrls } = require('./host-privacy-llm.service')
-  const rows = rowsFromUrls(
-    ['https://x/d1.jpg'],
-    new Set(['https://x/d1.jpg']),
-    new Set(['https://x/d1.jpg']),
-  )
-  assert.strictEqual(rows[0].wantDescription, true)
-  assert.strictEqual(rows[0].descriptionOnly, true)
-  const pairs = await applyModelMasks(
-    rows,
-    [{ imageSlot: 1, regions: [{ kind: 'plate', left: 0, top: 0, width: 1, height: 1 }], description: '完工后清洗并检查整车外观' }],
-  )
-  assert.strictEqual(pairs.length, 1)
-  assert.strictEqual(pairs[0].contentDescription, '完工后清洗并检查整车外观')
-  assert.strictEqual(pairs[0].maskOutcome, undefined)
-  assert.strictEqual(pairs[0].maskedUrl, undefined)
-  assert.strictEqual(pairs[0].maskRegions, undefined)
-}
-
-async function testLoadHostDescribeUrlKeys() {
-  const { prisma } = require('../lib/prisma')
-  const { loadHostDescribeUrlKeys } = require('./hosted-public-mask.service')
-  const original = prisma.album.findUnique
-  prisma.album.findUnique = async () => ({
-    contentPackageJson: {
-      flowNodes: [
-        {
-          kind: 'delivery_photos',
-          content: {
-            acceptanceItems: [
-              { images: [{ url: 'https://x/d1.jpg' }, { url: 'https://x/d2.jpg', contentDescription: '已有描述' }] },
-            ],
-          },
-        },
-        {
-          kind: 'quote_confirm',
-          subKind: 'add_on_quote',
-          document: { payload: { items: [{ evidenceUrl: 'https://x/aq.jpg' }] } },
-        },
-        { kind: 'quote_confirm', document: { payload: { photos: ['https://x/first-quote.jpg'] } } },
-        { kind: 'intake', photoDraft: { photos: ['https://x/intake.jpg'] } },
-        { kind: 'work', workAdvice: { items: [] }, content: { photos: ['https://x/advised.jpg'] } },
-      ],
-    },
-  })
-  try {
-    const keys = await loadHostDescribeUrlKeys('alb_host_smoke')
-    assert.ok(keys.has('https://x/d1.jpg'), '完工照缺描述时应补分析')
-    assert.ok(keys.has('https://x/aq.jpg'), '补充报价证据图缺描述时应补分析')
-    assert.strictEqual(keys.has('https://x/d2.jpg'), false, '已有描述不重复分析')
-    assert.strictEqual(keys.has('https://x/first-quote.jpg'), false, '首次报价不公开')
-    assert.strictEqual(keys.has('https://x/intake.jpg'), false, '接车图不公开')
-    assert.strictEqual(keys.has('https://x/advised.jpg'), false, '已有节点 AI 结论不重复分析')
-  } finally {
-    prisma.album.findUnique = original
-  }
-}
-
-function testCollectNodeAiContext() {
-  const text = collectNodeAiContext([
-    { id: 'n1', kind: 'work', title: '施工', workAdvice: { items: [{ name: '更换前刹车片', note: '拆下发现磨损到极限' }] } },
-    { id: 'n2', kind: 'work', title: '未分析' },
-  ])
-  assert.ok(text.includes('更换前刹车片'))
-  assert.ok(text.includes('拆下发现磨损到极限'))
-  assert.strictEqual(collectNodeAiContext([]), '')
-  assert.strictEqual(collectNodeAiContext(null), '')
-}
-
-function testCollectImageDescriptions() {
-  const list = collectImageDescriptions(
-    ['左前轮刹车片磨损到报警线', '左前轮刹车片磨损到报警线'],
-    [
-      {
-        id: 'n1',
-        kind: 'work',
-        workAdvice: { items: [] },
-        photoDraft: { publicCaptions: [{ note: '拆下的旧片有明显沟槽' }] },
-      },
-    ],
-  )
-  assert.strictEqual(list.length, 2)
-  assert.ok(list.includes('左前轮刹车片磨损到报警线'))
-  assert.ok(list.includes('拆下的旧片有明显沟槽'))
-  assert.deepStrictEqual(collectImageDescriptions([], []), [])
-
-  // 描述不再限 12 条
-  const many = Array.from({ length: 15 }, (_, i) => `第${i + 1}张过程图说明文字`)
-  assert.strictEqual(collectImageDescriptions(many, []).length, 15)
-}
-
 testArchiveSnapshotExcludesDraft()
 testArchiveSnapshotStoreFallback()
 testReadHostMetaPublished()
@@ -378,13 +243,8 @@ testMapHostedCaseListVisibilityAndPath()
 
 testGenerateGeoNoLongerRequiresPrivacyGate()
 testGenerateGeoNoLongerRequiresHosted()
-testCollectAnalyzableImageDescriptions()
-testCollectNodeAiContext()
-testCollectImageDescriptions()
 
 ;(async () => {
-  await testDescribeOnlyPreservesMaskResult()
-  await testLoadHostDescribeUrlKeys()
   await testGenerateCaseBlockedForNewAlbum()
   await testGenerateCaseBlockedWhenHosted()
   console.log('case-hosting smoke ok')

@@ -10,10 +10,6 @@ const { publicCaseIdForAlbum } = require('../utils/public-case-id')
 const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { hostPublicTitle } = require('../utils/host-public-title')
-const {
-  isAnalyzablePhotoNode,
-  nodeAdviceValue,
-} = require('../../vendor/shared/constants/service-flow-nodes')
 
 function readHostMeta(album) {
   const pkg =
@@ -428,126 +424,7 @@ function sanitizeHostedNodeStories(raw) {
     .slice(0, 5)
 }
 
-function isUsefulAdviceText(value) {
-  const text = String(value || '').trim()
-  if (text.length < 6) return false
-  if (/^https?:\/\//i.test(text)) return false
-  if (/^data:image\//i.test(text)) return false
-  if (/^[A-Za-z0-9_\-:.]+$/.test(text)) return false
-  return true
-}
-
-function collectAdviceStrings(value, out, depth = 0) {
-  if (!value || depth > 6) return
-  if (typeof value === 'string') {
-    if (isUsefulAdviceText(value)) out.push(value.trim())
-    return
-  }
-  if (Array.isArray(value)) {
-    value.forEach((row) => collectAdviceStrings(row, out, depth + 1))
-    return
-  }
-  if (typeof value === 'object') {
-    Object.keys(value).forEach((key) => {
-      if (/^(id|.*Id|.*At|url|.*Url|fingerprint|promptVersion|model|status|kind)$/i.test(key)) return
-      collectAdviceStrings(value[key], out, depth + 1)
-    })
-  }
-}
-
-/** 跑过 AI 的节点：只用节点里已有的分析结论/图说文字，不重复分析图片 */
-function collectNodeAiContext(flowNodes) {
-  const parts = []
-  const seen = new Set()
-  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
-    const advice = nodeAdviceValue(node)
-    if (!advice) return
-    const texts = []
-    collectAdviceStrings(advice, texts)
-    const title = String((node && (node.title || node.kind)) || '节点').trim()
-    texts.forEach((text) => {
-      const key = text.slice(0, 80)
-      if (seen.has(key)) return
-      seen.add(key)
-      parts.push(`【${title}】${text}`)
-    })
-  })
-  return parts.join('；').slice(0, 4000)
-}
-
-/**
- * 公开节点照片槽上已由大模型写下的内容描述（含完工照、补充报价图）。
- * 打码与内容描述同住一个槽（contentDescription / contentAnalyzedAt），这里只读不调模型。
- */
-function collectAnalyzableImageDescriptions(flowNodes) {
-  const out = []
-  const seen = new Set()
-  const push = (value) => {
-    const t = String(value || '').trim()
-    if (!t) return
-    const key = t.slice(0, 60)
-    if (seen.has(key)) return
-    seen.add(key)
-    out.push(t)
-  }
-  const walkBag = (bag) => {
-    if (!bag || typeof bag !== 'object') return
-    ;['photos', 'discoveryImages', 'pendingImages'].forEach((key) => {
-      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((slot) => {
-        if (slot && typeof slot === 'object') push(slot.contentDescription)
-      })
-    })
-    ;['findings', 'workItems', 'items', 'lines', 'acceptanceItems'].forEach((key) => {
-      ;(Array.isArray(bag[key]) ? bag[key] : []).forEach((row) => {
-        if (!row || typeof row !== 'object') return
-        push(row.contentDescription)
-        push(row.evidenceContentDescription)
-        ;(Array.isArray(row.images) ? row.images : []).forEach((img) => {
-          if (img && typeof img === 'object') push(img.contentDescription)
-        })
-      })
-    })
-  }
-  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
-    if (!node || !isAnalyzablePhotoNode(node)) return
-    walkBag(node.content)
-    walkBag(node.photoDraft)
-    if (node.document && node.document.payload) walkBag(node.document.payload)
-  })
-  return out
-}
-
-/** 汇总每张图的内容分析：节点槽里的描述 + 已分析节点里已有的图说；全部纳入，不截条数 */
-function collectImageDescriptions(descriptions, flowNodes) {
-  const out = []
-  const seen = new Set()
-  const push = (text) => {
-    const t = String(text || '').trim()
-    if (t.length < 4 || t.length > 400) return
-    const key = t.slice(0, 60)
-    if (seen.has(key)) return
-    seen.add(key)
-    out.push(t)
-  }
-  ;(Array.isArray(descriptions) ? descriptions : []).forEach((row) => {
-    if (typeof row === 'string') push(row)
-    else if (row && row.description) push(row.description)
-  })
-  ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
-    if (!nodeAdviceValue(node)) return
-    const draft = node && node.photoDraft
-    if (!draft || typeof draft !== 'object') return
-    ;(Array.isArray(draft.publicCaptions) ? draft.publicCaptions : []).forEach((row) => {
-      push(row && (row.note || row.caption || row.text))
-    })
-    ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
-      push(row && (row.note || row.caption || row.text))
-    })
-  })
-  return out
-}
-
-async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album, extra = {}) {
+async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) {
   const fs = require('fs')
   const path = require('path')
   const { config } = require('../config')
@@ -589,9 +466,6 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album, 
           missing: factPack.missing,
         }
       : null,
-    nodeAiContext: String(extra.nodeAiContext || ''),
-    imageDescriptions: Array.isArray(extra.imageDescriptions) ? extra.imageDescriptions : [],
-    imageAnalysisPending: Boolean(extra.imageAnalysisPending),
   })
   try {
     const completion = await chatCompletion({
@@ -666,12 +540,10 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
       : {}
-  const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
   let geoDraft = null
   let message = '已按整单记录整理出院摘要与问答，请核对后公开'
-  const imageAnalysisPending = false
 
   if (existingCopy && existingCopy.summary) {
     // 有现成的交车报告摘要/问答 → 直接用，不跑 LLM
@@ -683,17 +555,8 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     }
     console.info('[case-hosting] generate-geo use existing copy', { albumId, source: geoDraft.source })
   } else {
-    // 没有现成说明 → 跑 LLM 生成（兜底）
-    const nodeAiContext = collectNodeAiContext(flowNodes)
-    const imageDescriptions = collectImageDescriptions(
-      collectAnalyzableImageDescriptions(flowNodes),
-      flowNodes,
-    )
-    const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album, {
-      nodeAiContext,
-      imageDescriptions,
-      imageAnalysisPending,
-    })
+    // 没有现成说明 → 跑 LLM 生成（兜底）。上下文只给店员确认过的项目文本
+    const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album)
     geoDraft = llmDraft || {
       ...ruleGeo.geoDraft,
       highlights: [],
@@ -736,7 +599,6 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     geoDraft,
     preview: ruleGeo.preview,
     qualitySuggestions: assessHostPublicContent({ album, view, geoDraft }).suggestions,
-    imageAnalysisPending,
     ...meta,
     message,
   }
@@ -1531,9 +1393,6 @@ module.exports = {
   hostAlbum,
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
-  collectNodeAiContext,
-  collectAnalyzableImageDescriptions,
-  collectImageDescriptions,
   confirmHostedPublicPublish,
   cancelPublicHostIntent,
   getHostPublicFacePreview,

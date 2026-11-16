@@ -374,7 +374,6 @@ Page({
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
     geoGenerating: false,
-    geoImagePending: false,
     summaryHint: '',
     faqHint: '',
   },
@@ -993,7 +992,6 @@ Page({
       this._geoDraftFetched = true
       this.setData({
         ...applyGeoDraftToPageData(draft),
-        geoImagePending: Boolean(res.imageAnalysisPending),
         publicPublishStage: res.publicPublishStage || this.data.publicPublishStage,
         ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
       })

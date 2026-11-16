@@ -1,5 +1,6 @@
 /**
  * 托管公开对账：对「未跑大模型 / 模型失败」的单张重跑看图，只取 masks 再贴码。
+ * 文案不用看图结论，只用店员确认过的项目文本，见 case-hosting.service.js。
  * 真源：skill_node_mask_state_machine
  */
 
@@ -11,18 +12,12 @@ function text(v) {
   return String(v || '').trim()
 }
 
-function rowsFromUrls(urls, describeKeys, describeOnlyKeys) {
-  const { rawUrlLookupKeys } = require('./desensitize.constants')
+function rowsFromUrls(urls) {
   return (Array.isArray(urls) ? urls : [])
     .map((url, index) => {
       const rawUrl = text(typeof url === 'string' ? url : url && (url.rawUrl || url.url))
       if (!rawUrl) return null
-      const lookupKeys = rawUrlLookupKeys(rawUrl)
-      const matches = (keys) =>
-        keys && keys.size ? lookupKeys.some((key) => keys.has(key)) : false
-      const wantDescription = matches(describeKeys)
-      const descriptionOnly = matches(describeOnlyKeys)
-      return { url: rawUrl, rawUrl, label: `图${index + 1}`, wantDescription, descriptionOnly }
+      return { url: rawUrl, rawUrl, label: `图${index + 1}` }
     })
     .filter(Boolean)
 }
@@ -40,21 +35,19 @@ async function callPrivacyMasksModel(labeled) {
   }
 
   const instruction = [
-    '你一次做两件事：1) 框出隐私敏感区；2) 对标注「需内容描述」的图写一句维修过程描述。不要给维修建议。',
-    '最终只输出一个 JSON：{"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}],"description":""}]}',
+    '你只做一件事：框出图片里的隐私敏感区。不要给维修建议，也不要写图片描述。',
+    '最终只输出一个 JSON：{"masks":[{"imageSlot":1,"regions":[{"kind":"plate|vin|face|phone|name|document","left":0,"top":0,"width":0,"height":0}]}]}',
     MODEL_MASKS_INSTRUCTION,
     'masks 数组长度必须等于本次附图张数，每张图一条，绝对不允许省略。',
     '某张图没有敏感区，也必须返回 {"imageSlot":N,"regions":[]}——空 regions 就是无隐私标记；漏图会导致这张被误判为模型失败、整批重跑，严禁漏图。',
-    'description 只对标注「需内容描述」的图输出：40~80 字，写清部位、故障或作业、材料；不得写车牌号、姓名、电话等隐私。未标注的图 description 给空字符串。',
   ].join('\n')
 
   const userContent = [{ type: 'text', text: instruction }].concat(
     labeled.flatMap((row) => {
       const url = text(row.url)
       if (!url) return []
-      const label = row.wantDescription ? `${row.label}（需内容描述）` : row.label
       return [
-        { type: 'text', text: `下一张图：${label}` },
+        { type: 'text', text: `下一张图：${row.label}` },
         { type: 'image_url', image_url: { url } },
       ]
     }),
@@ -132,10 +125,7 @@ async function markUrlsLlmFailed(albumId, urls) {
  */
 async function rerunHostPrivacyLlmForUrls(urls, options = {}) {
   const albumId = text(options.albumId)
-  const describeKeys = options.describeUrlKeys instanceof Set ? options.describeUrlKeys : null
-  const describeOnlyKeys =
-    options.describeOnlyUrlKeys instanceof Set ? options.describeOnlyUrlKeys : null
-  const all = rowsFromUrls(urls, describeKeys, describeOnlyKeys)
+  const all = rowsFromUrls(urls)
   if (!all.length) return { ok: 0, failed: 0, pairs: [] }
 
   const { applyModelMasks } = require('./model-mask.service')
