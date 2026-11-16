@@ -304,6 +304,53 @@ function sanitizeNodes(nodes) {
   }))
 }
 
+function hasFlowCopy(content) {
+  if (!content || typeof content !== 'object') return false
+  return [
+    'chiefComplaint',
+    'conclusion',
+    'findings',
+    'lines',
+    'workItems',
+    'acceptanceItems',
+    'warrantyPeriod',
+    'warrantyNotes',
+  ].some((key) => {
+    const value = content[key]
+    return Array.isArray(value)
+      ? value.length > 0
+      : String(value == null ? '' : value).trim() !== ''
+  })
+}
+
+function flowContentBag(node) {
+  if (node && node.content && typeof node.content === 'object') return node.content
+  const payload = node && node.document && node.document.payload
+  return payload && typeof payload === 'object' ? payload : null
+}
+
+/**
+ * 公网档案单据链：优先归档快照；早期快照没冻结 content（只有 photoDraft/payload），
+ * 节点缺文字时按 id 从相册当前 flowNodes 回填空的 content。图与单据状态仍以归档快照为准。
+ */
+function resolveFactsFlowNodes(archiveSnap, album) {
+  const archive =
+    archiveSnap && Array.isArray(archiveSnap.flowNodes) ? archiveSnap.flowNodes : []
+  const live =
+    album && album.contentPackageJson && Array.isArray(album.contentPackageJson.flowNodes)
+      ? album.contentPackageJson.flowNodes
+      : []
+  if (!archive.length) return live
+  if (!live.length) return archive
+  const liveById = new Map(live.map((node) => [String((node && node.id) || ''), node]))
+  return archive.map((node) => {
+    if (hasFlowCopy(flowContentBag(node))) return node
+    const liveContent = flowContentBag(liveById.get(String((node && node.id) || '')))
+    if (!liveContent || !hasFlowCopy(liveContent)) return node
+    return { ...node, content: liveContent }
+  })
+}
+
 function mapPublicCaseRow(row, album, options = {}) {
   const rawContent = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
   const content = {
@@ -397,10 +444,7 @@ function mapPublicCaseRow(row, album, options = {}) {
     hostMeta.archiveSnapshot && typeof hostMeta.archiveSnapshot === 'object'
       ? hostMeta.archiveSnapshot
       : null
-  const factsFlowNodes =
-    (archiveSnap && archiveSnap.flowNodes) ||
-    (album && album.contentPackageJson && album.contentPackageJson.flowNodes) ||
-    []
+  const factsFlowNodes = resolveFactsFlowNodes(archiveSnap, album)
   layered.serviceFlow = buildPublicServiceFlow({
     flowNodes: factsFlowNodes,
     album,
@@ -1244,6 +1288,7 @@ module.exports = {
   fetchPublicCaseRows,
   mapStoreRow,
   mapPublicCaseRow,
+  resolveFactsFlowNodes,
   applyPublicDisplayRules,
   isStorePubliclyVisible,
   isPublicCaseStoreVisible,

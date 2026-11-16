@@ -26,6 +26,59 @@ test('buildPublicRepairPlan uses note and planParts, hides planAmount (公域藏
   assert.doesNotMatch(text, /680/)
 })
 
+test('buildPublicView 从流程节点 content 生成公开事实', () => {
+  const albumView = {
+    serviceName: '底盘维修',
+    store: { id: 'st_1', name: '测试门店', city: '杭州' },
+    nodes: [],
+    flowNodeViews: [
+      { id: 'fn_001', kind: 'intake', content: { chiefComplaint: '动力不足，底盘异响' } },
+      {
+        id: 'fn_003',
+        kind: 'inspection_report',
+        content: {
+          findings: [
+            { partName: '底盘悬挂胶套检查', result: '需处理', advice: '图片描述不应进公开事实' },
+            { partName: '制动盘外观检查', result: '状态良好' },
+          ],
+        },
+      },
+      {
+        id: 'fn_004',
+        kind: 'quote_confirm',
+        content: { lines: [{ name: '悬挂胶套', brand: '博世' }, { name: '节气门清洗' }] },
+      },
+      {
+        id: 'fn_005',
+        kind: 'work',
+        content: { findings: [{ partName: '悬挂胶套', caption: '更换左右前悬挂胶套' }] },
+      },
+      {
+        id: 'fn_007',
+        kind: 'repair_report',
+        content: {
+          acceptanceItems: [
+            { name: '悬挂胶套', result: 'pass' },
+            { kind: 'exterior', name: '外观', result: 'pass' },
+          ],
+          warrantyPeriod: '1年或10000公里',
+          warrantyNotes: '事故除外',
+        },
+      },
+    ],
+    imageMeta: [],
+  }
+  const view = buildPublicView(albumView, null, { authorizationTier: 'named' })
+  assert.equal(view.facts.faultDesc, '动力不足，底盘异响')
+  assert.match(view.facts.inspectResult, /需处理：底盘悬挂胶套检查/)
+  assert.match(view.facts.inspectResult, /状态良好：制动盘外观检查/)
+  assert.doesNotMatch(view.facts.inspectResult, /图片描述/)
+  assert.match(view.facts.repairPlan, /主要项目：悬挂胶套（博世）、节气门清洗/)
+  assert.match(view.facts.repairPlan, /施工说明：悬挂胶套——更换左右前悬挂胶套/)
+  assert.match(view.facts.resultConfirm, /验收项目：悬挂胶套、外观/)
+  assert.match(view.facts.resultConfirm, /质保：1年或10000公里 · 事故除外/)
+})
+
 test('buildPublicView excludes private stage images', () => {
   const albumView = {
     serviceName: '刹车保养',

@@ -127,6 +127,157 @@ function captionForNode(nodes, nodeId) {
   return scrubPiiText(node?.note || '').slice(0, 48)
 }
 
+const PUBLIC_RESULT_ORDER = ['需处理', '需关注', '状态良好', '仅记录']
+
+function flowContentView(node) {
+  const content = node && node.content
+  return content && typeof content === 'object' ? content : {}
+}
+
+function flowViewsOfKind(views, kinds) {
+  const allow = new Set(Array.isArray(kinds) ? kinds : [kinds])
+  return (views || []).filter((view) => allow.has(String((view && view.kind) || '')))
+}
+
+function pickFlowChiefComplaint(views) {
+  for (const kind of ['inspection_report', 'intake', 'intake_inspection', 'inspection']) {
+    for (const view of flowViewsOfKind(views, kind)) {
+      const value = String(flowContentView(view).chiefComplaint || '').trim()
+      if (value) return value
+    }
+  }
+  return ''
+}
+
+function findFlowFindings(views) {
+  for (const kinds of [['inspection_report'], ['inspection', 'intake_inspection']]) {
+    const rows = []
+    flowViewsOfKind(views, kinds).forEach((view) => {
+      const findings = flowContentView(view).findings
+      if (Array.isArray(findings)) rows.push(...findings)
+    })
+    if (rows.length) return rows
+  }
+  return []
+}
+
+/** 只取 partName + result（人工结论），不把图片描述写进公开事实 */
+function summarizeFlowFindings(findings) {
+  const groups = new Map()
+  const seen = new Set()
+  ;(findings || []).forEach((row) => {
+    if (!row || typeof row !== 'object') return
+    const partName = String(row.partName || '').trim()
+    if (!partName) return
+    const result = String(row.result || '').trim()
+    const key = `${result}|${partName}`
+    if (seen.has(key)) return
+    seen.add(key)
+    if (!groups.has(result)) groups.set(result, [])
+    groups.get(result).push(partName)
+  })
+  const rank = (result) => {
+    const idx = PUBLIC_RESULT_ORDER.indexOf(result)
+    return idx === -1 ? PUBLIC_RESULT_ORDER.length : idx
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => rank(a[0]) - rank(b[0]))
+    .map(([result, names]) => (result ? `${result}：${names.join('、')}` : names.join('、')))
+    .join('；')
+}
+
+function pickFlowQuoteNames(views) {
+  const names = []
+  const seen = new Set()
+  flowViewsOfKind(views, ['quote_confirm', 'addon_quote_confirm']).forEach((view) => {
+    const lines = flowContentView(view).lines
+    if (!Array.isArray(lines)) return
+    lines.forEach((line) => {
+      const name = String((line && line.name) || '').trim()
+      if (!name || seen.has(name)) return
+      seen.add(name)
+      const brand = String((line && line.brand) || '').trim()
+      names.push(brand ? `${name}（${brand}）` : name)
+    })
+  })
+  return names
+}
+
+function pickFlowWorkNotes(views) {
+  const rows = []
+  const indexByName = new Map()
+  flowViewsOfKind(views, 'work').forEach((view) => {
+    const findings = flowContentView(view).findings
+    if (!Array.isArray(findings)) return
+    findings.forEach((row) => {
+      if (!row || typeof row !== 'object') return
+      const name = String(row.partName || '').trim()
+      const note = String(row.caption || '').trim()
+      if (!name) return
+      if (!indexByName.has(name)) {
+        indexByName.set(name, rows.length)
+        rows.push({ name, note })
+        return
+      }
+      const idx = indexByName.get(name)
+      if (!rows[idx].note && note) rows[idx].note = note
+    })
+  })
+  return rows
+}
+
+function buildFlowRepairPlan(views) {
+  const names = pickFlowQuoteNames(views)
+  const works = pickFlowWorkNotes(views)
+  const chunks = []
+  if (names.length) chunks.push(`主要项目：${names.join('、')}`)
+  const workText = works
+    .map((item) => (item.note ? `${item.name}——${item.note}` : item.name))
+    .join('；')
+  if (workText) chunks.push(`施工说明：${workText}`)
+  return chunks.join('。')
+}
+
+function buildFlowResultConfirm(views) {
+  for (const view of flowViewsOfKind(views, ['repair_report', 'delivery_photos'])) {
+    const content = flowContentView(view)
+    const items = (Array.isArray(content.acceptanceItems) ? content.acceptanceItems : [])
+      .map((row) => {
+        if (!row || typeof row !== 'object') return ''
+        const name = String(row.name || (row.kind === 'exterior' ? '外观' : '')).trim()
+        if (!name) return ''
+        const note = String(row.note || '').trim()
+        return note ? `${name}（${note}）` : name
+      })
+      .filter(Boolean)
+    const warranty = [content.warrantyPeriod, content.warrantyNotes]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' · ')
+    if (!items.length && !warranty) continue
+    const chunks = []
+    if (items.length) chunks.push(`验收项目：${items.join('、')}`)
+    if (warranty) chunks.push(`质保：${warranty}`)
+    return chunks.join('。')
+  }
+  return ''
+}
+
+/**
+ * 公开事实文案：只认流程节点 content（店员确认过的项目文本），
+ * 旧 stage_* note 只在没有 flow 节点时兜底。
+ */
+function buildFlowFacts(flowNodeViews) {
+  const views = Array.isArray(flowNodeViews) ? flowNodeViews : []
+  if (!views.length) return null
+  return {
+    faultDesc: pickFlowChiefComplaint(views),
+    inspectResult: summarizeFlowFindings(findFlowFindings(views)),
+    repairPlan: buildFlowRepairPlan(views),
+    resultConfirm: buildFlowResultConfirm(views),
+  }
+}
+
 /**
  * @param {object} albumView buildAlbumView 产物（含 imageMeta）
  * @param {object|null} task pre-mask / authorize task
@@ -167,6 +318,7 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
     })
     .filter(Boolean)
 
+  const flowFacts = buildFlowFacts(albumView.flowNodeViews)
   const geo = extractGeoFromAlbumNodes(nodes, {
     coldStart: false,
     serviceName: albumView.serviceName,
@@ -175,10 +327,12 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
   })
 
   const facts = {
-    faultDesc: scrubPiiText(geo.faultDesc || '').slice(0, 200),
-    inspectResult: scrubPiiText(geo.inspectResult || '').slice(0, 300),
-    repairPlan: buildPublicRepairPlan(albumView),
-    resultConfirm: scrubPiiText(geo.resultConfirm || '').slice(0, 200),
+    faultDesc: scrubPiiText(flowFacts?.faultDesc || geo.faultDesc || '').slice(0, 200),
+    inspectResult: scrubPiiText(flowFacts?.inspectResult || geo.inspectResult || '').slice(0, 300),
+    repairPlan:
+      scrubPiiText(flowFacts?.repairPlan || '').slice(0, 400) ||
+      buildPublicRepairPlan(albumView),
+    resultConfirm: scrubPiiText(flowFacts?.resultConfirm || geo.resultConfirm || '').slice(0, 200),
   }
 
   return {
@@ -257,6 +411,7 @@ function pickPublicViewCover(publicView = {}) {
 
 module.exports = {
   buildPublicView,
+  buildFlowFacts,
   buildPublicRepairPlan,
   publicViewToSnapshotNodes,
   pickPublicViewCover,
