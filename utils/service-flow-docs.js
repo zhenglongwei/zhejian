@@ -1727,6 +1727,10 @@ function collectWorkPhotoDraftGaps(payload = {}) {
     } else if (!item.images.length) {
       gaps.push(`「${label}」请补 1 张施工照片（过程 / 新旧对比 / 完工效果至少一张）`)
     }
+    // 施工说明是托管文案与交车报告的唯一人工描述，空说明不得完成施工
+    if (!String(item.caption || '').trim()) {
+      gaps.push(`「${label}」请填写施工说明（做了什么、怎么做的、结果如何）`)
+    }
   })
   return gaps
 }

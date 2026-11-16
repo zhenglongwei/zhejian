@@ -104,8 +104,15 @@ test('addon quote still requires evidence when asked', () => {
 
 test('work photo gaps ask for 项目, not 部位', () => {
   const gaps = collectWorkPhotoDraftGaps({
-    findings: [{ images: [{ url: 'https://w.jpg' }], partName: '' }],
+    findings: [{ images: [{ url: 'https://w.jpg' }], partName: '', caption: '已更换' }],
   })
   assert.equal(gaps.some((row) => row.includes('项目')), true)
   assert.equal(gaps.some((row) => row.includes('部位')), false)
+})
+
+test('work gaps require 施工说明', () => {
+  const gaps = collectWorkPhotoDraftGaps({
+    findings: [{ images: [{ url: 'https://w.jpg' }], partName: '更换机油', caption: '  ' }],
+  })
+  assert.equal(gaps.some((row) => row.includes('施工说明')), true)
 })

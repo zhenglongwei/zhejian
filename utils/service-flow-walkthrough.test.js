@@ -133,7 +133,7 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   assert.equal(work.status, 'in_progress')
   work.photoDraft = {
     findings: [
-      { id: 'w-oil', partName: '更换机油', outsideQuote: false, images: [{ url: 'oil.jpg' }], amount: '' },
+      { id: 'w-oil', partName: '更换机油', caption: '放旧油，换机滤，加注 4L', outsideQuote: false, images: [{ url: 'oil.jpg' }], amount: '' },
       {
         id: 'w-arm',
         partName: '下摆臂胶套',
@@ -201,6 +201,7 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
   sameWork.photoDraft.findings.push({
     id: 'w-disc-new',
     partName: '换新制动盘',
+    caption: '拆旧盘，装新盘并路试',
     outsideQuote: false,
     images: [{ url: 'disc-new.jpg' }],
     amount: '',
