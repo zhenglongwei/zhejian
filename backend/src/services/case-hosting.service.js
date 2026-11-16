@@ -657,64 +657,52 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   const prev = readHostMeta(album)
   // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
 
-  // 缓存短路：已有 geoDraft 且未强制重生成 → 跳过 LLM 调用（省 11s）
-  const cachedDraft = !forceRegen && prev && prev.geoDraft && String(prev.geoDraft.summary || '').trim()
-    ? prev.geoDraft
-    : null
-  if (cachedDraft) {
-    console.info('[case-hosting] generate-geo cache hit', { albumId, forceRegen })
-  }
-
   const pkg =
     album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
       : {}
   const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const nodeAiContext = collectNodeAiContext(flowNodes)
+  // 图片内容描述已在打码那次模型调用里写进节点照片槽；这里只读，不再调视觉模型
+  const imageDescriptions = collectImageDescriptions(
+    collectAnalyzableImageDescriptions(flowNodes),
+    flowNodes,
+  )
+  const imageAnalysisPending = false
+
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
   let geoDraft = null
   let message = '已按整单记录整理出院摘要与问答，请核对后公开'
-  const imageAnalysisPending = false
 
-  if (cachedDraft) {
-    geoDraft = cachedDraft
-  } else {
-    const nodeAiContext = collectNodeAiContext(flowNodes)
-    // 图片内容描述已在打码那次模型调用里写进节点照片槽；这里只读，不再调视觉模型
-    const imageDescriptions = collectImageDescriptions(
-      collectAnalyzableImageDescriptions(flowNodes),
-      flowNodes,
-    )
-
-    const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album, {
-      nodeAiContext,
-      imageDescriptions,
-      imageAnalysisPending,
-    })
-    geoDraft = llmDraft || {
-      ...ruleGeo.geoDraft,
-      highlights: [],
-      source: llmDraft ? llmDraft.source : 'rule_fallback',
+  const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album, {
+    nodeAiContext,
+    imageDescriptions,
+    imageAnalysisPending,
+  })
+  geoDraft = llmDraft || {
+    ...ruleGeo.geoDraft,
+    highlights: [],
+    source: llmDraft ? llmDraft.source : 'rule_fallback',
+  }
+  if (geoDraft && geoDraft.summary) {
+    try {
+      const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
+        summary: geoDraft.summary,
+        faq: geoDraft.faq,
+        source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
+      })
+      const { prisma } = require('../lib/prisma')
+      await prisma.album.update({
+        where: { id: albumId },
+        data: { contentPackageJson: nextPkg },
+      })
+    } catch (_) {
+      /* 草稿落相册失败不挡托管 */
     }
-    if (geoDraft && geoDraft.summary) {
-      try {
-        const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
-          summary: geoDraft.summary,
-          faq: geoDraft.faq,
-          source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
-        })
-        const { prisma } = require('../lib/prisma')
-        await prisma.album.update({
-          where: { id: albumId },
-          data: { contentPackageJson: nextPkg },
-        })
-      } catch (_) {
-        /* 草稿落相册失败不挡托管 */
-      }
-    }
-    if (!llmDraft) {
-      message = '自动说明暂不可用，以下为简要草稿，请自行改写'
-    }
+  }
+  if (!llmDraft) {
+    message = '自动说明暂不可用，以下为简要草稿，请自行改写'
   }
 
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
