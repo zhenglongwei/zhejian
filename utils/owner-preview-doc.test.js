@@ -42,17 +42,6 @@ test('交车报告用完整车牌，合计用报价金额', () => {
   assert.equal(preview.doc.totalAmountLabel, '合计 ¥1400.00')
 })
 
-test('交车报告不展示简述与问答（只供托管预览/公网）', () => {
-  const preview = buildOwnerPreviewDoc({
-    family: 'finish',
-    repairBrief: '更换下摆臂胶套，并完成机油机滤保养',
-    ownerFaqs: [{ id: 'faq_1', question: '新胶套要注意什么？', answer: '一周内少过深坑。' }],
-    workItems: [{ name: '更换下摆臂胶套', amount: 200 }],
-  })
-  assert.equal(preview.doc.repairBrief, undefined)
-  assert.equal(preview.doc.ownerFaqs, undefined)
-})
-
 test('交车报告施工项目清单带施工图（去重）', () => {
   const preview = buildOwnerPreviewDoc({
     family: 'finish',

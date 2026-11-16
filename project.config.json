@@ -50,6 +50,14 @@
       {
         "type": "glob",
         "value": "**/.tmp-*"
+      },
+      {
+        "type": "glob",
+        "value": ".head-*"
+      },
+      {
+        "type": "glob",
+        "value": "**/.head-*"
       }
     ],
     "include": []

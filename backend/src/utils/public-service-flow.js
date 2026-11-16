@@ -1,7 +1,7 @@
 /**
  * 公开档案页服务流转（只读、脱敏、无金额）
  * 口径：15_ §7.9 / 设计体系 §10.8.2
- * 完工章：简述 + 车主关心问答 + 外观照片 + 逐项验收（含验收图）+ 质保（禁止再列方案/工单项目）
+ * 完工章：外观照片 + 逐项验收（含验收图）+ 质保（禁止再列方案/工单项目）
  * 施工图：只读工单节点 content 挂图（禁止 stage_* / 标题兜底拼章）
  */
 
@@ -302,29 +302,14 @@ function collectWorkSheetPublicItems(node) {
     .filter(Boolean)
 }
 
-function mapOwnerFaqs(payload) {
-  const rows = Array.isArray(payload && payload.ownerFaqs) ? payload.ownerFaqs : []
-  return rows
-    .map((row) => {
-      if (!row || typeof row !== 'object') return null
-      const question = text(row.question || row.q)
-      const answer = text(row.answer || row.a)
-      if (!question || !answer) return null
-      return { question, answer }
-    })
-    .filter(Boolean)
-}
-
 function chapterHasContent(chapter) {
   if (!chapter) return false
   if (text(chapter.chiefComplaint)) return true
   if (text(chapter.note)) return true
-  if (text(chapter.repairBrief)) return true
   if (text(chapter.warrantyPeriod) || text(chapter.warrantyNotes)) return true
   if (Array.isArray(chapter.findings) && chapter.findings.length) return true
   if (Array.isArray(chapter.items) && chapter.items.length) return true
   if (Array.isArray(chapter.photos) && chapter.photos.length) return true
-  if (Array.isArray(chapter.ownerFaqs) && chapter.ownerFaqs.length) return true
   if (Array.isArray(chapter.acceptanceItems) && chapter.acceptanceItems.length) return true
   return false
 }
@@ -391,9 +376,7 @@ function mapRepairChapter(node, lookup) {
     // 公网完工不重列方案/工单项目；项目只在上游章
     items: [],
     photos: [],
-    repairBrief: text(payload.repairBrief),
     acceptanceItems: mapAcceptanceItems(payload, lookup),
-    ownerFaqs: mapOwnerFaqs(payload),
     warrantyPeriod: text(payload.warrantyPeriod),
     warrantyNotes: publicWarrantyNotes({
       warrantyNotes: payload.warrantyNotes,

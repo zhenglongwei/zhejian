@@ -45,22 +45,6 @@ function nodeBag(node) {
   return {}
 }
 
-function ownerFaqRows(raw) {
-  return (Array.isArray(raw) ? raw : [])
-    .map((row, index) => {
-      const question = String((row && (row.question || row.q)) || '').trim()
-      const answer = String((row && (row.answer || row.a)) || '').trim()
-      if (!question) return null
-      return {
-        id: String((row && row.id) || `faq_${index + 1}`),
-        question,
-        answer,
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 5)
-}
-
 function adviceOf(node) {
   const suggestions = node && node.aiReview && node.aiReview.suggestions
   if (!Array.isArray(suggestions)) return ''
@@ -345,23 +329,13 @@ function finishRecord(nodes, intakeImages) {
   const waiting = status === 'pending_confirm'
   const after = imagesOf(photos)
   const before = intakeImages.slice(0, 1)
-  const repairBrief = String(reportBag.repairBrief || photoBag.repairBrief || '').trim()
-  const ownerFaqs = (() => {
-    const fromReport = ownerFaqRows(reportBag.ownerFaqs)
-    if (fromReport.length) return fromReport
-    return ownerFaqRows(photoBag.ownerFaqs)
-  })()
   const warranty = String(
     reportBag.warrantyPeriod || photoBag.warrantyPeriod || '',
   ).trim()
   const sent = confirmed || waiting
   return {
     headline: confirmed ? '车主已确认交车' : waiting ? '等待车主确认' : '还没有交车报告',
-    // 交车报告没有 conclusion；副文用维修简述
-    sub: repairBrief,
-    repairBrief,
-    ownerFaqs,
-    hasOwnerFaqs: ownerFaqs.length > 0,
+    sub: '',
     before: before[0] ? { url: before[0].url, caption: before[0].caption || '维修前' } : null,
     after: after[0] ? { url: after[0].url, caption: after[0].caption || '维修后' } : null,
     warranty,
@@ -375,7 +349,7 @@ function finishRecord(nodes, intakeImages) {
       { no: '3', title: '邀请公开案例', sub: '公开前会先脱敏', done: false, muted: !confirmed },
     ],
     previewNodeId: (report && report.id) || (photos && photos.id) || '',
-    empty: !sent && !after.length && !warranty && !repairBrief && !ownerFaqs.length,
+    empty: !sent && !after.length && !warranty,
   }
 }
 

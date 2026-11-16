@@ -44,7 +44,6 @@ const repair = migrateNodeToSingleContent({
   document: {
     status: 'pending_confirm',
     payload: {
-      repairBrief: '补漆完成',
       workItems: [{ name: '右前门', note: '补漆', amount: 800 }],
       deliveryPhotos: [{ url: 'https://x/finish.jpg' }],
       totalAmount: 800,
@@ -52,7 +51,6 @@ const repair = migrateNodeToSingleContent({
   },
 })
 const repairBody = contentOfFlowNode(repair)
-assert.equal(repairBody.repairBrief, '补漆完成')
 assert.equal(repairBody.workItems[0].partName || repairBody.workItems[0].name, '右前门')
 assert.equal(repairBody.deliveryPhotos.length, 1)
 assert.equal(Number(repairBody.totalAmount), 800)

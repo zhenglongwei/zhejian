@@ -657,9 +657,8 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   const prev = readHostMeta(album)
   // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
 
-  // 优先读已有的店页说明（交车报告 repairBrief/ownerFaqs → archiveCopy 镜像）
+  // 优先读已有的店页说明（archiveCopy 镜像）
   // 文档口径：15_§6.1 + album-archive-copy.js readPublicCopyFromAlbum
-  // 节点 AI 应用时写进交车节点草稿；交车发出时同步进 report + archiveCopy。
   // 托管预览只读这些已存在的内容，不应该每次跑 LLM。
   const existingCopy = forceRegen ? null : readPublicCopyFromAlbum(album)
 

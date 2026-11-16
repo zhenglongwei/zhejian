@@ -145,7 +145,6 @@ function normalizeArchiveChapters(chapters) {
     acceptanceItems: Array.isArray(ch && ch.acceptanceItems) ? ch.acceptanceItems : [],
     warrantyPeriod: String((ch && ch.warrantyPeriod) || ''),
     warrantyNotes: String((ch && ch.warrantyNotes) || ''),
-    repairBrief: String((ch && ch.repairBrief) || ''),
   }))
 }
 

@@ -58,7 +58,7 @@ function collectPayloadImageKeys(payload) {
     })
   }
   ;['photos', 'discoveryImages', 'pendingImages'].forEach((key) => pushRows(payload[key]))
-  ;['findings', 'workItems', 'items', 'acceptanceItems', 'lines', 'ownerFaqs'].forEach((key) =>
+  ;['findings', 'workItems', 'items', 'acceptanceItems', 'lines'].forEach((key) =>
     pushRows(payload[key])
   )
   return keys

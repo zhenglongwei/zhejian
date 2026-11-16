@@ -48,9 +48,6 @@ test('定稿工单图在 content.findings 时仍可收进可公示清单', () =>
     },
   }
   const urls = collectPublicizableFlowPhotos(album).map((r) => r.url).sort()
-  assert.deepEqual(urls, [
-    'https://cdn.example.com/d2.jpg',
-    'https://cdn.example.com/out.jpg',
-    'https://cdn.example.com/work-a.jpg',
-  ])
+  // 交车（完工照/完工确认）的验收照片不上网，只留工单内容图
+  assert.deepEqual(urls, ['https://cdn.example.com/work-a.jpg'])
 })

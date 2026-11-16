@@ -779,30 +779,17 @@ test('模型写成报价项的短叫法时归到预设报价项，不新建', ()
   assert.equal(got.newItems.length, 0)
 })
 
-test('交车出简述与车主关心的问题', () => {
+test('交车出提醒', () => {
   const got = parseDeliveryAdvice({
-    repairBrief: '更换下摆臂胶套，并做了机油机滤保养。',
-    ownerFaqs: [
-      { question: '新胶套要注意什么？', answer: '近期少过剧烈颠簸，磨合几天。' },
-      { question: '质保怎么算？', answer: '按单上质保期限执行。' },
-    ],
     tips: [{ title: '交车照', body: '还缺整车外观。' }],
   })
-  assert.match(got.repairBrief, /下摆臂胶套/)
-  assert.equal(got.ownerFaqs.length, 2)
-  assert.match(got.ownerFaqs[0].question, /新胶套/)
   assert.equal(got.tips.length, 1)
 })
 
-test('交车认统一中文信封：简述、问答、提醒', () => {
+test('交车认统一中文信封：提醒', () => {
   const got = parseDeliveryAdvice({
-    简述: '更换下摆臂胶套，并做了机油机滤保养。',
-    问答: [{ 问: '新胶套要注意什么？', 答: '近期少过剧烈颠簸，磨合几天。' }],
     提醒: [{ 标题: '交车照', 正文: '还缺整车外观。' }],
   })
-  assert.match(got.repairBrief, /下摆臂胶套/)
-  assert.equal(got.ownerFaqs.length, 1)
-  assert.match(got.ownerFaqs[0].question, /新胶套/)
   assert.equal(got.tips.length, 1)
 })
 
@@ -822,8 +809,6 @@ test('交车不再出验收建议，只出质保与交付文案', () => {
   assert.equal(got.acceptance, null)
   assert.deepEqual(got.groups, [])
   assert.equal(got.warranty.body, '12 个月或 2 万公里')
-  assert.match(got.repairBrief, /下摆臂胶套/)
-  assert.equal(got.ownerFaqs.length, 1)
   assert.equal(got.tips.length, 1)
 })
 

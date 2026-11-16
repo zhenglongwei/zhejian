@@ -52,6 +52,10 @@ async function applyModelMasks(rows, masks, options = {}) {
     if (!rawUrl) continue
     const regions = regionsFor(masks, row, index)
     const description = descriptionFor(masks, row, index)
+    // 模型框出「单据/证件/表格」区域 → 疑似纸质单据，先不上网，等商家确认
+    const docLike =
+      Array.isArray(regions) && regions.some((box) => String((box && box.kind) || '') === 'document')
+    const docPatch = docLike ? { docLike: true } : {}
     const contentPatch = description
       ? { contentDescription: description, contentAnalyzedAt }
       : {}
@@ -81,6 +85,7 @@ async function applyModelMasks(rows, masks, options = {}) {
           maskOutcome: 'llm_failed',
           maskRegions: regions,
           ...contentPatch,
+          ...docPatch,
         })
         continue
       }
@@ -105,6 +110,7 @@ async function applyModelMasks(rows, masks, options = {}) {
         maskSource: maskedUrl ? 'auto' : '',
         maskRegions: regions,
         ...contentPatch,
+        ...docPatch,
       })
     } catch (_) {
       pairs.push({
@@ -113,6 +119,7 @@ async function applyModelMasks(rows, masks, options = {}) {
         maskOutcome: regions.length ? 'mask_failed' : 'llm_failed',
         maskRegions: regions,
         ...contentPatch,
+        ...docPatch,
       })
     }
   }

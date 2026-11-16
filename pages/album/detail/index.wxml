@@ -55,7 +55,12 @@
           <text wx:if="{{ownerBoard.meta}}" class="op-hero__meta">{{ownerBoard.meta}}</text>
         </view>
 
-        <view class="op-docs">
+        <scroll-view
+          scroll-x
+          class="op-docs"
+          show-scrollbar="{{false}}"
+          enable-flex="{{true}}"
+        >
           <view
             wx:for="{{ownerBoard.tiles}}"
             wx:key="id"
@@ -72,7 +77,7 @@
             <text class="op-doc__name">{{item.title}}</text>
             <text class="op-doc__label">{{item.label}}</text>
           </view>
-        </view>
+        </scroll-view>
 
         <view wx:if="{{archiveCopy && archiveCopy.summary}}" class="op-sec op-archive">
           <text class="op-sec__kicker">本单说明</text>

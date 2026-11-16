@@ -147,7 +147,7 @@ test('报价合计来自明细，交车不写评价', () => {
   assert.equal(finish.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,交车')
 })
 
-test('交车大步从节点 content 读出简述和问答（不依赖空 payload）', () => {
+test('交车大步从节点 content 读出质保与交付人（不依赖空 payload）', () => {
   const list = nodes()
   list.push({
     id: 'dp',
@@ -155,8 +155,6 @@ test('交车大步从节点 content 读出简述和问答（不依赖空 payload
     sortOrder: 7,
     status: 'completed',
     content: {
-      repairBrief: '更换下摆臂胶套并做保养',
-      ownerFaqs: [{ question: '要注意什么？', answer: '少过深坑' }],
       warrantyPeriod: '1 年',
       delivererName: '李师傅',
     },
@@ -168,18 +166,12 @@ test('交车大步从节点 content 读出简述和问答（不依赖空 payload
     sortOrder: 6,
     status: 'completed',
     content: {
-      repairBrief: '更换下摆臂胶套并做保养',
-      ownerFaqs: [{ question: '要注意什么？', answer: '少过深坑' }],
       warrantyPeriod: '1 年',
       delivererName: '李师傅',
     },
     document: { status: 'pending_confirm', payload: {} },
   }
   const finish = buildMerchantStageBoard(album(), list, 'finish')
-  assert.equal(finish.finish.repairBrief, '更换下摆臂胶套并做保养')
-  assert.equal(finish.finish.sub, '更换下摆臂胶套并做保养')
-  assert.equal(finish.finish.hasOwnerFaqs, true)
-  assert.equal(finish.finish.ownerFaqs[0].question, '要注意什么？')
   assert.equal(finish.finish.warranty, '1 年')
   assert.equal(finish.finish.delivererName, '李师傅')
 })

@@ -476,19 +476,10 @@ function mapCompletedStepPreview(step, node, album = {}) {
         storeName,
         metaLine: buildSheetMetaLine(bag, album),
         styleVariant: 'document',
-        repairBrief: String(bag.repairBrief || '').trim(),
         workItems: mapped,
         totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
         warrantyPeriod: String(bag.warrantyPeriod || ''),
         warrantyNotes: resolveWarrantyNotes(bag),
-        ownerFaqs: (Array.isArray(bag.ownerFaqs) ? bag.ownerFaqs : [])
-          .map((row, index) => ({
-            id: String((row && row.id) || `faq_${index + 1}`),
-            question: String((row && (row.question || row.q)) || '').trim(),
-            answer: String((row && (row.answer || row.a)) || '').trim(),
-          }))
-          .filter((row) => row.question)
-          .slice(0, 5),
         confirmCopy: REPAIR_CONFIRM_COPY,
       },
     }
@@ -670,12 +661,10 @@ Page({
     vehicleLine: '',
     warrantyPeriod: '',
     warrantyNotes: '',
-    repairBrief: '',
     acceptanceItems: [],
     acceptanceResultOptions: ACCEPTANCE_RESULT_OPTIONS,
     acceptanceExteriorMax: ACCEPTANCE_EXTERIOR_MAX,
     acceptanceItemMaxImages: ACCEPTANCE_ITEM_MAX_IMAGES,
-    ownerFaqs: [],
     allDone: false,
     needManualComplete: false,
     albumCompleted: false,
@@ -1660,8 +1649,6 @@ Page({
         finishedAt: String(this.data.finishedAt || '').trim(),
         exteriorPhotoWaived: this.data.exteriorPhotoWaived === true,
         confirmCopy: REPAIR_CONFIRM_COPY,
-        // 简述/问答不在界面展示；此处只负责把 AI 静默写入的内容一起落库
-        repairBrief: String(this.data.repairBrief || '').trim(),
         // 一列到底：施工项目行 + 外观行（kind=exterior，最后一行）
         acceptanceItems: withExteriorAcceptanceRow(this.data.acceptanceItems || [])
           .map((row) => ({
@@ -1676,14 +1663,6 @@ Page({
             note: String((row && row.note) || '').trim(),
           }))
           .filter((row) => row.name),
-        ownerFaqs: (Array.isArray(this.data.ownerFaqs) ? this.data.ownerFaqs : [])
-          .map((row, index) => ({
-            id: String((row && row.id) || `faq_${index + 1}`),
-            question: String((row && row.question) || '').trim(),
-            answer: String((row && row.answer) || '').trim(),
-          }))
-          .filter((row) => row.question)
-          .slice(0, 5),
       }
     }
     return {}
@@ -1784,17 +1763,6 @@ Page({
           ) {
             delete bag.acceptanceItems
           }
-          // 本地草稿空简述/问答不得盖掉节点里已有内容（定稿后反复丢字的漏口）
-          if (!String(bag.repairBrief || '').trim() && String(photoDraft.repairBrief || '').trim()) {
-            delete bag.repairBrief
-          }
-          if (
-            !(Array.isArray(bag.ownerFaqs) && bag.ownerFaqs.length) &&
-            Array.isArray(photoDraft.ownerFaqs) &&
-            photoDraft.ownerFaqs.length
-          ) {
-            delete bag.ownerFaqs
-          }
           photoDraft = { ...photoDraft, ...bag }
         }
       }
@@ -1826,9 +1794,7 @@ Page({
       let confirmCopy = ''
       let warrantyPeriod = ''
       let warrantyNotes = ''
-      let repairBrief = ''
       let acceptanceDraft = null
-      let ownerFaqs = []
       let sections = []
       let walkaround = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
@@ -1898,16 +1864,7 @@ Page({
           warrantyNotes = resolveWarrantyNotes(photoDraft)
           confirmCopy =
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
-          repairBrief = String(photoDraft.repairBrief || '').trim()
           acceptanceDraft = photoDraft
-          ownerFaqs = (Array.isArray(photoDraft.ownerFaqs) ? photoDraft.ownerFaqs : [])
-            .map((row, index) => ({
-              id: String((row && row.id) || `faq_${index + 1}`),
-              question: String((row && (row.question || row.q)) || '').trim(),
-              answer: String((row && (row.answer || row.a)) || '').trim(),
-            }))
-            .filter((row) => row.question)
-            .slice(0, 5)
           // 外观已并入验收清单最后一行；旧 archiveCopy / 旧外观照由迁移脚本一次性完成
         }
         const keepKey = this.data.expandedFindingKey
@@ -2053,8 +2010,6 @@ Page({
         const filled = this.deliveryFormFromNodes(album, flowNodes, photoDraft)
         warrantyPeriod = filled.warrantyPeriod || warrantyPeriod
         warrantyNotes = filled.warrantyNotes || warrantyNotes
-        repairBrief = filled.repairBrief || repairBrief
-        if (filled.ownerFaqs.length) ownerFaqs = filled.ownerFaqs
         confirmCopy = filled.confirmCopy || confirmCopy
       }
       const quoteDraftHint = isAddonQuote ? '' : this._quoteDraftHint || ''
@@ -2291,9 +2246,7 @@ Page({
         confirmCopy,
         warrantyPeriod,
         warrantyNotes,
-        repairBrief,
         acceptanceItems: initialAcceptanceItems,
-        ownerFaqs,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
         ),
@@ -4183,17 +4136,6 @@ Page({
     const repairNode = (flowNodes || []).find((node) => node && node.kind === 'repair_report')
     const deliveryDraft = nodeContentOf(deliveryNode)
     const repairDraft = nodeContentOf(repairNode)
-    const faqSource =
-      (Array.isArray(deliveryDraft.ownerFaqs) && deliveryDraft.ownerFaqs.length
-        ? deliveryDraft.ownerFaqs
-        : null) ||
-      (Array.isArray(photoDraft.ownerFaqs) && photoDraft.ownerFaqs.length
-        ? photoDraft.ownerFaqs
-        : null) ||
-      (Array.isArray(repairDraft.ownerFaqs) && repairDraft.ownerFaqs.length
-        ? repairDraft.ownerFaqs
-        : null) ||
-      []
     return {
       warrantyPeriod: String(
         deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || repairDraft.warrantyPeriod || '',
@@ -4202,18 +4144,6 @@ Page({
         resolveWarrantyNotes(deliveryDraft) ||
         resolveWarrantyNotes(photoDraft) ||
         resolveWarrantyNotes(repairDraft),
-      // 简述/问答不在界面展示；仍回读以便与 AI 静默写入的内容共存
-      repairBrief: String(
-        deliveryDraft.repairBrief || photoDraft.repairBrief || repairDraft.repairBrief || '',
-      ).trim(),
-      ownerFaqs: (Array.isArray(faqSource) ? faqSource : [])
-        .map((row, index) => ({
-          id: String((row && row.id) || `faq_${index + 1}`),
-          question: String((row && (row.question || row.q)) || '').trim(),
-          answer: String((row && (row.answer || row.a)) || '').trim(),
-        }))
-        .filter((row) => row.question)
-        .slice(0, 5),
       confirmCopy:
         deliveryDraft.confirmCopy ||
         photoDraft.confirmCopy ||
@@ -7993,13 +7923,6 @@ Page({
     if (kind === 'repair_report') {
       const preview = this.reportPreviewFor('交车报告')
       const doc = (preview && preview.doc) || {}
-      const faqs =
-        (Array.isArray(this.data.ownerFaqs) && this.data.ownerFaqs.length
-          ? this.data.ownerFaqs
-          : null) ||
-        (Array.isArray(base.ownerFaqs) && base.ownerFaqs.length ? base.ownerFaqs : null) ||
-        doc.ownerFaqs ||
-        []
       const workItems =
         (Array.isArray(base.workItems) && base.workItems.length
           ? base.workItems
@@ -8017,7 +7940,6 @@ Page({
           this.data.finishedAt || base.deliveredAt || base.finishedAt || doc.deliveredAt || doc.signAt || '',
         ).trim(),
         deliveryMileage: String(this.data.deliveryMileage || base.deliveryMileage || '').trim(),
-        repairBrief: String(this.data.repairBrief || base.repairBrief || doc.repairBrief || '').trim(),
         acceptanceItems:
           (this.data.acceptanceItems && this.data.acceptanceItems.length
             ? this.data.acceptanceItems
@@ -8025,7 +7947,6 @@ Page({
           base.acceptanceItems ||
           doc.acceptanceItems ||
           [],
-        ownerFaqs: faqs,
         workItems,
         totalAmount: base.totalAmount != null ? base.totalAmount : doc.totalAmount,
       }

@@ -171,16 +171,3 @@ test('迁移幂等：再跑一次不再改', () => {
   const first = migratePackage(JSON.parse(JSON.stringify(pkg)))
   assert.equal(first.changed, false)
 })
-
-test('archiveCopy 迁进交车节点后删除', () => {
-  const pkg = {
-    archiveCopy: { summary: '更换下摆臂胶套', faq: [{ q: '多久复查？', a: '500 公里后' }] },
-    flowNodes: [{ id: 'd', kind: 'delivery_photos', content: {} }],
-  }
-  const { pkg: next, stats } = migratePackage(pkg)
-  const content = next.flowNodes[0].content
-  assert.equal(content.repairBrief, '更换下摆臂胶套')
-  assert.equal(content.ownerFaqs.length, 1)
-  assert.equal(next.archiveCopy, undefined)
-  assert.equal(stats.archiveCopy, 1)
-})

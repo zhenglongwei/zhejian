@@ -299,7 +299,6 @@ test('托管完工章只读已生成的交车报告', () => {
         document: {
           status: 'pending_confirm',
           payload: {
-            repairBrief: '右前门补漆完成',
             warrantyPeriod: '12 个月',
             warrantyNotes: '不含事故损伤',
             acceptanceItems: [
@@ -315,7 +314,6 @@ test('托管完工章只读已生成的交车报告', () => {
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.ok(done)
-  assert.equal(done.repairBrief, '右前门补漆完成')
   assert.equal(done.warrantyPeriod, '12 个月')
   assert.match(done.warrantyNotes, /事故/)
   assert.ok(done.acceptanceItems[0].images.length >= 1)
@@ -330,7 +328,6 @@ test('托管完工章：报告为空时不从交车底稿拼', () => {
         sortOrder: 5,
         status: 'completed',
         content: {
-          repairBrief: '右前门补漆完成',
           warrantyPeriod: '12 个月',
           warrantyNotes: '不含事故损伤',
           deliveryExteriorUrl: RAW,
@@ -395,8 +392,6 @@ test('公开页完工章不列项目；质保说明为「无」时不展示', ()
                 note: '已更换全新[品牌]机油（规格：[粘度]）及原厂机滤',
               },
             ],
-            repairBrief: '机油机滤已更换',
-            ownerFaqs: [{ question: '用什么机油？', answer: '全合成' }, { question: '空问', answer: '' }],
             warrantyPeriod: '2年',
             warrantyNotes: '无',
           },
@@ -406,8 +401,6 @@ test('公开页完工章不列项目；质保说明为「无」时不展示', ()
   })
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
   assert.deepEqual(done.items, [])
-  assert.equal(done.repairBrief, '机油机滤已更换')
-  assert.deepEqual(done.ownerFaqs, [{ question: '用什么机油？', answer: '全合成' }])
   assert.equal(done.warrantyPeriod, '2年')
   assert.equal(done.warrantyNotes, '')
 })

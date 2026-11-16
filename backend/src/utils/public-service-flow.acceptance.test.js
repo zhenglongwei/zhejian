@@ -16,7 +16,6 @@ test('公网完工章：acceptanceItems 一张清单，外观末行（含建议�
         document: {
           status: 'owner_confirmed',
           payload: {
-            repairBrief: '更换刹车片',
             acceptanceItems: [
               { id: 'a1', kind: 'work', name: '制动踏板回弹', note: '实车试踩回弹正常', result: 'pass' },
               { id: 'a2', kind: 'work', name: '修复面色差', note: '自然光下仍有轻微色差', result: 'observe' },
@@ -34,7 +33,7 @@ test('公网完工章：acceptanceItems 一张清单，外观末行（含建议�
       },
     ],
   })
-  const finish = flow.chapters.find((ch) => ch.kind === 'finish' || ch.repairBrief)
+  const finish = flow.chapters.find((ch) => ch.kind === 'repair_report')
   assert.ok(finish, '应有完工章')
   assert.equal(finish.acceptanceItems.length, 3)
   assert.equal(finish.acceptanceItems[0].name, '制动踏板回弹')
@@ -57,7 +56,7 @@ test('公网完工章：旧 acceptance 不再映射（旧数据由迁移脚本�
         document: {
           status: 'owner_confirmed',
           payload: {
-            repairBrief: '更换刹车片',
+            warrantyPeriod: '12 个月',
             acceptance: { items: [{ project: '刹车片更换', note: '举升复查力矩到位' }] },
           },
         },

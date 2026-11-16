@@ -41,19 +41,6 @@
   color: var(--color-text-primary);
 }
 
-.host-archive-preview__k-head {
-  display: flex;
-  flex-direction: column;
-  gap: 2rpx;
-  margin-top: var(--space-sm);
-}
-
-.host-archive-preview__k-note {
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-tertiary);
-}
-
 .host-archive-preview__k {
   display: block;
   margin-top: var(--space-sm);
@@ -144,13 +131,6 @@
   display: flex;
   flex-direction: column;
   gap: 4rpx;
-}
-
-.host-archive-preview__faq {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-  margin-top: var(--space-xs);
 }
 
 .host-archive-preview__item-name {

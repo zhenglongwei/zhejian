@@ -404,13 +404,15 @@
 
 .op-docs {
   display: flex;
+  flex-wrap: nowrap;
   gap: 12rpx;
   margin-top: 24rpx;
+  padding-right: 20rpx;
 }
 
 .op-doc {
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
+  width: 156rpx;
   padding: 16rpx 4rpx 14rpx;
   border-radius: 28rpx;
   background: var(--color-bg-card);
@@ -449,6 +451,9 @@
   font-weight: var(--font-weight-medium);
   line-height: 1.3;
   color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .op-doc__label {
@@ -457,6 +462,9 @@
   color: var(--color-mch-caption);
   font-size: var(--font-status);
   line-height: var(--font-status-lh);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .op-doc--live .op-doc__label {

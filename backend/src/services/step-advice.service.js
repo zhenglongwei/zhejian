@@ -11,7 +11,6 @@ const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
 const {
-  normalizeOwnerFaqs,
   contentOfFlowNode,
   buildQuoteLedger,
   buildAcceptanceRowsFromWorkItems,
@@ -596,18 +595,6 @@ function parseArchiveCopyFromDelivery(parsed) {
   )
 }
 
-function parseOwnerFaqSuggestions(list) {
-  const raw = Array.isArray(list) ? list : []
-  return normalizeOwnerFaqs(
-    raw.map((row, index) => ({
-      id: text(row && row.id) || `suggest_${index + 1}`,
-      question: text(row && (row['问'] || row.question || row.q)),
-      answer: text(row && (row['答'] || row.answer || row.a)),
-    })),
-  ).slice(0, 8)
-}
-
-/** 交车 AI 的公开图说：{"图":"图1","说":"…"} → { slot, note }（slot 1-based 对应本次附图） */
 function parsePublicCaptions(list) {
   const { scrubPiiText } = require('../utils/scrub-pii-text')
   const raw = Array.isArray(list) ? list : []
@@ -628,8 +615,6 @@ function parseDeliveryAdvice(raw, slots) {
   const parsed = parseReviewModelJson(raw)
   if (!parsed) {
     return {
-      repairBrief: '',
-      ownerFaqs: [],
       acceptance: null,
       warranty: null,
       tips: [],
@@ -639,14 +624,6 @@ function parseDeliveryAdvice(raw, slots) {
       archiveCopy: null,
     }
   }
-  // 简述/问答不再进面板：只静默写入节点内容，供托管预览与公网完工章
-  const repairBrief = text(parsed['简述'] || parsed.repairBrief).slice(0, 500)
-  const ownerFaqs = parseOwnerFaqSuggestions(
-    (Array.isArray(parsed['问答']) && parsed['问答'].length ? parsed['问答'] : null) ||
-      parsed.ownerFaqs ||
-      parsed.faqs ||
-      [],
-  )
   const tipSource = Array.isArray(parsed['提醒']) ? parsed['提醒'] : parsed.tips
   const tips = (Array.isArray(tipSource) ? tipSource : [])
     .map((row, index) => {
@@ -662,8 +639,6 @@ function parseDeliveryAdvice(raw, slots) {
   const splitGroups = []
   const warrantyPeriod = text(parsed['质保'] || parsed.warrantyPeriod).slice(0, 60)
   return {
-    repairBrief,
-    ownerFaqs,
     acceptance,
     groups: splitGroups,
     warranty: warrantyPeriod
@@ -706,8 +681,6 @@ function adviceHasContent(advice, kind) {
   }
   return Boolean(
     filled(advice.warranty) ||
-      text(advice.repairBrief) ||
-      (Array.isArray(advice.ownerFaqs) && advice.ownerFaqs.length > 0) ||
       (Array.isArray(advice.tips) && advice.tips.length > 0),
   )
 }
@@ -2215,8 +2188,6 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
   }
   return {
     ...base,
-    repairBrief: text(advice.repairBrief),
-    ownerFaqs: Array.isArray(advice.ownerFaqs) ? advice.ownerFaqs : [],
     acceptance: advice.acceptance && typeof advice.acceptance === 'object' ? advice.acceptance : null,
     groups: Array.isArray(advice.groups) ? advice.groups : [],
     tips: Array.isArray(advice.tips) ? advice.tips : [],

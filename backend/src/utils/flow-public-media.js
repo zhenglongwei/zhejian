@@ -7,11 +7,20 @@ const { collectBagImageRefs } = require('./flow-photo-mask-writeback')
 const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 
-/** 接车 / 首次报价图仅留档，不上网（对标旧 always_private）；补充报价按过程图公开 */
+/**
+ * 整节点图片不上网：只留档。
+ * - 接车 / 接车检测：留证照片不公开
+ * - 报价：报价单本体不公开（项目行文字另走 buildFlowNodeViews，仍可上网）
+ * - 交车：完工照（delivery_photos）与完工确认（repair_report）的验收照片不公开；
+ *   该环节只公开质保、施工人员等文字信息
+ * 补充报价 / 补充施工按过程图公开（见 isAddonNode）。
+ */
 const PRIVATE_FLOW_KINDS = new Set([
   'intake',
   'intake_inspection',
   'quote_confirm',
+  'delivery_photos',
+  'repair_report',
 ])
 
 /** 补充报价虽沿用 quote_confirm，但属于过程节点，图上公开 */
@@ -58,6 +67,8 @@ function collectPublicizableFlowPhotos(album) {
     collectBagImageRefs(payload, refs)
     refs.forEach((ref) => {
       const url = String((ref && ref.url) || '').trim()
+      // 大模型判为疑似纸质单据：商家未确认前不进公域
+      if (ref && ref.docLike === true && ref.docConfirmed !== true) return
       // 同一张照片在节点各袋里可能带不同签名参数；按去查询串后的真源去重
       const key = stripUrlQuery(url)
       if (!url || !key || seen.has(key)) return

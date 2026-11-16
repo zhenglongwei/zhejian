@@ -45,26 +45,36 @@ Page({
       wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
       return
     }
-    const profile = await fetchMerchantProfile()
-    if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
-      wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
-      return
+    if (!this.data.home) this.setData({ status: 'loading' })
+    try {
+      const profile = await fetchMerchantProfile()
+      if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
+        wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+        return
+      }
+      const canManageStaff = isMerchantOwner()
+      const [stats, albums] = await Promise.all([
+        fetchMerchantStats({ storeId: profile.storeId, period: 'month' }).catch(() => null),
+        fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
+      ])
+      const home = buildStoreHomeModel(profile, {
+        publicCaseCount: countPublicAlbums(albums),
+        monthViewCount: monthViewTotal((stats && stats.summary) || {}),
+      })
+      this.setData({
+        status: 'normal',
+        canManageStaff,
+        storeId: profile.storeId || '',
+        home,
+      })
+    } catch (e) {
+      this.setData({ status: 'error' })
     }
-    const canManageStaff = isMerchantOwner()
-    const [stats, albums] = await Promise.all([
-      fetchMerchantStats({ storeId: profile.storeId, period: 'month' }).catch(() => null),
-      fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
-    ])
-    const home = buildStoreHomeModel(profile, {
-      publicCaseCount: countPublicAlbums(albums),
-      monthViewCount: monthViewTotal((stats && stats.summary) || {}),
-    })
-    this.setData({
-      status: 'normal',
-      canManageStaff,
-      storeId: profile.storeId || '',
-      home,
-    })
+  },
+
+  onRetry() {
+    this.setData({ status: 'loading' })
+    this.load()
   },
 
   onLogoMenu() {

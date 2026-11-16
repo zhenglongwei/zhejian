@@ -276,8 +276,6 @@ function emptyPhotoDraft() {
     warrantyNotes: '',
     confirmCopy: '',
     deliveryPhotos: [],
-    repairBrief: '',
-    ownerFaqs: [],
     acceptanceItems: [],
   }
 }

@@ -4,7 +4,6 @@ const {
   mergeArchiveCopyIntoPackage,
   readArchiveCopyFromAlbum,
   readPublicCopyFromAlbum,
-  archiveCopyFromRepairPayload,
 } = require('./album-archive-copy')
 const { scrubPiiText, scrubPiiDeep } = require('./scrub-pii-text')
 
@@ -42,31 +41,20 @@ assert.equal(
   'empty copy rejected',
 )
 
-const fromReport = archiveCopyFromRepairPayload({
-  repairBrief: '更换下摆臂胶套',
-  ownerFaqs: [{ id: 'faq_1', question: '要注意什么？', answer: '一周内少过深坑。' }],
-})
-assert.equal(fromReport.summary, '更换下摆臂胶套')
-assert.equal(fromReport.faq[0].q, '要注意什么？')
-
-const preferReport = readPublicCopyFromAlbum({
+const publicCopy = readPublicCopyFromAlbum({
   contentPackageJson: {
-    archiveCopy: { summary: '旧镜像', faq: [] },
+    archiveCopy: { summary: '店页摘要', faq: [] },
     flowNodes: [
       {
         kind: 'repair_report',
         document: {
           status: 'confirmed',
-          payload: {
-            repairBrief: '报告简述优先',
-            ownerFaqs: [{ question: '问', answer: '答' }],
-          },
+          payload: { workItems: [{ name: '右前门', note: '补漆' }] },
         },
       },
     ],
   },
 })
-assert.equal(preferReport.summary, '报告简述优先')
-assert.equal(preferReport.source, 'repair_report')
+assert.equal(publicCopy.summary, '店页摘要')
 
 console.log('album-archive-copy.test.js OK')

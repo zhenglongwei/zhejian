@@ -214,8 +214,6 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
 
   const delivery = afterSecond.find((n) => n.kind === 'delivery_photos')
   delivery.photoDraft = {
-    repairBrief: '更换下摆臂胶套并更换机油',
-    ownerFaqs: [{ id: 'faq1', question: '多久复查？', answer: '建议 500 公里后再看底盘异响。' }],
     warrantyPeriod: '6个月或1万公里',
     delivererName: '李店长',
     deliveredAt: '2026-11-13 17:30',

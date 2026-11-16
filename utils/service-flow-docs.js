@@ -659,9 +659,6 @@ function normalizeNodeContent(raw = {}) {
   if (raw.archiveCopy && typeof raw.archiveCopy === 'object') {
     base.archiveCopy = raw.archiveCopy
   }
-  if (raw.repairBrief != null && !base.repairBrief) {
-    base.repairBrief = String(raw.repairBrief || '').trim().slice(0, 500)
-  }
   // 存量外观照读侧并入「外观」行，不产出旧字段
   if (Array.isArray(raw.deliveryPhotos)) {
     base.acceptanceItems = foldLegacyDeliveryPhotos(base.acceptanceItems, raw.deliveryPhotos)
@@ -731,8 +728,6 @@ function contentBagHasSubstance(raw) {
     'workItems',
     'photos',
     'deliveryPhotos',
-    'repairBrief',
-    'ownerFaqs',
     'warrantyPeriod',
     'warrantyNotes',
     'acceptanceItems',
@@ -800,10 +795,8 @@ function preserveGeneratedReportFields(content = {}, payload = {}) {
   ;[
     'workItems',
     'acceptanceItems',
-    'repairBrief',
     'warrantyPeriod',
     'warrantyNotes',
-    'ownerFaqs',
     'totalAmount',
     'delivererName',
     'finishedAt',
@@ -2046,24 +2039,6 @@ function sumQuoteAmounts(lines = []) {
   }, 0)
 }
 
-function normalizeOwnerFaqs(list) {
-  if (!Array.isArray(list)) return []
-  return list
-    .map((row, index) => {
-      if (!row || typeof row !== 'object') return null
-      const question = String(row.question || row.q || '').trim()
-      const answer = String(row.answer || row.a || '').trim()
-      if (!question) return null
-      return {
-        id: String(row.id || `faq_${index + 1}`).trim() || `faq_${index + 1}`,
-        question: question.slice(0, 80),
-        answer: answer.slice(0, 280),
-      }
-    })
-    .filter(Boolean)
-    .slice(0, 5)
-}
-
 /**
  * 验收项（acceptanceItems · 2026-11-10 二次收敛定稿）：一项自包含
  * { id, kind: 'work'|'exterior', name, images[], result, note }
@@ -2230,12 +2205,6 @@ function buildRepairReportPayload({
     warrantyScope: warranty.scope || photoDraft.warrantyScope,
     warrantyExclusions: warranty.exclusions || photoDraft.warrantyExclusions,
   })
-  const repairBrief = String(
-    photoDraft.repairBrief || photoDraft.summary || '',
-  ).trim().slice(0, 500)
-  const ownerFaqs = normalizeOwnerFaqs(
-    photoDraft.ownerFaqs || photoDraft.faq || [],
-  )
   const items = (workItems || []).map((item) => {
     const images = []
     const seen = {}
@@ -2282,8 +2251,6 @@ function buildRepairReportPayload({
     totalAmount: computedTotal == null ? 0 : computedTotal,
     mileageText,
     intakeMileageText: String(intakeMileageText || '').trim(),
-    repairBrief,
-    ownerFaqs,
     warrantyPeriod: period,
     warrantyNotes: notes,
     // 兼容旧读侧：不再写入空话默认；存量字段置空
@@ -2361,9 +2328,7 @@ function normalizePhotoDraft(raw = {}) {
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
     warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
-    repairBrief: String(raw.repairBrief || raw.summary || '').trim().slice(0, 500),
     acceptanceItems: foldLegacyDeliveryPhotos(resolveAcceptanceItems(raw), raw.deliveryPhotos),
-    ownerFaqs: normalizeOwnerFaqs(raw.ownerFaqs || raw.faq || []),
     reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
     ownerSentAt: String(raw.ownerSentAt || '').trim(),
     inspectionAiKey: String(raw.inspectionAiKey || '').trim(),
@@ -2452,18 +2417,6 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     if (idx >= 0) rows[idx] = exterior
     else rows.push(exterior)
     next.acceptanceItems = rows
-  }
-  if (patch.repairBrief != null || patch.summary != null) {
-    next.repairBrief = String(
-      patch.repairBrief != null ? patch.repairBrief : patch.summary || '',
-    )
-      .trim()
-      .slice(0, 500)
-  }
-  if (patch.ownerFaqs != null || patch.faq != null) {
-    next.ownerFaqs = normalizeOwnerFaqs(
-      patch.ownerFaqs != null ? patch.ownerFaqs : patch.faq,
-    )
   }
   if (patch.acceptanceItems != null) {
     next.acceptanceItems = normalizeAcceptanceItems(patch.acceptanceItems)
@@ -2737,7 +2690,6 @@ module.exports = {
   resolveQuoteConfirmCopy,
   stableLineId,
   buildRepairReportPayload,
-  normalizeOwnerFaqs,
   normalizeAcceptanceItems,
   normalizeDeliveryPhotos,
   resolveAcceptanceItems,

@@ -81,11 +81,6 @@
         </view>
       </view>
 
-      <block wx:if="{{ch.repairBrief}}">
-        <text class="host-archive-preview__k">本次维修简述</text>
-        <text class="host-archive-preview__p">{{ch.repairBrief}}</text>
-      </block>
-
       <block wx:if="{{ch.acceptanceItems && ch.acceptanceItems.length}}">
         <text class="host-archive-preview__k">交车验收</text>
         <view
@@ -126,23 +121,6 @@
             />
           </block>
           <text wx:if="{{acc.note}}" class="host-archive-preview__note">{{acc.note}}</text>
-        </view>
-      </block>
-
-      <block wx:if="{{ch.ownerFaqs && ch.ownerFaqs.length}}">
-        <view class="host-archive-preview__k-head">
-          <text class="host-archive-preview__k">车主关心的问题</text>
-          <text class="host-archive-preview__k-note">根据本次服务记录生成，经店员核对</text>
-        </view>
-        <view
-          wx:for="{{ch.ownerFaqs}}"
-          wx:for-item="faq"
-          wx:for-index="fi"
-          wx:key="fi"
-          class="host-archive-preview__faq"
-        >
-          <text class="host-archive-preview__item-name">{{faq.question}}</text>
-          <text class="host-archive-preview__note">{{faq.answer}}</text>
         </view>
       </block>
 

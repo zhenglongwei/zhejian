@@ -53,7 +53,11 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   const hasContent = meta.contentDescription !== undefined
   const contentDescription = hasContent ? text(meta.contentDescription) : ''
   const contentAnalyzedAt = text(meta.contentAnalyzedAt)
-  if (!product && !outcome && regions == null && !hasContent) return { next: slot, changed: false }
+  const docLike = meta.docLike === true
+  const docConfirmed = meta.docConfirmed === true
+  if (!product && !outcome && regions == null && !hasContent && !docLike && !docConfirmed) {
+    return { next: slot, changed: false }
+  }
 
   if (typeof slot === 'string') {
     if (!urlsMatch(slot, rawKeys)) return { next: slot, changed: false }
@@ -62,6 +66,8 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
     if (outcome) next.maskOutcome = outcome
     if (source) next.maskSource = source
     if (regions) next.maskRegions = regions
+    if (docLike) next.docLike = true
+    if (docConfirmed) next.docConfirmed = true
     if (contentDescription) {
       next.contentDescription = contentDescription
       next.contentAnalyzedAt = contentAnalyzedAt || new Date().toISOString()
@@ -75,6 +81,14 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
 
   let next = { ...slot }
   let changed = false
+  if (docLike && next.docLike !== true) {
+    next.docLike = true
+    changed = true
+  }
+  if (docConfirmed && next.docConfirmed !== true) {
+    next.docConfirmed = true
+    changed = true
+  }
   if (contentDescription && text(next.contentDescription) !== contentDescription) {
     next = {
       ...next,
@@ -323,6 +337,8 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
       maskRegions: pair.maskRegions,
       contentDescription: pair.contentDescription,
       contentAnalyzedAt: pair.contentAnalyzedAt,
+      docLike: pair.docLike,
+      docConfirmed: pair.docConfirmed,
     })
     nodes = r.nodes
     if (r.changed) changed = true

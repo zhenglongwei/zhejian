@@ -123,7 +123,8 @@ async function persistMaskedPairsToAlbumFlow(albumId, pairs = []) {
     return Boolean(
       String(p.maskedUrl || '').trim() ||
         String(p.maskOutcome || '').trim() ||
-        String(p.contentDescription || '').trim(),
+        String(p.contentDescription || '').trim() ||
+        p.docLike === true,
     )
   })
   if (!id || !list.length) return { changed: false }

@@ -132,8 +132,6 @@ test('车主维修工单：封存 workItems 为空时回落施工记录图和说
 
 test('车主交车报告：只读已生成正文', () => {
   const payload = {
-    repairBrief: '右前门补漆完成，饰条已换新。',
-    ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
     acceptanceItems: [
       { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
       {
@@ -173,9 +171,6 @@ test('车主交车报告：只读已生成正文', () => {
   )
   const repair = view.docs.find((row) => row && row.kind === 'repair_report')
   assert.ok(repair)
-  // 交车报告不展示简述/问答，只展示逐项验收与外观照
-  assert.equal(repair.repairBrief, undefined)
-  assert.equal(repair.ownerFaqs, undefined)
   assert.equal(repair.acceptanceItems.length, 2)
   assert.equal(repair.acceptanceItems[0].name, '右前门')
   assert.equal(repair.acceptanceItems[0].resultLabel, '合格')
@@ -226,8 +221,6 @@ test('旧册薄报告：用冻住的交车节点重生成一次', () => {
         kind: 'delivery_photos',
         status: 'completed',
         content: {
-          repairBrief: '右前门补漆完成，饰条已换新。',
-          ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
           acceptanceItems: [
             { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
             {
@@ -261,11 +254,9 @@ test('旧册薄报告：用冻住的交车节点重生成一次', () => {
   assert.equal(changed, true)
   const report = next.flowNodes.find((row) => row.kind === 'repair_report')
   const body = contentOfFlowNode(report)
-  assert.equal(body.repairBrief, '右前门补漆完成，饰条已换新。')
   assert.equal(body.warrantyPeriod, '12 个月')
   const exterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
   assert.ok(exterior && exterior.images.length >= 1)
-  assert.equal(body.ownerFaqs.length, 1)
   assert.equal(body.delivererName, '李店长')
 })
 
@@ -399,7 +390,6 @@ test('旧册空节点：从已生成报告找回交车内容', () => {
         document: {
           status: 'pending_confirm',
           payload: {
-            repairBrief: '右前门补漆完成',
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -418,51 +408,13 @@ test('旧册空节点：从已生成报告找回交车内容', () => {
   const { pkg: next, changed } = healFinishReportPackage(pkg)
   assert.equal(changed, true)
   const delivery = next.flowNodes.find((row) => row.kind === 'delivery_photos')
-  assert.equal(delivery.content.repairBrief, '右前门补漆完成')
   assert.equal(delivery.content.warrantyPeriod, '12 个月')
   const exterior = delivery.content.acceptanceItems.find((row) => row.kind === 'exterior')
   assert.equal(exterior.images[0].url, 'https://cdn.example.com/finish-front.jpg')
 })
 
-test('定稿后只丢简述问答：仍从交车报告收回', () => {
-  const pkg = {
-    flowVersion: 6,
-    flowNodes: [
-      {
-        id: 'delivery_1',
-        kind: 'delivery_photos',
-        status: 'completed',
-        content: {
-          warrantyPeriod: '12 个月',
-          repairBrief: '',
-          ownerFaqs: [],
-        },
-      },
-      {
-        id: 'repair_1',
-        kind: 'repair_report',
-        content: {
-          repairBrief: '更换下摆臂并做了机油机滤',
-          ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
-          warrantyPeriod: '12 个月',
-        },
-        document: { status: 'pending_confirm', payload: {} },
-      },
-    ],
-  }
-  const { pkg: next, changed } = healFinishReportPackage(pkg)
-  assert.equal(changed, true)
-  const delivery = next.flowNodes.find((row) => row.kind === 'delivery_photos')
-  assert.equal(delivery.content.repairBrief, '更换下摆臂并做了机油机滤')
-  assert.equal(delivery.content.ownerFaqs.length, 1)
-  assert.equal(delivery.content.ownerFaqs[0].question, '几天可以洗车？')
-  assert.equal(delivery.content.warrantyPeriod, '12 个月')
-})
-
 test('落库迁移不得把交车报告摊成编辑袋', () => {
   const payload = {
-    repairBrief: '右前门补漆完成，饰条已换新。',
-    ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
     acceptanceItems: [
       { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
       {
@@ -493,7 +445,6 @@ test('落库迁移不得把交车报告摊成编辑袋', () => {
     },
   })
   const folded = contentOfFlowNode(migrated)
-  assert.equal(folded.repairBrief, payload.repairBrief)
   assert.equal(folded.workItems.length, 1)
   assert.equal(folded.workItems[0].partName || folded.workItems[0].name, '右前门')
   assert.equal(migrated.document.payload && Object.keys(migrated.document.payload).length, 0)
@@ -573,8 +524,6 @@ test('旧册薄报告治愈后再迁移，交车正文仍在', () => {
         kind: 'delivery_photos',
         status: 'completed',
         content: {
-          repairBrief: '右前门补漆完成，饰条已换新。',
-          ownerFaqs: [{ id: 'faq_1', question: '几天可以洗车？', answer: '48 小时后再洗。' }],
           acceptanceItems: [
             { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
             {
@@ -607,10 +556,8 @@ test('旧册薄报告治愈后再迁移，交车正文仍在', () => {
   const { pkg: next, changed } = migrateFlowPackageOnce(pkg)
   assert.equal(changed, true)
   const body = contentOfFlowNode(next.flowNodes.find((row) => row.kind === 'repair_report'))
-  assert.equal(body.repairBrief, '右前门补漆完成，饰条已换新。')
   const bodyExterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
   assert.ok(bodyExterior && bodyExterior.images.length >= 1)
   assert.equal(body.workItems.length, 1)
   assert.equal(body.workItems[0].partName || body.workItems[0].name, '右前门')
-  assert.equal(body.ownerFaqs.length, 1)
 })

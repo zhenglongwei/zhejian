@@ -337,29 +337,23 @@ function acceptanceItemsHaveBody(raw) {
 
 function finishReportHasDeliveryFields(payload = {}) {
   return Boolean(
-    textHasValue(payload.repairBrief) ||
-      acceptanceItemsHaveBody(payload.acceptanceItems) ||
+    acceptanceItemsHaveBody(payload.acceptanceItems) ||
       textHasValue(payload.warrantyPeriod) ||
-      textHasValue(payload.warrantyNotes) ||
-      (Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length),
+      textHasValue(payload.warrantyNotes),
   )
 }
 
 function frozenDeliveryHasBody(draft = {}) {
   return Boolean(
-    textHasValue(draft.repairBrief) ||
-      acceptanceItemsHaveBody(draft.acceptanceItems) ||
+    acceptanceItemsHaveBody(draft.acceptanceItems) ||
       textHasValue(draft.warrantyPeriod) ||
-      textHasValue(draft.warrantyNotes) ||
-      (Array.isArray(draft.ownerFaqs) && draft.ownerFaqs.length),
+      textHasValue(draft.warrantyNotes),
   )
 }
 
 function deliveryFieldsFromReport(payload = {}) {
   return {
-    repairBrief: String(payload.repairBrief || '').trim(),
     acceptanceItems: Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [],
-    ownerFaqs: Array.isArray(payload.ownerFaqs) ? payload.ownerFaqs : [],
     warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
     warrantyNotes: String(payload.warrantyNotes || '').trim(),
     delivererName: String(payload.delivererName || '').trim(),
@@ -389,7 +383,6 @@ function keepFilledWorkPatch(prev = {}, incoming = {}) {
 function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
   const next = { ...incoming }
   ;[
-    'repairBrief',
     'warrantyPeriod',
     'warrantyNotes',
     'warrantyScope',
@@ -400,13 +393,6 @@ function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
   ].forEach((key) => {
     if (!textHasValue(next[key]) && textHasValue(prev[key])) next[key] = prev[key]
   })
-  if (
-    (!Array.isArray(next.ownerFaqs) || !next.ownerFaqs.length) &&
-    Array.isArray(prev.ownerFaqs) &&
-    prev.ownerFaqs.length
-  ) {
-    next.ownerFaqs = prev.ownerFaqs
-  }
   // 空验收项不得盖掉已填内容（acceptanceItems 为空数组/缺字段时回填）
   if (!acceptanceItemsHaveBody(next.acceptanceItems) && acceptanceItemsHaveBody(prev.acceptanceItems)) {
     next.acceptanceItems = prev.acceptanceItems
@@ -475,25 +461,18 @@ function finishReportMissingFrozenFields(payload = {}, draft = {}, nodes = []) {
   const missingExteriorImages =
     !((exteriorRowOf(payload.acceptanceItems) || {}).images || []).length &&
     ((exteriorRowOf(resolveAcceptanceItems(draft)) || {}).images || []).length > 0
-  const missingBrief = !textHasValue(payload.repairBrief) && textHasValue(draft.repairBrief)
   const missingAcceptance =
     !acceptanceItemsHaveBody(payload.acceptanceItems) &&
     acceptanceItemsHaveBody(resolveAcceptanceItems(draft))
   const missingWarranty =
     !textHasValue(payload.warrantyPeriod) && textHasValue(draft.warrantyPeriod)
-  const missingFaqs =
-    !(Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length) &&
-    Array.isArray(draft.ownerFaqs) &&
-    draft.ownerFaqs.length
   const missingWork =
     !(Array.isArray(payload.workItems) && payload.workItems.length) &&
     collectAllWorkOrderItems(nodes).length > 0
   return (
     missingExteriorImages ||
-    missingBrief ||
     missingAcceptance ||
     missingWarranty ||
-    missingFaqs ||
     missingWork
   )
 }
@@ -560,27 +539,20 @@ function healFinishReportPackage(pkg = {}, album = {}) {
   const repair = list[repairIdx]
   const draft = contentOfFlowNode(delivery)
   const reportBody = contentOfFlowNode(repair)
-  // 定稿后交车节点不得空着：整袋空，或只丢了简述/问答，都从交车报告收回
+  // 定稿后交车节点不得空着：整袋空，或只丢了验收/质保，都从交车报告收回
   if (String(delivery.status || '') === 'completed' && finishReportHasDeliveryFields(reportBody)) {
     const fromReport = deliveryFieldsFromReport(reportBody)
     const needFull = !frozenDeliveryHasBody(draft)
-    const needBrief = !textHasValue(draft.repairBrief) && textHasValue(fromReport.repairBrief)
     const needAcceptance =
       !acceptanceItemsHaveBody(resolveAcceptanceItems(draft)) &&
       acceptanceItemsHaveBody(fromReport.acceptanceItems)
-    const needFaqs =
-      !(Array.isArray(draft.ownerFaqs) && draft.ownerFaqs.length) &&
-      Array.isArray(fromReport.ownerFaqs) &&
-      fromReport.ownerFaqs.length
     if (needFull) {
       list[deliveryIdx] = writeNodeContent(delivery, { content: fromReport })
       changed = true
-    } else if (needBrief || needAcceptance || needFaqs) {
+    } else if (needAcceptance) {
       list[deliveryIdx] = writeNodeContent(delivery, {
         content: {
-          ...(needBrief ? { repairBrief: fromReport.repairBrief } : {}),
-          ...(needAcceptance ? { acceptanceItems: fromReport.acceptanceItems } : {}),
-          ...(needFaqs ? { ownerFaqs: fromReport.ownerFaqs } : {}),
+          acceptanceItems: fromReport.acceptanceItems,
         },
       })
       changed = true
@@ -1840,23 +1812,6 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     if (String((payload.document && payload.document.status) || '') === 'pending_confirm') {
       nodes[index] = freezeNodeRenderDoc(nodes[index], album, nodes)
     }
-    // 交车报告保存/发送时同步公开说明镜像：提交完工照那一刻简述与问答通常还没填，
-    // 只靠完工照分支写 archiveCopy 会让店页摘要一直为空、被迫手填。
-    if (nextNode.kind === 'repair_report') {
-      const {
-        archiveCopyFromRepairPayload,
-        mergeArchiveCopyIntoPackage,
-      } = require('../utils/album-archive-copy')
-      const copy = archiveCopyFromRepairPayload(contentOfFlowNode(nextNode), {
-        source: 'repair_report',
-      })
-      if (copy) {
-        return mergeArchiveCopyIntoPackage(
-          { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes },
-          copy,
-        )
-      }
-    }
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
 
@@ -1938,11 +1893,9 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       ? { warrantyExclusions: payload.warrantyExclusions }
       : {}),
     ...(payload.confirmCopy != null ? { confirmCopy: payload.confirmCopy } : {}),
-    ...(payload.repairBrief != null ? { repairBrief: payload.repairBrief } : {}),
-    ...(payload.ownerFaqs != null ? { ownerFaqs: payload.ownerFaqs } : {}),
     ...(payload.acceptanceItems != null ? { acceptanceItems: payload.acceptanceItems } : {}),
   })
-  // 交车：空简述/问答不得盖掉节点里已有内容（定稿前后都适用）
+  // 交车：空验收/质保不得盖掉节点里已有内容（定稿前后都适用）
   if (node.kind === 'delivery_photos') {
     incomingDraft = keepFilledDeliveryPatch(contentOfFlowNode(node), incomingDraft)
   }
@@ -2224,17 +2177,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
         }
         // 交车报告生成即发送：冻结（旧版本按规则归档）
         list[repairIdx] = freezeNodeRenderDoc(list[repairIdx], album, list)
-        // 公开说明镜像：用报告简述/问答同步 archiveCopy
-        try {
-          const { archiveCopyFromRepairPayload, mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
-          const copy = archiveCopyFromRepairPayload(draft, { source: 'repair_report' })
-          if (copy) {
-            const merged = mergeArchiveCopyIntoPackage(pkg, copy)
-            return { ...merged, flowVersion: FLOW_VERSION, flowNodes: list }
-          }
-        } catch (_) {
-          /* ignore */
-        }
       }
     }
 
@@ -3103,17 +3045,6 @@ function mapOwnerFriendlyLine(row = {}) {
   }
 }
 
-function ownerFaqRows(list) {
-  return (Array.isArray(list) ? list : [])
-    .map((row, index) => ({
-      id: String((row && row.id) || `faq_${index + 1}`),
-      question: String((row && (row.question || row.q)) || '').trim(),
-      answer: String((row && (row.answer || row.a)) || '').trim(),
-    }))
-    .filter((row) => row.question)
-    .slice(0, 5)
-}
-
 function signPreviewMedia(doc) {
   const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
   const signUrl = (url) => resolveClientReadableMediaUrl(url) || String(url || '').trim()
@@ -3319,8 +3250,6 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
       totalAmount: 0,
       totalAmountLabel: '',
       acceptanceItems: [],
-      repairBrief: '',
-      ownerFaqs: [],
       warrantyPeriod: '',
       warrantyNotes: '',
       warrantyScope: '',
@@ -3524,10 +3453,6 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
       : Array.isArray(payload.acceptanceItems)
         ? payload.acceptanceItems
         : [],
-    repairBrief: finishDoc
-      ? finishDoc.repairBrief
-      : String(payload.repairBrief || '').trim(),
-    ownerFaqs: finishDoc ? finishDoc.ownerFaqs : ownerFaqRows(payload.ownerFaqs),
     warrantyPeriod: finishDoc
       ? finishDoc.warrantyPeriod
       : String(payload.warrantyPeriod || ''),
@@ -3641,14 +3566,12 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
       const hasSubstance =
         Boolean(payload) &&
         (Boolean(String(payload.chiefComplaint || '').trim()) ||
-          Boolean(String(payload.repairBrief || '').trim()) ||
           (Array.isArray(payload.findings) && payload.findings.length) ||
           (Array.isArray(payload.lines) && payload.lines.length) ||
           (Array.isArray(payload.items) && payload.items.length) ||
           (Array.isArray(payload.workItems) && payload.workItems.length) ||
           (Array.isArray(payload.photos) && payload.photos.length) ||
           (Array.isArray(payload.acceptanceItems) && payload.acceptanceItems.length) ||
-          (Array.isArray(payload.ownerFaqs) && payload.ownerFaqs.length) ||
           Boolean(String(payload.warrantyPeriod || '').trim()) ||
           Boolean(String(payload.conclusion || '').trim()))
 
@@ -4175,6 +4098,43 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
   }
 }
 
+/**
+ * 商家确认「疑似纸质单据」的图不是单据，允许其进入公域。
+ * 只写 docConfirmed 标记，不改打码结论。
+ */
+async function confirmFlowPhotoDocLike(albumId, storeId, nodeId, rawUrl, merchantId = '') {
+  const { loadAlbum, assertMerchantAlbum } = require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  const target = String(rawUrl || '').trim()
+  if (!target) {
+    const err = new Error('缺少图片地址')
+    err.status = 400
+    throw err
+  }
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  if (!flowNodes.length) return { changed: false }
+  if (nodeId && !flowNodes.some((n) => n && n.id === nodeId)) {
+    const err = new Error('节点不存在')
+    err.status = 404
+    throw err
+  }
+  const { writeMaskedPairsIntoFlowNodes } = require('../utils/flow-photo-mask-writeback')
+  const { nodes, changed } = writeMaskedPairsIntoFlowNodes(flowNodes, [
+    { rawUrl: target, docConfirmed: true },
+  ])
+  if (!changed) return { changed: false }
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { contentPackageJson: { ...pkg, flowNodes: nodes } },
+  })
+  return { changed: true }
+}
+
 module.exports = {
   FLOW_VERSION,
   readFlowVersion,
@@ -4187,6 +4147,7 @@ module.exports = {
   writeFlowPackage,
   getMerchantAlbumFlow,
   updateFlowNode,
+  confirmFlowPhotoDocLike,
   completeFlowNode,
   deliverFlowDocument,
   proxyConfirmFlowDocument,

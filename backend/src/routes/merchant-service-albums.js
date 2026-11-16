@@ -994,6 +994,28 @@ router.put(
 )
 
 router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/doc-like-confirm',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { confirmFlowPhotoDocLike } = require('../services/service-flow.service')
+      const rawUrl = (req.body && (req.body.rawUrl || req.body.url)) || ''
+      const data = await confirmFlowPhotoDocLike(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        rawUrl,
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
   '/service-albums/:albumId/from-wechat/photos',
   requireAuth(['merchant']),
   async (req, res, next) => {

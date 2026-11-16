@@ -11,8 +11,7 @@
  *    结果留空（不替历史单编造结果）。
  * 3. 旧外观照（selectedDeliveryUrls / deliveryExteriorUrl / deliveryPhotos）→「外观」行 images（最多 3 张），
  *    迁完删除这些旧字段。
- * 4. contentPackageJson.archiveCopy → content.repairBrief / content.ownerFaqs（仅空时补），迁完删除 archiveCopy。
- * 5. 完工报告 document.payload 同步以上规则。
+ * 4. 完工报告 document.payload 同步以上规则。
  *
  * 用法：
  *   node scripts/migrate-delivery-acceptance.js --dry-run
@@ -227,7 +226,7 @@ function migrateBag(bag, mark, workItems = null, stats = null) {
 function migratePackage(pkg) {
   if (!pkg || typeof pkg !== 'object') return { pkg, changed: false, stats: {} }
   let changed = false
-  const stats = { nodes: 0, reports: 0, exteriorRows: 0, droppedRows: 0, archiveCopy: 0 }
+  const stats = { nodes: 0, reports: 0, exteriorRows: 0, droppedRows: 0 }
   const mark = () => {
     changed = true
   }
@@ -256,36 +255,6 @@ function migratePackage(pkg) {
       }
     }
   })
-
-  // archiveCopy 一次性迁入交车节点 content（只补空）
-  const copy = pkg.archiveCopy && typeof pkg.archiveCopy === 'object' ? pkg.archiveCopy : null
-  if (copy) {
-    const delivery = nodes.find((node) => node && node.kind === 'delivery_photos')
-    if (delivery) {
-      const content = delivery.content && typeof delivery.content === 'object' ? delivery.content : {}
-      const summary = text(copy.summary || copy.aiSummary)
-      if (summary && !text(content.repairBrief)) {
-        content.repairBrief = summary.slice(0, 500)
-        delivery.content = content
-        changed = true
-      }
-      const faq = Array.isArray(copy.faq) ? copy.faq : []
-      if (faq.length && !(Array.isArray(content.ownerFaqs) && content.ownerFaqs.length)) {
-        content.ownerFaqs = faq
-          .map((row, index) => ({
-            id: text(row && row.id) || `faq_${index + 1}`,
-            question: text(row && (row.q || row.question)),
-            answer: text(row && (row.a || row.answer)),
-          }))
-          .filter((row) => row.question && row.answer)
-          .slice(0, 5)
-        delivery.content = content
-        changed = true
-      }
-      if (changed) stats.archiveCopy = 1
-    }
-  }
-  if (changed && pkg.archiveCopy) delete pkg.archiveCopy
 
   // 统计外观行数量，方便核对迁移量
   nodes.forEach((node) => {

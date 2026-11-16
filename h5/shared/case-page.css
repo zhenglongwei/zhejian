@@ -491,7 +491,6 @@
   font-size: var(--font-caption, 12px);
 }
 
-.h5-flow-faq-note,
 .h5-faq-note {
   margin: 0 0 var(--space-sm, 8px);
   font-size: var(--font-caption, 12px);
