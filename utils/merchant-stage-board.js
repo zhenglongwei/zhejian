@@ -258,7 +258,15 @@ function quoteRecord(nodes) {
   const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
   const discoveryNote = String(discovery.note || '').trim()
   const discoveryPhotos = (Array.isArray(discovery.images) ? discovery.images : [])
-    .map((url) => String(url || '').trim())
+    .map((img) => {
+      if (!img) return ''
+      if (typeof img === 'string') return img.trim()
+      if (typeof img === 'object') {
+        const s = String(img.maskedUrl || img.url || img.src || img.rawUrl || '').trim()
+        return s
+      }
+      return ''
+    })
     .filter(Boolean)
   const status = docStatus(quote)
   const confirmed = status === 'confirmed' || status === 'delivered'
