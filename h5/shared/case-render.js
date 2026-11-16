@@ -67,23 +67,20 @@
   }
 
   function pickNodeDesensitizedImages(node) {
+    // 公域节点图已由服务端按 publicView 过滤；无打码产物时允许放行原图，不再按路径二次丢弃
     var urls = []
     ;(node.imagesDesensitized || []).forEach(function (img) {
-      if (isDesensitizedUrl(img)) urls.push(img)
+      if (img) urls.push(img)
     })
     ;(node.images || []).forEach(function (img) {
-      if (isDesensitizedUrl(img)) urls.push(img)
+      if (img) urls.push(img)
     })
     return uniqueUrls(urls)
   }
 
   function pickCaseCover(data) {
-    if (data.coverImageDesensitized && isDesensitizedUrl(data.coverImageDesensitized)) {
-      return mediaSrc(data.coverImageDesensitized)
-    }
-    if (data.coverImage && isDesensitizedUrl(data.coverImage)) {
-      return mediaSrc(data.coverImage)
-    }
+    if (data.coverImageDesensitized) return mediaSrc(data.coverImageDesensitized)
+    if (data.coverImage) return mediaSrc(data.coverImage)
     for (var i = 0; i < (data.nodes || []).length; i += 1) {
       var imgs = pickNodeDesensitizedImages(data.nodes[i])
       if (imgs.length) return imgs[0]

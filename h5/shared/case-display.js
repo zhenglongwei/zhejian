@@ -198,12 +198,14 @@
   }
 
   function pickNodeDesensitizedImages(node) {
+    // 上网图片已取消数量限制且允许「无打码产物放行持久化原图」（责任在商家），
+    // 节点图在服务端已按公域池过滤，这里不再按 /desensitized/ 路径二次丢弃。
     var urls = []
     ;(node.imagesDesensitized || []).forEach(function (img) {
-      if (isDesensitizedUrl(img)) urls.push(img)
+      if (img) urls.push(img)
     })
     ;(node.images || []).forEach(function (img) {
-      if (isDesensitizedUrl(img)) urls.push(img)
+      if (img) urls.push(img)
     })
     return uniqueUrls(urls)
   }
