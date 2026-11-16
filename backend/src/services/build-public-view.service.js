@@ -60,6 +60,17 @@ function buildPublicRepairPlan(albumView = {}) {
 
 function listPublicImageRows(albumView = {}) {
   const meta = Array.isArray(albumView.imageMeta) ? albumView.imageMeta : []
+  // 排序按流程节点顺序（flowNodeViews 与 imageMeta 同 nodeId 域），不再按 nodeId 字母序。
+  // 旧逻辑按 nodeId 字符串排序，多节点案例会先吃满排在前面的「检测」图。
+  const orderNodes =
+    Array.isArray(albumView.flowNodeViews) && albumView.flowNodeViews.length
+      ? albumView.flowNodeViews
+      : albumView.nodes || []
+  const orderIndex = new Map()
+  orderNodes.forEach((node, idx) => {
+    const id = String((node && (node.id || node.nodeId)) || '')
+    if (id && !orderIndex.has(id)) orderIndex.set(id, idx)
+  })
   return meta
     .filter(
       (row) =>
@@ -67,10 +78,49 @@ function listPublicImageRows(albumView = {}) {
         row.publicGateStatus === PUBLIC_GATE_STATUS.PASSED,
     )
     .sort((a, b) => {
-      const nodeCmp = String(a.nodeId).localeCompare(String(b.nodeId))
-      if (nodeCmp !== 0) return nodeCmp
+      const ai = orderIndex.has(String(a.nodeId)) ? orderIndex.get(String(a.nodeId)) : Number.MAX_SAFE_INTEGER
+      const bi = orderIndex.has(String(b.nodeId)) ? orderIndex.get(String(b.nodeId)) : Number.MAX_SAFE_INTEGER
+      if (ai !== bi) return ai - bi
       return Number(a.idx || 0) - Number(b.idx || 0)
     })
+}
+
+/**
+ * 公开关键帧按节点轮转取名：先每个节点取 1 张，再逐轮补，直到达到上限。
+ * 保证多节点案例每个环节都有代表图，而不是被首个节点（通常检测）吃满。
+ */
+function pickPublicRowsByNode(rows, cap) {
+  const limit = Math.max(0, Number(cap) || 0)
+  if (!limit || !Array.isArray(rows) || !rows.length) return []
+  const order = []
+  const byNode = new Map()
+  rows.forEach((row) => {
+    const key = String((row && row.nodeId) || '')
+    if (!byNode.has(key)) {
+      byNode.set(key, [])
+      order.push(key)
+    }
+    byNode.get(key).push(row)
+  })
+  const picked = []
+  order.forEach((key) => {
+    const first = byNode.get(key)[0]
+    if (first) picked.push(first)
+  })
+  let round = 1
+  while (picked.length < limit) {
+    let added = false
+    for (const key of order) {
+      const row = byNode.get(key)[round]
+      if (!row) continue
+      picked.push(row)
+      added = true
+      if (picked.length >= limit) break
+    }
+    if (!added) break
+    round += 1
+  }
+  return picked.slice(0, limit)
 }
 
 function captionForNode(nodes, nodeId) {
@@ -89,8 +139,8 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
   const nodes = albumView.nodes || []
   const softCap =
     options.softCap != null ? options.softCap : PUBLIC_MEDIA_KEYFRAME_DEFAULT
-  const publicRows = listPublicImageRows(albumView).slice(
-    0,
+  const publicRows = pickPublicRowsByNode(
+    listPublicImageRows(albumView),
     Math.min(softCap, PUBLIC_MEDIA_SOFT_CAP),
   )
 
@@ -145,30 +195,41 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
 
 function publicViewToSnapshotNodes(publicView = {}, fallbackNodes = []) {
   const media = Array.isArray(publicView.media) ? publicView.media : []
+  const fallback = Array.isArray(fallbackNodes) ? fallbackNodes : []
   if (!media.length) {
-    return (fallbackNodes || []).map((node) => ({ ...node, images: [] }))
+    return fallback.map((node) => ({ ...node, images: [] }))
   }
 
-  const byNode = {}
+  const urlsByNode = {}
   media.forEach((item) => {
-    const nodeId = item.nodeId || ''
-    if (!byNode[nodeId]) byNode[nodeId] = []
-    byNode[nodeId].push(item.maskedUrl)
+    const nodeId = String((item && item.nodeId) || '')
+    const url = String((item && item.maskedUrl) || '').trim()
+    if (!nodeId || !url) return
+    if (!urlsByNode[nodeId]) urlsByNode[nodeId] = []
+    urlsByNode[nodeId].push(url)
   })
 
-  const titleByNode = {}
-  ;(fallbackNodes || []).forEach((node) => {
-    titleByNode[node.id || node.nodeId] = node.title || ''
-  })
-
-  return Object.keys(byNode).map((nodeId) => {
-    const fallback = findStageNode(fallbackNodes, nodeId)
-    return {
+  // 没有节点真源（旧快照）：退回按 media 分组，保证不丢图
+  if (!fallback.length) {
+    return Object.keys(urlsByNode).map((nodeId) => ({
       id: nodeId,
       nodeId,
-      title: fallback?.title || titleByNode[nodeId] || '',
-      note: scrubPiiText(fallback?.note || '').slice(0, 500),
-      images: byNode[nodeId].filter(Boolean),
+      title: '',
+      note: '',
+      images: Array.from(new Set(urlsByNode[nodeId])),
+    }))
+  }
+
+  // 保留全部流程节点（无图节点也留标题与说明），图片只取公域池，避免接车/报价图外泄
+  return fallback.map((node) => {
+    const nodeId = String((node && (node.id || node.nodeId)) || '')
+    return {
+      ...node,
+      id: (node && node.id) || nodeId,
+      nodeId,
+      title: String((node && node.title) || ''),
+      note: scrubPiiText((node && node.note) || '').slice(0, 500),
+      images: Array.from(new Set(urlsByNode[nodeId] || [])),
     }
   })
 }

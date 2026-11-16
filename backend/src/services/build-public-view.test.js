@@ -64,8 +64,48 @@ test('buildPublicView excludes private stage images', () => {
   assert.equal(view.media[0].nodeId, 'stage_4')
   assert.match(view.facts.repairPlan, /更换刹车片/)
   const nodes = publicViewToSnapshotNodes(view, albumView.nodes)
-  assert.equal(nodes.length, 1)
-  assert.equal(nodes[0].images.length, 1)
+  // 保留全部流程节点：无图节点只留标题/说明，图片仅取公域池
+  assert.equal(nodes.length, 2)
+  const stage3 = nodes.find((row) => row.id === 'stage_3')
+  const stage4 = nodes.find((row) => row.id === 'stage_4')
+  assert.equal(stage3.images.length, 0)
+  assert.equal(stage4.images.length, 1)
+})
+
+test('公开关键帧按节点轮转取名，检测节点不再吃满上限', () => {
+  const albumView = {
+    serviceName: '刹车保养',
+    planAmount: 680,
+    store: { id: 'st_1', name: '测试门店', city: '杭州' },
+    storeNote: '',
+    planParts: [],
+    nodes: [
+      { id: 'fn_002', title: '检测', note: '检测' },
+      { id: 'fn_005', title: '工单', note: '施工' },
+    ],
+    imageMeta: [
+      ...Array.from({ length: 9 }, (_, idx) => ({
+        nodeId: 'fn_002',
+        idx,
+        rawUrl: `https://x/files/uploads/desensitized/d${idx}.jpg`,
+        visibility: 'public',
+        publicGateStatus: 'passed',
+      })),
+      {
+        nodeId: 'fn_005',
+        idx: 0,
+        rawUrl: 'https://x/files/uploads/desensitized/w0.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+      },
+    ],
+  }
+  const view = buildPublicView(albumView, null, { authorizationTier: 'named', softCap: 8 })
+  assert.equal(view.media.length, 8)
+  const nodeIds = new Set(view.media.map((row) => row.nodeId))
+  assert.equal(nodeIds.has('fn_002'), true)
+  assert.equal(nodeIds.has('fn_005'), true)
+  assert.equal(view.media.filter((row) => row.nodeId === 'fn_005').length, 1)
 })
 
 test('buildPublicView prefers node write-back maskedUrl over task lookup', () => {
