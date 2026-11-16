@@ -506,9 +506,54 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) 
 }
 
 /**
+ * 托管文案的事实指纹：人工文本没变就不重跑模型
+ * 原料与 LLM 输入同源（buildCaseFactPack），只取"有没有变"，不参与展示
+ */
+function buildHostedFactFingerprint(album) {
+  const crypto = require('crypto')
+  const { buildCaseFactPack } = require('../utils/case-geo-factpack')
+  const pkg =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const pack = buildCaseFactPack(pkg.flowNodes)
+  return crypto.createHash('sha1').update(JSON.stringify(pack)).digest('hex').slice(0, 16)
+}
+
+/**
+ * 预览可复用的文案：已公开内容 > 上次草稿（指纹一致 / 历史无指纹） > null
+ * forceRegen 由调用方在外层跳过
+ */
+function pickReusableHostedGeoDraft(hostMeta, factFingerprint) {
+  const layer =
+    hostMeta && hostMeta.geoLayer && typeof hostMeta.geoLayer === 'object'
+      ? hostMeta.geoLayer
+      : null
+  if (layer && String(layer.summary || '').trim()) {
+    return {
+      summary: String(layer.summary).trim(),
+      highlights: Array.isArray(layer.highlights) ? layer.highlights : [],
+      nodeStories: Array.isArray(layer.nodeStories) ? layer.nodeStories : [],
+      faq: Array.isArray(layer.faq) ? layer.faq : [],
+      source: 'published',
+      factFingerprint: String(layer.factFingerprint || '').trim() || factFingerprint,
+      confirmedAt: String(layer.confirmedAt || ''),
+    }
+  }
+  const draft =
+    hostMeta && hostMeta.geoDraft && typeof hostMeta.geoDraft === 'object'
+      ? hostMeta.geoDraft
+      : null
+  if (!draft || !String(draft.summary || '').trim()) return null
+  const cachedFingerprint = String(draft.factFingerprint || '').trim()
+  if (cachedFingerprint && cachedFingerprint !== factFingerprint) return null
+  return { ...draft, factFingerprint: cachedFingerprint || factFingerprint }
+}
+
+/**
  * 公开托管：店页说明草稿
- * 读整单：已跑 AI 的节点复用分析结论；没跑过的节点图片在预览步补一次识图。
- * 规则拼句仅兜底。真源：15_ §6.1 · 17_ §0
+ * 先复用已有产物（已公开内容 / 上次草稿 / archiveCopy），只有全都没有才跑模型。
+ * 规则拼句仅兜底。真源：15_ §6.1 · 17_ §0 · docs/changes/20261116-托管预览文案缓存与复用.md
  */
 async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen = false } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
@@ -531,9 +576,10 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   const prev = readHostMeta(album)
   // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
 
-  // 优先读已有的店页说明（archiveCopy 镜像）
-  // 文档口径：15_§6.1 + album-archive-copy.js readPublicCopyFromAlbum
-  // 托管预览只读这些已存在的内容，不应该每次跑 LLM。
+  // 复用优先级：已公开内容 → 上次草稿（事实指纹一致）→ archiveCopy → 模型
+  // 文档口径：15_§6.1 + album-archive-copy.js + docs/changes/20261116-托管预览文案缓存与复用.md
+  const factFingerprint = buildHostedFactFingerprint(album)
+  const reusableDraft = forceRegen ? null : pickReusableHostedGeoDraft(prev, factFingerprint)
   const existingCopy = forceRegen ? null : readPublicCopyFromAlbum(album)
 
   const pkg =
@@ -545,22 +591,40 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   let geoDraft = null
   let message = '已按整单记录整理出院摘要与问答，请核对后公开'
 
-  if (existingCopy && existingCopy.summary) {
+  let cached = false
+  if (reusableDraft) {
+    // 已公开内容 / 上次托管的草稿：整份复用，不跑模型
+    geoDraft = reusableDraft
+    cached = true
+    message =
+      geoDraft.source === 'published'
+        ? '已复用公开案例内容，无需重复生成'
+        : '已复用上次托管的店页内容'
+    console.info('[case-hosting] generate-geo reuse cache', {
+      albumId,
+      source: geoDraft.source,
+      factFingerprint,
+    })
+  } else if (existingCopy && existingCopy.summary) {
     // 有现成的交车报告摘要/问答 → 直接用，不跑 LLM
     geoDraft = {
       summary: existingCopy.summary,
       faq: existingCopy.faq || [],
       highlights: [],
       source: existingCopy.source || 'repair_report',
+      factFingerprint,
     }
     console.info('[case-hosting] generate-geo use existing copy', { albumId, source: geoDraft.source })
   } else {
     // 没有现成说明 → 跑 LLM 生成（兜底）。上下文只给店员确认过的项目文本
     const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album)
-    geoDraft = llmDraft || {
-      ...ruleGeo.geoDraft,
-      highlights: [],
-      source: llmDraft ? llmDraft.source : 'rule_fallback',
+    geoDraft = {
+      ...(llmDraft || {
+        ...ruleGeo.geoDraft,
+        highlights: [],
+        source: 'rule_fallback',
+      }),
+      factFingerprint,
     }
     if (geoDraft && geoDraft.summary) {
       try {
@@ -585,9 +649,13 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
 
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
 
-  // 未托管/未过隐私时保持当前阶段；托管且已过隐私才进入待确认店页说明
-  const nextStage =
-    prev.hosted && prev.privacyAuditPassedAt
+  // 已公开状态不回退：仅复用已上线内容时停在 published；手动重生成需重新确认
+  const published =
+    !forceRegen &&
+    (Boolean(prev.geoLayer && prev.geoLayer.confirmedAt) || prev.publicPublishStage === 'published')
+  const nextStage = published
+    ? 'published'
+    : prev.hosted && prev.privacyAuditPassedAt
       ? 'awaiting_geo_confirm'
       : prev.publicPublishStage || (prev.hosted ? 'awaiting_privacy' : '')
   const meta = await writeHostMeta(albumId, {
@@ -597,6 +665,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   return {
     albumId,
     geoDraft,
+    cached,
     preview: ruleGeo.preview,
     qualitySuggestions: assessHostPublicContent({ album, view, geoDraft }).suggestions,
     ...meta,
@@ -1393,6 +1462,8 @@ module.exports = {
   hostAlbum,
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
+  buildHostedFactFingerprint,
+  pickReusableHostedGeoDraft,
   confirmHostedPublicPublish,
   cancelPublicHostIntent,
   getHostPublicFacePreview,

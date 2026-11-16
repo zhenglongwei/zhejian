@@ -28,7 +28,8 @@
 | **店页字段** | **只要摘要 + FAQ**，不要要点/highlights |
 | **原料** | 接车→检测→报价→施工→交车全量（`buildCaseFactPack`）；**送模前洗掉**车牌 / VIN / 姓名 / 手机号 |
 | **禁止** | 用旧 `stage_*` note 规则拼句当日常主输出；把交车对账意见原文当摘要 |
-| **托管第 3 步** | 默认展示已有草稿；事实变更可重生成；LLM 失败才规则兜底并标明需手改 |
+| **托管第 3 步** | 默认展示已有草稿：已公开内容（`geoLayer`）→ 上次 `geoDraft`（指纹一致）→ `archiveCopy` → 模型；事实变更可重生成；LLM 失败才规则兜底并标明需手改 |
+| **缓存与复用** | 只有首次（三处都为空）才调模型；生成结果写 `hostMeta.geoDraft`（含 `factFingerprint`）与 `archiveCopy`。指纹 = `buildCaseFactPack(flowNodes)` 的 SHA1，人工文本不变就不重跑；`forceRegen` 跳过缓存 |
 | **根因备忘** | 旧托管链路 `generateHostedGeoDraft` → `album-geo-extract` 只读节点 note，DOC-FLOW 真料在 `flowNodes`，易出「含过程图片记录」套话 |
 
 ---

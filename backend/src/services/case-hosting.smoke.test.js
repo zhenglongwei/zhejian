@@ -5,6 +5,7 @@ const assert = require('assert')
 const {
   buildHostedArchiveSnapshot,
   readHostMeta,
+  pickReusableHostedGeoDraft,
 } = require('./case-hosting.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 
@@ -176,6 +177,42 @@ function testGenerateGeoNoLongerRequiresHosted() {
   )
 }
 
+/** 已公开内容优先复用，不重跑模型 */
+function testReusePublishedGeoLayer() {
+  const draft = pickReusableHostedGeoDraft(
+    {
+      geoLayer: {
+        summary: '已上线摘要',
+        nodeStories: ['段一'],
+        faq: [{ q: '问', a: '答' }],
+        confirmedAt: '2026-11-10T00:00:00.000Z',
+      },
+      geoDraft: { summary: '旧草稿', factFingerprint: 'stale' },
+    },
+    'fp1',
+  )
+  assert.strictEqual(draft.source, 'published')
+  assert.strictEqual(draft.summary, '已上线摘要')
+  assert.deepStrictEqual(draft.nodeStories, ['段一'])
+  assert.strictEqual(draft.factFingerprint, 'fp1')
+}
+
+/** 上次草稿指纹一致才复用；事实变了要重生成 */
+function testReuseDraftByFingerprint() {
+  const hostMeta = {
+    geoDraft: { summary: '草稿摘要', nodeStories: ['段一'], faq: [], factFingerprint: 'fp1' },
+  }
+  assert.strictEqual(pickReusableHostedGeoDraft(hostMeta, 'fp1').summary, '草稿摘要')
+  assert.strictEqual(pickReusableHostedGeoDraft(hostMeta, 'fp2'), null)
+}
+
+/** 历史草稿没有指纹：按可复用处理，避免一次性全量重跑 */
+function testReuseLegacyDraftWithoutFingerprint() {
+  const draft = pickReusableHostedGeoDraft({ geoDraft: { summary: '老草稿', faq: [] } }, 'fp9')
+  assert.strictEqual(draft.summary, '老草稿')
+  assert.strictEqual(draft.factFingerprint, 'fp9')
+}
+
 testArchiveSnapshotExcludesDraft()
 testArchiveSnapshotStoreFallback()
 testReadHostMetaPublished()
@@ -243,6 +280,9 @@ testMapHostedCaseListVisibilityAndPath()
 
 testGenerateGeoNoLongerRequiresPrivacyGate()
 testGenerateGeoNoLongerRequiresHosted()
+testReusePublishedGeoLayer()
+testReuseDraftByFingerprint()
+testReuseLegacyDraftWithoutFingerprint()
 
 ;(async () => {
   await testGenerateCaseBlockedForNewAlbum()
