@@ -232,7 +232,10 @@ function buildFlowRepairPlan(views) {
   const chunks = []
   if (names.length) chunks.push(`主要项目：${names.join('、')}`)
   const workText = works
-    .map((item) => (item.note ? `${item.name}——${item.note}` : item.name))
+    .map((item) => {
+      const note = String(item.note || '').replace(/[。；;，,]+$/, '')
+      return note ? `${item.name}——${note}` : item.name
+    })
     .join('；')
   if (workText) chunks.push(`施工说明：${workText}`)
   return chunks.join('。')
@@ -246,7 +249,7 @@ function buildFlowResultConfirm(views) {
         if (!row || typeof row !== 'object') return ''
         const name = String(row.name || (row.kind === 'exterior' ? '外观' : '')).trim()
         if (!name) return ''
-        const note = String(row.note || '').trim()
+        const note = String(row.note || '').replace(/[。；;]+$/, '').trim()
         return note ? `${name}（${note}）` : name
       })
       .filter(Boolean)
