@@ -638,7 +638,7 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album, 
  */
 async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen = false } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
-  const { mergeArchiveCopyIntoPackage } = require('../utils/album-archive-copy')
+  const { mergeArchiveCopyIntoPackage, readPublicCopyFromAlbum } = require('../utils/album-archive-copy')
   const { isServiceAlbumRepairDone } = require('../constants/v2')
   const album = await loadAlbum(albumId)
   if (!album) {
@@ -657,52 +657,68 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   const prev = readHostMeta(album)
   // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
 
+  // 优先读已有的店页说明（交车报告 repairBrief/ownerFaqs → archiveCopy 镜像）
+  // 文档口径：15_§6.1 + album-archive-copy.js readPublicCopyFromAlbum
+  // 节点 AI 应用时写进交车节点草稿；交车发出时同步进 report + archiveCopy。
+  // 托管预览只读这些已存在的内容，不应该每次跑 LLM。
+  const existingCopy = forceRegen ? null : readPublicCopyFromAlbum(album)
+
   const pkg =
     album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
       : {}
   const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
-  const nodeAiContext = collectNodeAiContext(flowNodes)
-  // 图片内容描述已在打码那次模型调用里写进节点照片槽；这里只读，不再调视觉模型
-  const imageDescriptions = collectImageDescriptions(
-    collectAnalyzableImageDescriptions(flowNodes),
-    flowNodes,
-  )
-  const imageAnalysisPending = false
-
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
   let geoDraft = null
   let message = '已按整单记录整理出院摘要与问答，请核对后公开'
+  const imageAnalysisPending = false
 
-  const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album, {
-    nodeAiContext,
-    imageDescriptions,
-    imageAnalysisPending,
-  })
-  geoDraft = llmDraft || {
-    ...ruleGeo.geoDraft,
-    highlights: [],
-    source: llmDraft ? llmDraft.source : 'rule_fallback',
-  }
-  if (geoDraft && geoDraft.summary) {
-    try {
-      const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
-        summary: geoDraft.summary,
-        faq: geoDraft.faq,
-        source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
-      })
-      const { prisma } = require('../lib/prisma')
-      await prisma.album.update({
-        where: { id: albumId },
-        data: { contentPackageJson: nextPkg },
-      })
-    } catch (_) {
-      /* 草稿落相册失败不挡托管 */
+  if (existingCopy && existingCopy.summary) {
+    // 有现成的交车报告摘要/问答 → 直接用，不跑 LLM
+    geoDraft = {
+      summary: existingCopy.summary,
+      faq: existingCopy.faq || [],
+      highlights: [],
+      source: existingCopy.source || 'repair_report',
     }
-  }
-  if (!llmDraft) {
-    message = '自动说明暂不可用，以下为简要草稿，请自行改写'
+    console.info('[case-hosting] generate-geo use existing copy', { albumId, source: geoDraft.source })
+  } else {
+    // 没有现成说明 → 跑 LLM 生成（兜底）
+    const nodeAiContext = collectNodeAiContext(flowNodes)
+    const imageDescriptions = collectImageDescriptions(
+      collectAnalyzableImageDescriptions(flowNodes),
+      flowNodes,
+    )
+    const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo, album, {
+      nodeAiContext,
+      imageDescriptions,
+      imageAnalysisPending,
+    })
+    geoDraft = llmDraft || {
+      ...ruleGeo.geoDraft,
+      highlights: [],
+      source: llmDraft ? llmDraft.source : 'rule_fallback',
+    }
+    if (geoDraft && geoDraft.summary) {
+      try {
+        const nextPkg = mergeArchiveCopyIntoPackage(pkg, {
+          summary: geoDraft.summary,
+          faq: geoDraft.faq,
+          source: forceRegen ? 'host_regen' : geoDraft.source || 'host_regen',
+        })
+        const { prisma } = require('../lib/prisma')
+        await prisma.album.update({
+          where: { id: albumId },
+          data: { contentPackageJson: nextPkg },
+        })
+      } catch (_) {
+        /* 草稿落相册失败不挡托管 */
+      }
+    }
+    if (!llmDraft) {
+      message = '自动说明暂不可用，以下为简要草稿，请自行改写'
+    }
   }
 
   const { assessHostPublicContent } = require('../utils/host-public-content-check')
