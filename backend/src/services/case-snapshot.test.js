@@ -200,6 +200,47 @@ test('mapPublicCaseRow hosted flow uses mask lookup not raw plate photo', () => 
   assert.equal(mapped.serviceFlow.chapters[0].photos[0].url, MASK)
 })
 
+test('mapPublicCaseRow 归档快照缺文字时用相册流程节点 content 补公开事实', () => {
+  const { mapPublicCaseRow } = require('./content.service')
+  const mapped = mapPublicCaseRow(
+    {
+      id: 'case_copy',
+      albumId: 'alb_copy',
+      title: '底盘维修',
+      serviceName: '底盘维修',
+      storeId: 'store_1',
+      storeName: '测试店',
+      city: '杭州',
+      contentJson: { hostedArchive: true },
+    },
+    {
+      id: 'alb_copy',
+      contentPackageJson: {
+        flowNodes: [
+          { id: 'fn_001', kind: 'intake', content: { chiefComplaint: '底盘异响' } },
+          {
+            id: 'fn_003',
+            kind: 'inspection_report',
+            content: { findings: [{ partName: '悬挂胶套', result: '需处理' }] },
+          },
+        ],
+        hostMeta: {
+          hosted: true,
+          visibility: 'public',
+          archiveSnapshot: {
+            flowNodes: [
+              { id: 'fn_001', kind: 'intake' },
+              { id: 'fn_003', kind: 'inspection_report' },
+            ],
+          },
+        },
+      },
+    },
+  )
+  assert.equal(mapped.faultDesc, '底盘异响')
+  assert.match(mapped.inspectResult, /需处理：悬挂胶套/)
+})
+
 test('buildCaseSnapshot writes frozen snapshot with articleBody', () => {
   const albumView = {
     albumId: 'alb_test_01',

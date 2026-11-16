@@ -4,6 +4,7 @@ const { resolvePublicCaseMediaUrl, resolveStoreProcessedPublicUrl } = require('.
 const { resolveClientReadableMediaUrl, resolveClientReadableMediaUrls, rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 const { buildPublicCasePrice, resolvePublicCasePriceFields } = require('../utils/album-price')
 const { buildPublicServiceFlow } = require('../utils/public-service-flow')
+const { buildFlowFacts } = require('./build-public-view.service')
 const { prepareSearchLists, parseSearchCoords, packSearchResults } = require('../utils/search-query')
 const {
   matchSearchService,
@@ -445,6 +446,12 @@ function mapPublicCaseRow(row, album, options = {}) {
       ? hostMeta.archiveSnapshot
       : null
   const factsFlowNodes = resolveFactsFlowNodes(archiveSnap, album)
+  // 存量快照的 publicView.facts 为空时，用流程节点 content 兜底公开事实
+  const flowFacts = buildFlowFacts(factsFlowNodes)
+  layered.faultDesc = String(layered.faultDesc || flowFacts?.faultDesc || '').trim()
+  layered.inspectResult = String(layered.inspectResult || flowFacts?.inspectResult || '').trim()
+  layered.repairPlan = String(layered.repairPlan || flowFacts?.repairPlan || '').trim()
+  layered.resultConfirm = String(layered.resultConfirm || flowFacts?.resultConfirm || '').trim()
   layered.serviceFlow = buildPublicServiceFlow({
     flowNodes: factsFlowNodes,
     album,
