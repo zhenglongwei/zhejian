@@ -416,6 +416,17 @@ async function proxyConfirmMerchantFlowNode(albumId, nodeId, payload = {}) {
   )
 }
 
+/** 疑似纸质单据：商家确认是单据（不上网）或不是单据（允许上网） */
+async function confirmMerchantFlowPhotoDocLike(albumId, nodeId, rawUrl, isDoc = false) {
+  if (ENV.mode === 'mock') {
+    return { changed: true, isDoc: isDoc === true }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/doc-like-confirm`,
+    withStore({ rawUrl, isDoc: isDoc === true }),
+  )
+}
+
 async function completeMerchantFlowNode(albumId, nodeId, payload = {}) {
   if (ENV.mode === 'mock') {
     return { message: '本步已完成', node: { id: nodeId, status: 'completed' } }
@@ -531,6 +542,7 @@ module.exports = {
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   completeMerchantFlowNode,
+  confirmMerchantFlowPhotoDocLike,
   fetchMerchantFlowNodeAiReview,
   fetchMerchantAlbumMediaLibrary,
   deliverMerchantFlowNode,

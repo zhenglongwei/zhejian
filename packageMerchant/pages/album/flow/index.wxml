@@ -772,10 +772,12 @@
                       canAssign="{{canAssignPending}}"
                       canPromote="{{true}}"
                       readOnly="{{readOnly}}"
+                      showDocBadge="{{showDocBadge && !readOnly}}"
                       bind:preview="onPreviewPendingPhoto"
                       bind:assign="onOpenAssignPending"
                       bind:promote="onPromotePendingToFinding"
                       bind:remove="onRemovePendingPhoto"
+                      bind:docconfirm="onDocConfirm"
                     />
                     <view wx:if="{{!readOnly && !isWorkPhotoStep && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view
@@ -823,6 +825,7 @@
                         metaDanger="{{finding.labelToneDanger}}"
                         showRemove="{{!readOnly}}"
                         showEmptyPhoto="{{!readOnly}}"
+                        showDocBadge="{{showDocBadge && !readOnly}}"
                         sectionIndex="{{sectionIndex}}"
                         findingIndex="{{findingIndex}}"
                         data-section-index="{{sectionIndex}}"
@@ -831,6 +834,7 @@
                         bind:remove="onRemoveFinding"
                         bind:emptyphoto="onAttachFindingPhoto"
                         bind:preview="onPreviewFindingPhoto"
+                        bind:docconfirm="onDocConfirm"
                       />
                       <view
                         wx:else
@@ -1035,10 +1039,12 @@
                       canAssign="{{canAssignPending}}"
                       canPromote="{{true}}"
                       readOnly="{{readOnly}}"
+                      showDocBadge="{{showDocBadge && !readOnly}}"
                       bind:preview="onPreviewPendingPhoto"
                       bind:assign="onOpenAssignPending"
                       bind:promote="onPromotePendingToFinding"
                       bind:remove="onRemovePendingPhoto"
+                      bind:docconfirm="onDocConfirm"
                     />
                     <view wx:if="{{!readOnly && !isWorkPhotoStep && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
                       <view

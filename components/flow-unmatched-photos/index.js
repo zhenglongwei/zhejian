@@ -20,12 +20,20 @@ Component({
       type: Boolean,
       value: false,
     },
+    showDocBadge: {
+      type: Boolean,
+      value: false,
+    },
   },
   methods: {
     emit(name, index, extra = {}) {
       const n = Number(index)
       if (!Number.isFinite(n) || n < 0) return
       this.triggerEvent(name, { index: n, ...extra })
+    },
+    onDocConfirm(e) {
+      const ds = (e.currentTarget && e.currentTarget.dataset) || {}
+      this.emit('docconfirm', ds.index, { url: String(ds.url || '') })
     },
     onPreview(e) {
       const ds = (e.currentTarget && e.currentTarget.dataset) || {}

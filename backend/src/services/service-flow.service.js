@@ -4099,10 +4099,19 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
 }
 
 /**
- * 商家确认「疑似纸质单据」的图不是单据，允许其进入公域。
- * 只写 docConfirmed 标记，不改打码结论。
+ * 商家确认「疑似纸质单据」的图：
+ * - isDoc=false：不是单据，允许其进入公域（写 docConfirmed）
+ * - isDoc=true：是单据，不上网（写 docKeepPrivate，停止提示；本就不进公域）
+ * 只写标记，不改打码结论。
  */
-async function confirmFlowPhotoDocLike(albumId, storeId, nodeId, rawUrl, merchantId = '') {
+async function confirmFlowPhotoDocLike(
+  albumId,
+  storeId,
+  nodeId,
+  rawUrl,
+  merchantId = '',
+  options = {},
+) {
   const { loadAlbum, assertMerchantAlbum } = require('./service-album.service')
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
@@ -4124,8 +4133,9 @@ async function confirmFlowPhotoDocLike(albumId, storeId, nodeId, rawUrl, merchan
     throw err
   }
   const { writeMaskedPairsIntoFlowNodes } = require('../utils/flow-photo-mask-writeback')
+  const isDoc = Boolean(options && options.isDoc)
   const { nodes, changed } = writeMaskedPairsIntoFlowNodes(flowNodes, [
-    { rawUrl: target, docConfirmed: true },
+    isDoc ? { rawUrl: target, docKeepPrivate: true } : { rawUrl: target, docConfirmed: true },
   ])
   if (!changed) return { changed: false }
   await prisma.album.update({

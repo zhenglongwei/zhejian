@@ -55,7 +55,16 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   const contentAnalyzedAt = text(meta.contentAnalyzedAt)
   const docLike = meta.docLike === true
   const docConfirmed = meta.docConfirmed === true
-  if (!product && !outcome && regions == null && !hasContent && !docLike && !docConfirmed) {
+  const docKeepPrivate = meta.docKeepPrivate === true
+  if (
+    !product &&
+    !outcome &&
+    regions == null &&
+    !hasContent &&
+    !docLike &&
+    !docConfirmed &&
+    !docKeepPrivate
+  ) {
     return { next: slot, changed: false }
   }
 
@@ -68,6 +77,7 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
     if (regions) next.maskRegions = regions
     if (docLike) next.docLike = true
     if (docConfirmed) next.docConfirmed = true
+    if (docKeepPrivate) next.docKeepPrivate = true
     if (contentDescription) {
       next.contentDescription = contentDescription
       next.contentAnalyzedAt = contentAnalyzedAt || new Date().toISOString()
@@ -87,6 +97,10 @@ function applyMaskResultToSlot(slot, rawKeys, meta = {}) {
   }
   if (docConfirmed && next.docConfirmed !== true) {
     next.docConfirmed = true
+    changed = true
+  }
+  if (docKeepPrivate && next.docKeepPrivate !== true) {
+    next.docKeepPrivate = true
     changed = true
   }
   if (contentDescription && text(next.contentDescription) !== contentDescription) {
@@ -270,7 +284,10 @@ function writeMaskResultIntoFlowNodes(flowNodes, rawUrl, meta = {}) {
     !outcome &&
     meta.maskRegions === undefined &&
     !text(meta.maskSource) &&
-    meta.contentDescription === undefined
+    meta.contentDescription === undefined &&
+    meta.docLike !== true &&
+    meta.docConfirmed !== true &&
+    meta.docKeepPrivate !== true
   ) {
     return { nodes: flowNodes, changed: false }
   }
@@ -339,6 +356,7 @@ function writeMaskedPairsIntoFlowNodes(flowNodes, pairs = []) {
       contentAnalyzedAt: pair.contentAnalyzedAt,
       docLike: pair.docLike,
       docConfirmed: pair.docConfirmed,
+      docKeepPrivate: pair.docKeepPrivate,
     })
     nodes = r.nodes
     if (r.changed) changed = true

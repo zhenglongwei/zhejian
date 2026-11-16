@@ -28,6 +28,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    showDocBadge: {
+      type: Boolean,
+      value: false,
+    },
     sectionIndex: {
       type: Number,
       value: -1,
@@ -56,6 +60,13 @@ Component({
     onPreview(e) {
       const ds = (e.currentTarget && e.currentTarget.dataset) || {}
       this.triggerEvent('preview', {
+        ...this.loc(),
+        url: String(ds.url || ''),
+      })
+    },
+    onDocConfirm(e) {
+      const ds = (e.currentTarget && e.currentTarget.dataset) || {}
+      this.triggerEvent('docconfirm', {
         ...this.loc(),
         url: String(ds.url || ''),
       })

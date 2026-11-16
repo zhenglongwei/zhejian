@@ -1007,6 +1007,7 @@ router.post(
         req.params.nodeId,
         rawUrl,
         req.auth.merchantId,
+        { isDoc: Boolean(req.body && req.body.isDoc) },
       )
       return ok(res, data)
     } catch (e) {

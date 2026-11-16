@@ -333,6 +333,10 @@ function normalizeWorkImage(raw = {}) {
   }
   if (maskOutcome) next.maskOutcome = maskOutcome
   if (maskRegions) next.maskRegions = maskRegions
+  // 疑似纸质单据标记：商家确认前不上网（docKeepPrivate=商家确认「是单据」）
+  if (obj && obj.docLike === true) next.docLike = true
+  if (obj && obj.docConfirmed === true) next.docConfirmed = true
+  if (obj && obj.docKeepPrivate === true) next.docKeepPrivate = true
   return next
 }
 

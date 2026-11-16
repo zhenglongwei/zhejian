@@ -4,6 +4,7 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   completeMerchantFlowNode,
+  confirmMerchantFlowPhotoDocLike,
   fetchMerchantFlowNodeAiReview,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
@@ -134,6 +135,9 @@ const {
 function pad2(n) {
   return String(n).padStart(2, '0')
 }
+
+// 只有能进公域的图片节点需要「疑似单据」确认（接车/交车/完工确认整节点不上网）
+const DOC_BADGE_KINDS = ['inspection', 'work']
 
 /** 节点签字时间：统一存 YYYY-MM-DD HH:mm，便于选择器 */
 function formatClerkAtNow(date = new Date()) {
@@ -562,6 +566,7 @@ Page({
     activeSummary: '',
     activeCategory: '',
     activeKind: '',
+    showDocBadge: false,
     showActive: false,
     activeIsPhoto: false,
     activeIsDoc: false,
@@ -2119,6 +2124,7 @@ Page({
         activeSummary,
         activeCategory: '',
         activeKind: (active && active.kind) || '',
+        showDocBadge: DOC_BADGE_KINDS.indexOf(String((active && active.kind) || '')) >= 0,
         showActive: Boolean(active),
         activeIsPhoto,
         activeIsDoc,
@@ -4811,6 +4817,63 @@ Page({
       .filter(Boolean)
     if (!urls.length) return
     wx.previewImage({ current: url || urls[0], urls })
+  },
+
+  /** 疑似单据角标 → 确认是单据（不上网）/ 不是单据（允许上网） */
+  onDocConfirm(e) {
+    const detail = (e && e.detail) || {}
+    const url = String(detail.url || '').trim()
+    const node = this.data.activeNode
+    if (!url || !node || !node.id) return
+    if (this.data.readOnly) return
+    wx.showActionSheet({
+      itemList: ['是单据，不上网', '不是单据，允许上网'],
+      success: (res) => {
+        this.submitDocConfirm(url, res.tapIndex === 0, detail)
+      },
+    })
+  },
+
+  async submitDocConfirm(url, isDoc, detail = {}) {
+    const node = this.data.activeNode
+    if (!node || !node.id) return
+    wx.showLoading({ title: '保存中…', mask: true })
+    try {
+      await confirmMerchantFlowPhotoDocLike(this.data.albumId, node.id, url, isDoc)
+      this.applyDocConfirmTag(url, isDoc, detail)
+      wx.hideLoading()
+      wx.showToast({ title: isDoc ? '已标记为单据' : '已允许上网', icon: 'none' })
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
+    }
+  },
+
+  applyDocConfirmTag(url, isDoc, detail = {}) {
+    const key = mediaKey(url)
+    if (!key) return
+    const patch = isDoc ? { docKeepPrivate: true } : { docConfirmed: true }
+    const hit = (img) => mediaKey(img && img.url) === key
+    const pendingImages = (this.data.pendingImages || []).map((img) =>
+      hit(img) ? { ...img, ...patch } : img,
+    )
+    const sectionIndex = Number(detail.sectionIndex)
+    const findingIndex = Number(detail.findingIndex)
+    const sections = (this.data.sections || []).map((section, si) => {
+      if (!section || !Array.isArray(section.findings)) return section
+      if (sectionIndex >= 0 && si !== sectionIndex) return section
+      let touched = false
+      const findings = section.findings.map((finding, fi) => {
+        if (!finding || !Array.isArray(finding.images)) return finding
+        if (findingIndex >= 0 && fi !== findingIndex) return finding
+        const images = finding.images.map((img) => (hit(img) ? { ...img, ...patch } : img))
+        if (!images.some((img, i) => img !== finding.images[i])) return finding
+        touched = true
+        return { ...finding, images }
+      })
+      return touched ? { ...section, findings } : section
+    })
+    this.setData({ pendingImages, sections })
   },
 
   collectInspectionAiBatch(findings) {

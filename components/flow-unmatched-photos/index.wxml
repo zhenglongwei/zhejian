@@ -12,6 +12,13 @@
         src="{{shot.url}}"
         mode="aspectFill"
       />
+      <view
+        wx:if="{{showDocBadge && shot.docLike && !shot.docConfirmed && !shot.docKeepPrivate}}"
+        class="flow-unmatched__doc-badge"
+        data-index="{{index}}"
+        data-url="{{shot.url}}"
+        catchtap="onDocConfirm"
+      >疑似单据</view>
     </view>
     <view wx:if="{{!readOnly}}" class="flow-unmatched__actions">
       <view

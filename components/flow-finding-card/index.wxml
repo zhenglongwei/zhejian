@@ -12,17 +12,27 @@
     >×</text>
   </view>
   <view wx:if="{{images.length}}" class="flow-finding-card__photos">
-    <image
+    <view
       wx:for="{{images}}"
       wx:for-item="shot"
       wx:key="url"
       wx:if="{{index < 6}}"
-      class="flow-finding-card__img image-placeholder"
-      src="{{shot.url}}"
-      mode="aspectFill"
-      data-url="{{shot.url}}"
-      catchtap="onPreview"
-    />
+      class="flow-finding-card__cell"
+    >
+      <image
+        class="flow-finding-card__img image-placeholder"
+        src="{{shot.url}}"
+        mode="aspectFill"
+        data-url="{{shot.url}}"
+        catchtap="onPreview"
+      />
+      <view
+        wx:if="{{showDocBadge && shot.docLike && !shot.docConfirmed && !shot.docKeepPrivate}}"
+        class="flow-finding-card__doc-badge"
+        data-url="{{shot.url}}"
+        catchtap="onDocConfirm"
+      >疑似单据</view>
+    </view>
   </view>
   <view
     wx:elif="{{showEmptyPhoto}}"
