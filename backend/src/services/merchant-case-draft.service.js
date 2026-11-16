@@ -10,7 +10,7 @@ const {
   AMOUNT_PATTERN,
 } = require('../constants/merchant-case-draft')
 const {
-  PUBLIC_MEDIA_KEYFRAME_DEFAULT,
+  PUBLIC_MEDIA_SOFT_CAP,
   PUBLIC_GATE_STATUS,
   isAlwaysPrivateStage,
 } = require('../constants/album-public-visibility-policy')
@@ -488,7 +488,7 @@ function applyMaskedMediaOnly(draft, requireMasked) {
  * 完工前可用 previewUrl（原图预览位）；生成案例预览只保留打码成功的 maskedUrl
  */
 function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
-  const softCap = options.softCap != null ? options.softCap : PUBLIC_MEDIA_KEYFRAME_DEFAULT
+  const softCap = options.softCap != null ? options.softCap : PUBLIC_MEDIA_SOFT_CAP
   const requireMasked = Boolean(options.requireMasked)
   const labelMap = buildChecklistLabelMap(albumView)
   const mapped = listPublicImageMeta(albumView)
@@ -656,7 +656,7 @@ function normalizeMerchantCaseDraft(raw) {
           }
         })
         .filter(Boolean)
-        .slice(0, PUBLIC_MEDIA_KEYFRAME_DEFAULT)
+        .slice(0, PUBLIC_MEDIA_SOFT_CAP)
     : []
 
   const title = stripAmountText(raw.title || '').slice(0, 120)
@@ -805,7 +805,7 @@ function draftToAiSummary(draft) {
   return draftToPlainText(draft).slice(0, 250)
 }
 
-function mergeUnconfirmedDraftMedia(prevMedia, freshMedia, softCap = PUBLIC_MEDIA_KEYFRAME_DEFAULT) {
+function mergeUnconfirmedDraftMedia(prevMedia, freshMedia, softCap = PUBLIC_MEDIA_SOFT_CAP) {
   const prev = Array.isArray(prevMedia) ? prevMedia : []
   const fresh = Array.isArray(freshMedia) ? freshMedia : []
   if (!prev.length) return fresh.slice(0, softCap)

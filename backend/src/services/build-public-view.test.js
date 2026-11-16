@@ -72,7 +72,7 @@ test('buildPublicView excludes private stage images', () => {
   assert.equal(stage4.images.length, 1)
 })
 
-test('公开关键帧按节点轮转取名，检测节点不再吃满上限', () => {
+test('上网图片不设固定张数，检测节点不再吃满上限', () => {
   const albumView = {
     serviceName: '刹车保养',
     planAmount: 680,
@@ -100,12 +100,17 @@ test('公开关键帧按节点轮转取名，检测节点不再吃满上限', ()
       },
     ],
   }
-  const view = buildPublicView(albumView, null, { authorizationTier: 'named', softCap: 8 })
-  assert.equal(view.media.length, 8)
-  const nodeIds = new Set(view.media.map((row) => row.nodeId))
+  // 默认只受 30 张性能护栏约束：全部公域图都上网
+  const view = buildPublicView(albumView, null, { authorizationTier: 'named' })
+  assert.equal(view.media.length, 10)
+  assert.equal(view.media.filter((row) => row.nodeId === 'fn_005').length, 1)
+
+  // 调用方主动下调上限时仍按节点轮转，检测节点不独占
+  const capped = buildPublicView(albumView, null, { authorizationTier: 'named', softCap: 4 })
+  assert.equal(capped.media.length, 4)
+  const nodeIds = new Set(capped.media.map((row) => row.nodeId))
   assert.equal(nodeIds.has('fn_002'), true)
   assert.equal(nodeIds.has('fn_005'), true)
-  assert.equal(view.media.filter((row) => row.nodeId === 'fn_005').length, 1)
 })
 
 test('buildPublicView prefers node write-back maskedUrl over task lookup', () => {

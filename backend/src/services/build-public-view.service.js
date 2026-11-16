@@ -8,7 +8,6 @@ const { scrubPiiText } = require('../utils/scrub-pii-text')
 const { extractGeoFromAlbumNodes, findStageNode } = require('../utils/album-geo-extract')
 const {
   PUBLIC_MEDIA_SOFT_CAP,
-  PUBLIC_MEDIA_KEYFRAME_DEFAULT,
   PUBLIC_GATE_STATUS,
   VISIBILITY,
 } = require('../constants/album-public-visibility-policy')
@@ -131,14 +130,17 @@ function captionForNode(nodes, nodeId) {
 /**
  * @param {object} albumView buildAlbumView 产物（含 imageMeta）
  * @param {object|null} task pre-mask / authorize task
- * @param {{ authorizationTier?: string, softCap?: number, allowStoreProcessedFace?: boolean }} [options]
+ * @param {{ authorizationTier?: string, softCap?: number }} [options]
+ *        softCap 默认取 PUBLIC_MEDIA_SOFT_CAP（30）：上网图片已取消固定张数，
+ *        只留性能护栏，可被调用方按场景下调（如朋友圈九宫格）。
  *        allowStoreProcessedFace 已废弃（保留参数兼容旧调用）：新政策下隐私责任在商家，
  *        平台只做必要技术脱敏，不强制拦截原图——有码用码，无产物放行持久化原图。
  */
 function buildPublicView(albumView = {}, task = null, options = {}) {
   const nodes = albumView.nodes || []
+  // 上网图片不设固定张数（旧 8 张关键帧口径已废止），只留 30 张性能护栏
   const softCap =
-    options.softCap != null ? options.softCap : PUBLIC_MEDIA_KEYFRAME_DEFAULT
+    options.softCap != null ? Number(options.softCap) : PUBLIC_MEDIA_SOFT_CAP
   const publicRows = pickPublicRowsByNode(
     listPublicImageRows(albumView),
     Math.min(softCap, PUBLIC_MEDIA_SOFT_CAP),
