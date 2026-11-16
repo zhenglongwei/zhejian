@@ -1,5 +1,8 @@
 # 组件 API 规范
 
+> 状态：生效
+> 生效：2026-10-28
+
 > 与 `00_辙见平台设计体系.md`、`01_设计令牌_tokens.md` 配套使用。  
 > 实现组件前请配合 `docs/99_AI技能库/skill_component_api_implementation.md`。
 

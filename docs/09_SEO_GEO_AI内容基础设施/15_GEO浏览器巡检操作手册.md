@@ -3,6 +3,7 @@
 > 对应代码：`backend/src/services/geo-browser-probe/`（driver / session / runner / platforms / questions）
 >
 > 状态：**搜索引擎通道完全跑通**（百度 / 360 / 必应，13 家门店实测 18/18 全绿）；
+> 生效：2026-09-21
 > 5 大模型通道受登录态制约，跑 `npm run geo:probe:login` 后即可开测。
 
 ## 1. 这套东西解决什么

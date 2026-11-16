@@ -1,5 +1,8 @@
 # 《图片脱敏工具 PRD》
 
+> 状态：生效
+> 生效：2026-11-16
+
 > **版本：V2.3（完工异步预脱敏 · 节点增量打码 · 授权/AI 闸门）**  
 > `order_pre_mask` / `order_authorize` 更名为 **`service_pre_mask` / `service_authorize`**（无平台订单时仍沿用同一任务模型）。
 

@@ -1,5 +1,8 @@
 # Skill: 数据结构与对象边界（写码前必过）
 
+> 状态：生效
+> 生效：2026-11-03
+
 > Agent 入口：`.cursor/skills/object-model-first/SKILL.md`  
 > 配套：`feature-build-verify`（需求对齐之后、拆功能之前）· `docs-before-code` · `invariant-close-loop`  
 > 检测项+挂图实例：`merchant-flow-photo-pipeline`（真源 `26` §6.3～6.5）  

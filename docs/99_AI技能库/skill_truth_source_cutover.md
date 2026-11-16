@@ -1,5 +1,8 @@
 # Skill: 新口径切换 · 旧口径须确认后收口
 
+> 状态：生效
+> 生效：2026-11-03
+
 > Agent 入口：`.cursor/skills/truth-source-cutover/SKILL.md`  
 > 联用：`docs-before-code`、`communication-first`、`invariant-close-loop`、`feature-build-verify`、`object-model-first`、`node-mask-state-machine`  
 > **凡出现「真源改了 / 废止某表或某字段 / 只认节点或报告」：必须先走本 skill，再改代码。**

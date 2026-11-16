@@ -1,5 +1,8 @@
 # B-INF · 生产部署与真机联调
 
+> 状态：生效
+> 生效：2026-11-04
+
 > 对应 `docs/00_开发计划.md` **B-INF-01～B-INF-04**  
 > **当前生产现状（2026-05-26）**：`https://zhejian.simplewin.cn/api/v1/health` 返回 Next.js HTML 404，说明 **/api/ 尚未反代到 Node**。完成本文 §二 后应返回 JSON `"db":"up"`。
 

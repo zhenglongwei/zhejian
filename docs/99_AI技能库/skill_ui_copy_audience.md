@@ -1,5 +1,8 @@
 # Skill: UI 文案 · 受众口吻（商家 / 车主）
 
+> 状态：生效
+> 生效：2026-10-08
+
 > Agent 入口：`.cursor/skills/ui-copy-audience/SKILL.md`  
 > 红线规则：`.cursor/rules/ui-copy-not-prd.mdc` · 设计体系 §2.4.1
 

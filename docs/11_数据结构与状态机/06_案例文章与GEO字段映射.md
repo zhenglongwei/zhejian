@@ -1,5 +1,8 @@
 # 案例文章与 GEO 字段映射
 
+> 状态：生效
+> 生效：2026-10-28
+
 > **当前版本**：V2.0 对齐修订  
 > **物理真源**：表 `public_cases` + JSON 列 `content_json` / `enrichment_json`  
 > **代码参考**：`backend/src/schemas/case-geo-content.schema.js`、`backend/src/constants/case-article-status.js`

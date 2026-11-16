@@ -1,5 +1,8 @@
 # Skill: 功能交付四步（需求 → 拆分 → 写码 → 验证）
 
+> 状态：生效
+> 生效：2026-11-03
+
 > Agent 入口：`.cursor/skills/feature-build-verify/SKILL.md`  
 > 配套：`.cursor/rules/communication-first.mdc` · `docs-before-code.mdc`
 

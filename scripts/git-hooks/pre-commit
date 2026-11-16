@@ -1,0 +1,12 @@
+#!/bin/sh
+# 文档体检：仅在本次提交改到 docs/ 时执行
+# 启用：git config core.hooksPath scripts/git-hooks
+
+if git diff --cached --name-only | grep -q '^docs/'; then
+  if ! node scripts/check-docs.js; then
+    echo ""
+    echo "文档体检未通过：先处理上面列出的硬错误（损坏文件 / 失效链接 / 废止未归档 / 变更单命名）。"
+    echo "提醒项（缺状态头）不阻塞，但新写的文档请补齐。"
+    exit 1
+  fi
+fi

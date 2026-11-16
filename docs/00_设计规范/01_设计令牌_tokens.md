@@ -1,6 +1,9 @@
 ```
 # 辙见平台 · 设计令牌 Tokens
 
+> 状态：生效
+> 生效：2026-10-14
+
 > 源码副本：`styles/tokens.wxss`  
 > 已在 `app.wxss` 全局引入。  
 > 修改时请同步维护本文档与 `styles/tokens.wxss`。  

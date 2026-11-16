@@ -1,5 +1,8 @@
 # 预发环境搭建（staging.zhejian.simplewin.cn）
 
+> 状态：生效
+> 生效：2026-11-04
+
 > 与生产同机隔离：代码目录、MariaDB 库、API 端口、上传文件、运营后台均独立。  
 > 生产目录 `/var/www/zhejian` **不要**在本流程中 `git pull` 到未验收的代码。
 

@@ -1,5 +1,8 @@
 # Skill: 节点图打码状态机（真源）
 
+> 状态：生效
+> 生效：2026-11-04
+
 > Agent 入口：`.cursor/skills/node-mask-state-machine/SKILL.md`  
 > 文档真源：[`../01_项目总览与业务架构/15_案例档案与托管状态机.md`](../01_项目总览与业务架构/15_案例档案与托管状态机.md) §公开前打码  
 > 联用：`merchant-flow-photo-pipeline`（进度识图）、`desensitize-engine`（贴码像素）、`privacy-desensitization-check`（公开链检查）  
