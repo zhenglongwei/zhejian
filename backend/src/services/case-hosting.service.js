@@ -480,6 +480,55 @@ function buildChapterBriefs(chapters) {
   }))
 }
 
+/** 兜底衔接语：模型漏写某章节时，用已确认的项目名拼一句，不引入任何新事实 */
+function buildFallbackChapterNarrative(chapter) {
+  const names = (Array.isArray(chapter && chapter.items) ? chapter.items : [])
+    .map((row) => String((row && row.name) || '').trim())
+    .filter(Boolean)
+  const findings = (Array.isArray(chapter && chapter.findings) ? chapter.findings : [])
+    .map((row) => String((row && row.partName) || '').trim())
+    .filter(Boolean)
+  const list = (arr, max) => arr.slice(0, max).join('、')
+  const kind = String((chapter && chapter.kind) || '')
+  const title = String((chapter && chapter.title) || '')
+  if (kind === 'inspection_report') {
+    if (!findings.length) return ''
+    return `接车后先做了检查，主要看了${list(findings, 3)}。`
+  }
+  if (kind === 'quote_confirm') {
+    if (!names.length) return ''
+    if (title === '施工中新发现' || title === '交车时补充') {
+      return `${list(names, 3)}是后续检查中发现的，和车主确认后追加处理。`
+    }
+    return `根据检测结果，确定了对${list(names, 3)}的处理方案。`
+  }
+  if (kind === 'work') {
+    if (!names.length) return ''
+    return `接着按确认的方案完成了${list(names, 3)}的施工。`
+  }
+  if (kind === 'repair_report') {
+    return '全部项目完成后做了路试和验收，确认正常后交车。'
+  }
+  return ''
+}
+
+/** 模型衔接语 + 兜底补齐：保证每个有内容的章节都有导语，且不覆盖模型原文 */
+function mergeChapterNarratives(chapters, list) {
+  const chaptersSafe = Array.isArray(chapters) ? chapters : []
+  const existing = sanitizeHostedChapterNarratives(
+    list,
+    chaptersSafe.map((ch) => ch && ch.id).filter(Boolean),
+  )
+  const byId = new Map(existing.map((row) => [row.id, row.text]))
+  chaptersSafe.forEach((ch) => {
+    const id = String((ch && ch.id) || '')
+    if (!id || byId.has(id)) return
+    const fallback = buildFallbackChapterNarrative(ch)
+    if (fallback) byId.set(id, fallback)
+  })
+  return Array.from(byId, ([id, text]) => ({ id, text }))
+}
+
 /** 按相册流程构建公开章节（衔接语校验/渲染共用） */
 function buildHostedPublicChapters(album, view) {
   const { buildPublicServiceFlow } = require('../utils/public-service-flow')
@@ -728,14 +777,12 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   }
 
   if (!geoDraft) geoDraft = ruleGeo.geoDraft
-  // 章节衔接语按当前章节校验：复用旧草稿/公开内容时，节点变了的 id 直接丢弃
+  // 章节衔接语按当前章节校验并补齐：复用旧草稿/公开内容时，节点变了的 id 丢弃、缺的补兜底
   {
-    const chapterIds = buildHostedPublicChapters(album, view)
-      .map((ch) => ch && ch.id)
-      .filter(Boolean)
+    const chapters = buildHostedPublicChapters(album, view)
     geoDraft = {
       ...geoDraft,
-      chapterNarratives: sanitizeHostedChapterNarratives(geoDraft.chapterNarratives, chapterIds),
+      chapterNarratives: mergeChapterNarratives(chapters, geoDraft.chapterNarratives),
     }
   }
 
@@ -1034,13 +1081,17 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     publicPublishStage: prev.publicPublishStage,
     privacyPassed: Boolean(prev.privacyAuditPassedAt),
     serviceFlow,
-    // 章节衔接语：已公开优先，其次预览草稿；只保留对得上章节的 id
-    chapterNarratives: sanitizeHostedChapterNarratives(
-      (prev.geoLayer && prev.geoLayer.chapterNarratives) ||
-        (prev.geoDraft && prev.geoDraft.chapterNarratives) ||
-        [],
-      serviceFlow.chapters.map((ch) => ch && ch.id).filter(Boolean),
-    ),
+    // 章节衔接语：已公开优先，其次预览草稿；已有衔接语时才为漏写章节补兜底
+    chapterNarratives:
+      (prev.geoLayer && prev.geoLayer.chapterNarratives && prev.geoLayer.chapterNarratives.length) ||
+      (prev.geoDraft && prev.geoDraft.chapterNarratives && prev.geoDraft.chapterNarratives.length)
+        ? mergeChapterNarratives(
+            serviceFlow.chapters,
+            (prev.geoLayer && prev.geoLayer.chapterNarratives) ||
+              (prev.geoDraft && prev.geoDraft.chapterNarratives) ||
+              [],
+          )
+        : [],
     reviewDocs,
     maskImages,
     /** 仅 call_failed / ok_detect_mask_failed；未检出隐私不算 */
@@ -1163,9 +1214,7 @@ async function confirmHostedPublicPublish(
       ? draft.chapterNarratives
       : []
   const view = buildMerchantView(album)
-  const chapterIds = buildHostedPublicChapters(album, view)
-    .map((ch) => ch && ch.id)
-    .filter(Boolean)
+  const chapters = buildHostedPublicChapters(album, view)
   const geoLayer = {
     summary: String(summary != null ? summary : draft.summary || '').trim(),
     highlights: Array.isArray(highlights)
@@ -1174,7 +1223,7 @@ async function confirmHostedPublicPublish(
         ? draft.highlights
         : [],
     nodeStories: sanitizeHostedNodeStories(rawStories),
-    chapterNarratives: sanitizeHostedChapterNarratives(rawNarratives, chapterIds),
+    chapterNarratives: mergeChapterNarratives(chapters, rawNarratives),
     faq: filterPublishableFaq(rawFaq),
     confirmedAt: new Date().toISOString(),
   }
