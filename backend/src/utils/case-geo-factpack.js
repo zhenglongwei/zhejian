@@ -105,6 +105,27 @@ function pickQuoteItems(flowNodes, kind) {
 }
 
 /**
+ * 报价金额：取已确认行金额，供公开文案明码引用
+ * 同名行按最后一次报价去重，避免拆检/改价重复累加
+ */
+function pickQuotePricing(flowNodes, kind) {
+  const byName = new Map()
+  for (const node of nodesOfKind(flowNodes, kind)) {
+    const lines = contentOfFlowNode(node).lines
+    if (!Array.isArray(lines)) continue
+    for (const line of lines) {
+      const name = String((line && line.name) || '').trim()
+      const amount = Number(line && line.amount)
+      if (!name || !Number.isFinite(amount) || amount <= 0) continue
+      byName.set(name, amount)
+    }
+  }
+  const lines = Array.from(byName, ([name, amount]) => ({ name, amount }))
+  const total = lines.reduce((sum, row) => sum + row.amount, 0)
+  return { lines, total }
+}
+
+/**
  * 工单项：优先 content.workItems；存量/进行中才回落 content.findings
  */
 function pickWorkItems(flowNodes) {
@@ -238,7 +259,9 @@ function buildCaseFactPack(flowNodes) {
       vehicle: { brand: '', series: '', year: '', mileageText: '' },
       findings: [],
       quoteItems: [],
+      quotePricing: { lines: [], total: 0 },
       addonQuoteItems: [],
+      addonQuotePricing: { lines: [], total: 0 },
       workItems: [],
       finish: {
         conclusion: '',
@@ -285,7 +308,9 @@ function buildCaseFactPack(flowNodes) {
     vehicle: pickVehicle(nodes),
     findings,
     quoteItems: pickQuoteItems(nodes, 'quote_confirm'),
+    quotePricing: pickQuotePricing(nodes, 'quote_confirm'),
     addonQuoteItems: pickQuoteItems(nodes, 'addon_quote_confirm'),
+    addonQuotePricing: pickQuotePricing(nodes, 'addon_quote_confirm'),
     workItems,
     finish: pickFinish(nodes),
     analyzedImageKeys: pickAnalyzedImageKeys(nodes),

@@ -121,6 +121,16 @@
   color: var(--color-text-primary);
 }
 
+/* 报价金额：明码标价，与项目名同一行右侧 */
+.host-archive-preview__row-amount {
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
 /* 正文：项目说明 */
 .host-archive-preview__row-note {
   display: block;

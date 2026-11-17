@@ -224,7 +224,10 @@ function stripLine(row, lookup) {
   }
   const evidenceUrl = evidenceResolved || (images[0] && images[0].url) || ''
   if (!name && !note && !images.length) return null
-  return { name, brand, note, evidenceUrl, images }
+  // 报价金额：已确认口径下公开，非正数或缺省时不展示
+  const rawAmount = Number(row.amount)
+  const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? rawAmount : null
+  return { name, brand, note, amount, evidenceUrl, images }
 }
 
 function mapFinding(row, lookup) {

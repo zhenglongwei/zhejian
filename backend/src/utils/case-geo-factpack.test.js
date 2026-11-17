@@ -170,13 +170,19 @@ function testDropsHealthyAndRecordOnly() {
   assert.ok(!names.includes('轮胎花纹'), '仅记录不喂')
 }
 
-/** 藏价规则：方案行只取项目名，金额一律不入原料 */
-function testNeverFeedsAmount() {
+/** 明码标价：项目名与金额分开输出，金额只进 quotePricing */
+function testAmountsOnlyInPricing() {
   const pack = buildCaseFactPack(fullFlowNodes())
-  const serialized = JSON.stringify(pack)
-  assert.ok(!serialized.includes('680'), '不得包含金额 680')
-  assert.ok(!serialized.includes('220'), '不得包含金额 220')
   assert.deepEqual(pack.quoteItems, ['更换右前小吊杆'])
+  assert.deepEqual(pack.quotePricing, {
+    lines: [{ name: '更换右前小吊杆', amount: 680 }],
+    total: 680,
+  })
+  assert.deepEqual(pack.addonQuotePricing, {
+    lines: [{ name: '右前减震器渗油处理', amount: 220 }],
+    total: 220,
+  })
+  pack.quoteItems.forEach((name) => assert.ok(!name.includes('680'), '项目名不带金额'))
 }
 
 /** 增项标记必须保留（走原始 flowNodes 解析才有） */
@@ -271,7 +277,7 @@ function testHasEnoughFactsGate() {
 
 testFullFlowExtractsAllFacts()
 testDropsHealthyAndRecordOnly()
-testNeverFeedsAmount()
+testAmountsOnlyInPricing()
 testKeepsOutsideQuoteFlag()
 testChiefComplaintFallsBackToIntake()
 testFindingsFallsBackToInspection()

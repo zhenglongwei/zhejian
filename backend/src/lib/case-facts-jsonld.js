@@ -60,7 +60,10 @@ function collectFromChapters(chapters) {
         if (!row || typeof row !== 'object') return
         const name = text(row.name)
         if (!name) return
-        out.quoteItems.push({ name, brand: text(row.brand), note: text(row.note) })
+        const itemRow = { name, brand: text(row.brand), note: text(row.note) }
+        const amount = Number(row.amount)
+        if (Number.isFinite(amount) && amount > 0) itemRow.amount = amount
+        out.quoteItems.push(itemRow)
       })
     }
     if (chapter.kind === 'work') {

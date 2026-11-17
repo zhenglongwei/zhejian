@@ -88,7 +88,8 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   assert.deepEqual(titles, ['检测报告', '方案', '施工', '完工'])
   const quote = flow.chapters.find((c) => c.kind === 'quote_confirm')
   assert.equal(quote.items[0].name, '阀体')
-  assert.equal(quote.items[0].amount, undefined)
+  // 已确认报价行的金额公开展示
+  assert.equal(quote.items[0].amount, 2800)
   const report = flow.chapters.find((c) => c.kind === 'inspection_report')
   assert.equal(report.findings[0].partName, '阀体')
   assert.equal(report.findings[0].result, '需处理')
@@ -386,7 +387,7 @@ test('施工中新发现使用产品名', () => {
     contentNodes: [{ images: [WORK] }],
   })
   assert.equal(flow.chapters[0].title, '施工中新发现')
-  assert.equal(flow.chapters[0].items[0].amount, undefined)
+  assert.equal(flow.chapters[0].items[0].amount, 80)
 })
 
 test('公开页完工章不列项目；质保说明为「无」时不展示', () => {

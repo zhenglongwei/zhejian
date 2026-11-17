@@ -690,6 +690,10 @@
           var name = escapeHtml(item.name || '')
           var hasImages = item.images && item.images.length > 0
           var extra = [item.brand, item.note].filter(Boolean).join(' · ')
+          var amountHtml =
+            item.amount && Number(item.amount) > 0
+              ? '<span class="h5-flow-item-amount">¥' + Number(item.amount) + '</span>'
+              : ''
           var imgHtml = hasImages
             ? renderItemImages(item.images, item.name || '')
             : item.evidenceUrl
@@ -697,8 +701,11 @@
               : ''
           return (
             '<div class="' + itemClass + '">' +
-            (name
-              ? '<p class="h5-flow-item-name">' + name + '</p>'
+            (name || amountHtml
+              ? '<p class="h5-flow-item-head">' +
+                (name ? '<span class="h5-flow-item-name">' + name + '</span>' : '') +
+                amountHtml +
+                '</p>'
               : '') +
             imgHtml +
             (extra

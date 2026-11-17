@@ -738,8 +738,22 @@
   border-left-color: var(--color-warning);
 }
 
+.h5-flow-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
 .h5-flow-item-name {
   display: block;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-flow-item-amount {
+  flex-shrink: 0;
   font-weight: 600;
   color: var(--color-text-primary);
 }

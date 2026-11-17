@@ -69,7 +69,10 @@
           wx:key="ri"
           class="host-archive-preview__row {{ch.kind === 'work' ? '' : ((ch.title === '施工中新发现' || ch.title === '交车时补充') ? 'host-archive-preview__row--addon' : 'host-archive-preview__row--quote')}}"
         >
-          <text wx:if="{{row.name}}" class="host-archive-preview__row-title">{{row.name}}</text>
+          <view wx:if="{{row.name || row.amount}}" class="host-archive-preview__row-head">
+            <text wx:if="{{row.name}}" class="host-archive-preview__row-title">{{row.name}}</text>
+            <text wx:if="{{row.amount}}" class="host-archive-preview__row-amount">¥{{row.amount}}</text>
+          </view>
           <view wx:if="{{row.images && row.images.length}}" class="host-archive-preview__img-grid">
             <image
               wx:for="{{row.images}}"
