@@ -14,6 +14,8 @@ const {
   buildMerchantView,
 } = require('./service-album.service')
 const { writeFlowPackage } = require('./service-flow.service')
+const { resolveShared } = require('../utils/resolve-shared')
+const { envelopeOnlyDocument } = resolveShared('utils/service-flow-docs.js')
 const { FINDING_RESULT, QUOTE_CONFIRM_COPY } = require('../../vendor/shared/constants/service-flow-nodes')
 
 const VEHICLE_BRANDS = [
@@ -274,8 +276,8 @@ function applyDraftToNodes(nodes, draft) {
     if (node.kind === 'intake' || node.kind === 'intake_inspection') {
       return {
         ...node,
-        photoDraft: {
-          ...(node.photoDraft || {}),
+        content: {
+          ...(node.content || {}),
           chiefComplaint: draft.chiefComplaint,
           mileageKm: draft.mileageKm,
           vehicleBrand: draft.vehicleBrand,
@@ -288,24 +290,21 @@ function applyDraftToNodes(nodes, draft) {
       const prev = node.document || {}
       return {
         ...node,
-        document: {
-          ...prev,
-          status: 'draft',
-          payload: {
-            ...(prev.payload || {}),
-            lines: draft.quoteLines.length
-              ? draft.quoteLines
-              : [{ name: '', amount: '', note: '' }],
-            confirmCopy: QUOTE_CONFIRM_COPY,
-          },
+        content: {
+          ...(node.content || {}),
+          lines: draft.quoteLines.length
+            ? draft.quoteLines
+            : [{ name: '', amount: '', note: '' }],
+          confirmCopy: QUOTE_CONFIRM_COPY,
         },
+        document: envelopeOnlyDocument({ ...prev, status: 'draft' }),
       }
     }
     if (node.kind === 'work') {
       return {
         ...node,
-        photoDraft: {
-          ...(node.photoDraft || {}),
+        content: {
+          ...(node.content || {}),
           findings: draft.workFindings,
         },
       }
@@ -313,8 +312,8 @@ function applyDraftToNodes(nodes, draft) {
     if (node.kind === 'delivery_photos') {
       return {
         ...node,
-        photoDraft: {
-          ...(node.photoDraft || {}),
+        content: {
+          ...(node.content || {}),
           warrantyNotes: draft.handover,
         },
       }
@@ -454,21 +453,21 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
           pending.push({ url: img.url, caption: img.caption || '' })
         })
         const content = { ...bag, pendingImages: pending }
-        return { ...node, content, photoDraft: content }
+        return { ...node, content }
       }
       if (node.kind === 'intake_inspection' && groups.intake.length) {
         const content = {
           ...bag,
           findings: fillFindingUrls(bag.findings, groups.intake, false),
         }
-        return { ...node, content, photoDraft: content }
+        return { ...node, content }
       }
       if (node.kind === 'work' && groups.work.length) {
         const content = {
           ...bag,
           findings: fillFindingUrls(bag.findings, groups.work, true),
         }
-        return { ...node, content, photoDraft: content }
+        return { ...node, content }
       }
       if (node.kind === 'delivery_photos' && groups.delivery.length) {
         // 外观照只进验收清单「外观」行（末行），不再写旧 deliveryPhotos
@@ -487,7 +486,7 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
         if (idx >= 0) rows[idx] = exterior
         else rows.push(exterior)
         const content = { ...bag, acceptanceItems: rows }
-        return { ...node, content, photoDraft: content }
+        return { ...node, content }
       }
       return node
     })
@@ -503,6 +502,7 @@ module.exports = {
   parseLooseAmount,
   mapFactsToFlowDraft,
   buildPhotoSlots,
+  applyDraftToNodes,
   createAlbumFromWechatChat,
   attachWechatPhotos,
 }

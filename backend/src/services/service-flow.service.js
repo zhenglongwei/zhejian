@@ -1301,22 +1301,20 @@ async function healQuoteUnlockAfterReport(albumId, album = null) {
     if (!delivered || !quoteLocked) return pkg
 
     const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
+    const prevQuoteContent = contentOfFlowNode(quote)
+    const quoteContent = mergeNodeContent(prevQuoteContent, {
+      lines: prevQuoteContent.lines,
+      confirmCopy: quoteCopyForAlbum(
+        row,
+        prevQuoteContent.confirmCopy ||
+          (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy),
+      ),
+    })
     nodes[quoteIdx] = {
       ...quote,
       status: 'in_progress',
-      document: {
-        ...prevQuoteDoc,
-        status: 'draft',
-        payload: {
-          ...(prevQuoteDoc.payload || {}),
-          lines: contentOfFlowNode(quote).lines || [],
-          confirmCopy: quoteCopyForAlbum(
-            row,
-            prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy,
-          ),
-          evidenceRef: report.id,
-        },
-      },
+      content: quoteContent,
+      document: envelopeOnlyDocument({ ...prevQuoteDoc, status: 'draft' }),
     }
 
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }

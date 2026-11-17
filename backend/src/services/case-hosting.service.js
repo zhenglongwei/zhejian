@@ -138,14 +138,13 @@ function buildHostedArchiveSnapshot(album = {}, storeSnapshot = null) {
       kind: n.kind,
       title: n.title || '',
       status: n.status || '',
-      // 单据人工文本真源在 content（photoDraft 是旧别名）；不冻结 content 会让公网案例只剩模板句
+      // 单据人工文本真源在 content；不冻结 content 会让公网案例只剩模板句
       content: n.content || null,
-      photoDraft: n.photoDraft || null,
       document: n.document
         ? {
             status: n.document.status || '',
             confirmedAt: n.document.confirmedAt || '',
-            payload: n.document.payload || null,
+            payload: {},
           }
         : null,
     })),

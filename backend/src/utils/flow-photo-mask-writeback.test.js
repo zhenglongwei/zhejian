@@ -13,10 +13,8 @@ test('字符串验收图升为带 maskedUrl 的对象（外观行）', () => {
     [
       {
         kind: 'repair_report',
-        document: {
-          payload: {
-            acceptanceItems: [{ id: 'exterior', kind: 'exterior', name: '外观', images: [RAW] }],
-          },
+        content: {
+          acceptanceItems: [{ id: 'exterior', kind: 'exterior', name: '外观', images: [RAW] }],
         },
       },
     ],
@@ -24,7 +22,7 @@ test('字符串验收图升为带 maskedUrl 的对象（外观行）', () => {
     MASK,
   )
   assert.equal(changed, true)
-  assert.deepEqual(nodes[0].document.payload.acceptanceItems[0].images[0], {
+  assert.deepEqual(nodes[0].content.acceptanceItems[0].images[0], {
     url: RAW,
     maskedUrl: MASK,
   })
@@ -35,12 +33,10 @@ test('对象验收图写回 maskedUrl 不改原图地址', () => {
     [
       {
         kind: 'repair_report',
-        document: {
-          payload: {
-            acceptanceItems: [
-              { id: 'exterior', kind: 'exterior', name: '外观', images: [{ url: RAW, caption: '外观' }] },
-            ],
-          },
+        content: {
+          acceptanceItems: [
+            { id: 'exterior', kind: 'exterior', name: '外观', images: [{ url: RAW, caption: '外观' }] },
+          ],
         },
       },
     ],
@@ -48,9 +44,9 @@ test('对象验收图写回 maskedUrl 不改原图地址', () => {
     MASK,
   )
   assert.equal(changed, true)
-  assert.equal(nodes[0].document.payload.acceptanceItems[0].images[0].url, RAW)
-  assert.equal(nodes[0].document.payload.acceptanceItems[0].images[0].maskedUrl, MASK)
-  assert.equal(nodes[0].document.payload.acceptanceItems[0].images[0].caption, '外观')
+  assert.equal(nodes[0].content.acceptanceItems[0].images[0].url, RAW)
+  assert.equal(nodes[0].content.acceptanceItems[0].images[0].maskedUrl, MASK)
+  assert.equal(nodes[0].content.acceptanceItems[0].images[0].caption, '外观')
 })
 
 test('检测挂图 images[] 写回', () => {
@@ -58,10 +54,8 @@ test('检测挂图 images[] 写回', () => {
     [
       {
         kind: 'inspection_report',
-        document: {
-          payload: {
-            findings: [{ partName: '机油', images: [{ url: RAW }] }],
-          },
+        content: {
+          findings: [{ partName: '机油', images: [{ url: RAW }] }],
         },
       },
     ],
@@ -69,7 +63,26 @@ test('检测挂图 images[] 写回', () => {
     MASK,
   )
   assert.equal(changed, true)
-  assert.equal(nodes[0].document.payload.findings[0].images[0].maskedUrl, MASK)
+  assert.equal(nodes[0].content.findings[0].images[0].maskedUrl, MASK)
+})
+
+test('只写 content：不再回写 photoDraft / document.payload', () => {
+  const { nodes, changed } = writeMaskedUrlIntoFlowNodes(
+    [
+      {
+        kind: 'work',
+        content: { photos: [{ url: RAW }] },
+        photoDraft: { photos: [{ url: RAW }] },
+        document: { payload: { photos: [{ url: RAW }] } },
+      },
+    ],
+    RAW,
+    MASK,
+  )
+  assert.equal(changed, true)
+  assert.equal(nodes[0].content.photos[0].maskedUrl, MASK)
+  assert.equal(nodes[0].photoDraft.photos[0].maskedUrl, undefined)
+  assert.equal(nodes[0].document.payload.photos[0].maskedUrl, undefined)
 })
 
 test('未命中原图不改动', () => {
@@ -139,7 +152,7 @@ test('补充报价 evidenceUrl 写回打码产物', () => {
       {
         kind: 'quote_confirm',
         subKind: 'add_on_quote',
-        document: { payload: { items: [{ name: '补充项目', evidenceUrl: RAW }] } },
+        content: { items: [{ name: '补充项目', evidenceUrl: RAW }] },
       },
     ],
     [
@@ -152,7 +165,7 @@ test('补充报价 evidenceUrl 写回打码产物', () => {
     ],
   )
   assert.equal(changed, true)
-  const row = nodes[0].document.payload.items[0]
+  const row = nodes[0].content.items[0]
   assert.equal(row.evidenceMaskedUrl, MASK)
 })
 

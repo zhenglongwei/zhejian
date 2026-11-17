@@ -71,12 +71,13 @@
 
 验证：为每个函数补一条「只有 content、payload 为空」的用例；现有 `case-geo-factpack.test.js`、`case-evidence-profile.test.js`、`node-ai-review` 相关测试补同一场景。
 
-### P2 写入统一为 content（先双写，后单写）
+### P2 写入统一为 content（P2 起单写）
 
 | 文件 | 位置 | 改动 |
 | --- | --- | --- |
 | `backend/src/services/wechat-archive-flow.service.js` | L271-324 | `applyDraftToNodes` 改为写 `content`（接车/施工/交车/报价各分支） |
-| `backend/src/services/service-flow.service.js` | L1308-1327 | 报价解锁 heal 由写 `document.payload` 改为写 `content` |
+| `backend/src/services/wechat-archive-flow.service.js` | L447-495 | `attachWechatPhotos` 去掉 4 处 `photoDraft: content` 双写（同属新建相册写存量） |
+| `backend/src/services/service-flow.service.js` | L1308-1327 | 报价解锁 heal 由写 `document.payload` 改为写 `content`；`evidenceRef` 无消费方，停止写入 |
 | `backend/src/utils/flow-photo-mask-writeback.js` | L284-300 | 打码回写由三写改为只写 `content` |
 | `backend/src/services/case-hosting.service.js` | L136-150 | 归档冻结 `photoDraft` / `document.payload` 改为只冻结 `content`（P4 再落） |
 

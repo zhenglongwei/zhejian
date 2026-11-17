@@ -4,7 +4,7 @@
  *
  * - 有敏感 → 写 maskedUrl
  * - 无敏感 → 写 maskOutcome=ok_no_privacy，不写/清空冒充产物的 maskedUrl
- * - 必须写 node.content（真源）；兼容旧 photoDraft / document.payload
+ * - 必须写 node.content（真源）
  */
 
 const { rawUrlLookupKeys } = require('../services/desensitize.constants')
@@ -272,35 +272,12 @@ function writeMaskResultIntoFlowNodes(flowNodes, rawUrl, meta = {}) {
     let nextNode = node
     let nodeChanged = false
 
-    // 真源：content
+    // 真源且唯一写入位置：content
     if (node.content && typeof node.content === 'object') {
       const r = patchPayloadOrDraft(node.content, rawKeys, meta)
       if (r.changed) {
         nextNode = { ...nextNode, content: r.next }
         nodeChanged = true
-      }
-    }
-
-    if (node.photoDraft && typeof node.photoDraft === 'object') {
-      const r = patchPayloadOrDraft(node.photoDraft, rawKeys, meta)
-      if (r.changed) {
-        nextNode = { ...nextNode, photoDraft: r.next }
-        nodeChanged = true
-      }
-    }
-
-    if (node.document && typeof node.document === 'object') {
-      const doc = node.document
-      const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : null
-      if (payload) {
-        const r = patchPayloadOrDraft(payload, rawKeys, meta)
-        if (r.changed) {
-          nextNode = {
-            ...nextNode,
-            document: { ...doc, payload: r.next },
-          }
-          nodeChanged = true
-        }
       }
     }
 
