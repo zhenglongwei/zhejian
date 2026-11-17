@@ -314,15 +314,20 @@ function chapterHasContent(chapter) {
   return false
 }
 
-function publicTitle(node) {
+function publicTitle(node, prevKind) {
   const kind = text(node && node.kind)
-  const addon =
-    kind === 'addon_quote_confirm' || text(node && node.insertedReason) === 'addon'
-  if (addon) return '施工中新发现'
+  if (kind === 'addon_quote_confirm') {
+    // 看前一个章节是什么 kind 来决定标题：
+    // 前一个是 work → 施工中新发现；前一个是 repair_report → 交车时补充；
+    // 前一个是 quote_confirm 或无 → 补充报价（中性）
+    if (prevKind === 'work') return '施工中新发现'
+    if (prevKind === 'repair_report') return '交车时补充'
+    return '补充报价'
+  }
+  if (text(node && node.insertedReason) === 'addon') return '施工中新发现'
   if (kind === 'quote_confirm') return '方案'
-  if (kind === 'work') return '工单'
-  if (kind === 'repair_report') return '完工'
   if (kind === 'work') return '施工'
+  if (kind === 'repair_report') return '完工'
   if (kind === 'inspection_report') return '检测报告'
   return text(node && node.title) || '记录'
 }
@@ -387,7 +392,7 @@ function mapRepairChapter(node, lookup) {
   }
 }
 
-function mapDocumentChapter(node, lookup, allNodes = []) {
+function mapDocumentChapter(node, lookup, allNodes = [], prevKind = '') {
   const doc = (node && node.document) || {}
   if (text(doc.status) === 'cancelled') return null
   const payload = contentOfFlowNode(node)
@@ -396,7 +401,7 @@ function mapDocumentChapter(node, lookup, allNodes = []) {
     return {
       id: node.id || '',
       kind,
-      title: publicTitle(node),
+      title: publicTitle(node, prevKind),
       chiefComplaint: text(payload.chiefComplaint),
       findings: (Array.isArray(payload.findings) ? payload.findings : [])
         .map((row) => mapFinding(row, lookup))
@@ -407,7 +412,7 @@ function mapDocumentChapter(node, lookup, allNodes = []) {
     return {
       id: node.id || '',
       kind,
-      title: publicTitle(node),
+      title: publicTitle(node, prevKind),
       items: (Array.isArray(payload.lines) ? payload.lines : [])
         .map((row) => stripLine(row, lookup))
         .filter(Boolean),
@@ -433,22 +438,26 @@ function buildPublicServiceFlow(input = {}) {
     lookup._allowPrivateFallback = true
   }
   const chapters = []
+  let prevKind = ''
   flowNodes.forEach((node) => {
     if (!node) return
     const kind = text(node.kind)
     if (SKIP_PHOTO_KINDS[kind]) return
+    let chapter = null
     if (kind === 'work') {
-      const chapter = {
+      chapter = {
         id: node.id || '',
         kind: 'work',
         title: '施工',
         items: collectWorkItemsUnified(node, lookup),
       }
-      if (chapterHasContent(chapter)) chapters.push(chapter)
-      return
+    } else {
+      chapter = mapDocumentChapter(node, lookup, flowNodes, prevKind)
     }
-    const chapter = mapDocumentChapter(node, lookup, flowNodes)
-    if (chapterHasContent(chapter)) chapters.push(chapter)
+    if (chapterHasContent(chapter)) {
+      chapters.push(chapter)
+      prevKind = chapter.kind
+    }
   })
   return { chapters }
 }
