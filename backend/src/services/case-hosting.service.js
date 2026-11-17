@@ -1626,6 +1626,7 @@ module.exports = {
   confirmHostedPublicPublish,
   cancelPublicHostIntent,
   getHostPublicFacePreview,
+  mergeChapterNarratives,
   ensureHostDesensitizeTask,
   unhostAlbum,
   unpublishHostedCase,

@@ -61,13 +61,13 @@
 
       <!-- 统一项目区：报价项 / 施工项 -->
       <view wx:if="{{ch.items.length}}" class="host-archive-preview__items">
-        <text class="host-archive-preview__k">{{ch.kind === 'work' ? '施工项目' : '报价项目'}}</text>
+        <text class="host-archive-preview__k {{ch.kind !== 'work' && (ch.title === '施工中新发现' || ch.title === '交车时补充') ? 'host-archive-preview__k--addon' : ''}}">{{ch.kind === 'work' ? '施工项目' : '报价项目'}}</text>
         <view
           wx:for="{{ch.items}}"
           wx:for-item="row"
           wx:for-index="ri"
           wx:key="ri"
-          class="host-archive-preview__row {{ch.kind === 'work' ? 'host-archive-preview__row--work' : ((ch.title === '施工中新发现' || ch.title === '交车时补充') ? 'host-archive-preview__row--addon' : 'host-archive-preview__row--quote')}}"
+          class="host-archive-preview__row {{ch.kind === 'work' ? '' : ((ch.title === '施工中新发现' || ch.title === '交车时补充') ? 'host-archive-preview__row--addon' : 'host-archive-preview__row--quote')}}"
         >
           <text wx:if="{{row.name}}" class="host-archive-preview__row-title">{{row.name}}</text>
           <view wx:if="{{row.images && row.images.length}}" class="host-archive-preview__img-grid">

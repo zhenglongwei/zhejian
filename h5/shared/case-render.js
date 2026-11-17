@@ -769,8 +769,11 @@
           if (ch.items && ch.items.length) {
             var isWork = ch.kind === 'work'
             var isAddon = ch.title === '施工中新发现' || ch.title === '交车时补充'
-            body += '<p class="h5-flow-k">' + (isWork ? '施工项目' : '报价项目') + '</p>'
-            body += renderFlowItems(ch.items, isWork ? 'work' : isAddon ? 'addon' : 'quote')
+            body +=
+              '<p class="h5-flow-k' + (isAddon ? ' h5-flow-k--addon' : '') + '">' +
+              (isWork ? '施工项目' : '报价项目') +
+              '</p>'
+            body += renderFlowItems(ch.items, isWork ? '' : isAddon ? 'addon' : 'quote')
           }
           if (ch.acceptanceItems && ch.acceptanceItems.length) {
             body += '<p class="h5-flow-k">交车验收</p>'

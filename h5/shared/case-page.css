@@ -695,10 +695,15 @@
 .h5-flow-k {
   margin: var(--space-md) 0 var(--space-xs);
   padding-left: 8px;
-  border-left: 3px solid var(--color-primary);
+  border-left: 3px solid var(--color-border-strong);
   font-size: var(--font-h3);
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+/* 新发现只换标签色条，不铺大色块 */
+.h5-flow-k--addon {
+  border-left-color: var(--color-warning);
 }
 
 .h5-flow-photos {
@@ -720,20 +725,17 @@
   gap: var(--space-xs);
   padding: var(--space-sm);
   border-radius: var(--radius-md);
+  border-left: 2px solid transparent;
   background: var(--color-bg-muted);
 }
 
-/* 不同内容用不同底色：检测/验收中性灰、报价淡蓝、施工淡绿、新发现暖黄 */
+/* 只用一条窄色条区分类型：报价蓝、新发现橙，其余保持中性 */
 .h5-flow-item--quote {
-  background: var(--color-primary-light);
-}
-
-.h5-flow-item--work {
-  background: var(--color-success-light);
+  border-left-color: var(--color-primary);
 }
 
 .h5-flow-item--addon {
-  background: var(--color-warning-light);
+  border-left-color: var(--color-warning);
 }
 
 .h5-flow-item-name {

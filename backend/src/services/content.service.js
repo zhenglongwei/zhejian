@@ -74,6 +74,7 @@ const {
   readHostMeta,
 } = require('../utils/archive-attribution')
 const { pickChiefComplaint, pickVehicle } = require('../utils/case-geo-factpack')
+const { mergeChapterNarratives } = require('./case-hosting.service')
 const { buildPublisherTrustBadge } = require('../utils/merchant-trust')
 
 async function loadPublisherTrustByStoreIds(storeIds = []) {
@@ -472,6 +473,23 @@ function mapPublicCaseRow(row, album, options = {}) {
     publicView,
     maskLookup: options.maskLookup || null,
   })
+  // 章节衔接语：公开层优先，其次托管草稿；缺的章节按规则兜底，保证网页端与商家预览一致
+  {
+    const narrationSource =
+      (layered.hostGeoLayer && layered.hostGeoLayer.chapterNarratives) ||
+      (hostMeta && hostMeta.geoDraft && hostMeta.geoDraft.chapterNarratives) ||
+      []
+    const chapterNarratives = mergeChapterNarratives(layered.serviceFlow.chapters, narrationSource)
+    if (chapterNarratives.length) {
+      layered.hostGeoLayer = {
+        summary: '',
+        highlights: [],
+        nodeStories: [],
+        ...(layered.hostGeoLayer || {}),
+        chapterNarratives,
+      }
+    }
+  }
   // 车型四元组（品牌/车系/年款/里程文案）：JSON-LD facts 块与公开展示共用同一单据链真源
   layered.caseVehicle = pickVehicle(factsFlowNodes)
   const chapterComplaint = (layered.serviceFlow.chapters || [])
