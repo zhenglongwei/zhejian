@@ -346,3 +346,73 @@ test('已经写上或只是告知的意见不进时间线', () => {
   assert.equal(work.advice, '')
   assert.equal(finish.advice, '')
 })
+
+test('横排单据按节点区分首次、历次补充报价与施工', () => {
+  const album = { vehicle: { plate: '粤B12345' } }
+  const nodes = [
+    node({
+      id: 'q0',
+      kind: 'quote_confirm',
+      sortOrder: 1,
+      content: { lines: [{ name: '首次报价项目', amount: 400 }] },
+      document: { status: 'confirmed' },
+    }),
+    node({
+      id: 'w0',
+      kind: 'work',
+      sortOrder: 2,
+      content: { findings: [{ partName: '首次施工项目' }] },
+    }),
+    node({
+      id: 'q1',
+      kind: 'quote_confirm',
+      sortOrder: 3,
+      insertedReason: 'addon',
+      content: { lines: [{ name: '第一次补充项目', amount: 100 }] },
+      document: { status: 'confirmed' },
+    }),
+    node({
+      id: 'q2',
+      kind: 'addon_quote_confirm',
+      sortOrder: 4,
+      insertedReason: 'addon',
+      content: { lines: [{ name: '第二次补充项目', amount: 400 }] },
+      document: { status: 'confirmed' },
+    }),
+    node({
+      id: 'w1',
+      kind: 'work',
+      sortOrder: 5,
+      insertedReason: 'addon',
+      content: { findings: [{ partName: '补充施工项目' }] },
+    }),
+  ]
+  const view = buildMerchantAlbumOverview(album, nodes)
+  assert.deepEqual(
+    view.docs.map((doc) => [doc.title, doc.nodeId]),
+    [
+      ['报价单', 'q0'],
+      ['维修工单', 'w0'],
+      ['补充报价单', 'q1'],
+      ['补充报价单', 'q2'],
+      ['补充施工', 'w1'],
+    ],
+  )
+  const first = buildMerchantDocBrief(album, nodes, '报价单', 'q0')
+  const addon1 = buildMerchantDocBrief(album, nodes, '补充报价单', 'q1')
+  const addon2 = buildMerchantDocBrief(album, nodes, '补充报价单', 'q2')
+  assert.equal(first.lines[0].name, '首次报价项目')
+  assert.equal(first.totalText, '¥400')
+  assert.equal(addon1.lines[0].name, '第一次补充项目')
+  assert.equal(addon1.totalText, '¥100')
+  assert.equal(addon1.nodeId, 'q1')
+  assert.equal(addon1.stageKey, 'quote')
+  assert.equal(addon2.lines[0].name, '第二次补充项目')
+  assert.equal(addon2.totalText, '¥400')
+  assert.equal(addon2.nodeId, 'q2')
+  const work = buildMerchantDocBrief(album, nodes, '补充施工', 'w1')
+  assert.equal(work.lines[0].name, '补充施工项目')
+  assert.equal(work.totalText, '')
+  assert.equal(work.nodeId, 'w1')
+  assert.equal(work.stageKey, 'work')
+})

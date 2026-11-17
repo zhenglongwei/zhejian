@@ -2905,7 +2905,33 @@ Page({
   reportPreviewFor(title, options = {}) {
     const album = this._album || {}
     const nodes = this._flowNodes || []
-    // 已发送的报告只读快照：与车主端逐字一致，不再本地重新拼装
+    const requestedId = String(options.nodeId || '')
+    const requestedNode = nodes.find((node) => node && node.id === requestedId) || null
+    const requestedKind = String((requestedNode && requestedNode.kind) || '')
+    const activeId = String((this.data.activeNode && this.data.activeNode.id) || '')
+    const active = nodes.find((node) => node && node.id === activeId) || null
+    const activeKind = String((active && active.kind) || '')
+    const quotePreview =
+      title === '报价单' ||
+      title === '补充报价单' ||
+      requestedKind === 'quote_confirm' ||
+      requestedKind === 'addon_quote_confirm'
+    const workPreview = title === '维修工单' || title === '补充施工' || requestedKind === 'work'
+    const quote = quotePreview
+      ? requestedId
+        ? requestedNode
+        : active && (activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm')
+          ? active
+          : nodes.find((node) => node && (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm'))
+      : null
+    const work = workPreview
+      ? requestedId
+        ? requestedNode
+        : active && activeKind === 'work'
+          ? active
+          : nodes.find((node) => node && node.kind === 'work')
+      : null
+    // 已发送的报告只读快照：报价和工单也必须锁定本次目标节点，不能回退到同族第一张。
     const frozenFamily =
       title === '接车报告'
         ? 'intake'
@@ -2913,12 +2939,16 @@ Page({
           ? 'inspect'
           : title === '交车报告'
             ? 'finish'
-            : 'quote'
-    const activeId = (this.data.activeNode && this.data.activeNode.id) || ''
+            : workPreview
+              ? 'work'
+              : 'quote'
+    const targetNode = quotePreview ? quote : workPreview ? work : requestedNode || active
     const frozenNode =
-      nodes.find(
-        (node) => node && node.id === activeId && node.renderDoc && node.renderDoc.family === frozenFamily,
-      ) || nodes.find((node) => node && node.renderDoc && node.renderDoc.family === frozenFamily)
+      targetNode && targetNode.renderDoc && targetNode.renderDoc.family === frozenFamily
+        ? targetNode
+        : !requestedId && !quotePreview && !workPreview
+          ? nodes.find((node) => node && node.renderDoc && node.renderDoc.family === frozenFamily)
+          : null
     if (frozenNode) {
       const frozen = frozenNode.renderDoc
       return {
@@ -3006,24 +3036,30 @@ Page({
         ),
       })
     }
-    if (title === '报价单') {
-      const quote = nodes.find((node) => node && (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm'))
+    if (quotePreview) {
       const payload = nodeContentOf(quote)
-      const live = this.data.activeKind === 'quote_confirm' || this.data.activeKind === 'addon_quote_confirm'
+      const live = Boolean(
+        !options.issuedOnly &&
+          quote &&
+          activeId === quote.id &&
+          (activeKind === 'quote_confirm' || activeKind === 'addon_quote_confirm'),
+      )
       return buildOwnerPreviewDoc({
         family: 'quote',
         album,
         mileageText,
-        isAddon: Boolean(quote && quote.insertedReason === 'addon'),
+        isAddon: Boolean(
+          quote && (quote.kind === 'addon_quote_confirm' || String(quote.insertedReason || '') === 'addon'),
+        ),
         lines: live ? this.data.quoteLines : payload.lines || [],
         discoveryNote: (payload.discovery && payload.discovery.note) || '',
         discoveryImages: (payload.discovery && payload.discovery.images) || [],
       })
     }
-    if (title === '维修工单') {
-      const work = nodes.find((node) => node && node.kind === 'work')
+    if (workPreview) {
       const draft = this.nodeDraft(work)
-      const source = this.data.activeKind === 'work' ? this.collectFindingsFromSections() : draft.findings || []
+      const live = Boolean(!options.issuedOnly && work && activeId === work.id && activeKind === 'work')
+      const source = live ? this.collectFindingsFromSections() : draft.findings || []
       let workItems = workItemsFromFindings(source)
       if (!workItems.length) {
         const sealedItems = nodeContentOf(work).workItems
@@ -3039,13 +3075,15 @@ Page({
           })),
         )
       }
+      const workIndex = nodes.filter((node) => node && node.kind === 'work').indexOf(work)
       return buildOwnerPreviewDoc({
         family: 'work',
         album: previewAlbumOf(album),
         mileageText,
         workItems,
-        signName: draft.workerName || this.data.workerName,
-        signAt: formatClerkAtForDoc(draft.finishedAt || this.data.workFinishedAt),
+        addon: Boolean(work && (workIndex > 0 || String(work.insertedReason || '') === 'addon')),
+        signName: draft.workerName || (live ? this.data.workerName : ''),
+        signAt: formatClerkAtForDoc(draft.finishedAt || (live ? this.data.workFinishedAt : '')),
       })
     }
     const reportReady = Boolean(
@@ -3525,11 +3563,13 @@ Page({
   },
 
   onOpenDoc(e) {
-    const title = String((e.currentTarget.dataset && e.currentTarget.dataset.title) || '')
+    const dataset = (e.currentTarget && e.currentTarget.dataset) || {}
+    const title = String(dataset.title || '')
+    const nodeId = String(dataset.id || '')
     if (!title) return
-    const brief = buildMerchantDocBrief(this._album || {}, this._flowNodes || [], title)
+    const brief = buildMerchantDocBrief(this._album || {}, this._flowNodes || [], title, nodeId)
     if (brief.label === '待生成') return
-    const preview = this.reportPreviewFor(title, { issuedOnly: true })
+    const preview = this.reportPreviewFor(title, { issuedOnly: true, nodeId })
     if (!preview.hasBody) {
       wx.showToast({ title: '还没有这份报告', icon: 'none' })
       return

@@ -75,10 +75,10 @@
 </template>
 <template name="intakeAdvicePanel">
   <view wx:if="{{advice.noPhotos}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-lead">还没有车身照片，先拍车头、车尾、左右</text>
+    <text class="merchant-flow-page__advice-lead">还没有留证照片，请按清单拍环车四侧、行驶里程表和油量表</text>
   </view>
   <view wx:elif="{{advice.covered && !advice.hasRisks}}" class="merchant-flow-page__advice-sec">
-    <text class="merchant-flow-page__advice-lead">车身四周都拍到了</text>
+    <text class="merchant-flow-page__advice-lead">环车四侧、行驶里程表和油量表都已留证</text>
   </view>
   <view wx:if="{{advice.hasRisks}}" class="merchant-flow-page__advice-sec">
     <text class="merchant-flow-page__advice-sec-title">还缺这些</text>
@@ -141,11 +141,12 @@
           </view>
         </view>
 
-        <view class="ov-docs">
+        <scroll-view scroll-x class="ov-docs" show-scrollbar="{{false}}" enable-flex="{{true}}">
           <view
             wx:for="{{overview.docs}}"
-            wx:key="title"
+            wx:key="nodeId"
             class="ov-doc ov-doc--{{item.tone}}"
+            data-id="{{item.nodeId}}"
             data-title="{{item.title}}"
             bindtap="onOpenDoc"
           >
@@ -157,7 +158,7 @@
             <text class="ov-doc__name">{{item.title}}</text>
             <text class="ov-doc__label">{{item.label}}</text>
           </view>
-        </view>
+        </scroll-view>
 
         <view class="ov-sec">
           <text class="ov-sec__kicker">全过程留证</text>

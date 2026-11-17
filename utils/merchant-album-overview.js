@@ -381,8 +381,6 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
   const finished = timeline.finished
   const intake = nodes.find((node) => node.kind === 'intake' || node.kind === 'intake_inspection')
   const report = nodes.find((node) => node.kind === 'inspection_report')
-  const quote = nodes.find((node) => node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm')
-  const work = nodes.find((node) => node.kind === 'work')
   const repair = nodes.find((node) => node.kind === 'repair_report')
   const year = String(vehicle.modelYear || vehicle.year || '').trim()
   const mileage = Number(vehicle.mileage)
@@ -403,6 +401,35 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     .filter(Boolean)
     .join(' ')
   const mileageText = Number.isFinite(mileage) && mileage > 0 ? `${mileage.toLocaleString('zh-CN')} km` : ''
+  const docs = []
+  let quoteIndex = 0
+  let workIndex = 0
+  nodes.forEach((node) => {
+    if (!node) return
+    if (node === intake) {
+      docs.push(docTile('接车报告', node, { done: '已发出', live: '填写中' }))
+      return
+    }
+    if (node === report) {
+      docs.push(docTile('检测报告', node, { done: '已完成', live: '填写中' }))
+      return
+    }
+    if (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm') {
+      const addon =
+        quoteIndex > 0 || node.kind === 'addon_quote_confirm' || String(node.insertedReason || '') === 'addon'
+      docs.push(docTile(addon ? '补充报价单' : '报价单', node, { done: '已确认', live: '填写中' }))
+      quoteIndex += 1
+      return
+    }
+    if (node.kind === 'work') {
+      docs.push(docTile(workIndex > 0 ? '补充施工' : '维修工单', node, { done: '已完成', live: '施工中' }))
+      workIndex += 1
+      return
+    }
+    if (node === repair) {
+      docs.push(docTile('交车报告', node, { done: '已确认', live: '填写中' }))
+    }
+  })
   // 相册详情展示完整车辆信息（手机号仍打码）
   const vehicleFacts = [
     { key: '车牌', value: plateOf(vehicle) },
@@ -428,13 +455,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     meta,
     phone,
     records,
-    docs: [
-      docTile('接车报告', intake, { done: '已发出', live: '填写中' }),
-      docTile('检测报告', report, { done: '已完成', live: '填写中' }),
-      docTile('报价单', quote, { done: '已确认', live: '填写中' }),
-      docTile('维修工单', work, { done: '已完成', live: '施工中' }),
-      docTile('交车报告', repair, { done: '已确认', live: '填写中' }),
-    ].filter((item) => item.label !== '待生成' && item.label !== '填写中'),
+    docs: docs.filter((item) => item.label !== '待生成' && item.label !== '填写中'),
     rows,
     timelineRows: timeline.rows,
     action: actionLabel(current, finished),
@@ -467,6 +488,7 @@ function findingLines(list) {
 
 function briefLines(title, nodes, node) {
   const content = (node && node.content) || {}
+  const kind = String((node && node.kind) || '')
   if (title === '接车报告') {
     const complaint = String(content.chiefComplaint || '').trim()
     const belongings = String(content.belongings || '').trim()
@@ -476,8 +498,16 @@ function briefLines(title, nodes, node) {
     const fromDoc = Array.isArray(content.findings) ? content.findings : []
     return findingLines(fromDoc.length ? fromDoc : findingsOf(nodes))
   }
-  if (title === '报价单') return pricedLines(content.lines)
+  if (kind === 'quote_confirm' || kind === 'addon_quote_confirm' || title === '报价单') {
+    return pricedLines(content.lines)
+  }
   if (title === '交车报告') return pricedLines(content.workItems)
+  if (kind === 'work' || title === '维修工单' || title === '补充施工') {
+    const findings = Array.isArray(content.findings) && content.findings.length
+      ? content.findings
+      : content.workItems
+    return findingLines(findings)
+  }
   return findingLines(findingsOf([node]))
 }
 
@@ -489,18 +519,24 @@ function lineTotal(lines) {
 }
 
 /**
- * 详情页顶部五张单据的简要弹层。金额和项目只取已有记录。工单不列金额。
+ * 详情页顶部单据的简要弹层。金额和项目只取已有记录。工单不列金额。
  */
-function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
+function buildMerchantDocBrief(album = {}, flowNodes = [], title = '', nodeId = '') {
   const overview = buildMerchantAlbumOverview(album, flowNodes)
-  const tile = (overview.docs || []).find((item) => item && item.title === title) || {
+  const requestedId = String(nodeId || '')
+  const tile = (overview.docs || []).find((item) =>
+    item && (requestedId ? item.nodeId === requestedId : item.title === title),
+  ) || {
     title,
     label: '待生成',
     tone: 'muted',
-    nodeId: '',
+    nodeId: requestedId,
   }
   const nodes = Array.isArray(flowNodes) ? flowNodes : []
   const node = nodes.find((item) => item && item.id && item.id === tile.nodeId) || null
+  const kind = String((node && node.kind) || '')
+  const quoteDoc = kind === 'quote_confirm' || kind === 'addon_quote_confirm' || title === '报价单'
+  const workDoc = kind === 'work' || title === '维修工单'
   const content = (node && node.content) || {}
   const status = String((node && node.document && node.document.status) || '')
   const vehicle = album.vehicle || {}
@@ -511,11 +547,11 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
   const serviceName = String(album.serviceName || '').trim()
   const storeName = String(album.storeName || '').trim()
   const period = String((content.warranty && content.warranty.period) || content.warrantyPeriod || '').trim()
-  const quoteReady = title === '报价单' && lines.length > 0 && lines.every((line) => line.amount)
+  const quoteReady = quoteDoc && lines.length > 0 && lines.every((line) => line.amount)
   const repairReady = title === '交车报告' && lines.length > 0 && Boolean(period)
   const canSend = (status === '' || status === 'draft') && (quoteReady || repairReady)
   const stageKey =
-    title === '接车报告' ? 'intake' : title === '检测报告' ? 'inspect' : title === '报价单' ? 'quote' : title === '维修工单' ? 'work' : 'finish'
+    title === '接车报告' ? 'intake' : title === '检测报告' ? 'inspect' : quoteDoc ? 'quote' : workDoc ? 'work' : 'finish'
   return {
     title: tile.title || title,
     plate: overview.plate,
@@ -527,7 +563,7 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
     vehicleLine: [overview.plate, mileageText].filter(Boolean).join(' / '),
     serviceName,
     lines,
-    totalText: title === '维修工单' || title === '接车报告' || title === '检测报告' ? '' : total > 0 ? moneyText(total) : '',
+    totalText: workDoc || title === '接车报告' || title === '检测报告' ? '' : total > 0 ? moneyText(total) : '',
     sealed: (status === 'confirmed' || status === 'delivered') && lines.length > 0,
     emptyText: lines.length ? '' : '还没有这份内容',
     canSend,

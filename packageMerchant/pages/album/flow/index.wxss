@@ -2474,6 +2474,7 @@
 
 .ov-docs {
   display: flex;
+  flex-wrap: nowrap;
   gap: 12rpx;
   margin-top: 24rpx;
 }
@@ -2509,7 +2510,7 @@
 }
 
 .ov-doc {
-  flex: 1;
+  flex: 0 0 calc(var(--space-xl) * 3);
   min-width: 0;
   padding: 16rpx 4rpx 14rpx;
   border-radius: 28rpx;
