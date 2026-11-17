@@ -45,7 +45,7 @@ function priorsFromAlbum(album, cacheRows) {
   const notesByMedia = {}
   const { readFlowNodesRaw } = require('./service-flow.service')
   readFlowNodesRaw(album).forEach((node) => {
-    const bags = [node && node.content, node && node.photoDraft]
+    const bags = [node && node.content]
     bags.forEach((bag) => {
       const notes = bag && bag.imageNotes
       if (!notes || typeof notes !== 'object' || Array.isArray(notes)) return

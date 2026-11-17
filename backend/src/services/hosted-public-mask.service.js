@@ -37,8 +37,6 @@ function walkNodeImageSlots(pkg, visit) {
   ;(Array.isArray(pkg && pkg.flowNodes) ? pkg.flowNodes : []).forEach((node) => {
     if (!node) return
     if (node.content) walkBag(node.content)
-    if (node.photoDraft) walkBag(node.photoDraft)
-    if (node.document && node.document.payload) walkBag(node.document.payload)
   })
 }
 

@@ -11,13 +11,11 @@ function flowNode(kind, extra = {}) {
 
 const FLOW = [
   flowNode('intake', {
-    photoDraft: { chiefComplaint: '过减速带时右前轮咯噔响' },
-    document: { status: 'confirmed', payload: {} },
+    content: { chiefComplaint: '过减速带时右前轮咯噔响' },
+    document: { status: 'confirmed' },
   }),
   flowNode('inspection_report', {
-    document: {
-      status: 'delivered',
-      payload: {
+    content: {
         chiefComplaint: '过减速带时右前轮咯噔响',
         vehicleBrand: '大众',
         vehicleSeries: '高尔夫',
@@ -30,28 +28,24 @@ const FLOW = [
             images: [],
           },
         ],
-      },
     },
+    document: { status: 'delivered' },
   }),
   flowNode('quote_confirm', {
-    document: {
-      status: 'confirmed',
-      payload: { lines: [{ name: '更换右前小吊杆', amount: 680 }] },
-    },
+    content: { lines: [{ name: '更换右前小吊杆', amount: 680 }] },
+    document: { status: 'confirmed' },
   }),
   flowNode('work', {
     status: 'completed',
-    photoDraft: {
+    content: {
       findings: [
         { partName: '更换右前小吊杆', caption: '旧件胶套已开裂', outsideQuote: false },
       ],
     },
-    document: { status: 'confirmed', payload: {} },
+    document: { status: 'confirmed' },
   }),
   flowNode('repair_report', {
-    document: {
-      status: 'confirmed',
-      payload: {
+    content: {
         conclusion: '异响消除',
         warrantyPeriod: '12个月',
         acceptanceItems: [
@@ -64,8 +58,8 @@ const FLOW = [
             images: [{ url: 'https://x/d.jpg' }],
           },
         ],
-      },
     },
+    document: { status: 'confirmed' },
   }),
 ]
 

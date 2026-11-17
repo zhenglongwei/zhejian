@@ -184,8 +184,8 @@ function pickGenerateEngines() {
 
 /**
  * 报价 AI 的检测依据：
- * 1) 检测报告已生成 → 直接用 report.payload.findings
- * 2) 报告还没生成（status=in_progress，payload 为空）→ 回落到检测节点的 items
+ * 1) 检测报告已生成 → 直接用报告节点 content.findings
+ * 2) 报告还没生成（status=in_progress，content 为空）→ 回落到检测节点的 items
  * 3) items 也为空（inspect_v2 目前恒空）→ 用 suggestOrder（建议补充检测）当待报价项
  */
 function resolveQuoteFindings(payload, inspectionAdvice) {

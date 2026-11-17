@@ -33,7 +33,7 @@ test('接车留证意见不写进报价单', () => {
           updatedAt: '2026-10-11T05:40:00.000Z',
         },
       },
-      { id: 'q1', kind: 'quote_confirm', document: { status: 'draft', payload: { lines: [] } } },
+      { id: 'q1', kind: 'quote_confirm', content: { lines: [] }, document: { status: 'draft' } },
     ]),
     now,
   )
@@ -58,9 +58,11 @@ test('已采纳、已写进报价单、补拍不进报价', () => {
       {
         id: 'q1',
         kind: 'quote_confirm',
+        content: {
+          lines: [{ name: '更换气门室盖垫', note: '' }],
+        },
         document: {
           status: 'draft',
-          payload: { lines: [{ name: '更换气门室盖垫', note: '' }] },
         },
       },
     ]),

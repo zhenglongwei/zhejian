@@ -66,7 +66,7 @@ test('微信归档新相册：报价写 content，document 只留信封', () => 
   assert.equal(quote.content.lines.length, 1)
   assert.equal(quote.content.lines[0].name, '更换前刹车片')
   assert.equal(quote.content.confirmCopy, QUOTE_CONFIRM_COPY)
-  assert.deepEqual(quote.document.payload, {})
+  assert.equal(quote.document.payload, undefined)
   assert.equal(quote.document.status, 'draft')
   assert.equal(quote.photoDraft, undefined)
 })

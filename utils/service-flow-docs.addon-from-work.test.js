@@ -80,24 +80,23 @@ test('历次报价汇总按节点顺序包含补充报价，排除当前单和�
       insertedReason: 'addon',
       sortOrder: 3,
       content: { lines: [{ name: '第二次补充项目', amount: '300' }] },
-      document: { status: 'draft', payload: {} },
+      document: { status: 'draft' },
     },
     {
       id: 'q0',
       kind: 'quote_confirm',
       sortOrder: 1,
       content: { lines: [{ id: 'l0', name: '首次报价项目', amount: 100, note: '首报' }, { name: ' ' }] },
-      document: { status: 'confirmed', payload: {} },
+      document: { status: 'confirmed' },
     },
     {
       id: 'q1',
       kind: 'quote_confirm',
       insertedReason: 'addon',
       sortOrder: 2,
-      content: {},
+      content: { lines: [{ name: '第一次补充项目', amount: '200' }] },
       document: {
         status: 'confirmed',
-        payload: { lines: [{ name: '第一次补充项目', amount: '200' }] },
       },
     },
     {
@@ -106,7 +105,7 @@ test('历次报价汇总按节点顺序包含补充报价，排除当前单和�
       insertedReason: 'addon',
       sortOrder: 4,
       content: { lines: [{ name: '已撤销项目', amount: '400' }] },
-      document: { status: 'cancelled', payload: {} },
+      document: { status: 'cancelled' },
     },
   ]
 

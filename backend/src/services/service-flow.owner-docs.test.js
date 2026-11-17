@@ -3,11 +3,9 @@ const assert = require('node:assert/strict')
 const {
   buildOwnerFlowView,
   healFinishReportPackage,
-  migrateFlowPackageOnce,
   mergeConfirmPayload,
 } = require('./service-flow.service')
 const {
-  migrateNodeToSingleContent,
   contentOfFlowNode,
   collectQuoteConfirmGaps,
 } = require('../../../utils/service-flow-docs')
@@ -160,10 +158,10 @@ test('车主交车报告：只读已生成正文', () => {
         title: '交车报告',
         sortOrder: 6,
         status: 'in_progress',
+        content: payload,
         document: {
           docType: 'repair_report',
           status: 'pending_confirm',
-          payload,
         },
       },
     ]),
@@ -202,62 +200,6 @@ test('车主交车报告：只读已生成正文', () => {
     repair.acceptanceItems.map((row) => row.images.map((img) => img.url)),
     expected.acceptanceItems.map((row) => row.images.map((img) => img.url)),
   )
-})
-
-test('旧册薄报告：用冻住的交车节点重生成一次', () => {
-  const pkg = {
-    flowVersion: 6,
-    flowNodes: [
-      {
-        id: 'work_1',
-        kind: 'work',
-        status: 'completed',
-        content: {
-          findings: [{ partName: '右前门', caption: '补漆并更换饰条', brand: '原厂' }],
-        },
-      },
-      {
-        id: 'delivery_1',
-        kind: 'delivery_photos',
-        status: 'completed',
-        content: {
-          acceptanceItems: [
-            { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
-            {
-              id: 'exterior',
-              kind: 'exterior',
-              name: '外观',
-              result: 'pass',
-              images: [
-                { url: 'https://cdn.example.com/finish-front.jpg' },
-                { url: 'https://cdn.example.com/finish-side.jpg' },
-              ],
-            },
-          ],
-          warrantyPeriod: '12 个月',
-          warrantyNotes: '不含事故损伤',
-          delivererName: '李店长',
-        },
-      },
-      {
-        id: 'repair_1',
-        kind: 'repair_report',
-        document: {
-          docType: 'repair_report',
-          status: 'pending_confirm',
-          payload: { warrantyPeriod: '12 个月' },
-        },
-      },
-    ],
-  }
-  const { pkg: next, changed } = healFinishReportPackage(pkg)
-  assert.equal(changed, true)
-  const report = next.flowNodes.find((row) => row.kind === 'repair_report')
-  const body = contentOfFlowNode(report)
-  assert.equal(body.warrantyPeriod, '12 个月')
-  const exterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
-  assert.ok(exterior && exterior.images.length >= 1)
-  assert.equal(body.delivererName, '李店长')
 })
 
 test('旧册薄报告：主诉从 inspection_report.content 读取（payload 为空）', () => {
@@ -394,143 +336,6 @@ test('旧册已发出接车：heal 把留证收回定稿 photos', () => {
   assert.match(intake.content.photos[0].url, /intake-heal/)
 })
 
-test('旧册空接车节点：从接车报告找回照片', () => {
-  const pkg = {
-    flowVersion: 6,
-    flowNodes: [
-      {
-        id: 'intake_1',
-        kind: 'intake',
-        status: 'completed',
-        content: { pendingImages: [] },
-        document: {
-          status: 'delivered',
-          payload: {
-            photos: [
-              { url: 'https://cdn.example.com/intake-front.jpg' },
-              { url: 'https://cdn.example.com/intake-side.jpg' },
-            ],
-          },
-        },
-      },
-    ],
-  }
-  const { pkg: next, changed } = healFinishReportPackage(pkg)
-  assert.equal(changed, true)
-  const intake = next.flowNodes.find((row) => row.kind === 'intake')
-  assert.equal(intake.content.pendingImages.length, 2)
-  assert.match(intake.content.pendingImages[0].url, /intake-front/)
-})
-
-test('旧册空节点：从已生成报告找回交车内容', () => {
-  const pkg = {
-    flowVersion: 6,
-    flowNodes: [
-      {
-        id: 'delivery_1',
-        kind: 'delivery_photos',
-        status: 'completed',
-        content: {},
-      },
-      {
-        id: 'repair_1',
-        kind: 'repair_report',
-        document: {
-          status: 'pending_confirm',
-          payload: {
-            warrantyPeriod: '12 个月',
-            acceptanceItems: [
-              {
-                id: 'exterior',
-                kind: 'exterior',
-                name: '外观',
-                result: 'pass',
-                images: [{ url: 'https://cdn.example.com/finish-front.jpg' }],
-              },
-            ],
-          },
-        },
-      },
-    ],
-  }
-  const { pkg: next, changed } = healFinishReportPackage(pkg)
-  assert.equal(changed, true)
-  const delivery = next.flowNodes.find((row) => row.kind === 'delivery_photos')
-  assert.equal(delivery.content.warrantyPeriod, '12 个月')
-  const exterior = delivery.content.acceptanceItems.find((row) => row.kind === 'exterior')
-  assert.equal(exterior.images[0].url, 'https://cdn.example.com/finish-front.jpg')
-})
-
-test('落库迁移不得把交车报告摊成编辑袋', () => {
-  const payload = {
-    acceptanceItems: [
-      { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
-      {
-        id: 'exterior',
-        kind: 'exterior',
-        name: '外观',
-        result: 'pass',
-        images: [
-          { url: 'https://cdn.example.com/finish-front.jpg' },
-          { url: 'https://cdn.example.com/finish-side.jpg' },
-        ],
-      },
-    ],
-    workItems: [{ name: '右前门', note: '补漆并更换饰条', amount: 800 }],
-    warrantyPeriod: '12 个月',
-    warrantyNotes: '不含事故损伤',
-    delivererName: '李店长',
-    totalAmount: 800,
-  }
-  const migrated = migrateNodeToSingleContent({
-    id: 'repair_1',
-    kind: 'repair_report',
-    status: 'in_progress',
-    document: {
-      docType: 'repair_report',
-      status: 'pending_confirm',
-      payload,
-    },
-  })
-  const folded = contentOfFlowNode(migrated)
-  assert.equal(folded.workItems.length, 1)
-  assert.equal(folded.workItems[0].partName || folded.workItems[0].name, '右前门')
-  assert.equal(migrated.document.payload && Object.keys(migrated.document.payload).length, 0)
-  const foldedExterior = folded.acceptanceItems.find((row) => row.kind === 'exterior')
-  assert.ok(foldedExterior && foldedExterior.images.length >= 2)
-  assert.equal(Number(folded.totalAmount), 800)
-
-  const view = buildOwnerFlowView(
-    albumWithFlow([
-      migrated,
-      {
-        id: 'work_1',
-        kind: 'work',
-        status: 'completed',
-        content: {
-          findings: [
-            {
-              partName: '右前门',
-              caption: '补漆并更换饰条',
-              images: [{ url: 'https://cdn.example.com/work-door.jpg' }],
-            },
-          ],
-        },
-      },
-    ]),
-    [],
-  )
-  const repair = view.docs.find((row) => row && row.kind === 'repair_report')
-  const work = view.docs.find((row) => row && row.kind === 'work')
-  assert.equal(repair.acceptanceItems.length, 2)
-  assert.equal(repair.acceptanceItems[0].name, '右前门')
-  assert.equal(repair.acceptanceItems[1].name, '外观')
-  assert.equal(repair.acceptanceItems[1].images.length, 2)
-  assert.equal(repair.workItems.length, 1)
-  assert.equal(work.items.length, 1)
-  assert.equal(work.items[0].images.length, 1)
-})
-
 test('信封模式下车主确认：方案在节点 content，确认校验能读到（回归：请至少填写一行方案项目）', () => {
   // 真实序列：商家发送报价后 document.payload 被信封模式清空，方案只留在 content.lines
   const node = {
@@ -545,67 +350,13 @@ test('信封模式下车主确认：方案在节点 content，确认校验能读
     },
     document: { docType: 'quote_confirm', status: 'pending_confirm', payload: {} },
   }
-  const merged = mergeConfirmPayload(node, node.document, {})
+  const merged = mergeConfirmPayload(node, {})
   assert.equal(merged.lines.length, 2)
   assert.deepEqual(collectQuoteConfirmGaps(merged), [])
 
   // 确认动作不改方案内容：前端传来的空编辑行不得盖掉商家方案
-  const mergedWithBlank = mergeConfirmPayload(node, node.document, { lines: [{ name: '', amount: '' }] })
+  const mergedWithBlank = mergeConfirmPayload(node, { lines: [{ name: '', amount: '' }] })
   assert.equal(mergedWithBlank.lines.length, 2)
   assert.deepEqual(collectQuoteConfirmGaps(mergedWithBlank), [])
 })
 
-test('旧册薄报告治愈后再迁移，交车正文仍在', () => {
-  const pkg = {
-    flowVersion: 6,
-    flowNodes: [
-      {
-        id: 'work_1',
-        kind: 'work',
-        status: 'completed',
-        content: {
-          findings: [{ partName: '右前门', caption: '补漆并更换饰条', brand: '原厂' }],
-        },
-      },
-      {
-        id: 'delivery_1',
-        kind: 'delivery_photos',
-        status: 'completed',
-        content: {
-          acceptanceItems: [
-            { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
-            {
-              id: 'exterior',
-              kind: 'exterior',
-              name: '外观',
-              result: 'pass',
-              images: [
-                { url: 'https://cdn.example.com/finish-front.jpg' },
-                { url: 'https://cdn.example.com/finish-side.jpg' },
-              ],
-            },
-          ],
-          warrantyPeriod: '12 个月',
-          warrantyNotes: '不含事故损伤',
-          delivererName: '李店长',
-        },
-      },
-      {
-        id: 'repair_1',
-        kind: 'repair_report',
-        document: {
-          docType: 'repair_report',
-          status: 'pending_confirm',
-          payload: { warrantyPeriod: '12 个月' },
-        },
-      },
-    ],
-  }
-  const { pkg: next, changed } = migrateFlowPackageOnce(pkg)
-  assert.equal(changed, true)
-  const body = contentOfFlowNode(next.flowNodes.find((row) => row.kind === 'repair_report'))
-  const bodyExterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
-  assert.ok(bodyExterior && bodyExterior.images.length >= 1)
-  assert.equal(body.workItems.length, 1)
-  assert.equal(body.workItems[0].partName || body.workItems[0].name, '右前门')
-})

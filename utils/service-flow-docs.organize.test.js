@@ -259,12 +259,14 @@ test('collectConfirmedQuoteNames only keeps confirmed quote lines', () => {
   const names = collectConfirmedQuoteNames([
     {
       kind: 'quote_confirm',
-      document: { status: 'confirmed', payload: { lines: [{ name: '机油' }, { name: '机滤' }] } },
+      content: { lines: [{ name: '机油' }, { name: '机滤' }] },
+      document: { status: 'confirmed' },
     },
     {
       kind: 'quote_confirm',
       insertedReason: 'addon',
-      document: { status: 'draft', payload: { lines: [{ name: '雨刮' }] } },
+      content: { lines: [{ name: '雨刮' }] },
+      document: { status: 'draft' },
     },
   ])
   assert.deepEqual(names, ['机油', '机滤'])
@@ -333,19 +335,21 @@ test('work prior facts carry intake inspection and confirmed quote as text', () 
     [
       {
         kind: 'intake',
-        photoDraft: { chiefComplaint: '漏油', mileageKm: '86500' },
+        content: { chiefComplaint: '漏油', mileageKm: '86500' },
       },
       {
         kind: 'inspection',
-        photoDraft: {
+        content: {
           findings: [{ partName: '机油', result: '需处理', advice: '油已乳化' }],
         },
       },
       {
         kind: 'quote_confirm',
+        content: {
+          lines: [{ name: '更换机油', note: '机油+机滤' }],
+        },
         document: {
           status: 'confirmed',
-          payload: { lines: [{ name: '更换机油', note: '机油+机滤' }] },
         },
       },
     ],
@@ -363,11 +367,12 @@ test('delivery prior facts also carry work items without re-reading photos', () 
     [
       {
         kind: 'quote_confirm',
-        document: { status: 'confirmed', payload: { lines: [{ name: '更换机油' }] } },
+        content: { lines: [{ name: '更换机油' }] },
+        document: { status: 'confirmed' },
       },
       {
         kind: 'work',
-        photoDraft: { findings: [{ partName: '更换机油', caption: '旧机油已放' }] },
+        content: { findings: [{ partName: '更换机油', caption: '旧机油已放' }] },
       },
     ],
     'delivery_photos',

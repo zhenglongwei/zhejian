@@ -118,14 +118,14 @@ function applyAddonInsert(nodes = [], options = {}) {
     status: 'in_progress',
     photos: [],
     note: '',
+    content: {
+      lines: draft.lines,
+      discovery,
+      confirmCopy: QUOTE_CONFIRM_COPY,
+    },
     document: {
       ...emptyDocument('quote_confirm'),
       status: 'draft',
-      payload: {
-        lines: draft.lines,
-        discovery,
-        confirmCopy: QUOTE_CONFIRM_COPY,
-      },
     },
     insertedReason: 'addon',
     parentNodeId: '',

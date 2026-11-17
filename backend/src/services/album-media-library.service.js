@@ -49,7 +49,7 @@ function collectDraftLibraryItems(album, seen) {
   const { readFlowNodesRaw } = require('./service-flow.service')
   const extra = []
   readFlowNodesRaw(album).forEach((node) => {
-    const draft = (node && node.photoDraft) || {}
+    const draft = (node && node.content) || {}
     const stageTitle = KIND_TITLE[node.kind] || node.title || ''
     const meta = { stageId: '', stageTitle }
     const walk = (img) => pushLibraryUrl(extra, seen, img, meta)

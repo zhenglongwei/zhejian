@@ -9,7 +9,7 @@
 - 旧口径：一个节点的业务内容可落在 `node.content`、`node.photoDraft`、`node.document.payload` 三处，读取按 `content → photoDraft → payload` 依次回退。
 - 新口径：**节点业务内容只存 `node.content`**。`node.photoDraft` 与 `node.document.payload` 作为「内容袋」彻底移除；`document` 信封（`docType/status/confirmedAt/confirmedBy/proxyProofImages/sourceNodeIds/contentFingerprint/renderDoc/revisions`）保留不动。
 
-本次只出方案，**不改代码**。
+P1-P4 已于 2026-11-17 实施完成。
 
 ## 2. 影响
 
@@ -85,14 +85,13 @@
 
 验证：新建一条微信归档相册，确认新节点只有 `content` 有值，页面/AI/公网均正常。
 
-### P3 存量折叠 + 归档快照
+### P3 存量折叠 + 归档快照（已取消折叠，2026-11-17）
 
-1. `DRY_RUN=1 node scripts/migrate-flow-content-once.cjs` → 确认 `changed` 数量与第 3 节一致（预发 1、生产 0）。
-2. 正式跑，修掉预发那 1 个 `quote_confirm`。
-3. 跑完再执行一次只读盘点，要求 `content 为空但旧字段有内容 = 0`。
-4. 归档快照：**已定走「实时回填」**。保留并强化 `resolveFactsFlowNodes`（`backend/src/services/content.service.js` L337-353）：快照节点 `content` 为空时按节点 id 从相册当前 `flowNodes` 回填，不重生成已托管快照。P4 把 `flowContentBag` 收窄为只读 `content` 后，这条回填仍必须生效。
+1. ~~`DRY_RUN=1 node scripts/migrate-flow-content-once.cjs`~~：按「旧的不需要保存」口径取消。生产盘点 `content 为空、只能靠旧字段取内容 = 0`，删旧字段不丢内容；预发仅 1 个测试节点依赖 `payload.lines`，随测试数据作废。
+2. 折叠脚本 `backend/scripts/migrate-flow-content-once.cjs` 已随 P4 删除。
+3. 归档快照：**已定走「实时回填」**。保留并强化 `resolveFactsFlowNodes`（`backend/src/services/content.service.js` L337-353）：快照节点 `content` 为空时按节点 id 从相册当前 `flowNodes` 回填，不重生成已托管快照。P4 把 `flowContentBag` 收窄为只读 `content` 后，这条回填仍必须生效。
 
-### P4 删字段（破坏性，需单独发版）
+### P4 删字段（已完成，2026-11-17）
 
 | 文件 | 改动 |
 | --- | --- |
@@ -101,9 +100,26 @@
 | `backend/src/services/service-flow.service.js` | `writeNodeContent` 去掉 `patch.photoDraft` 分支与 `delete next.photoDraft`；删 `projectDocumentPayloadFromContent`（死代码）与 `nodeNeedsLegacyFold` / `migrateFlowPackageOnce`；`mapFlowNodeForView` 删 `photoDraft` 键 |
 | 图片引用收集 | `flow-public-media.js` L64-67/L98-100/L123-130、`public-service-flow.js` L129-130、`hosted-public-mask.service.js` L40-41、`album-media-library.service.js` L52、`album-social-card.service.js` L48 |
 | 客户端 | `packageMerchant/pages/album/flow/index.js`：`nodeContentOf`、`applyNodeContent`、`flowContentSave`、`readLocalFlowDraft` 去掉 `photoDraft`；全文变量名改名 |
-| 脚本 | `backend/scripts/migrate-flow-content-once.cjs` 保留到 P3 完成后再删 |
+| 脚本 | `backend/scripts/migrate-flow-content-once.cjs` 已删除（折叠取消） |
 
 前置：**已定不留旧版小程序兼容**。P4 与小程序新版本同批上线：旧版读不到 `photoDraft` 即视为失效，不再返回该别名，也不接受旧写入回退。数据库已备份。
+
+实施结果：
+
+1. 常量层：`emptyPhotoDraft` / `emptyIntakeDraft` 拆为 `emptyNodeContent()`（通用/报告袋）与 `emptyIntakeNodeContent()`（接车袋），不再重名。
+2. 服务端：`deliverFlowDocument` / `updateFlowNode` / 确认与返工链路的业务字段全部读写 `content`；`document` 只保留信封字段；`healFinishReportPackage` 不再从 `document.payload` 回填。
+3. 共享 utils：`buildInspectionReportPayload` / `buildRepairReportPayload` / `pickOdometerSlot` / `foldInspectionPendingDraft` 入参键统一为 `content`。
+4. 商家端流程页：`nodeContentOf` / `applyNodeContent` / `flowContentSave` / `readLocalFlowDraft` 只认 `content`，保存与交车请求不再带 `photoDraft` / `document.payload`。
+5. 商家端助手页：`namedLines(node)` 读 `node.content.lines`；「写入报价单」改发 `content.lines` + 信封 `document.status`。
+6. 共享 `service-flow-addon-insert.js`：补充报价节点写 `content`，`document` 只留信封；`service-flow-docs.js` 的 `buildPriorOrganizeFacts` 去掉未声明的 `payload` 引用。
+7. 旧册一次性迁移相关的 `migrateFlowPackageOnce` / `migrateFlowNodesContent` / `nodeNeedsLegacyFold` 及对应测试已删除；折叠脚本 `migrate-flow-content-once.cjs` 一并删除。
+
+验证：
+
+- `cd backend && node --test`：512 pass / 6 fail，6 条均为 P4 前既有基线失败（`geo-topic-seed`、VIS-03 prompt version、`resolveCaseGeoEditPolicy`、`geo-batch-draft`、`geo-page-generator`、`case-geo-llm-verify`）。
+- `node --test "utils/**/*.test.js"`（共享层）：169 pass / 4 fail，4 条均在 `utils/owner-preview-doc.acceptance.test.js`，断言「交车报告不出验收清单」与 HEAD 实现不符，属既有基线，与本次清理无关。
+- `node --check` 通过：`packageMerchant/pages/album/flow/index.js`、`packageMerchant/pages/assistant/index.js`。
+- 预发健康检查：`/api/v1/health` → `ok: true`。
 
 ## 5. 不删清单
 
@@ -113,15 +129,15 @@
 
 ## 6. 取代
 
-- `docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md` 中「photoDraft / document.payload 作为内容载体」的章节：P4 合入时标注「已废止，见本文」。
-- `docs/11_数据结构与状态机/02_核心数据对象.md` 中三袋并存的字段说明：同上。
+- `docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md` §1.0 前后「photoDraft 别名」、§6.1 别名行与工厂约定、§6.2 旧名：已标注「已废止，见本文」。
+- `docs/11_数据结构与状态机/02_核心数据对象.md` §7.1 `photoDraft` 别名行、§7.3 旧名：同上。
 
 ## 7. 回滚
 
 | 阶段 | 回滚方式 |
 | --- | --- |
 | P1 / P2 | 代码回滚即可，数据结构未变 |
-| P3 | 迁移前备份 `album.content_package_json`；迁移脚本只做合并，可从备份还原 |
+| P3 | 已取消；如需恢复旧字段，用上线前数据库备份还原 `album.content_package_json` |
 | P4 | 需回滚代码 + 用 P3 前备份恢复 JSON 列；旧版小程序按已定口径不再兼容，回滚期间需同步回退小程序版本 |
 
 ## 8. 已定决策（2026-11-17）

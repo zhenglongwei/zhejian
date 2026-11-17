@@ -89,11 +89,7 @@ function resolveMileageKm({ vehicle, flowNodes }) {
   const draft = intake ? contentOfFlowNode(intake) : {}
   const report = findFlow(flowNodes, 'inspection_report')
   const reportContent = report ? contentOfFlowNode(report) : {}
-  // content 归一化不保留生成字段 mileageText，仅这一项回退报告 payload
-  const reportPayload = report && report.document && report.document.payload
-  const reportMileageText =
-    text(reportContent.mileageText) ||
-    (reportPayload && typeof reportPayload === 'object' ? text(reportPayload.mileageText) : '')
+  const reportMileageText = text(reportContent.mileageText)
   return (
     text(draft.mileageKm) ||
     text(vehicle && (vehicle.mileage || vehicle.mileageKm)) ||

@@ -331,8 +331,8 @@ function flowContentBag(node) {
 }
 
 /**
- * 公网档案单据链：优先归档快照；早期快照没冻结 content（只有 photoDraft/payload），
- * 节点缺文字时按 id 从相册当前 flowNodes 回填空的 content。图与单据状态仍以归档快照为准。
+ * 公网档案单据链：优先归档快照；节点缺文字时按 id 从相册当前 flowNodes 回填空的 content。
+ * 图与单据状态仍以归档快照为准。
  */
 function resolveFactsFlowNodes(archiveSnap, album) {
   const archive =

@@ -89,11 +89,11 @@ test('buildCaseTrustMeta 按单据链画像升级证据分级', () => {
     complianceStatus: 'passed',
     contentPackageJson: {
       flowNodes: [
-        { id: 'n1', kind: 'intake_inspection', document: { status: 'confirmed', payload: { chiefComplaint: '右前门划痕' } } },
-        { id: 'n2', kind: 'inspection_report', document: { status: 'confirmed', payload: { findings: [{ partName: '右前门漆面', result: '需处理', advice: '补漆', images: [{ url: '/i.jpg' }] }] } } },
-        { id: 'n3', kind: 'quote_confirm', document: { status: 'confirmed', payload: { lines: [{ name: '右前门补漆' }] } } },
-        { id: 'n4', kind: 'work', photoDraft: { findings: [{ partName: '右前门', url: '/w1.jpg' }] }, document: { status: 'confirmed', payload: { workItems: [{ partName: '右前门补漆' }] } } },
-        { id: 'n5', kind: 'repair_report', document: { status: 'confirmed', payload: { conclusion: '完成', warrantyPeriod: '3个月', acceptanceItems: [{ id: 'acc_1', kind: 'work', name: '补漆', result: 'pass', images: [{ url: '/a1.jpg' }, { url: '/a2.jpg' }] }] } } },
+        { id: 'n1', kind: 'intake_inspection', content: { chiefComplaint: '右前门划痕' }, document: { status: 'confirmed' } },
+        { id: 'n2', kind: 'inspection_report', content: { findings: [{ partName: '右前门漆面', result: '需处理', advice: '补漆', images: [{ url: '/i.jpg' }] }] }, document: { status: 'confirmed' } },
+        { id: 'n3', kind: 'quote_confirm', content: { lines: [{ name: '右前门补漆' }] }, document: { status: 'confirmed' } },
+        { id: 'n4', kind: 'work', content: { findings: [{ partName: '右前门', url: '/w1.jpg' }], workItems: [{ partName: '右前门补漆' }] }, document: { status: 'confirmed' } },
+        { id: 'n5', kind: 'repair_report', content: { conclusion: '完成', warrantyPeriod: '3个月', acceptanceItems: [{ id: 'acc_1', kind: 'work', name: '补漆', result: 'pass', images: [{ url: '/a1.jpg' }, { url: '/a2.jpg' }] }] }, document: { status: 'confirmed' } },
       ],
     },
   }

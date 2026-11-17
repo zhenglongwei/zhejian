@@ -3,8 +3,8 @@ const assert = require('node:assert/strict')
 const { assessCaseEvidenceProfile } = require('./case-evidence-profile')
 const { resolveEvidenceLevel } = require('../schemas/case-trust-meta.schema')
 
-function node(kind, payload, extra = {}) {
-  return { id: `node_${kind}`, kind, document: { status: 'confirmed', payload }, ...extra }
+function node(kind, content, extra = {}) {
+  return { id: `node_${kind}`, kind, content, document: { status: 'confirmed' }, ...extra }
 }
 
 function fullFlowNodes() {
@@ -22,9 +22,8 @@ function fullFlowNodes() {
     node('quote_confirm', {
       lines: [{ name: '右前门局部补漆' }],
     }),
-    node('work', {}, {
-      photoDraft: { findings: [{ partName: '右前门', url: '/p/work1.jpg' }] },
-      document: { status: 'confirmed', payload: { workItems: [{ partName: '右前门局部补漆' }] } },
+    node('work', { findings: [{ partName: '右前门', url: '/p/work1.jpg' }] }, {
+      document: { status: 'confirmed' },
     }),
     node('repair_report', {
       conclusion: '补漆完成',
@@ -49,7 +48,7 @@ test('证据画像：五环节定稿 + 多环节图证', () => {
 })
 
 function contentNode(kind, content, extra = {}) {
-  return { id: `node_${kind}`, kind, content, document: { status: 'confirmed', payload: {} }, ...extra }
+  return { id: `node_${kind}`, kind, content, document: { status: 'confirmed' }, ...extra }
 }
 
 test('证据画像：content-only 节点同样计入定稿与图证', () => {

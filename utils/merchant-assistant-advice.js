@@ -44,7 +44,7 @@ function editableQuote(nodes) {
 }
 
 function linesOf(node) {
-  const lines = node && node.document && node.document.payload && node.document.payload.lines
+  const lines = node && node.content && node.content.lines
   return Array.isArray(lines) ? lines : []
 }
 

@@ -944,13 +944,9 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = 
   const capability = await resolveCapabilityForMerchant(merchantId)
   if (!capability.entitled) return null
   const quoteLines =
-    (payload.quote && payload.quote.payload && payload.quote.payload.lines) || []
+    (payload.quote && payload.quote.content && payload.quote.content.lines) || []
   const incomingContent =
-    (payload.content && typeof payload.content === 'object' && payload.content) ||
-    (payload.photoDraft && typeof payload.photoDraft === 'object' && payload.photoDraft) ||
-    (payload.document && payload.document.payload && typeof payload.document.payload === 'object'
-      ? payload.document.payload
-      : {})
+    (payload.content && typeof payload.content === 'object' && payload.content) || {}
   const mergedNode = {
     ...node,
     content: { ...contentOfFlowNode(node), ...incomingContent },

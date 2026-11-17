@@ -17,11 +17,16 @@ function nodes() {
       kind: 'intake',
       sortOrder: 1,
       status: 'done',
-      photoDraft: {
+      content: {
         chiefComplaint: '地面有油迹',
         odometerUrl: 'https://img/odo.jpg',
         fuelReading: '约 45%',
         intakeResults: [{ category: 'belongings', reading: '钥匙 1 把' }],
+        pendingImages: [
+          { url: 'https://img/odo.jpg' },
+          { url: 'https://img/front.jpg', caption: '左前' },
+          { url: 'https://img/tire.jpg', caption: '轮胎' },
+        ],
       },
       previewImages: [
         { url: 'https://img/odo.jpg' },
@@ -35,22 +40,22 @@ function nodes() {
       kind: 'inspection',
       sortOrder: 2,
       status: 'done',
-      photoDraft: { findings: [] },
+      content: { findings: [] },
     },
     {
       id: 'rep',
       kind: 'inspection_report',
       sortOrder: 3,
       status: 'done',
+      content: {
+        findings: [
+          { partName: '气门室盖', result: FINDING_RESULT.ACTION, advice: '渗油' },
+          { partName: '制动片', result: FINDING_RESULT.WATCH, advice: '偏薄' },
+          { partName: '轮胎', result: FINDING_RESULT.OK, advice: '正常' },
+        ],
+      },
       document: {
         status: 'confirmed',
-        payload: {
-          findings: [
-            { partName: '气门室盖', result: FINDING_RESULT.ACTION, advice: '渗油' },
-            { partName: '制动片', result: FINDING_RESULT.WATCH, advice: '偏薄' },
-            { partName: '轮胎', result: FINDING_RESULT.OK, advice: '正常' },
-          ],
-        },
       },
     },
     {
@@ -58,14 +63,14 @@ function nodes() {
       kind: 'quote_confirm',
       sortOrder: 4,
       status: 'done',
+      content: {
+        lines: [
+          { name: '气门室盖垫', brand: '原厂', amount: 1680 },
+          { name: '工时', amount: 600 },
+        ],
+      },
       document: {
         status: 'confirmed',
-        payload: {
-          lines: [
-            { name: '气门室盖垫', brand: '原厂', amount: 1680 },
-            { name: '工时', amount: 600 },
-          ],
-        },
       },
     },
     {
@@ -73,7 +78,7 @@ function nodes() {
       kind: 'work',
       sortOrder: 5,
       status: 'active',
-      photoDraft: { findings: [{ partName: '拆饰板', result: FINDING_RESULT.OK, advice: '' }] },
+      content: { findings: [{ partName: '拆饰板', result: FINDING_RESULT.OK, advice: '' }] },
       previewImages: [{ url: 'https://img/work.jpg' }],
     },
     {
@@ -81,7 +86,7 @@ function nodes() {
       kind: 'repair_report',
       sortOrder: 6,
       status: 'locked',
-      document: { status: '', payload: {} },
+      document: { status: '' },
     },
   ]
 }
@@ -105,7 +110,7 @@ test('检测还在填写时，标题按本步已标需处理的项来数', () =>
   list[1] = {
     ...list[1],
     status: 'in_progress',
-    photoDraft: {
+    content: {
       findings: [
         { partName: '下摆臂', result: FINDING_RESULT.ACTION, advice: '胶套裂' },
         { partName: '轮胎', result: FINDING_RESULT.OK, advice: '正常' },
@@ -115,7 +120,8 @@ test('检测还在填写时，标题按本步已标需处理的项来数', () =>
   list[2] = {
     ...list[2],
     status: 'pending',
-    document: { status: 'draft', payload: {} },
+    content: {},
+    document: { status: 'draft' },
   }
   const board = buildMerchantStageBoard(album(), list, 'inspect')
   assert.equal(board.inspect.headline, '发现 1 项异常')
@@ -169,14 +175,14 @@ test('交车大步从节点 content 读出质保与交付人（不依赖空 payl
       warrantyPeriod: '1 年',
       delivererName: '李师傅',
     },
-    document: { status: 'pending_confirm', payload: {} },
+    document: { status: 'pending_confirm' },
   }
   const finish = buildMerchantStageBoard(album(), list, 'finish')
   assert.equal(finish.finish.warranty, '1 年')
   assert.equal(finish.finish.delivererName, '李师傅')
 })
 
-test('空的补充报价不占导航，正在看这张单时才出现', () => {
+test('补充报价节点存在即占导航，未撤销前一直显示', () => {
   const list = nodes()
   list.splice(5, 0, {
     id: 'addon-blank',
@@ -184,10 +190,11 @@ test('空的补充报价不占导航，正在看这张单时才出现', () => {
     sortOrder: 5.5,
     insertedReason: 'addon',
     status: 'in_progress',
-    document: { status: 'draft', payload: { lines: [{ name: '' }], discovery: { images: [], note: '' } } },
+    content: { lines: [{ name: '' }], discovery: { images: [], note: '' } },
+    document: { status: 'draft' },
   })
   const finish = buildMerchantStageBoard(album(), list, 'finish')
-  assert.equal(finish.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,交车')
+  assert.equal(finish.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,补充报价,交车')
   const editing = buildMerchantStageBoard(album(), list, 'quote:1')
   assert.equal(editing.tabs.map((tab) => tab.short).join(','), '接车,检测,报价,施工,补充报价,交车')
   assert.equal(editing.tabs.find((tab) => tab.short === '补充报价').mark, 'on')
@@ -204,12 +211,12 @@ test('补充报价单独占一格，施工图留在原来的施工', () => {
       sortOrder: 5.5,
       insertedReason: 'addon',
       status: 'in_progress',
+      content: {
+        lines: [{ name: '下摆臂胶套', amount: 0 }],
+        discovery: { note: '胶套开裂', images: ['https://img/new.jpg'] },
+      },
       document: {
         status: 'draft',
-        payload: {
-          lines: [{ name: '下摆臂胶套', amount: 0 }],
-          discovery: { note: '胶套开裂', images: ['https://img/new.jpg'] },
-        },
       },
     },
     {
@@ -218,7 +225,7 @@ test('补充报价单独占一格，施工图留在原来的施工', () => {
       sortOrder: 5.6,
       status: 'locked',
       insertedReason: 'addon',
-      photoDraft: { findings: [] },
+      content: { findings: [] },
     },
   )
   const quote = buildMerchantStageBoard(album(), list, 'quote:1')
@@ -242,12 +249,12 @@ test('补充报价单独占一格，施工图留在原来的施工', () => {
 
 test('发出后的检测和报价仍打开原来的表', () => {
   const sent = [
-    { id: 'ins', kind: 'inspection', sortOrder: 1, photoDraft: { findings: [{ partName: '下摆臂' }] } },
+    { id: 'ins', kind: 'inspection', sortOrder: 1, content: { findings: [{ partName: '下摆臂' }] } },
     { id: 'rep', kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered' } },
     { id: 'q', kind: 'quote_confirm', sortOrder: 3, document: { status: 'pending_confirm' } },
   ]
   assert.equal(stageReviewForm({ family: 'inspect' }, null, sent), true)
   assert.equal(stageEditorNode({ family: 'inspect' }, sent[1], sent).id, 'ins')
   assert.equal(stageReviewForm({ family: 'quote' }, sent[2], sent), true)
-  assert.equal(stageReviewForm({ family: 'quote' }, { document: { status: 'draft' } }, sent), false)
+  assert.equal(stageReviewForm({ family: 'quote' }, { document: { status: 'draft' } }, sent), true)
 })

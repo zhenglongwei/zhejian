@@ -8,14 +8,12 @@ const MASK = 'https://cdn.example.com/files/uploads/desensitized/out.jpg'
 test('公网完工章：acceptanceItems 一张清单，外观末行（含建议观察）', () => {
   const flow = buildPublicServiceFlow({
     flowNodes: [
-      { id: 'a', kind: 'intake_inspection', sortOrder: 0, photoDraft: {} },
+      { id: 'a', kind: 'intake_inspection', sortOrder: 0, content: {} },
       {
         id: 'c',
         kind: 'repair_report',
         sortOrder: 1,
-        document: {
-          status: 'owner_confirmed',
-          payload: {
+        content: {
             acceptanceItems: [
               { id: 'a1', kind: 'work', name: '制动踏板回弹', note: '实车试踩回弹正常', result: 'pass' },
               { id: 'a2', kind: 'work', name: '修复面色差', note: '自然光下仍有轻微色差', result: 'observe' },
@@ -29,6 +27,9 @@ test('公网完工章：acceptanceItems 一张清单，外观末行（含建议�
               },
             ],
           },
+        document: {
+          status: 'owner_confirmed',
+          
         },
       },
     ],
@@ -48,17 +49,18 @@ test('公网完工章：acceptanceItems 一张清单，外观末行（含建议�
 test('公网完工章：旧 acceptance 不再映射（旧数据由迁移脚本搬）', () => {
   const flow = buildPublicServiceFlow({
     flowNodes: [
-      { id: 'a', kind: 'intake_inspection', sortOrder: 0, photoDraft: {} },
+      { id: 'a', kind: 'intake_inspection', sortOrder: 0, content: {} },
       {
         id: 'c',
         kind: 'repair_report',
         sortOrder: 1,
-        document: {
-          status: 'owner_confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptance: { items: [{ project: '刹车片更换', note: '举升复查力矩到位' }] },
           },
+        document: {
+          status: 'owner_confirmed',
+          
         },
       },
     ],

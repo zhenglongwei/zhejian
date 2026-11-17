@@ -26,8 +26,7 @@ function gateNode(nodes, stageKey) {
 }
 
 function packOf(node) {
-  if (node && node.document && node.document.payload) return node.document.payload
-  return (node && node.photoDraft) || {}
+  return (node && node.content) || {}
 }
 
 function isSentStatus(status) {

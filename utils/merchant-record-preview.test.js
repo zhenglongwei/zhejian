@@ -46,7 +46,8 @@ test('预览只用已有记录，不编健康分', () => {
       {
         id: 'report',
         kind: 'inspection_report',
-        document: { status: 'draft', payload: { recordVersions: [{ id: 'rv_1' }], findings: [] } },
+        content: { recordVersions: [{ id: 'rv_1' }], findings: [] },
+        document: { status: 'draft' },
       },
     ],
     'inspect',

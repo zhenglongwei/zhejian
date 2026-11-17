@@ -62,9 +62,6 @@ function collectPublicizableFlowPhotos(album) {
     if (PRIVATE_FLOW_KINDS.has(kind) && !isAddonNode(node)) return
     const refs = []
     collectBagImageRefs(node.content, refs)
-    collectBagImageRefs(node.photoDraft, refs)
-    const payload = node.document && node.document.payload
-    collectBagImageRefs(payload, refs)
     refs.forEach((ref) => {
       const url = String((ref && ref.url) || '').trim()
       // 大模型判为疑似纸质单据：商家未确认前不进公域
@@ -96,8 +93,6 @@ function collectAllFlowPhotos(album) {
     if (!node || typeof node !== 'object') return
     const refs = []
     collectBagImageRefs(node.content, refs)
-    collectBagImageRefs(node.photoDraft, refs)
-    collectBagImageRefs(node.document && node.document.payload, refs)
     refs.forEach((ref) => {
       const url = String((ref && ref.url) || '').trim()
       const key = stripUrlQuery(url)
@@ -120,14 +115,10 @@ function countAllFlowPhotos(album) {
 function buildFlowNodeViews(album) {
   return flowNodesOf(album).map((node, idx) => {
     const kind = String((node && node.kind) || '').trim()
-    const payload =
-      node && node.document && node.document.payload && typeof node.document.payload === 'object'
-        ? node.document.payload
-        : null
     const content =
       node && node.content && typeof node.content === 'object' && Object.keys(node.content).length
         ? node.content
-        : payload || {}
+        : {}
     const note = String((node && node.note) || '').trim()
     return {
       id: String((node && (node.id || node.nodeId)) || `flow_${idx}`),

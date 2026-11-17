@@ -97,13 +97,15 @@ function buildHostedArchiveSnapshot(album = {}, storeSnapshot = null) {
   const confirmedDocs = []
   flowNodes.forEach((node) => {
     const doc = node && node.document
-    if (!doc || doc.status !== 'confirmed' || !doc.payload) return
+    const content =
+      node && node.content && typeof node.content === 'object' ? node.content : {}
+    if (!doc || doc.status !== 'confirmed' || !Object.keys(content).length) return
     confirmedDocs.push({
       nodeId: node.id,
       kind: node.kind,
       confirmedAt: doc.confirmedAt || '',
       confirmedBy: doc.confirmedBy || '',
-      payload: doc.payload,
+      content,
     })
   })
   return {

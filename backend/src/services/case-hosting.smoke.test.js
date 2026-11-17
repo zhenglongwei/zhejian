@@ -34,10 +34,10 @@ function sampleAlbum(extra = {}) {
           kind: 'quote_confirm',
           title: '方案确认',
           status: 'completed',
+          content: { items: [{ name: '前刹车片', amount: 680 }] },
           document: {
             status: 'confirmed',
             confirmedAt: '2026-09-01T00:00:00.000Z',
-            payload: { items: [{ name: '前刹车片', amount: 680 }] },
           },
         },
       ],

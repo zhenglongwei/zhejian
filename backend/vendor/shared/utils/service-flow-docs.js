@@ -281,13 +281,13 @@ function withoutOdometerPhoto(row, odometerUrl) {
   })
 }
 
-function pickOdometerSlot(photoDraft = {}, findings = []) {
+function pickOdometerSlot(content = {}, findings = []) {
   const list = Array.isArray(findings) ? findings : []
-  const draftUrl = String((photoDraft && photoDraft.odometerUrl) || '').trim()
+  const draftUrl = String((content && content.odometerUrl) || '').trim()
   if (draftUrl) {
     return {
       odometerUrl: draftUrl,
-      odometerImageId: String((photoDraft && photoDraft.odometerImageId) || '').trim(),
+      odometerImageId: String((content && content.odometerImageId) || '').trim(),
       findings: list.map((row) => withoutOdometerPhoto(row, draftUrl)).filter(Boolean),
     }
   }
@@ -388,7 +388,7 @@ function workFindingHasPhoto(raw = {}) {
 }
 
 /**
- * 施工发现项：以 photoDraft.findings 为结构真源（含 images[]）；
+ * 施工发现项：以 content.findings 为结构真源（含 images[]）；
  * 无结构时回落为一图一项（存量兼容）。
  */
 function mapWorkFindingRows(images = [], draftFindings = [], options = {}) {
@@ -632,7 +632,7 @@ function matchPendingImage(pending, byKey, rawKey) {
 }
 
 /**
- * 节点唯一内容袋：content（仅写 content，旧 photoDraft / document.payload 已删）。
+ * 节点唯一内容袋：content（仅写 content，旧 content / document.payload 已删）。
  * 报告正文由此派生，禁止再当第二真源维护。
  */
 function normalizeNodeContent(raw = {}) {
@@ -677,6 +677,8 @@ function normalizeNodeContent(raw = {}) {
     delivererName: String(r.delivererName || '').trim(),
     deliveredAt: String(r.deliveredAt || '').trim(),
     deliveryMileage: parseMileageKm(r.deliveryMileage),
+    mileageText: String(r.mileageText || '').trim(),
+    intakeMileageText: String(r.intakeMileageText || '').trim(),
     reworkRecords: normalizeReworkRecords(r.reworkRecords),
     exteriorPhotoWaived: r.exteriorPhotoWaived === true,
     revision: Math.max(0, Math.round(Number(r.revision) || 0)),
@@ -794,6 +796,10 @@ function mergeNodeContent(prev = {}, patch = {}) {
   if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
   if (patch.deliveredAt != null) next.deliveredAt = String(patch.deliveredAt || '').trim()
   if (patch.deliveryMileage != null) next.deliveryMileage = parseMileageKm(patch.deliveryMileage)
+  if (patch.mileageText != null) next.mileageText = String(patch.mileageText || '').trim()
+  if (patch.intakeMileageText != null) {
+    next.intakeMileageText = String(patch.intakeMileageText || '').trim()
+  }
   if (patch.reworkRecords != null) next.reworkRecords = normalizeReworkRecords(patch.reworkRecords)
   if (patch.exteriorPhotoWaived != null) next.exteriorPhotoWaived = patch.exteriorPhotoWaived === true
   if (patch.revision != null) next.revision = Math.max(0, Math.round(Number(patch.revision) || 0))
@@ -916,9 +922,8 @@ function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
 
   ;(flowNodes || []).forEach((node) => {
     const kind = String((node && node.kind) || '')
-    const draft = draftOfFlowNode(node)
+    const draft = contentOfFlowNode(node)
     const doc = (node && node.document && typeof node.document === 'object' && node.document) || {}
-    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
 
     if (includeIntake && (kind === 'intake' || kind === 'intake_inspection')) {
       const records = []
@@ -939,8 +944,8 @@ function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
         if (item) records.push(item)
       })
       facts.intake = compactPriorRow({
-        chiefComplaint: draft.chiefComplaint || payload.chiefComplaint,
-        mileageKm: draft.mileageKm || payload.mileageKm,
+        chiefComplaint: draft.chiefComplaint,
+        mileageKm: draft.mileageKm,
         vehicleBrand: draft.vehicleBrand,
       }) || { records: [] }
       if (records.length) facts.intake.records = records
@@ -948,11 +953,7 @@ function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
 
     if (includeInspection && (kind === 'inspection' || kind === 'inspection_report')) {
       const findings =
-        (Array.isArray(draft.findings) && draft.findings.length
-          ? draft.findings
-          : Array.isArray(payload.findings)
-            ? payload.findings
-            : []) || []
+        (Array.isArray(draft.findings) && draft.findings.length ? draft.findings : []) || []
       findings.forEach((row) => {
         const item = compactPriorRow({
           part: row.partName,
@@ -967,9 +968,9 @@ function buildPriorOrganizeFacts(flowNodes = [], currentKind = '') {
     if (
       includeQuote &&
       (kind === 'quote_confirm' || kind === 'addon_quote_confirm') &&
-      String(doc.status || payload.status || '') === 'confirmed'
+      String(doc.status || '') === 'confirmed'
     ) {
-      const lines = Array.isArray(payload.lines) ? payload.lines : []
+      const lines = Array.isArray(draft.lines) ? draft.lines : []
       lines.forEach((line) => {
         const item = compactPriorRow({
           name: line.name,
@@ -1007,14 +1008,9 @@ function collectConfirmedQuoteLines(flowNodes = []) {
     if (kind !== 'quote_confirm' && kind !== 'addon_quote_confirm') return
     const doc = (node && node.document) || {}
     if (String(doc.status || '') !== 'confirmed') return
-    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : doc
-    // 确认后 payload 会被清成信封，报价行真源在节点 content.lines
+    // 报价行真源在节点 content.lines
     const contentLines = contentOfFlowNode(node).lines
-    const list = Array.isArray(contentLines) && contentLines.length
-      ? contentLines
-      : Array.isArray(payload.lines)
-        ? payload.lines
-        : []
+    const list = Array.isArray(contentLines) ? contentLines : []
     list.forEach((line) => {
       const id = String((line && line.id) || '').trim()
       const name = String((line && line.name) || '').trim()
@@ -1051,7 +1047,7 @@ function collectConfirmedQuoteLinesForWorkNode(flowNodes = [], workNode = {}) {
     if (parent && parent.kind === 'work') return []
     return parent ? collectConfirmedQuoteLines([parent]) : []
   }
-  const content = (work && (work.content || work.photoDraft)) || {}
+  const content = (work && work.content) || {}
   const hasFindings = (Array.isArray(content.findings) ? content.findings : []).some((row) =>
     String((row && row.partName) || '').trim(),
   )
@@ -1324,13 +1320,7 @@ function buildQuoteLedger(flowNodes = []) {
     if (isAddon) addonSeq += 1
     const label = isAddon ? `补充报价${addonSeq}` : '首次报价'
     const contentLines = contentOfFlowNode(node).lines
-    const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : {}
-    const raw = Array.isArray(contentLines) && contentLines.length
-      ? contentLines
-      : Array.isArray(payload.lines)
-        ? payload.lines
-        : []
-    const lines = raw
+    const lines = (Array.isArray(contentLines) ? contentLines : [])
       .map((line) => {
         const name = String((line && line.name) || '').trim()
         if (!name) return null
@@ -1847,36 +1837,36 @@ function buildInspectionReportPayload({
   chiefComplaint = '',
   findings: findingsInput,
   conclusion = '',
-  photoDraft = {},
+  content = {},
 } = {}) {
   // 定稿真源：检测节点草稿 findings（项对象 + 挂图）。不再从旧阶段散图拼项。
   void albumNodes
   const draftFindings =
     Array.isArray(findingsInput) && findingsInput.length
       ? findingsInput
-      : Array.isArray(photoDraft.findings)
-        ? photoDraft.findings
+      : Array.isArray(content.findings)
+        ? content.findings
         : []
   const findings = mapFindingRows([], draftFindings, {
-    odometerUrl: photoDraft.odometerUrl,
+    odometerUrl: content.odometerUrl,
     strictFindings: true,
   })
   return {
-    vehicleBrand: String(photoDraft.vehicleBrand || vehicle.brand || ''),
-    vehicleSeries: String(photoDraft.vehicleSeries || vehicle.series || ''),
+    vehicleBrand: String(content.vehicleBrand || vehicle.brand || ''),
+    vehicleSeries: String(content.vehicleSeries || vehicle.series || ''),
     vehicleYear: String(
-      photoDraft.vehicleYear || vehicle.modelYear || vehicle.year || '',
+      content.vehicleYear || vehicle.modelYear || vehicle.year || '',
     ),
     mileageText:
       formatMileageText(vehicle.mileage || vehicle.mileageKm) ||
-      formatMileageText(photoDraft.mileageKm),
+      formatMileageText(content.mileageKm),
     chiefComplaint: String(
-      chiefComplaint || photoDraft.chiefComplaint || '',
+      chiefComplaint || content.chiefComplaint || '',
     ).trim(),
     reportDate: new Date().toISOString().slice(0, 10),
     findings,
     disclaimer: INSPECTION_DISCLAIMER,
-    conclusion: String(conclusion || photoDraft.conclusion || '').trim(),
+    conclusion: String(conclusion || content.conclusion || '').trim(),
   }
 }
 
@@ -2254,18 +2244,18 @@ function buildRepairReportPayload({
   workItems = [],
   deliveryImages = [],
   warranty = {},
-  photoDraft = {},
+  content = {},
   confirmCopy = '',
   totalAmount = null,
   revision = 0,
   unbuiltItems = [],
   intakeMileageText = '',
 } = {}) {
-  const period = String(warranty.period || photoDraft.warrantyPeriod || '').trim()
+  const period = String(warranty.period || content.warrantyPeriod || '').trim()
   const notes = resolveWarrantyNotes({
-    warrantyNotes: warranty.notes || photoDraft.warrantyNotes,
-    warrantyScope: warranty.scope || photoDraft.warrantyScope,
-    warrantyExclusions: warranty.exclusions || photoDraft.warrantyExclusions,
+    warrantyNotes: warranty.notes || content.warrantyNotes,
+    warrantyScope: warranty.scope || content.warrantyScope,
+    warrantyExclusions: warranty.exclusions || content.warrantyExclusions,
   })
   const items = (workItems || []).map((item) => {
     const images = []
@@ -2299,7 +2289,7 @@ function buildRepairReportPayload({
       ? parseAmount(totalAmount)
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
   // 交车报告里程：交车里程单独成文，不再回退接车里程
-  const deliveryMileageKm = Number(parseMileageKm(photoDraft.deliveryMileage)) || 0
+  const deliveryMileageKm = Number(parseMileageKm(content.deliveryMileage)) || 0
   const mileageText =
     deliveryMileageKm > 0
       ? `交车里程 ${deliveryMileageKm.toLocaleString('zh-CN')} km`
@@ -2318,18 +2308,18 @@ function buildRepairReportPayload({
     // 兼容旧读侧：不再写入空话默认；存量字段置空
     warrantyScope: '',
     warrantyExclusions: '',
-    delivererName: String(photoDraft.delivererName || '').trim(),
+    delivererName: String(content.delivererName || '').trim(),
     // 交付确认信息（2026-11-13）：交车时间、交付里程、返工记录、未施工交代
-    deliveredAt: String(photoDraft.deliveredAt || '').trim(),
-    deliveryMileage: parseMileageKm(photoDraft.deliveryMileage),
-    reworkRecords: normalizeReworkRecords(photoDraft.reworkRecords),
+    deliveredAt: String(content.deliveredAt || '').trim(),
+    deliveryMileage: parseMileageKm(content.deliveryMileage),
+    reworkRecords: normalizeReworkRecords(content.reworkRecords),
     unbuiltQuoteItems: normalizeUnbuiltQuoteItems(unbuiltItems),
     revision: Number.isFinite(Number(revision)) ? Math.max(0, Math.round(Number(revision))) : 0,
     // 外观照豁免留痕透传：读侧（车主/公开页）据此标注「商家未留外观照」
-    exteriorPhotoWaived: photoDraft.exteriorPhotoWaived === true,
-    finishedAt: String(photoDraft.finishedAt || '').trim(),
+    exteriorPhotoWaived: content.exteriorPhotoWaived === true,
+    finishedAt: String(content.finishedAt || '').trim(),
     confirmCopy:
-      String(confirmCopy || photoDraft.confirmCopy || '').trim() ||
+      String(confirmCopy || content.confirmCopy || '').trim() ||
       '本人确认上述施工与交车状态，并知悉质保条款。',
   }
 }
@@ -2533,10 +2523,10 @@ function applyInspectionSuggestion(findings, applyId) {
 }
 
 /** 检测旧的未归组一堆，打开时收成一项。已经挂在项上的图不再收一次。 */
-function foldInspectionPendingDraft(photoDraft = {}) {
-  const pending = normalizePendingImages(photoDraft.pendingImages)
-  const findings = Array.isArray(photoDraft.findings) ? photoDraft.findings.slice() : []
-  if (!pending.length) return { ...photoDraft, findings, pendingImages: [] }
+function foldInspectionPendingDraft(content = {}) {
+  const pending = normalizePendingImages(content.pendingImages)
+  const findings = Array.isArray(content.findings) ? content.findings.slice() : []
+  if (!pending.length) return { ...content, findings, pendingImages: [] }
   const used = new Set()
   findings.forEach((row) => {
     normalizePendingImages(row && row.images).forEach((img) => {
@@ -2559,7 +2549,7 @@ function foldInspectionPendingDraft(photoDraft = {}) {
       }),
     )
   }
-  return { ...photoDraft, findings, pendingImages: [] }
+  return { ...content, findings, pendingImages: [] }
 }
 
 /**

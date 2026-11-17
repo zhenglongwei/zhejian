@@ -126,8 +126,6 @@ function harvestFlowNodeMaskedUrls(lookup, flowNodes) {
   ;(flowNodes || []).forEach((node) => {
     if (!node) return
     if (node.content) harvestBag(node.content)
-    if (node.photoDraft) harvestBag(node.photoDraft)
-    if (node.document && node.document.payload) harvestBag(node.document.payload)
   })
 }
 

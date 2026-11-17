@@ -1257,7 +1257,7 @@ function contextOf(album, extraNotes = {}, options = {}) {
   const delivery = nodes.find((item) => item && item.kind === 'delivery_photos')
   const repair = nodes.find((item) => item && item.kind === 'repair_report')
   const draft = contentOfFlowNode(delivery)
-  const reportPayload = (repair && repair.document && repair.document.payload) || {}
+  const reportPayload = contentOfFlowNode(repair)
   const intakeAdvice = (intake && intake.intakeAdvice) || {}
   const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
   const workAdvice = (workScope.find((item) => item.workAdvice) || {}).workAdvice || {}

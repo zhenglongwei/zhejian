@@ -23,16 +23,18 @@ test('施工中的详情用真实车牌和五张单据', () => {
     },
     [
       node({ kind: 'intake', sortOrder: 0, photoCount: 4 }),
-      node({ kind: 'inspection', sortOrder: 1, photoDraft: { findings: [{ result: '状态良好' }, { result: '需处理' }] } }),
+      node({ kind: 'inspection', sortOrder: 1, content: { findings: [{ result: '状态良好' }, { result: '需处理' }] } }),
       node({
         kind: 'inspection_report',
         sortOrder: 2,
-        document: { status: 'delivered', payload: { findings: [{ result: '状态良好' }, { result: '需处理' }] } },
+        content: { findings: [{ result: '状态良好' }, { result: '需处理' }] },
+        document: { status: 'delivered' },
       }),
       node({
         kind: 'quote_confirm',
         sortOrder: 3,
-        document: { status: 'confirmed', payload: { lines: [{ amount: 2860 }] } },
+        content: { lines: [{ amount: 2860 }] },
+        document: { status: 'confirmed' },
       }),
       node({
         id: 'work',
@@ -40,7 +42,7 @@ test('施工中的详情用真实车牌和五张单据', () => {
         sortOrder: 4,
         status: 'in_progress',
         photoCount: 4,
-        photoDraft: { findings: [{ partName: '气门室盖垫' }] },
+        content: { findings: [{ partName: '气门室盖垫' }] },
         previewImages: [{ url: 'https://example.com/a.jpg', caption: '施工前' }],
       }),
       node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 5, status: 'locked' }),
@@ -50,7 +52,7 @@ test('施工中的详情用真实车牌和五张单据', () => {
   )
   assert.equal(view.plate, '粤B·7K52M')
   assert.equal(view.pill.text, '施工中')
-  assert.equal(view.vehicleName, '宝马 3系')
+  assert.equal(view.vehicleName, '宝马 3系 2021款')
   assert.equal(view.spec, '2021款 · 里程 68,420 km')
   assert.match(view.meta, /137 \*\*\*\* 2021/)
   assert.deepEqual(
@@ -65,16 +67,17 @@ test('施工中的详情用真实车牌和五张单据', () => {
   assert.equal(view.timelineRows.map((row) => row.title).join(','), '接车建档,全面检测,首次报价,维修施工,完工交车')
 })
 
-test('空的补充报价不出现在全过程留证，写了项目才留下', () => {
+test('补充报价节点存在即出现在全过程留证，只有撤销才移除', () => {
   const album = { vehicle: { plate: '粤B7K52M', brand: '宝马', series: '3系' } }
   const base = [
     node({ kind: 'intake', sortOrder: 0, photoCount: 3 }),
     node({ kind: 'inspection', sortOrder: 1 }),
-    node({ kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered', payload: {} } }),
+    node({ kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered' } }),
     node({
       kind: 'quote_confirm',
       sortOrder: 3,
-      document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+      content: { lines: [{ name: '下摆臂胶套', amount: 1400 }] },
+      document: { status: 'confirmed' },
     }),
     node({
       id: 'work',
@@ -82,7 +85,7 @@ test('空的补充报价不出现在全过程留证，写了项目才留下', ()
       sortOrder: 4,
       status: 'in_progress',
       photoCount: 9,
-      photoDraft: { findings: [{ partName: '下摆臂胶套' }] },
+      content: { findings: [{ partName: '下摆臂胶套' }] },
     }),
     node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 6, status: 'locked' }),
     node({ id: 'repair', kind: 'repair_report', sortOrder: 7, status: 'locked' }),
@@ -95,12 +98,17 @@ test('空的补充报价不出现在全过程留证，写了项目才留下', ()
       sortOrder: 5,
       status: 'in_progress',
       insertedReason: 'addon',
-      document: { status: 'draft', payload: { lines: [{ name: '' }], discovery: { images: [], note: '' } } },
+      content: { lines: [{ name: '' }], discovery: { images: [], note: '' } },
+      document: { status: 'draft' },
     }),
     ...base.slice(5),
   ])
-  assert.equal(blank.timelineRows.map((row) => row.title).join(','), '接车建档,全面检测,首次报价,维修施工,完工交车')
+  assert.equal(
+    blank.timelineRows.map((row) => row.title).join(','),
+    '接车建档,全面检测,首次报价,维修施工,补充报价,完工交车',
+  )
   assert.equal(blank.timelineRows[3].mark, '进行中')
+  assert.equal(blank.timelineRows[4].title, '补充报价')
   assert.equal(blank.timelineRows[4].index, 5)
   assert.equal(blank.action, '补充施工记录')
   const named = buildMerchantAlbumOverview(album, [
@@ -111,24 +119,26 @@ test('空的补充报价不出现在全过程留证，写了项目才留下', ()
       sortOrder: 5,
       status: 'in_progress',
       insertedReason: 'addon',
-      document: { status: 'draft', payload: { lines: [{ name: '下摆臂胶套', amount: 380 }] } },
+      content: { lines: [{ name: '下摆臂胶套', amount: 380 }] },
+      document: { status: 'draft' },
     }),
     ...base.slice(5),
   ])
   assert.equal(named.timelineRows.map((row) => row.title).join(','), '接车建档,全面检测,首次报价,维修施工,补充报价,完工交车')
 })
 
-test('施工完成后，空的补充报价不挡住交车', () => {
+test('补充报价节点存在即出现，未撤销前挡住交车', () => {
   const view = buildMerchantAlbumOverview(
     { vehicle: { plate: '粤B7K52M', brand: '宝马', series: '3系' } },
     [
       node({ kind: 'intake', sortOrder: 0, photoCount: 3 }),
       node({ kind: 'inspection', sortOrder: 1 }),
-      node({ kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered', payload: {} } }),
+      node({ kind: 'inspection_report', sortOrder: 2, document: { status: 'delivered' } }),
       node({
         kind: 'quote_confirm',
         sortOrder: 3,
-        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+        content: { lines: [{ name: '下摆臂胶套', amount: 1400 }] },
+      document: { status: 'confirmed' },
       }),
       node({
         id: 'work',
@@ -136,7 +146,7 @@ test('施工完成后，空的补充报价不挡住交车', () => {
         sortOrder: 4,
         status: 'completed',
         photoCount: 9,
-        photoDraft: { findings: [{ partName: '下摆臂胶套' }] },
+        content: { findings: [{ partName: '下摆臂胶套' }] },
       }),
       node({
         id: 'addon',
@@ -144,16 +154,17 @@ test('施工完成后，空的补充报价不挡住交车', () => {
         sortOrder: 5,
         status: 'in_progress',
         insertedReason: 'addon',
-        document: { status: 'draft', payload: { lines: [{ name: '' }] } },
+        content: { lines: [{ name: '' }] },
+        document: { status: 'draft' },
       }),
       node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 6, status: 'locked' }),
       node({ id: 'repair', kind: 'repair_report', sortOrder: 7, status: 'locked' }),
     ],
   )
-  assert.equal(view.timelineRows.find((row) => row.state === 'current').title, '完工交车')
+  assert.equal(view.timelineRows.find((row) => row.state === 'current').title, '补充报价')
   assert.equal(view.timelineRows.find((row) => row.title === '维修施工').mark, '已完成')
-  assert.equal(view.pill.text, '交车中')
-  assert.equal(view.timelineRows.some((row) => row.title === '补充报价'), false)
+  assert.equal(view.pill.text, '进行中')
+  assert.equal(view.timelineRows.some((row) => row.title === '补充报价'), true)
 })
 
 test('单据简要层用真实项目，未确认不盖存证章', () => {
@@ -166,17 +177,21 @@ test('单据简要层用真实项目，未确认不盖存证章', () => {
     node({
       kind: 'inspection_report',
       sortOrder: 2,
+      content: {
+        findings: [{ partName: '气门室盖垫', result: '需处理' }],
+      },
       document: {
         status: 'delivered',
-        payload: { findings: [{ partName: '气门室盖垫', result: '需处理' }] },
       },
     }),
     node({
       kind: 'quote_confirm',
       sortOrder: 3,
+      content: {
+        lines: [{ name: '更换气门室盖垫', amount: 1680 }, { name: '施工服务费', amount: 600 }],
+      },
       document: {
         status: 'draft',
-        payload: { lines: [{ name: '更换气门室盖垫', amount: 1680 }, { name: '施工服务费', amount: 600 }] },
       },
     }),
     node({ id: 'work', kind: 'work', sortOrder: 4, status: 'locked' }),
@@ -212,14 +227,15 @@ test('交车已发给车主时，详情底栏写待客户确认', () => {
         kind: 'quote_confirm',
         sortOrder: 3,
         status: 'completed',
-        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+        content: { lines: [{ name: '下摆臂胶套', amount: 1400 }] },
+      document: { status: 'confirmed' },
       }),
       node({
         id: 'work',
         kind: 'work',
         sortOrder: 4,
         status: 'completed',
-        photoDraft: { findings: [{ partName: '下摆臂胶套' }] },
+        content: { findings: [{ partName: '下摆臂胶套' }] },
       }),
       node({ id: 'delivery', kind: 'delivery_photos', sortOrder: 5, status: 'completed' }),
       node({
@@ -246,7 +262,8 @@ test('时间线只摘这一步自己的分析，交车不借用施工的补拍�
         kind: 'quote_confirm',
         sortOrder: 3,
         status: 'completed',
-        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+        content: { lines: [{ name: '下摆臂胶套', amount: 1400 }] },
+      document: { status: 'confirmed' },
       }),
       node({
         id: 'work',
@@ -258,7 +275,7 @@ test('时间线只摘这一步自己的分析，交车不借用施工的补拍�
           gaps: [{ kind: 'missing', title: '侧裙', body: '报价里的侧裙，施工没有做。' }],
           items: [],
         },
-        photoDraft: { findings: [{ id: 'f1', partName: '下摆臂胶套', caption: '已经更换' }] },
+        content: { findings: [{ id: 'f1', partName: '下摆臂胶套', caption: '已经更换' }] },
       }),
       node({
         id: 'delivery',
@@ -298,7 +315,8 @@ test('已经写上或只是告知的意见不进时间线', () => {
         kind: 'quote_confirm',
         sortOrder: 3,
         status: 'completed',
-        document: { status: 'confirmed', payload: { lines: [{ name: '下摆臂胶套', amount: 1400 }] } },
+        content: { lines: [{ name: '下摆臂胶套', amount: 1400 }] },
+      document: { status: 'confirmed' },
       }),
       node({
         id: 'work',
@@ -310,7 +328,7 @@ test('已经写上或只是告知的意见不进时间线', () => {
           gaps: [],
           items: [{ id: 'f1', partName: '下摆臂胶套', body: '已经更换胶套。' }],
         },
-        photoDraft: { findings: [{ id: 'f1', partName: '下摆臂胶套', caption: '已经更换胶套。' }] },
+        content: { findings: [{ id: 'f1', partName: '下摆臂胶套', caption: '已经更换胶套。' }] },
       }),
       node({
         kind: 'delivery_photos',

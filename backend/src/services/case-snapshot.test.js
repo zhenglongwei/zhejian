@@ -186,7 +186,7 @@ test('mapPublicCaseRow hosted flow uses mask lookup not raw plate photo', () => 
                 id: 'work',
                 kind: 'work',
                 sortOrder: 4,
-                photoDraft: {
+                content: {
                   findings: [{ partName: '右门', caption: '施工', images: [{ url: RAW }] }],
                 },
               },

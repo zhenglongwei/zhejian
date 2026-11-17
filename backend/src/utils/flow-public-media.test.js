@@ -112,12 +112,12 @@ test('补充报价的图可公示，节点视图按 sortOrder 输出并带新发
       sortOrder: 2,
       title: '补充报价',
       status: 'in_progress',
+      content: {
+        lines: [],
+        discovery: { note: '右后轮扎钉', images: ['https://x/tire.jpg'] },
+      },
       document: {
         status: 'pending_confirm',
-        payload: {
-          lines: [],
-          discovery: { note: '右后轮扎钉', images: ['https://x/tire.jpg'] },
-        },
       },
     },
     {

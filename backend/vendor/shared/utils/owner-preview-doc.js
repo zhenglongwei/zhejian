@@ -87,14 +87,10 @@ function workItemsFromFindings(findings = []) {
     .filter((row) => row.name)
 }
 
-/** 报价行真源在节点 content（确认后 document.payload 恒空）；历次报价一起取 */
+/** 报价行真源在节点 content；历次报价一起取 */
 function quoteLinesOfNode(node) {
-  const content = (node && (node.content || node.photoDraft)) || {}
-  const contentLines = Array.isArray(content.lines) ? content.lines : []
-  if (contentLines.length) return contentLines
-  const payload =
-    (node && node.document && node.document.payload) || {}
-  return Array.isArray(payload.lines) ? payload.lines : []
+  const content = (node && node.content) || {}
+  return Array.isArray(content.lines) ? content.lines : []
 }
 
 function quoteTotalsFromNodes(nodes = []) {

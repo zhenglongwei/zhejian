@@ -182,7 +182,7 @@ function canOpenStage(nodes = [], family) {
   return idx <= currentFamilyIndex(nodes)
 }
 
-/** 节点是否禁止商家改写（含 photoDraft / document） */
+/** 节点是否禁止商家改写（含 content / document） */
 function isNodeEditFrozen(nodes = [], node) {
   if (!node) return true
   const family = familyOfKind(node.kind, node)

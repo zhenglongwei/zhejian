@@ -20,7 +20,8 @@ function stamp(item) {
 }
 
 function namedLines(node) {
-  const lines = node && node.document && node.document.payload && node.document.payload.lines
+  const content = (node && node.content) || {}
+  const lines = content.lines
   return (Array.isArray(lines) ? lines : []).filter((line) => String((line && line.name) || '').trim())
 }
 
@@ -140,12 +141,10 @@ Page({
         return
       }
       await updateMerchantFlowNode(card.albumId, card.quoteNodeId, {
-        document: {
-          status: 'draft',
-          payload: {
-            lines: lines.concat([{ name: card.lineName, amount: '', note: card.lineNote || '' }]),
-          },
+        content: {
+          lines: lines.concat([{ name: card.lineName, amount: '', note: card.lineNote || '' }]),
         },
+        document: { status: 'draft' },
       })
       wx.showToast({ title: '已写入报价单', icon: 'none' })
       this.openCard({ ...card, nodeId: card.quoteNodeId })

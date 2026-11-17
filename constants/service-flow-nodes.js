@@ -208,7 +208,7 @@ const STANDARD_FLOW_CHAIN = [
   },
   {
     // 工单＝如实记录施工过程的单据，不是报价派生出来的。
-    // 数据仍由 photoDraft.findings 承载图文，故 nodeCategory 维持 PHOTO，
+    // 数据仍由 content.findings 承载图文，故 nodeCategory 维持 PHOTO，
     // 以免重写拍照步的编辑链路；对外它就是一张单据
     kind: 'work',
     nodeCategory: NODE_CATEGORY.PHOTO,
@@ -280,11 +280,11 @@ function emptyNodeContent() {
 }
 
 /**
- * 接车步草稿工厂
+ * 接车步内容工厂
  * 接车只承载留证：问诊登记 / 里程表+当前里程 / 外观灯光选传。
  * **不承载 findings**（部位与故障判定属于检测节点）
  */
-function emptyNodeContent() {
+function emptyIntakeNodeContent() {
   return {
     chiefComplaint: '',
     mileageKm: '',
@@ -313,7 +313,7 @@ function buildStandardFlowNodes() {
     content:
       meta.nodeCategory === NODE_CATEGORY.PHOTO
         ? meta.kind === 'intake'
-          ? emptyNodeContent()
+          ? emptyIntakeNodeContent()
           : emptyNodeContent()
         : emptyNodeContent(),
     document:
@@ -435,5 +435,6 @@ module.exports = {
   emptyDocument,
   
   emptyNodeContent,
+  emptyIntakeNodeContent,
   newFlowNodeId,
 }

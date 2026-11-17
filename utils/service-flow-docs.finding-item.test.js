@@ -51,7 +51,7 @@ test('定稿只认草稿 findings 挂图，不从旧阶段散图拼项', () => {
         { url: 'https://cdn.example/other/orphan.jpg', caption: '散图' },
       ],
     }],
-    photoDraft: {
+    content: {
       odometerUrl: 'https://cdn.example/media/uploads/odo.jpg',
       findings: [hydraulic],
     },

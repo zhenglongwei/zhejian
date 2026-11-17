@@ -9,36 +9,38 @@ const WORK = 'https://cdn.example.com/files/uploads/desensitized/work.jpg'
 test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额', () => {
   const flow = buildPublicServiceFlow({
     flowNodes: [
-      { id: 'a', kind: 'intake_inspection', sortOrder: 0, photoDraft: {} },
+      { id: 'a', kind: 'intake_inspection', sortOrder: 0, content: {} },
       {
         id: 'b',
         kind: 'inspection_report',
         sortOrder: 1,
-        document: {
-          status: 'delivered',
-          payload: {
+        content: {
             chiefComplaint: '顿挫',
             findings: [{ url: RAW, partName: '阀体', result: '需处理', advice: '更换阀体' }],
           },
+        document: {
+          status: 'delivered',
+          
         },
       },
       {
         id: 'c',
         kind: 'quote_confirm',
         sortOrder: 2,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             lines: [{ name: '阀体', amount: 2800, note: '更换阀体总成' }],
             confirmCopy: '本人同意按上述项目施工',
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
       {
         id: 'e',
         kind: 'work',
         sortOrder: 3,
-        photoDraft: {
+        content: {
           findings: [
             {
               partName: '阀体',
@@ -56,9 +58,7 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             workItems: [{ name: '阀体', amount: 2800 }],
             warrantyPeriod: '12 个月',
             acceptanceItems: [
@@ -71,6 +71,9 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -111,7 +114,7 @@ test('buildPublicServiceFlow 用核对打码图覆盖事实层原图', () => {
         id: 'e',
         kind: 'work',
         sortOrder: 4,
-        photoDraft: {
+        content: {
           findings: [{ partName: '阀体', caption: '施工', images: [{ url: RAW }] }],
         },
       },
@@ -129,9 +132,7 @@ test('交车图经 maskLookup 换成打码图，不回落原图', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -143,6 +144,9 @@ test('交车图经 maskLookup 换成打码图，不回落原图', () => {
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -162,14 +166,15 @@ test('maskLookup 产物 URL 非标准脱敏路径时仍写入映射', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               { id: 'exterior', kind: 'exterior', name: '外观', result: 'pass', images: [{ url: RAW }] },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -187,9 +192,7 @@ test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -201,6 +204,9 @@ test('contentNodes 原图不得覆盖 maskLookup 打码映射', () => {
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -223,7 +229,7 @@ test('工单图与交车图不同原图时互不串码', () => {
         id: 'e',
         kind: 'work',
         sortOrder: 3,
-        photoDraft: {
+        content: {
           findings: [{ partName: '阀体', images: [{ url: WORK_RAW, maskedUrl: WORK_MASK }] }],
         },
       },
@@ -231,9 +237,7 @@ test('工单图与交车图不同原图时互不串码', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -245,6 +249,9 @@ test('工单图与交车图不同原图时互不串码', () => {
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -265,9 +272,7 @@ test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => 
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -279,6 +284,9 @@ test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => 
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -296,15 +304,16 @@ test('托管完工章只读已生成的交车报告', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'pending_confirm',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             warrantyNotes: '不含事故损伤',
             acceptanceItems: [
               { id: 'exterior', kind: 'exterior', name: '外观', result: 'pass', images: [{ url: RAW }] },
             ],
           },
+        document: {
+          status: 'pending_confirm',
+          
         },
       },
     ],
@@ -338,9 +347,10 @@ test('托管完工章：报告为空时不从交车底稿拼', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
+        content: {},
         document: {
           status: 'pending_confirm',
-          payload: {},
+          
         },
       },
     ],
@@ -364,9 +374,10 @@ test('施工中新发现使用产品名', () => {
         kind: 'quote_confirm',
         insertedReason: 'addon',
         sortOrder: 5,
+        content: { lines: [{ name: '垫片', amount: 80, evidenceUrl: WORK }] },
         document: {
           status: 'confirmed',
-          payload: { lines: [{ name: '垫片', amount: 80, evidenceUrl: WORK }] },
+          
         },
       },
     ],
@@ -383,9 +394,7 @@ test('公开页完工章不列项目；质保说明为「无」时不展示', ()
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             workItems: [
               {
                 name: '更换机油机滤',
@@ -395,6 +404,9 @@ test('公开页完工章不列项目；质保说明为「无」时不展示', ()
             warrantyPeriod: '2年',
             warrantyNotes: '无',
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -412,18 +424,19 @@ test('工单说明去掉方括号占位，检测建议不重复部位名', () =>
         id: 'b',
         kind: 'inspection_report',
         sortOrder: 1,
-        document: {
-          status: 'delivered',
-          payload: {
+        content: {
             findings: [{ partName: '滤芯', advice: '滤芯空气滤芯滤纸表面积尘较多' }],
           },
+        document: {
+          status: 'delivered',
+          
         },
       },
       {
         id: 'e',
         kind: 'work',
         sortOrder: 3,
-        photoDraft: {
+        content: {
           findings: [
             {
               partName: '更换机油机滤',
@@ -451,9 +464,7 @@ test('requireDesensitized 时无映射不得回落原图', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -465,6 +476,9 @@ test('requireDesensitized 时无映射不得回落原图', () => {
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -483,14 +497,15 @@ test('requireDesensitized 时有映射只出打码图', () => {
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               { id: 'exterior', kind: 'exterior', name: '外观', result: 'pass', images: [{ url: RAW }] },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],
@@ -518,9 +533,7 @@ test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', 
         id: 'f',
         kind: 'repair_report',
         sortOrder: 6,
-        document: {
-          status: 'confirmed',
-          payload: {
+        content: {
             warrantyPeriod: '12 个月',
             acceptanceItems: [
               {
@@ -532,6 +545,9 @@ test('ok_no_privacy 公开预览可展示原图，不要求复制打码产物', 
               },
             ],
           },
+        document: {
+          status: 'confirmed',
+          
         },
       },
     ],

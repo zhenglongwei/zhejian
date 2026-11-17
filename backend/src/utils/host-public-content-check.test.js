@@ -9,11 +9,11 @@ test('missing mileage and vague complaint become suggestions', () => {
         flowNodes: [
           {
             kind: 'intake_inspection',
-            photoDraft: { chiefComplaint: '定时保养', findings: [] },
+            content: { chiefComplaint: '定时保养', findings: [] },
           },
           {
             kind: 'inspection_report',
-            document: { payload: { chiefComplaint: '定时保养', findings: [] } },
+            content: { chiefComplaint: '定时保养', findings: [] },
           },
         ],
       },
@@ -37,7 +37,7 @@ test('catalog vehicle and qr caption are flagged', () => {
         flowNodes: [
           {
             kind: 'intake_inspection',
-            photoDraft: {
+            content: {
               chiefComplaint: '电瓶亏电打不着',
               mileageKm: '86500',
               findings: [{ partName: '微信码', result: '状态良好', advice: '无需处理' }],
@@ -62,7 +62,7 @@ test('geo summary dump and empty faq are flagged', () => {
         flowNodes: [
           {
             kind: 'intake_inspection',
-            photoDraft: { chiefComplaint: '电瓶亏电打不着', mileageKm: '12000' },
+            content: { chiefComplaint: '电瓶亏电打不着', mileageKm: '12000' },
           },
         ],
       },
@@ -85,7 +85,7 @@ test('complete facts yield no suggestions', () => {
         flowNodes: [
           {
             kind: 'intake_inspection',
-            photoDraft: {
+            content: {
               chiefComplaint: '电瓶亏电打不着',
               mileageKm: '86500',
               findings: [{ partName: '电瓶', result: '需处理', advice: '更换电瓶' }],

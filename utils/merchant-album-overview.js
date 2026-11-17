@@ -34,19 +34,17 @@ function moneyText(amount) {
 
 function quoteAmount(node) {
   const lines =
-    node && node.document && node.document.payload && Array.isArray(node.document.payload.lines)
-      ? node.document.payload.lines
-      : []
+    node && node.content && Array.isArray(node.content.lines) ? node.content.lines : []
   const total = lines.reduce((sum, line) => sum + (Number(line && line.amount) || 0), 0)
   return moneyText(total)
 }
 
 function findingsOf(nodes) {
   const report = nodes.find((node) => node && node.kind === 'inspection_report')
-  const fromDoc = report && report.document && report.document.payload && report.document.payload.findings
+  const fromDoc = report && report.content && report.content.findings
   if (Array.isArray(fromDoc) && fromDoc.length) return fromDoc
   const inspection = nodes.find((node) => node && node.kind === 'inspection')
-  const fromDraft = inspection && inspection.photoDraft && inspection.photoDraft.findings
+  const fromDraft = inspection && inspection.content && inspection.content.findings
   return Array.isArray(fromDraft) ? fromDraft : []
 }
 
@@ -59,7 +57,7 @@ function adviceReady(advice) {
 }
 
 function findingCaption(node, partName, id) {
-  const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const findings = (node.content && node.content.findings) || []
   const name = adviceText(partName)
   const hit = findings.find((row) => {
     if (!row) return false
@@ -94,7 +92,7 @@ function intakeAdviceLine(node) {
 function inspectionAdviceLine(node) {
   const advice = node.inspectionAdvice
   if (!adviceReady(advice)) return ''
-  const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const findings = (node.content && node.content.findings) || []
   const names = new Set(findings.map((row) => adviceText(row && row.partName)).filter(Boolean))
   const shop = Array.isArray(advice.shop) ? advice.shop : []
   const shopHit = shop.find((row) => {
@@ -123,7 +121,7 @@ function quoteAdviceLine(node) {
   const omissions = Array.isArray(advice.omissions) ? advice.omissions : []
   const omission = omissions.map((row) => adviceText(row && (row.body || row.title))).find(Boolean)
   if (omission) return omission
-  const lines = (node.document && node.document.payload && node.document.payload.lines) || []
+  const lines = (node.content && node.content.lines) || []
   const names = new Set(lines.map((row) => adviceText(row && row.name)).filter(Boolean))
   const suggested = Array.isArray(advice.suggestedLines) ? advice.suggestedLines : []
   const pending = suggested.find((row) => {
@@ -151,7 +149,7 @@ function workAdviceLine(node) {
     return adviceText(pending.display) || (name ? `${name}建议描述为：${sentence}` : sentence)
   }
   const groups = Array.isArray(advice.groups) ? advice.groups : []
-  const findings = (node.photoDraft && node.photoDraft.findings) || []
+  const findings = (node.content && node.content.findings) || []
   const group = groups.find((row) => {
     const partName = adviceText(row && row.partName)
     const url = adviceText(row && row.url)
@@ -302,7 +300,7 @@ function rowDetail(bucket, nodes) {
   }
   if (bucket.key.startsWith('work')) {
     const node = bucket.nodes[0]
-    const names = ((node.photoDraft && node.photoDraft.findings) || [])
+    const names = ((node.content && node.content.findings) || [])
       .map((row) => String((row && row.partName) || '').trim())
       .filter(Boolean)
       .slice(0, 2)
@@ -468,19 +466,18 @@ function findingLines(list) {
 }
 
 function briefLines(title, nodes, node) {
-  const payload = (node && node.document && node.document.payload) || {}
-  const draft = (node && node.photoDraft) || {}
+  const content = (node && node.content) || {}
   if (title === '接车报告') {
-    const complaint = String(draft.chiefComplaint || payload.chiefComplaint || '').trim()
-    const belongings = String(draft.belongings || payload.belongings || '').trim()
+    const complaint = String(content.chiefComplaint || '').trim()
+    const belongings = String(content.belongings || '').trim()
     return [complaint ? { name: complaint, amount: '' } : null, belongings ? { name: belongings, amount: '' } : null].filter(Boolean)
   }
   if (title === '检测报告') {
-    const fromDoc = Array.isArray(payload.findings) ? payload.findings : []
+    const fromDoc = Array.isArray(content.findings) ? content.findings : []
     return findingLines(fromDoc.length ? fromDoc : findingsOf(nodes))
   }
-  if (title === '报价单') return pricedLines(payload.lines)
-  if (title === '交车报告') return pricedLines(payload.workItems)
+  if (title === '报价单') return pricedLines(content.lines)
+  if (title === '交车报告') return pricedLines(content.workItems)
   return findingLines(findingsOf([node]))
 }
 
@@ -504,7 +501,7 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
   }
   const nodes = Array.isArray(flowNodes) ? flowNodes : []
   const node = nodes.find((item) => item && item.id && item.id === tile.nodeId) || null
-  const payload = (node && node.document && node.document.payload) || {}
+  const content = (node && node.content) || {}
   const status = String((node && node.document && node.document.status) || '')
   const vehicle = album.vehicle || {}
   const mileage = Number(vehicle.mileage)
@@ -513,7 +510,7 @@ function buildMerchantDocBrief(album = {}, flowNodes = [], title = '') {
   const total = lineTotal(lines)
   const serviceName = String(album.serviceName || '').trim()
   const storeName = String(album.storeName || '').trim()
-  const period = String((payload.warranty && payload.warranty.period) || payload.warrantyPeriod || '').trim()
+  const period = String((content.warranty && content.warranty.period) || content.warrantyPeriod || '').trim()
   const quoteReady = title === '报价单' && lines.length > 0 && lines.every((line) => line.amount)
   const repairReady = title === '交车报告' && lines.length > 0 && Boolean(period)
   const canSend = (status === '' || status === 'draft') && (quoteReady || repairReady)

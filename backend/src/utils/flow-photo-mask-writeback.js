@@ -364,9 +364,6 @@ function collectFlowImageRefs(flowNodes) {
   ;(Array.isArray(flowNodes) ? flowNodes : []).forEach((node) => {
     if (!node || typeof node !== 'object') return
     collectBagImageRefs(node.content, list)
-    collectBagImageRefs(node.photoDraft, list)
-    const payload = node.document && node.document.payload
-    collectBagImageRefs(payload, list)
   })
   return list
 }

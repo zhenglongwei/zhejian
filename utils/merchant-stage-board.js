@@ -35,13 +35,10 @@ function imagesOf(node) {
     .filter((img) => img.url)
 }
 
-/** 节点正文袋：content 真源；兼容旧 photoDraft / document.payload */
+/** 节点正文袋：content 唯一真源 */
 function nodeBag(node) {
   if (!node || typeof node !== 'object') return {}
   if (node.content && typeof node.content === 'object') return node.content
-  if (node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
-  const payload = node.document && node.document.payload
-  if (payload && typeof payload === 'object') return payload
   return {}
 }
 
@@ -59,10 +56,7 @@ function adviceOf(node) {
 
 function findingsOf(node) {
   const bag = nodeBag(node)
-  if (Array.isArray(bag.findings) && bag.findings.length) return bag.findings
-  const payload = node && node.document && node.document.payload
-  const fromDoc = payload && Array.isArray(payload.findings) ? payload.findings : null
-  return fromDoc && fromDoc.length ? fromDoc : []
+  return Array.isArray(bag.findings) ? bag.findings : []
 }
 
 function docStatus(node) {
@@ -107,7 +101,7 @@ function maskedPhone(album = {}) {
 
 function intakeRecord(nodes, album = {}) {
   const photo = firstNode(nodes, ['intake', 'intake_inspection'])
-  const draft = (photo && photo.photoDraft) || {}
+  const draft = (photo && photo.content) || {}
   const photos = []
   const seen = {}
   const pushPhoto = (url, caption) => {
@@ -123,20 +117,6 @@ function intakeRecord(nodes, album = {}) {
     const url = typeof img === 'string' ? img : img && img.url
     pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
   })
-  if (!photos.length) {
-    const doc = (photo && photo.document) || {}
-    const docStatus = String(doc.status || '')
-    const sealed =
-      docStatus === 'pending_confirm' ||
-      docStatus === 'confirmed' ||
-      docStatus === 'delivered'
-    if (sealed && doc.payload && Array.isArray(doc.payload.photos)) {
-      doc.payload.photos.forEach((img) => {
-        const url = typeof img === 'string' ? img : img && img.url
-        pushPhoto(url, typeof img === 'object' ? img.caption || '' : '')
-      })
-    }
-  }
   const all = photos
   const results = Array.isArray(draft.intakeResults) ? draft.intakeResults : []
   const reading = (id) => {
@@ -213,13 +193,13 @@ function inspectRecord(nodes) {
     advice,
     previewNodeId: (report && report.id) || (photo && photo.id) || '',
     inspectorName: String(
-      (photo && photo.photoDraft && photo.photoDraft.inspectorName) ||
-        (report && report.document && report.document.payload && report.document.payload.inspectorName) ||
+      (photo && photo.content && photo.content.inspectorName) ||
+        (report && report.content && report.content.inspectorName) ||
         '',
     ).trim(),
     inspectedAt: String(
-      (photo && photo.photoDraft && photo.photoDraft.inspectedAt) ||
-        (report && report.document && report.document.payload && report.document.payload.inspectedAt) ||
+      (photo && photo.content && photo.content.inspectedAt) ||
+        (report && report.content && report.content.inspectedAt) ||
         '',
     ).trim(),
     empty: !items.length && !advice,
@@ -228,7 +208,7 @@ function inspectRecord(nodes) {
 
 function quoteRecord(nodes) {
   const quote = nodes.find((node) => node && (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm'))
-  const payload = (quote && quote.document && quote.document.payload) || {}
+  const payload = nodeBag(quote)
   const lines = (Array.isArray(payload.lines) ? payload.lines : [])
     .map((line) => {
       const name = String((line && line.name) || '').trim()
@@ -295,9 +275,9 @@ function workRecord(nodes, addonNodes) {
     })
     .filter(Boolean)
   const addon = addonNodes.find((node) => node && node.kind === 'addon_quote_confirm' && docStatus(node) !== 'cancelled')
-  const addonPayload = (addon && addon.document && addon.document.payload) || {}
+  const addonPayload = nodeBag(addon)
   const addonLine = (Array.isArray(addonPayload.lines) ? addonPayload.lines : []).find((line) => String((line && line.name) || '').trim())
-  const discovery = (work && work.photoDraft && work.photoDraft.discovery) || addonPayload.discovery || {}
+  const discovery = (work && work.content && work.content.discovery) || addonPayload.discovery || {}
   const faultName = String((addonLine && addonLine.name) || discovery.note || '').trim()
   const faultAmount = money(addonLine && addonLine.amount)
   const fault = faultName
@@ -314,7 +294,7 @@ function workRecord(nodes, addonNodes) {
     tasks,
     fault,
     previewNodeId: (work && work.id) || '',
-    workerName: String((work && work.photoDraft && work.photoDraft.workerName) || '').trim(),
+    workerName: String((work && work.content && work.content.workerName) || '').trim(),
     empty: !tasks.length && !fault && !count,
   }
 }

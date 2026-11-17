@@ -245,7 +245,6 @@ function flowDraftStorageKey(albumId, nodeId) {
 function nodeContentOf(node) {
   if (!node || typeof node !== 'object') return {}
   if (node.content && typeof node.content === 'object') return node.content
-  if (node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
   return {}
 }
 
@@ -295,12 +294,11 @@ function applyNodeContent(node, bag) {
   if (!node || typeof node !== 'object') return
   const next = bag && typeof bag === 'object' ? bag : {}
   node.content = next
-  node.photoDraft = next
 }
 
 function flowContentSave(bag) {
   const next = bag && typeof bag === 'object' ? bag : {}
-  return { content: next, photoDraft: next }
+  return { content: next }
 }
 
 /** 节点验收 rows：只认 acceptanceItems 新结构（旧数据由迁移脚本搬完），并保证有「外观」末行 */
@@ -314,10 +312,7 @@ function acceptanceItemsFromDraft(acc) {
 
 function quoteLinesOf(node) {
   const bag = nodeContentOf(node)
-  const payload = (node && node.document && node.document.payload) || {}
-  const fromContent = Array.isArray(bag.lines) ? bag.lines : []
-  const fromDoc = Array.isArray(payload.lines) ? payload.lines : []
-  return fromContent.length ? fromContent : fromDoc
+  return Array.isArray(bag.lines) ? bag.lines : []
 }
 
 function readLocalFlowDraft(albumId, nodeId) {
@@ -325,9 +320,9 @@ function readLocalFlowDraft(albumId, nodeId) {
   try {
     const raw = wx.getStorageSync(flowDraftStorageKey(albumId, nodeId))
     if (!raw || typeof raw !== 'object') return null
-    const bag = raw.content || raw.photoDraft
+    const bag = raw.content
     if (!bag || typeof bag !== 'object') return null
-    return { savedAt: raw.savedAt, content: bag, photoDraft: bag }
+    return { savedAt: raw.savedAt, content: bag }
   } catch (_) {
     /* ignore */
   }
@@ -356,7 +351,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
   }
   if (!node) return base
   const kind = node.kind || ''
-  const payload = (node.document && node.document.payload) || {}
+  const payload = nodeContentOf(node)
   const summary = base.summary || node.summary || '已完成'
   const storeName = String((album && album.storeName) || '').trim()
   const metaLine = buildSheetMetaLine(payload, album)
@@ -451,8 +446,8 @@ function mapCompletedStepPreview(step, node, album = {}) {
   }
 
   if (kind === 'repair_report') {
-    // 单据预览：payload 可能是信封空壳，正文以节点 content 为准
-    const bag = { ...nodeContentOf(node), ...payload }
+    // 单据预览：正文以节点 content 为准
+    const bag = nodeContentOf(node)
     const workItems = Array.isArray(bag.workItems)
       ? bag.workItems
       : Array.isArray(bag.items)
@@ -812,7 +807,7 @@ Page({
       .filter(Boolean)
   },
 
-  collectMergedWorkDraftFindings(flowNodes = [], activeNode = null, photoDraft = {}) {
+  collectMergedWorkDraftFindings(flowNodes = [], activeNode = null, content = {}) {
     const rows = []
     const urlToIndex = {}
     const reindexRow = (idx) => {
@@ -864,8 +859,8 @@ Page({
       })
       reindexRow(idx)
     }
-    if (Array.isArray(photoDraft && photoDraft.findings)) {
-      return (photoDraft.findings || []).map((raw, index) => normalizeWorkFinding(raw, index))
+    if (Array.isArray(content && content.findings)) {
+      return (content.findings || []).map((raw, index) => normalizeWorkFinding(raw, index))
     }
     const currentId = activeNode && activeNode.id
     ;(flowNodes || []).forEach((node) => {
@@ -991,11 +986,11 @@ Page({
     return Object.keys(byKey).map((k) => byKey[k])
   },
 
-  hydrateIntakePhotos(photoDraft, sections) {
+  hydrateIntakePhotos(content, sections) {
     const first = (sections && sections[0]) || {}
-    let odoUrl = String((photoDraft && photoDraft.odometerUrl) || first.odometerUrl || '').trim()
-    let odoId = String((photoDraft && photoDraft.odometerImageId) || first.odometerImageId || '').trim()
-    const odoReading = ((photoDraft && photoDraft.intakeResults) || []).find(
+    let odoUrl = String((content && content.odometerUrl) || first.odometerUrl || '').trim()
+    let odoId = String((content && content.odometerImageId) || first.odometerImageId || '').trim()
+    const odoReading = ((content && content.intakeResults) || []).find(
       (row) => row && row.category === 'odometer',
     )
     if (!odoUrl && odoReading && odoReading.images && odoReading.images[0]) {
@@ -1022,10 +1017,10 @@ Page({
       })
     }
     ;(first.images || []).forEach((img) => take(img, false))
-    ;((photoDraft && photoDraft.intakeResults) || []).forEach((row) => {
+    ;((content && content.intakeResults) || []).forEach((row) => {
       ;(row && row.images ? row.images : []).forEach((img) => take(img, row.category === 'odometer'))
     })
-    ;((photoDraft && photoDraft.pendingImages) || []).forEach((img) => take(img, false))
+    ;((content && content.pendingImages) || []).forEach((img) => take(img, false))
     return {
       sections: (sections || []).map((row, index) =>
         index === 0
@@ -1035,20 +1030,20 @@ Page({
       odometerUrl: odoUrl,
       odometerImageId: odoId,
       mileageKm: parseMileageKm(
-        (photoDraft && photoDraft.mileageKm) || (odoReading && odoReading.reading) || '',
+        (content && content.mileageKm) || (odoReading && odoReading.reading) || '',
       ),
     }
   },
 
-  buildSections(album, node, photoDraft = {}, flowNodes = []) {
-    const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
-    const strictFindings = Object.prototype.hasOwnProperty.call(photoDraft, 'findings')
+  buildSections(album, node, content = {}, flowNodes = []) {
+    const draftFindings = Array.isArray(content.findings) ? content.findings : []
+    const strictFindings = Object.prototype.hasOwnProperty.call(content, 'findings')
 
     // 接车＝留证：只读节点 content.pendingImages
     if (node && node.kind === 'intake') {
       const meta = SECTION_LABELS.intake
-      const images = this.mapPendingImages(photoDraft.pendingImages)
-      const odoKey = mediaKey(photoDraft.odometerUrl)
+      const images = this.mapPendingImages(content.pendingImages)
+      const odoKey = mediaKey(content.odometerUrl)
       return [
         {
           stageId: 'intake',
@@ -1061,9 +1056,9 @@ Page({
             ? images.filter((img) => mediaKey(img && img.url) !== odoKey)
             : images,
           findings: [],
-          odometerUrl: String(photoDraft.odometerUrl || ''),
-          odometerImageId: String(photoDraft.odometerImageId || ''),
-          walkaround: Array.isArray(photoDraft.walkaround) ? photoDraft.walkaround : [],
+          odometerUrl: String(content.odometerUrl || ''),
+          odometerImageId: String(content.odometerImageId || ''),
+          walkaround: Array.isArray(content.walkaround) ? content.walkaround : [],
         },
       ]
     }
@@ -1072,7 +1067,7 @@ Page({
     if (node && node.kind === 'inspection') {
       const meta = SECTION_LABELS.inspection
       const findings = mapFindingRows([], draftFindings, {
-        pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+        pendingKeys: (content.pendingImages || []).map((img) => img && img.url),
         strictFindings: true,
       })
       return [
@@ -1095,11 +1090,11 @@ Page({
     if (node && node.kind === 'intake_inspection') {
       const meta = SECTION_LABELS.inspection
       const mapped = mapFindingRows([], draftFindings, {
-        odometerUrl: photoDraft.odometerUrl,
-        pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+        odometerUrl: content.odometerUrl,
+        pendingKeys: (content.pendingImages || []).map((img) => img && img.url),
         strictFindings: true,
       })
-      const slot = pickOdometerSlot(photoDraft, mapped)
+      const slot = pickOdometerSlot(content, mapped)
       return [
         {
           stageId: 'inspection',
@@ -1118,10 +1113,10 @@ Page({
 
     if (node && node.kind === 'work') {
       const meta = SECTION_LABELS.work
-      const mergedDraft = this.collectMergedWorkDraftFindings(flowNodes, node, photoDraft)
+      const mergedDraft = this.collectMergedWorkDraftFindings(flowNodes, node, content)
       let findings = mapFindingRows([], mergedDraft, {
         mode: 'work',
-        pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+        pendingKeys: (content.pendingImages || []).map((img) => img && img.url),
         strictFindings,
       })
       const images = this.flattenWorkSectionImages(findings)
@@ -1142,7 +1137,7 @@ Page({
     if (node && node.kind === 'delivery_photos') {
       const meta = SECTION_LABELS.delivery_photos
       const images = []
-      const exteriorRow = resolveAcceptanceItems(photoDraft).find(
+      const exteriorRow = resolveAcceptanceItems(content).find(
         (row) => row.kind === 'exterior',
       )
       ;(exteriorRow ? exteriorRow.images : []).forEach((row) => {
@@ -1299,7 +1294,7 @@ Page({
         kind === 'intake_inspection'
           ? this.data.chiefComplaint
           : String(
-              (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+              (intakeNode && intakeNode.content && intakeNode.content.chiefComplaint) ||
                 this.data.chiefComplaint ||
                 '',
             ).trim(),
@@ -1745,30 +1740,27 @@ Page({
             active.kind === 'delivery_photos'),
       )
       const activeIsDoc = Boolean(active && active.document)
-      // 单据正文在 content；payload 可能只是信封。合并后工作项/简述等才读得到
-      const docPayload = {
-        ...nodeContentOf(active),
-        ...((active && active.document && active.document.payload) || {}),
-      }
-      let photoDraft = { ...nodeContentOf(active) }
+      // 单据正文只在 content
+      const docPayload = { ...nodeContentOf(active) }
+      let content = { ...nodeContentOf(active) }
       if (active && active.id) {
         const local = readLocalFlowDraft(this.albumId, active.id)
-        if (local && (local.content || local.photoDraft)) {
-          const bag = { ...(local.content || local.photoDraft) }
+        if (local && local.content) {
+          const bag = { ...local.content }
           if (
             !normalizePendingImages(bag.pendingImages).length &&
-            normalizePendingImages(photoDraft.pendingImages).length
+            normalizePendingImages(content.pendingImages).length
           ) {
             delete bag.pendingImages
           }
           if (
             !(Array.isArray(bag.acceptanceItems) && bag.acceptanceItems.length) &&
-            Array.isArray(photoDraft.acceptanceItems) &&
-            photoDraft.acceptanceItems.length
+            Array.isArray(content.acceptanceItems) &&
+            content.acceptanceItems.length
           ) {
             delete bag.acceptanceItems
           }
-          photoDraft = { ...photoDraft, ...bag }
+          content = { ...content, ...bag }
         }
       }
       const isIntakePhotoStep = Boolean(
@@ -1808,19 +1800,19 @@ Page({
 
       if (activeIsPhoto && active) {
         if (active.kind === 'inspection') {
-          const pendingBefore = normalizePendingImages(photoDraft.pendingImages).length
-          photoDraft = foldInspectionPendingDraft(photoDraft)
+          const pendingBefore = normalizePendingImages(content.pendingImages).length
+          content = foldInspectionPendingDraft(content)
           if (pendingBefore) this._foldInspectionPending = true
         }
         if (isWorkPhotoStep) {
-          if (normalizePendingImages(photoDraft.pendingImages).length) {
-            photoDraft = { ...photoDraft, pendingImages: [] }
+          if (normalizePendingImages(content.pendingImages).length) {
+            content = { ...content, pendingImages: [] }
             this._parkWorkPending = true
           }
-          photoDraft = {
-            ...photoDraft,
+          content = {
+            ...content,
             findings: seedWorkFindingsFromQuoteLines(
-              photoDraft.findings,
+              content.findings,
               collectConfirmedQuoteLinesForWorkNode(flowNodes, active),
             ),
           }
@@ -1832,44 +1824,42 @@ Page({
             .map((row) => String((row && row.title) || '').trim())
             .filter(Boolean),
         )
-        sections = this.buildSections(album, active, photoDraft, flowNodes)
+        sections = this.buildSections(album, active, content, flowNodes)
         // 主诉 / 环车勾选记在接车步
         if (isIntakePhotoStep) {
-          chiefComplaint = photoDraft.chiefComplaint || ''
-          walkaround = Array.isArray(photoDraft.walkaround) ? photoDraft.walkaround : []
-          const hydrated = this.hydrateIntakePhotos(photoDraft, sections)
+          chiefComplaint = content.chiefComplaint || ''
+          walkaround = Array.isArray(content.walkaround) ? content.walkaround : []
+          const hydrated = this.hydrateIntakePhotos(content, sections)
           sections = hydrated.sections
-          photoDraft = {
-            ...photoDraft,
+          content = {
+            ...content,
             odometerUrl: hydrated.odometerUrl,
             odometerImageId: hydrated.odometerImageId,
-            mileageKm: hydrated.mileageKm || photoDraft.mileageKm,
+            mileageKm: hydrated.mileageKm || content.mileageKm,
             intakeResults: [],
           }
         }
         // findings / 结论记在检测步（结论进检测报告）
         if (isInspectionPhotoStep) {
-          conclusion = photoDraft.conclusion || ''
+          conclusion = content.conclusion || ''
           findings = this.collectFindingsFromSections(sections)
           const intake = flowNodes.find(
             (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
           )
           const intakeDraft = nodeContentOf(intake)
           const intakeLocal = intake && readLocalFlowDraft(this.albumId, intake.id)
-          const intakePayload = (intake && intake.document && intake.document.payload) || {}
           chiefComplaint = String(
             intakeDraft.chiefComplaint ||
-              (intakeLocal && intakeLocal.photoDraft && intakeLocal.photoDraft.chiefComplaint) ||
-              intakePayload.chiefComplaint ||
+              (intakeLocal && intakeLocal.content && intakeLocal.content.chiefComplaint) ||
               '',
           ).trim()
         }
         if (isDeliveryPhotoStep) {
-          warrantyPeriod = String(photoDraft.warrantyPeriod || '').trim()
-          warrantyNotes = resolveWarrantyNotes(photoDraft)
+          warrantyPeriod = String(content.warrantyPeriod || '').trim()
+          warrantyNotes = resolveWarrantyNotes(content)
           confirmCopy =
-            photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
-          acceptanceDraft = photoDraft
+            content.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
+          acceptanceDraft = content
           // 外观已并入验收清单最后一行；旧 archiveCopy / 旧外观照由迁移脚本一次性完成
         }
         const keepKey = this.data.expandedFindingKey
@@ -1938,8 +1928,7 @@ Page({
           const quoteNode = flowNodes.find(
             (n) => n && n.kind === 'quote_confirm' && !n.insertedReason,
           )
-          const quotePayload =
-            (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
+          const quotePayload = nodeContentOf(quoteNode)
           // 报价行只认店员已填内容，规则不再按检测结果预填
           const fromQuote = quoteLinesOf(quoteNode).map((line) => normalizeQuoteLine(line))
           quoteLines = fromQuote.length
@@ -1991,12 +1980,8 @@ Page({
           quoteEvidenceFindings = this.expandQuoteEvidence(findings)
         } else if (active && active.kind === 'quote_confirm') {
           const report = flowNodes.find((n) => n && n.kind === 'inspection_report')
-          const reportFindings =
-            (report &&
-              report.document &&
-              report.document.payload &&
-              report.document.payload.findings) ||
-            []
+          const reportBag = nodeContentOf(report)
+          const reportFindings = Array.isArray(reportBag.findings) ? reportBag.findings : []
           quoteEvidenceFindings = this.expandQuoteEvidence(reportFindings)
           // 报价行只认店员已填内容，规则不再按检测结果预填
           const quoteDraft = buildQuoteDraft({
@@ -2012,7 +1997,7 @@ Page({
         (active && (active.kind === 'delivery_photos' || active.kind === 'repair_report')) ||
         stageKeyOf(stageKeyForBoard || this.data.stageKey) === 'finish'
       ) {
-        const filled = this.deliveryFormFromNodes(album, flowNodes, photoDraft)
+        const filled = this.deliveryFormFromNodes(album, flowNodes, content)
         warrantyPeriod = filled.warrantyPeriod || warrantyPeriod
         warrantyNotes = filled.warrantyNotes || warrantyNotes
         confirmCopy = filled.confirmCopy || confirmCopy
@@ -2040,19 +2025,19 @@ Page({
       const albumVehicle = (album && album.vehicle) || {}
       this._albumMileage = parseMileageKm(albumVehicle.mileage || albumVehicle.mileageKm)
       const mileageKm = isIntakePhotoStep
-        ? parseMileageKm(photoDraft.mileageKm || this.data.mileageKm) || this._albumMileage || ''
-        : parseMileageKm(photoDraft.mileageKm)
+        ? parseMileageKm(content.mileageKm || this.data.mileageKm) || this._albumMileage || ''
+        : parseMileageKm(content.mileageKm)
       const vehicleBrand = isIntakePhotoStep
-        ? String(photoDraft.vehicleBrand || albumVehicle.brand || '').trim()
-        : String(photoDraft.vehicleBrand || '').trim()
+        ? String(content.vehicleBrand || albumVehicle.brand || '').trim()
+        : String(content.vehicleBrand || '').trim()
       const vehicleSeries = isIntakePhotoStep
-        ? String(photoDraft.vehicleSeries || albumVehicle.series || '').trim()
-        : String(photoDraft.vehicleSeries || '').trim()
+        ? String(content.vehicleSeries || albumVehicle.series || '').trim()
+        : String(content.vehicleSeries || '').trim()
       const vehicleYear = isIntakePhotoStep
         ? String(
-            photoDraft.vehicleYear || albumVehicle.modelYear || albumVehicle.year || '',
+            content.vehicleYear || albumVehicle.modelYear || albumVehicle.year || '',
           ).trim()
-        : String(photoDraft.vehicleYear || '').trim()
+        : String(content.vehicleYear || '').trim()
       const vehicleLine = [
         String(albumVehicle.brand || vehicleBrand || '').trim(),
         String(albumVehicle.series || vehicleSeries || '').trim(),
@@ -2180,16 +2165,16 @@ Page({
         aiReview: null,
         sections,
         adviceApplyRows: this.buildAdviceApplyRows(sections, null),
-        pendingImages: isIntakePhotoStep ? [] : normalizePendingImages(photoDraft.pendingImages),
+        pendingImages: isIntakePhotoStep ? [] : normalizePendingImages(content.pendingImages),
         intakePile: isIntakePhotoStep
-          ? this.intakePileFromPending(photoDraft.pendingImages)
+          ? this.intakePileFromPending(content.pendingImages)
           : this.data.intakePile,
         organizingPhotos: false,
         organizeResultHint: '',
-        intakeResults: Array.isArray(photoDraft.intakeResults)
-          ? photoDraft.intakeResults.map((row) => normalizeIntakeResult(row))
+        intakeResults: Array.isArray(content.intakeResults)
+          ? content.intakeResults.map((row) => normalizeIntakeResult(row))
           : [],
-        fuelReading: String(photoDraft.fuelReading || '').trim(),
+        fuelReading: String(content.fuelReading || '').trim(),
         intakeImagePool: [],
         isAppearanceService: ['body_paint', 'accident'].indexOf(placeholders.category) >= 0,
         canUseLibrary: Boolean(isInspectionPhotoStep || isWorkPhotoStep),
@@ -2197,7 +2182,7 @@ Page({
           (isInspectionPhotoStep || isWorkPhotoStep) &&
             sections.some((row) => row && row.findingMode && (row.findings || []).length),
         ),
-        ...this.findingChromePatch(sections, photoDraft.pendingImages),
+        ...this.findingChromePatch(sections, content.pendingImages),
         walkaround,
         walkaroundParts: WALKAROUND_PARTS.map((row) => ({
           ...row,
@@ -2207,20 +2192,20 @@ Page({
         docPayload,
         findings,
         chiefComplaint,
-        ...this.buildClerkFieldData(flowNodes, photoDraft, docPayload, {
+        ...this.buildClerkFieldData(flowNodes, content, docPayload, {
           activeKind: (active && active.kind) || '',
           readOnly: this.data.readOnly,
         }),
         mileageKm,
         deliveryMileage: isDeliveryPhotoStep
           ? String(
-              parseMileageKm(photoDraft.deliveryMileage) ||
+              parseMileageKm(content.deliveryMileage) ||
                 parseMileageKm(this.data.deliveryMileage) ||
                 '',
             )
           : this.data.deliveryMileage,
         exteriorPhotoWaived: isDeliveryPhotoStep
-          ? photoDraft.exteriorPhotoWaived === true
+          ? content.exteriorPhotoWaived === true
           : this.data.exteriorPhotoWaived,
         odometerUrl: isIntakePhotoStep ? String((sections[0] && sections[0].odometerUrl) || '').trim() : '',
         odometerImageId: isIntakePhotoStep
@@ -2660,25 +2645,12 @@ Page({
     const intake = this.intakeNode()
     if (!intake) return
     const draft = nodeContentOf(intake)
-    const photoDraft = this.purgeIntakeDraftPhoto(draft, url)
+    const content = this.purgeIntakeDraftPhoto(draft, url)
     this.setData({ confirming: true })
     try {
-      await this.saveFlowNode(intake.id, flowContentSave(photoDraft))
-      applyNodeContent(intake, photoDraft)
-      // 未确认报告跟节点走（服务端也会 force 对齐）；客户端不维护 previewImages 副本
-      if (intake.document && intake.document.payload && String(intake.document.status || '') !== 'confirmed') {
-        intake.document = {
-          ...intake.document,
-          payload: {
-            ...(intake.document.payload || {}),
-            photos: normalizePendingImages(photoDraft.pendingImages).map((item) => ({
-              url: item.url,
-              ...(item.imageId ? { imageId: item.imageId } : {}),
-            })),
-          },
-        }
-      }
-      this.syncIntakePileFromDraft(photoDraft)
+      await this.saveFlowNode(intake.id, flowContentSave(content))
+      applyNodeContent(intake, content)
+      this.syncIntakePileFromDraft(content)
       if (typeof this.writeLocalFlowDraft === 'function') this.writeLocalFlowDraft()
       if (this.data.intakeAdvice && this.data.intakeAdvice.hasContent) {
         this.setData({
@@ -2703,7 +2675,7 @@ Page({
   nodeDraft(node) {
     const saved = nodeContentOf(node)
     const local = node && readLocalFlowDraft(this.albumId, node.id)
-    const merged = { ...saved, ...((local && (local.content || local.photoDraft)) || {}) }
+    const merged = { ...saved, ...((local && local.content) || {}) }
     const live = this.data.activeNode && node && this.data.activeNode.id === node.id
     if (!live) return merged
     const patch = this.liveClerkDraft(node.kind)
@@ -2726,8 +2698,8 @@ Page({
     const inspectionDraft = this.nodeDraft(inspection)
     const workDraft = this.nodeDraft(work)
     const deliveryDraft = this.nodeDraft(delivery)
-    const reportPayload = (report && report.document && report.document.payload) || {}
-    const repairPayload = (repair && repair.document && repair.document.payload) || {}
+    const reportPayload = nodeContentOf(report)
+    const repairPayload = nodeContentOf(repair)
     const text = (value) => String(value || '').trim()
     return {
       receiverName: text(intakeDraft.receiverName || activeDraft.receiverName),
@@ -2871,12 +2843,10 @@ Page({
       if (status === 'pending_confirm' || status === 'confirmed' || status === 'delivered' || status === 'cancelled') return
       jobs.push(
         this.saveFlowNode(node.id, {
-          document: { status: status || 'draft', payload: patch },
+          content: patch,
+          document: { status: status || 'draft' },
         }).then(() => {
-          node.document = {
-            ...node.document,
-            payload: { ...(node.document.payload || {}), ...patch },
-          }
+          applyNodeContent(node, mergeNodeContent(nodeContentOf(node), patch))
         }),
       )
     }
@@ -2965,11 +2935,11 @@ Page({
     const inspection = nodes.find((node) => node && node.kind === 'inspection')
     const inspectionDraft = this.nodeDraft(inspection)
     const report = nodes.find((node) => node && node.kind === 'inspection_report')
-    const reportPayload = (report && report.document && report.document.payload) || {}
+    const reportPayload = nodeContentOf(report)
     const delivery = nodes.find((node) => node && node.kind === 'delivery_photos')
     const deliveryDraft = this.nodeDraft(delivery)
     const repair = nodes.find((node) => node && node.kind === 'repair_report')
-    const repairPayload = (repair && repair.document && repair.document.payload) || {}
+    const repairPayload = nodeContentOf(repair)
     // 交车报告页眉：接车里程取建档里程，交车里程只认交车节点填的值
     const intakeKm = parseMileageKm(vehicle.mileage)
     const intakeMileageText = intakeKm
@@ -3025,9 +2995,11 @@ Page({
         chiefComplaint: reportPayload.chiefComplaint || intakeDraft.chiefComplaint || this.intakeComplaintText(),
         findings,
         mileageText,
-        quoteLines: ((nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason) || {}).document || {}).payload
-          ? nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason).document.payload.lines
-          : [],
+        quoteLines: (() => {
+          const quoteNode = nodes.find((node) => node && node.kind === 'quote_confirm' && !node.insertedReason)
+          const lines = nodeContentOf(quoteNode).lines
+          return Array.isArray(lines) ? lines : []
+        })(),
         signName: reportPayload.inspectorName || inspectionDraft.inspectorName,
         signAt: formatClerkAtForDoc(
           reportPayload.inspectedAt || inspectionDraft.inspectedAt || this.data.inspectedAt,
@@ -3036,7 +3008,7 @@ Page({
     }
     if (title === '报价单') {
       const quote = nodes.find((node) => node && (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm'))
-      const payload = (quote && quote.document && quote.document.payload) || {}
+      const payload = nodeContentOf(quote)
       const live = this.data.activeKind === 'quote_confirm' || this.data.activeKind === 'addon_quote_confirm'
       return buildOwnerPreviewDoc({
         family: 'quote',
@@ -3054,8 +3026,8 @@ Page({
       const source = this.data.activeKind === 'work' ? this.collectFindingsFromSections() : draft.findings || []
       let workItems = workItemsFromFindings(source)
       if (!workItems.length) {
-        const sealed =
-          (work && work.document && work.document.payload && work.document.payload.workItems) || []
+        const sealedItems = nodeContentOf(work).workItems
+        const sealed = Array.isArray(sealedItems) ? sealedItems : []
         workItems = workItemsFromFindings(
           sealed.map((row) => ({
             partName: (row && (row.partName || row.name)) || '',
@@ -3211,11 +3183,9 @@ Page({
     const intake = this.intakeNode()
     const draft = nodeContentOf(intake)
     const local = intake && readLocalFlowDraft(this.albumId, intake.id)
-    const payload = (intake && intake.document && intake.document.payload) || {}
     return String(
       draft.chiefComplaint ||
-        (local && (local.content || local.photoDraft) && (local.content || local.photoDraft).chiefComplaint) ||
-        payload.chiefComplaint ||
+        (local && local.content && local.content.chiefComplaint) ||
         '',
     ).trim()
   },
@@ -3275,7 +3245,8 @@ Page({
     if (!quiet) this.setData({ confirming: true })
     try {
       await this.saveFlowNode(node.id, {
-        document: { docType: 'intake_confirm', status: 'delivered', payload },
+        content: payload,
+        document: { docType: 'intake_confirm', status: 'delivered' },
       })
       if (!quiet) {
         wx.showToast({ title: '已发给车主', icon: 'success' })
@@ -3318,12 +3289,6 @@ Page({
           receiverName: String(this.data.receiverName || '').trim(),
           receivedAt: String(this.data.receivedAt || '').trim(),
         },
-        photoDraft: {
-          chiefComplaint: fields.complaint,
-          pendingImages: photos,
-          receiverName: String(this.data.receiverName || '').trim(),
-          receivedAt: String(this.data.receivedAt || '').trim(),
-        },
       })
       wx.showToast({ title: '已发给车主', icon: 'success' })
       await this.loadFlow({ silent: true })
@@ -3360,7 +3325,7 @@ Page({
     this.setData({ confirming: true })
     try {
       await proxyConfirmMerchantFlowNode(this.albumId, nodeId, {
-        document: { payload: { confirmCopy: INTAKE_CONFIRM_COPY } },
+        content: { confirmCopy: INTAKE_CONFIRM_COPY },
       })
       wx.showToast({ title: '已代确认', icon: 'success' })
       await this.loadFlow({ silent: true })
@@ -3407,7 +3372,7 @@ Page({
       this.onSendForOwnerConfirm()
       return
     }
-    let payload = (node.document && node.document.payload) || {}
+    let payload = nodeContentOf(node)
     if (key === 'inspect' && activeKind === 'inspection_report') {
       try {
         await this.flushDocDraftSave()
@@ -3422,11 +3387,7 @@ Page({
         (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
       )
       const inspection = (this._flowNodes || []).find((item) => item && item.kind === 'inspection')
-      const fromIntake = String(
-        nodeContentOf(intake).chiefComplaint ||
-          (intake && intake.document && intake.document.payload && intake.document.payload.chiefComplaint) ||
-          '',
-      ).trim()
+      const fromIntake = String(nodeContentOf(intake).chiefComplaint || '').trim()
       const fromPhoto =
         Array.isArray(nodeContentOf(inspection).findings)
           ? nodeContentOf(inspection).findings
@@ -3455,7 +3416,8 @@ Page({
     this.setData({ confirming: true })
     try {
       const sent = await this.saveFlowNode(node.id, {
-        document: { status: nextStatus, payload },
+        content: payload,
+        document: { status: nextStatus },
       })
       if (sent && sent.nextAction === 'ai_review') {
         this.applyInlineAiReview(sent.review, 'notify')
@@ -3620,15 +3582,16 @@ Page({
       return
     }
     const node = (this._flowNodes || []).find((item) => item && item.id === brief.nodeId)
-    const payload = node && node.document && node.document.payload
-    if (!payload) {
+    const payload = node ? nodeContentOf(node) : null
+    if (!payload || !Object.keys(payload).length) {
       wx.showToast({ title: '还不能发给车主', icon: 'none' })
       return
     }
     this.setData({ briefSending: true })
     try {
       await this.saveFlowNode(brief.nodeId, {
-        document: { status: 'pending_confirm', payload },
+        content: payload,
+        document: { status: 'pending_confirm' },
       })
       wx.showToast({ title: '已发送车主', icon: 'success' })
       this.setData({ docBrief: null })
@@ -4121,9 +4084,8 @@ Page({
     })
     if (fromDraft.length) return fromDraft
     const sealed = works.flatMap((node) => {
-      const payload =
-        (node && node.document && node.document.payload) || {}
-      return Array.isArray(payload.workItems) ? payload.workItems : []
+      const bag = nodeContentOf(node)
+      return Array.isArray(bag.workItems) ? bag.workItems : []
     })
     return workItemsFromFindings(
       sealed.map((row) => ({
@@ -4137,22 +4099,22 @@ Page({
     )
   },
 
-  deliveryFormFromNodes(album, flowNodes = [], photoDraft = {}) {
+  deliveryFormFromNodes(album, flowNodes = [], content = {}) {
     const deliveryNode = (flowNodes || []).find((node) => node && node.kind === 'delivery_photos')
     const repairNode = (flowNodes || []).find((node) => node && node.kind === 'repair_report')
     const deliveryDraft = nodeContentOf(deliveryNode)
     const repairDraft = nodeContentOf(repairNode)
     return {
       warrantyPeriod: String(
-        deliveryDraft.warrantyPeriod || photoDraft.warrantyPeriod || repairDraft.warrantyPeriod || '',
+        deliveryDraft.warrantyPeriod || content.warrantyPeriod || repairDraft.warrantyPeriod || '',
       ).trim(),
       warrantyNotes:
         resolveWarrantyNotes(deliveryDraft) ||
-        resolveWarrantyNotes(photoDraft) ||
+        resolveWarrantyNotes(content) ||
         resolveWarrantyNotes(repairDraft),
       confirmCopy:
         deliveryDraft.confirmCopy ||
-        photoDraft.confirmCopy ||
+        content.confirmCopy ||
         REPAIR_CONFIRM_COPY,
     }
   },
@@ -4902,7 +4864,6 @@ Page({
       wx.setStorageSync(flowDraftStorageKey(this.albumId, node.id), {
         savedAt: Date.now(),
         content: this.buildPhotoDraftPayload(),
-        photoDraft: this.buildPhotoDraftPayload(),
       })
     } catch (_) {
       this.setAutoSaveLabel('本机记下失败')
@@ -5082,25 +5043,14 @@ Page({
     if (!node) return
     const body = patch && typeof patch === 'object' ? patch : {}
     const bag =
-      body.content && typeof body.content === 'object'
-        ? body.content
-        : body.photoDraft && typeof body.photoDraft === 'object'
-          ? body.photoDraft
-          : null
+      body.content && typeof body.content === 'object' ? body.content : null
     if (bag) {
       // 与后端 writeNodeContent 保持一致：增量 merge，禁止用局部 patch 覆盖整袋内容
       const merged = mergeNodeContent(nodeContentOf(node), bag)
       applyNodeContent(node, merged)
-      if (node.document) node.document = { ...node.document, payload: merged }
     }
     if (body.document && typeof body.document === 'object') {
       node.document = { ...(node.document || {}), ...body.document }
-      // 只改文档 payload 时，content 与 payload 同源，一并跟上
-      if (!bag && body.document.payload && typeof body.document.payload === 'object') {
-        const merged = mergeNodeContent(nodeContentOf(node), body.document.payload)
-        applyNodeContent(node, merged)
-        if (node.document) node.document = { ...node.document, payload: merged }
-      }
     }
     if (body.status) node.status = body.status
   },
@@ -7527,7 +7477,7 @@ Page({
       const reportPayload = this.buildDocPayloadForSave()
       await this.saveFlowNode(this.data.activeNode.id, {
         ...flowContentSave(reportPayload),
-        document: { status: 'draft', payload: reportPayload },
+        document: { status: 'draft' },
       })
       const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
@@ -7537,7 +7487,7 @@ Page({
           const quotePayload = this.buildQuotePayloadForSave()
           await this.saveFlowNode(quoteNodeId, {
             ...flowContentSave(quotePayload),
-            document: { status: 'draft', payload: quotePayload },
+            document: { status: 'draft' },
           })
         }
       }
@@ -7547,7 +7497,7 @@ Page({
       const quotePayload = this.buildQuotePayloadForSave()
       await this.saveFlowNode(this.data.activeNode.id, {
         ...flowContentSave(quotePayload),
-        document: { status: 'draft', payload: quotePayload },
+        document: { status: 'draft' },
       })
       return
     }
@@ -7555,7 +7505,7 @@ Page({
       const reportPayload = this.buildDocPayloadForSave()
       await this.saveFlowNode(this.data.activeNode.id, {
         ...flowContentSave(reportPayload),
-        document: { status: 'draft', payload: reportPayload },
+        document: { status: 'draft' },
       })
     }
   },
@@ -7624,7 +7574,7 @@ Page({
           kind === 'intake_inspection'
             ? this.data.chiefComplaint
             : String(
-                (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+                (intakeNode && intakeNode.content && intakeNode.content.chiefComplaint) ||
                   this.data.chiefComplaint ||
                   '',
               ).trim(),
@@ -8280,7 +8230,8 @@ Page({
           : this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
         await this.saveFlowNode(quoteNodeId, {
-          document: { status: 'draft', payload: quotePayload },
+          content: quotePayload,
+          document: { status: 'draft' },
           startQuoteAssist: true,
           forceRefresh: force,
         })
@@ -8945,23 +8896,19 @@ Page({
     this.stopAiReviewPoll()
     try {
       await this.saveFlowNode(this.data.activeNode.id, {
-        document: {
-          status: 'draft',
-          payload: reportPayload,
-        },
+        content: reportPayload,
+        document: { status: 'draft' },
       })
       const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
       if (quoteNodeId) {
         await this.saveFlowNode(quoteNodeId, {
-          document: {
-            status: 'draft',
-            payload: quotePayload,
-          },
+          content: quotePayload,
+          document: { status: 'draft' },
         })
       }
       const res = await deliverMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: { payload: reportPayload },
-        quote: { payload: quotePayload },
+        content: reportPayload,
+        quote: { content: quotePayload },
         ...this.buildAiReviewAckExtra(),
       })
       if (res && res.nextAction === 'ai_review') {
@@ -9034,10 +8981,8 @@ Page({
     const nodeId = this.data.activeNode && this.data.activeNode.id
     if (!nodeId) return
     await this.saveFlowNode(nodeId, {
-      document: {
-        status: 'draft',
-        payload: this.buildDocPayloadForSave(),
-      },
+      content: this.buildDocPayloadForSave(),
+      document: { status: 'draft' },
     })
   },
 
@@ -9249,10 +9194,8 @@ Page({
     this.setData({ confirming: true })
     try {
       const sent = await this.saveFlowNode(this.data.activeNode.id, {
-        document: {
-          status: 'pending_confirm',
-          payload: this.buildDocPayloadForSave(),
-        },
+        content: this.buildDocPayloadForSave(),
+        document: { status: 'pending_confirm' },
         ...this.buildAiReviewAckExtra(),
       })
       if (sent && sent.nextAction === 'ai_review') {
@@ -9354,15 +9297,13 @@ Page({
       )
       if (docStatus !== 'pending_confirm') {
         await this.saveFlowNode(this.data.activeNode.id, {
-          document: {
-            status: 'pending_confirm',
-            payload,
-          },
+          content: payload,
+          document: { status: 'pending_confirm' },
         })
       }
       const result = await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         proxyProofImages: this.data.proxyProofImages.map((p) => p.url).filter(Boolean),
-        document: { payload },
+        content: payload,
       })
       const autoDone = Boolean(result && result.albumAutoCompleted)
       wx.showToast({

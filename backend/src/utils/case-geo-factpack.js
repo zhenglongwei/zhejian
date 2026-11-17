@@ -173,13 +173,11 @@ function pickFinish(flowNodes) {
 }
 
 /**
- * 报告里程文案：content 归一化不保留生成字段 mileageText，
- * 因此 content 取不到时只对这一项回退报告 payload。
+ * 报告里程文案：content 归一化会保留 mileageText。
  */
 function reportMileageText(node) {
-  const payload = node && node.document && node.document.payload
-  if (!payload || typeof payload !== 'object') return ''
-  return String(payload.mileageText || '').trim()
+  const content = contentOfFlowNode(node)
+  return String(content.mileageText || '').trim()
 }
 
 /** 车型、年款与里程：跨单据聚合（任一单据写了都算，先到先得） */

@@ -15,11 +15,11 @@ function node(kind, extra = {}) {
 function fullFlowNodes() {
   return [
     node('intake', {
-      photoDraft: { chiefComplaint: '过减速带时右前轮咯噔响，方向盘也有点抖' },
-      document: { status: 'confirmed', payload: {} },
+      content: { chiefComplaint: '过减速带时右前轮咯噔响，方向盘也有点抖' },
+        document: { status: 'confirmed', },
     }),
     node('inspection', {
-      photoDraft: {
+      content: {
         findings: [
           {
             partName: '右前小吊杆球头',
@@ -39,9 +39,7 @@ function fullFlowNodes() {
       },
     }),
     node('inspection_report', {
-      document: {
-        status: 'delivered',
-        payload: {
+      content: {
           chiefComplaint: '过减速带时右前轮咯噔响，方向盘也有点抖',
           mileageText: '里程 62000 km',
           vehicleBrand: '大众',
@@ -63,25 +61,30 @@ function fullFlowNodes() {
             { partName: '轮胎花纹', result: '仅记录', advice: '', images: [] },
           ],
         },
+        document: {
+        status: 'delivered',
+        
       },
     }),
     node('quote_confirm', {
-      document: {
-        status: 'confirmed',
-        payload: {
+      content: {
           lines: [{ name: '更换右前小吊杆', brand: '大众原厂', amount: 680, note: '含四轮定位' }],
         },
+        document: {
+        status: 'confirmed',
+        
       },
     }),
     node('addon_quote_confirm', {
-      document: {
+      content: { lines: [{ name: '右前减震器渗油处理', amount: 220 }] },
+        document: {
         status: 'confirmed',
-        payload: { lines: [{ name: '右前减震器渗油处理', amount: 220 }] },
+        
       },
     }),
     node('work', {
       status: 'completed',
-      photoDraft: {
+      content: {
         findings: [
           {
             partName: '更换右前小吊杆',
@@ -96,11 +99,7 @@ function fullFlowNodes() {
             images: [{ url: 'https://x/work2.jpg' }],
           },
         ],
-      },
-      document: {
-        status: 'completed',
-        payload: {
-          workItems: [
+        workItems: [
             {
               name: '更换右前小吊杆',
               note: '旧件胶套已开裂，新件装复后复紧',
@@ -115,12 +114,13 @@ function fullFlowNodes() {
             },
           ],
         },
+        document: {
+        status: 'completed',
+        
       },
     }),
     node('repair_report', {
-      document: {
-        status: 'confirmed',
-        payload: {
+      content: {
           acceptanceItems: [
             { id: 'acc_1', kind: 'work', name: '更换右前小吊杆', note: '复紧到位无旷量', result: 'pass' },
             {
@@ -136,6 +136,9 @@ function fullFlowNodes() {
           warrantyNotes: '含更换配件的质保，人为损坏除外',
           conclusion: '异响消除，方向盘抖动消失',
         },
+        document: {
+        status: 'confirmed',
+        
       },
     }),
   ]
@@ -221,17 +224,7 @@ function testCollectsAnalyzedImageKeys() {
 
 /** 节点业务内容只落 content：旧字段全部为空时仍能取全事实 */
 function toContentOnly(flow) {
-  return flow.map((row) => {
-    const content = {
-      ...(row.photoDraft || {}),
-      ...((row.document && row.document.payload) || {}),
-    }
-    return {
-      ...row,
-      content,
-      document: { ...(row.document || {}), payload: {} },
-    }
-  })
+  return flow
 }
 
 function testReadsContentOnlyNodes() {
@@ -254,8 +247,8 @@ function testHasEnoughFactsGate() {
   // 有诉求但无检查结论也无施工内容：不足
   const thin = [
     node('intake', {
-      photoDraft: { chiefComplaint: '来做保养' },
-      document: { status: 'confirmed', payload: {} },
+      content: { chiefComplaint: '来做保养' },
+        document: { status: 'confirmed', },
     }),
   ]
   assert.equal(factPackHasEnoughFacts(buildCaseFactPack(thin)), false)
@@ -266,9 +259,10 @@ function testHasEnoughFactsGate() {
     if (row.kind !== 'inspection_report') return row
     return {
       ...row,
-      document: {
+      content: { ...row.content, chiefComplaint: '' },
+        document: {
         ...row.document,
-        payload: { ...row.document.payload, chiefComplaint: '' },
+        
       },
     }
   })

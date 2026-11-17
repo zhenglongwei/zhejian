@@ -446,7 +446,7 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
   await writeFlowPackage(albumId, (pkg) => {
     const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
     const next = flowNodes.map((node) => {
-      const bag = { ...(node.content || node.photoDraft || {}) }
+      const bag = { ...(node.content || {}) }
       if (node.kind === 'intake' && groups.intake.length) {
         const pending = Array.isArray(bag.pendingImages) ? bag.pendingImages.slice() : []
         groups.intake.forEach((img) => {
