@@ -28,7 +28,7 @@
 .host-archive-preview__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   min-width: 0;
 }
 
@@ -58,18 +58,17 @@
   word-break: break-word;
 }
 
+/* 统一行容器：检测项 / 报价项 / 施工项 / 验收项 共用 */
+.host-archive-preview__row,
 .host-archive-preview__finding {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-xs);
   margin-top: var(--space-sm);
-  padding: var(--space-sm);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
 }
 
-.host-archive-preview__finding-head {
+.host-archive-preview__row-head {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -77,6 +76,24 @@
   gap: var(--space-sm);
 }
 
+.host-archive-preview__row-title {
+  display: block;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.host-archive-preview__row-note {
+  display: block;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 结果标签（检测/验收） */
 .host-archive-preview__result {
   flex-shrink: 0;
   font-size: var(--font-caption);
@@ -97,7 +114,8 @@
   border-color: currentColor;
 }
 
-.host-archive-preview__finding-grid {
+/* 图片：统一两种形态 */
+.host-archive-preview__img-grid {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -112,7 +130,7 @@
   border: 1rpx solid var(--color-border);
 }
 
-.host-archive-preview__finding-img {
+.host-archive-preview__single-img {
   width: 100%;
   height: 360rpx;
   border-radius: var(--radius-md);
@@ -120,59 +138,10 @@
   border: 1rpx solid var(--color-border);
 }
 
+/* items 容器（报价/施工章节） */
 .host-archive-preview__items {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-}
-
-.host-archive-preview__item {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.host-archive-preview__item-name {
-  display: block;
-  font-size: var(--font-body);
-  line-height: var(--font-body-lh);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.host-archive-preview__note {
-  display: block;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.host-archive-preview__photos {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-md);
-  margin-top: var(--space-sm);
-}
-
-.host-archive-preview__photo-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.host-archive-preview__photo {
-  width: 100%;
-  height: 360rpx;
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
-}
-
-.host-archive-preview__caption {
-  display: block;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
+  margin-top: var(--space-xs);
 }

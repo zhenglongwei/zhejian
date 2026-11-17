@@ -197,7 +197,7 @@ test('mapPublicCaseRow hosted flow uses mask lookup not raw plate photo', () => 
     },
     { maskLookup: new Map([[RAW, MASK]]) },
   )
-  assert.equal(mapped.serviceFlow.chapters[0].photos[0].url, MASK)
+  assert.equal(mapped.serviceFlow.chapters[0].items[0].images[0].url, MASK)
 })
 
 test('mapPublicCaseRow 归档快照缺文字时用相册流程节点 content 补公开事实', () => {

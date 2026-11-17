@@ -85,7 +85,7 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
 
   const titles = flow.chapters.map((c) => c.title)
   // 工单＝如实记录施工过程的单据，报价派生的旧 work_order 节点已下线
-  assert.deepEqual(titles, ['检测报告', '方案', '工单', '完工'])
+  assert.deepEqual(titles, ['检测报告', '方案', '施工', '完工'])
   const quote = flow.chapters.find((c) => c.kind === 'quote_confirm')
   assert.equal(quote.items[0].name, '阀体')
   assert.equal(quote.items[0].amount, undefined)
@@ -94,8 +94,10 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   assert.equal(report.findings[0].result, '需处理')
   assert.equal(report.findings[0].url, MASK)
   const work = flow.chapters.find((c) => c.kind === 'work')
-  assert.equal(work.photos[0].url, MASK)
-  assert.match(work.photos[0].caption, /拆下旧阀体/)
+  // 施工节点改用统一 items 结构：每项 = { name, images[], note }
+  assert.ok(work.items[0].images.length >= 1)
+  assert.equal(work.items[0].images[0].url, MASK)
+  assert.match(work.items[0].note, /拆下旧阀体/)
   // 工单条目带用料/品牌/数量，公网侧不带金额
   assert.equal(work.items[0].name, '阀体')
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
@@ -122,7 +124,7 @@ test('buildPublicServiceFlow 用核对打码图覆盖事实层原图', () => {
     album: { images: [{ url: RAW }] },
     maskLookup: new Map([[RAW, MASK]]),
   })
-  assert.equal(flow.chapters[0].photos[0].url, MASK)
+  assert.equal(flow.chapters[0].items[0].images[0].url, MASK)
 })
 
 test('交车图经 maskLookup 换成打码图，不回落原图', () => {
@@ -260,9 +262,9 @@ test('工单图与交车图不同原图时互不串码', () => {
   })
   const work = flow.chapters.find((c) => c.kind === 'work')
   const done = flow.chapters.find((c) => c.kind === 'repair_report')
-  assert.equal(work.photos[0].url, WORK_MASK)
+  assert.equal(work.items[0].images[0].url, WORK_MASK)
   assert.equal(done.acceptanceItems[0].images[0].url, DEL_MASK)
-  assert.notEqual(work.photos[0].url, done.acceptanceItems[0].images[0].url)
+  assert.notEqual(work.items[0].images[0].url, done.acceptanceItems[0].images[0].url)
 })
 
 test('节点图对象已写回 maskedUrl 时预览直接读节点字段', () => {
@@ -452,9 +454,9 @@ test('工单说明去掉方括号占位，检测建议不重复部位名', () =>
   const inspect = flow.chapters.find((c) => c.kind === 'inspection_report')
   assert.equal(inspect.findings[0].advice, '空气滤芯滤纸表面积尘较多')
   const work = flow.chapters.find((c) => c.kind === 'work')
-  // 有图的工单项：说明文字只在图说展示，条目不重复一遍（避免一图两段）
-  assert.equal(work.items[0].note, '')
-  assert.equal(work.photos[0].caption, '更换机油机滤 · 已更换全新机油及原厂机滤')
+  // 施工节点改用统一 items 结构：caption 合并进 note
+  assert.match(work.items[0].note, /已更换全新机油及原厂机滤/)
+  assert.equal(work.items[0].images.length, 1)
 })
 
 test('requireDesensitized 时无映射不得回落原图', () => {

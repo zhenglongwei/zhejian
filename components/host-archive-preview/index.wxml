@@ -14,6 +14,7 @@
         <text class="host-archive-preview__p">{{ch.chiefComplaint}}</text>
       </block>
 
+      <!-- 检测项：标题 + 结果标签 + 图片组 + 建议 -->
       <block wx:if="{{ch.findings.length}}">
         <text class="host-archive-preview__k">本次检测</text>
         <view
@@ -23,15 +24,15 @@
           wx:key="fi"
           class="host-archive-preview__finding"
         >
-          <view class="host-archive-preview__finding-head">
-            <text class="host-archive-preview__item-name">{{f.partName}}</text>
+          <view class="host-archive-preview__row-head">
+            <text class="host-archive-preview__row-title">{{f.partName}}</text>
             <text
               wx:if="{{f.result}}"
               class="host-archive-preview__result {{f.result === '状态良好' ? 'is-ok' : (f.result === '需处理' ? 'is-action' : '')}}"
             >{{f.result}}</text>
           </view>
           <block wx:if="{{f.images && f.images.length}}">
-            <view wx:if="{{f.images.length > 1}}" class="host-archive-preview__finding-grid">
+            <view wx:if="{{f.images.length > 1}}" class="host-archive-preview__img-grid">
               <image
                 wx:for="{{f.images}}"
                 wx:for-item="img"
@@ -41,12 +42,13 @@
                 src="{{img.url}}"
                 mode="aspectFill"
                 data-url="{{img.url}}"
+                data-urls="{{f.images}}"
                 bindtap="onImageTap"
               />
             </view>
             <image
               wx:else
-              class="host-archive-preview__finding-img image-placeholder"
+              class="host-archive-preview__single-img image-placeholder"
               src="{{f.images[0].url}}"
               mode="aspectFill"
               data-url="{{f.images[0].url}}"
@@ -55,32 +57,63 @@
           </block>
           <image
             wx:elif="{{f.url}}"
-            class="host-archive-preview__finding-img image-placeholder"
+            class="host-archive-preview__single-img image-placeholder"
             src="{{f.url}}"
             mode="aspectFill"
             data-url="{{f.url}}"
             bindtap="onImageTap"
           />
-          <text wx:if="{{f.advice}}" class="host-archive-preview__note">{{f.advice}}</text>
+          <text wx:if="{{f.advice}}" class="host-archive-preview__row-note">{{f.advice}}</text>
         </view>
       </block>
 
+      <!-- 统一项目区：报价项 / 施工项 都是 items，每项 = 标题 + 图片组 + 说明 -->
       <view wx:if="{{ch.items.length}}" class="host-archive-preview__items">
-        <view wx:for="{{ch.items}}" wx:for-item="row" wx:for-index="ri" wx:key="ri" class="host-archive-preview__item">
-          <text class="host-archive-preview__item-name">{{row.name}}</text>
-          <text wx:if="{{row.brand}}" class="host-archive-preview__note">{{row.brand}}</text>
-          <text wx:if="{{row.note}}" class="host-archive-preview__note">{{row.note}}</text>
+        <view
+          wx:for="{{ch.items}}"
+          wx:for-item="row"
+          wx:for-index="ri"
+          wx:key="ri"
+          class="host-archive-preview__row"
+        >
+          <text wx:if="{{row.name}}" class="host-archive-preview__row-title">{{row.name}}</text>
+          <block wx:if="{{row.images && row.images.length}}">
+            <view wx:if="{{row.images.length > 1}}" class="host-archive-preview__img-grid">
+              <image
+                wx:for="{{row.images}}"
+                wx:for-item="img"
+                wx:for-index="ii"
+                wx:key="ii"
+                class="host-archive-preview__grid-img image-placeholder"
+                src="{{img.url}}"
+                mode="aspectFill"
+                data-url="{{img.url}}"
+                data-urls="{{row.images}}"
+                bindtap="onImageTap"
+              />
+            </view>
+            <image
+              wx:else
+              class="host-archive-preview__single-img image-placeholder"
+              src="{{row.images[0].url}}"
+              mode="aspectFill"
+              data-url="{{row.images[0].url}}"
+              bindtap="onImageTap"
+            />
+          </block>
           <image
-            wx:if="{{row.evidenceUrl}}"
-            class="host-archive-preview__finding-img image-placeholder"
+            wx:elif="{{row.evidenceUrl}}"
+            class="host-archive-preview__single-img image-placeholder"
             src="{{row.evidenceUrl}}"
             mode="aspectFill"
             data-url="{{row.evidenceUrl}}"
             bindtap="onImageTap"
           />
+          <text wx:if="{{row.note}}" class="host-archive-preview__row-note">{{row.note}}</text>
         </view>
       </view>
 
+      <!-- 验收项：与检测项同结构 -->
       <block wx:if="{{ch.acceptanceItems && ch.acceptanceItems.length}}">
         <text class="host-archive-preview__k">交车验收</text>
         <view
@@ -90,15 +123,15 @@
           wx:key="id"
           class="host-archive-preview__finding"
         >
-          <view class="host-archive-preview__finding-head">
-            <text class="host-archive-preview__item-name">{{acc.name}}</text>
+          <view class="host-archive-preview__row-head">
+            <text class="host-archive-preview__row-title">{{acc.name}}</text>
             <text
               wx:if="{{acc.resultLabel}}"
               class="host-archive-preview__result {{acc.result === 'pass' ? 'is-ok' : (acc.result === 'rework' ? 'is-action' : '')}}"
             >{{acc.resultLabel}}</text>
           </view>
           <block wx:if="{{acc.images && acc.images.length}}">
-            <view wx:if="{{acc.images.length > 1}}" class="host-archive-preview__finding-grid">
+            <view wx:if="{{acc.images.length > 1}}" class="host-archive-preview__img-grid">
               <image
                 wx:for="{{acc.images}}"
                 wx:for-item="img"
@@ -108,43 +141,26 @@
                 src="{{img.url}}"
                 mode="aspectFill"
                 data-url="{{img.url}}"
+                data-urls="{{acc.images}}"
                 bindtap="onImageTap"
               />
             </view>
             <image
               wx:else
-              class="host-archive-preview__finding-img image-placeholder"
+              class="host-archive-preview__single-img image-placeholder"
               src="{{acc.images[0].url}}"
               mode="aspectFill"
               data-url="{{acc.images[0].url}}"
               bindtap="onImageTap"
             />
           </block>
-          <text wx:if="{{acc.note}}" class="host-archive-preview__note">{{acc.note}}</text>
+          <text wx:if="{{acc.note}}" class="host-archive-preview__row-note">{{acc.note}}</text>
         </view>
       </block>
 
-      <view wx:if="{{ch.photos.length}}" class="host-archive-preview__photos">
-        <view
-          wx:for="{{ch.photos}}"
-          wx:for-item="photo"
-          wx:key="url"
-          class="host-archive-preview__photo-wrap"
-        >
-          <image
-            class="host-archive-preview__photo image-placeholder"
-            src="{{photo.url || photo}}"
-            mode="aspectFill"
-            data-url="{{photo.url || photo}}"
-            bindtap="onImageTap"
-          />
-          <text wx:if="{{photo.caption}}" class="host-archive-preview__caption">{{photo.caption}}</text>
-        </view>
-      </view>
-
       <text
         wx:if="{{ch.warrantyPeriod || ch.warrantyNotes}}"
-        class="host-archive-preview__note"
+        class="host-archive-preview__row-note"
       >质保：{{ch.warrantyPeriod}}{{ch.warrantyPeriod && ch.warrantyNotes ? ' · ' : ''}}{{ch.warrantyNotes}}</text>
     </view>
   </view>

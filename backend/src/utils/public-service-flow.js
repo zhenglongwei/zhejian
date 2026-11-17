@@ -206,16 +206,25 @@ function stripLine(row, lookup) {
   const name = text(row.name || row.partName)
   const brand = text(row.brand)
   const note = cleanPublicNote(row.note || row.caption || row.advice)
-  let evidenceUrl = ''
-  if (text(row.evidenceMaskedUrl)) {
-    evidenceUrl =
-      resolvePublicCaseMediaUrl(row.evidenceMaskedUrl) ||
-      resolveStoreProcessedPublicUrl(row.evidenceMaskedUrl) ||
-      (lookup && lookup._allowPrivateFallback ? text(row.evidenceMaskedUrl) : '')
+  // 收集该报价项下的所有图片（evidence + images 数组）
+  const images = []
+  const evidenceRaw = text(row.evidenceUrl)
+  const evidenceMasked = text(row.evidenceMaskedUrl)
+  const evidenceResolved = evidenceMasked
+    ? (resolvePublicCaseMediaUrl(evidenceMasked) ||
+        resolveStoreProcessedPublicUrl(evidenceMasked) ||
+        (lookup && lookup._allowPrivateFallback ? evidenceMasked : ''))
+    : publicizeUrl(evidenceRaw, lookup)
+  if (evidenceResolved) images.push({ url: evidenceResolved })
+  if (Array.isArray(row.images)) {
+    row.images.forEach((img) => {
+      const pub = resolvePhotoDisplayUrl(img, lookup)
+      if (pub && !images.some((p) => p.url === pub)) images.push({ url: pub })
+    })
   }
-  if (!evidenceUrl) evidenceUrl = publicizeUrl(row.evidenceUrl, lookup)
-  if (!name && !note && !evidenceUrl) return null
-  return { name, brand, note, evidenceUrl }
+  const evidenceUrl = evidenceResolved || (images[0] && images[0].url) || ''
+  if (!name && !note && !images.length) return null
+  return { name, brand, note, evidenceUrl, images }
 }
 
 function mapFinding(row, lookup) {
@@ -249,53 +258,46 @@ function mapFinding(row, lookup) {
   return { url, partName, result: text(row.result), advice, images }
 }
 
-function collectWorkPhotos(node, lookup) {
+/**
+ * 统一工单条目（公网版，去金额）：每个 item = { name, images[], note }
+ * 不再拆 photos / items 两个数组，避免「项目文字和图片分离」的展示问题。
+ */
+function collectWorkItemsUnified(node, lookup) {
   const draft = contentOfFlowNode(node)
   const findings = Array.isArray(draft.findings) ? draft.findings : []
-  const photos = []
   const seenRaw = new Set()
-  findings.forEach((raw) => {
-    const item = raw && typeof raw === 'object' ? raw : {}
-    const slots = []
-    if (Array.isArray(item.images) && item.images.length) {
-      item.images.forEach((img) => slots.push(img))
-    } else if (item.url) {
-      // 仅存量一图一项；禁止因顶层 maskedUrl 把整项（可能串了别的码）再推一次
-      slots.push(item)
-    }
-    const caption = [text(item.partName), cleanPublicNote(item.caption || item.note || item.advice)]
-      .filter(Boolean)
-      .join(' · ')
-    slots.forEach((slot) => {
-      const rawSrc =
-        typeof slot === 'string' ? slot : slot && (slot.url || slot.src || slot.rawUrl)
-      const rawKey = urlKey(rawSrc)
-      // 按原图身份去重，避免不同原图被映射成同一打码 URL 时工单只剩交车那一张
-      if (rawKey && seenRaw.has(rawKey)) return
-      const pub = resolvePhotoDisplayUrl(slot, lookup)
-      if (!pub) return
-      if (rawKey) seenRaw.add(rawKey)
-      else if (photos.some((p) => p.url === pub)) return
-      photos.push({ url: pub, caption })
-    })
-  })
-  return photos
-}
-
-/** 工单条目（公网版，去金额）：项目 + 用料/品牌/数量；说明文字只在图说展示，避免一图两段重复 */
-function collectWorkSheetPublicItems(node) {
-  const draft = contentOfFlowNode(node)
-  const rows = Array.isArray(draft.findings) ? draft.findings : []
-  return rows
-    .map((row) => {
-      if (!row || typeof row !== 'object') return null
+  return findings
+    .map((raw) => {
+      const row = raw && typeof raw === 'object' ? raw : {}
       const name = text(row.partName)
-      const hasPhoto = Boolean(text(row.url)) || (Array.isArray(row.images) && row.images.length > 0)
-      const noteParts = [text(row.material), text(row.brand), text(row.qty)]
-      if (!hasPhoto) noteParts.push(cleanPublicNote(row.caption))
-      const note = noteParts.filter(Boolean).join(' · ')
-      if (!name && !note) return null
-      return { name, brand: text(row.brand), note }
+      const noteParts = [
+        text(row.material),
+        text(row.brand),
+        text(row.qty),
+        cleanPublicNote(row.caption || row.note),
+      ].filter(Boolean)
+      const note = noteParts.join(' · ')
+      // 收集该项目下的所有图片
+      const images = []
+      const slots = []
+      if (Array.isArray(row.images) && row.images.length) {
+        row.images.forEach((img) => slots.push(img))
+      } else if (row.url) {
+        slots.push(row)
+      }
+      slots.forEach((slot) => {
+        const rawSrc =
+          typeof slot === 'string' ? slot : slot && (slot.url || slot.src || slot.rawUrl)
+        const rawKey = urlKey(rawSrc)
+        if (rawKey && seenRaw.has(rawKey)) return
+        const pub = resolvePhotoDisplayUrl(slot, lookup)
+        if (!pub) return
+        if (rawKey) seenRaw.add(rawKey)
+        else if (images.some((p) => p.url === pub)) return
+        images.push({ url: pub })
+      })
+      if (!name && !note && !images.length) return null
+      return { name, brand: text(row.brand), note, images }
     })
     .filter(Boolean)
 }
@@ -436,13 +438,11 @@ function buildPublicServiceFlow(input = {}) {
     const kind = text(node.kind)
     if (SKIP_PHOTO_KINDS[kind]) return
     if (kind === 'work') {
-      const photos = collectWorkPhotos(node, lookup)
       const chapter = {
         id: node.id || '',
         kind: 'work',
-        title: '工单',
-        photos,
-        items: collectWorkSheetPublicItems(node),
+        title: '施工',
+        items: collectWorkItemsUnified(node, lookup),
       }
       if (chapterHasContent(chapter)) chapters.push(chapter)
       return

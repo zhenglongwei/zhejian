@@ -663,27 +663,54 @@
     )
   }
 
+  function renderItemImages(images, alt) {
+    if (!images || !images.length) return ''
+    var urls = images.map(function (img) {
+      return typeof img === 'string' ? img : img && img.url ? img.url : ''
+    }).filter(Boolean)
+    if (!urls.length) return ''
+    if (urls.length === 1) {
+      return renderPreviewableImage(urls[0], alt || '', 'h5-flow-item-img')
+    }
+    return (
+      '<div class="h5-flow-item-img-grid">' +
+      urls
+        .map(function (url) {
+          return renderPreviewableImage(url, alt || '', 'h5-flow-item-grid-img')
+        })
+        .join('') +
+      '</div>'
+    )
+  }
+
   function renderFlowItems(items) {
     if (!items || !items.length) return ''
     return (
-      '<ul class="h5-flow-items">' +
+      '<div class="h5-flow-items">' +
       items
         .map(function (item) {
           var name = escapeHtml(item.name || '')
+          var hasImages = item.images && item.images.length > 0
           var extra = [item.brand, item.note].filter(Boolean).join(' · ')
+          var imgHtml = hasImages
+            ? renderItemImages(item.images, item.name || '')
+            : item.evidenceUrl
+              ? renderPreviewableImage(item.evidenceUrl, item.name || '', 'h5-flow-item-img')
+              : ''
           return (
-            '<li>' +
-            '<span class="h5-flow-item-name">' +
-            name +
-            '</span>' +
-            (extra
-              ? '<span class="h5-flow-item-note">' + escapeHtml(extra) + '</span>'
+            '<div class="h5-flow-item">' +
+            (name
+              ? '<p class="h5-flow-item-name">' + name + '</p>'
               : '') +
-            '</li>'
+            imgHtml +
+            (extra
+              ? '<p class="h5-flow-item-note">' + escapeHtml(extra) + '</p>'
+              : '') +
+            '</div>'
           )
         })
         .join('') +
-      '</ul>'
+      '</div>'
     )
   }
 
@@ -706,13 +733,17 @@
               '<p class="h5-flow-k">本次检测</p>' +
               ch.findings
                 .map(function (f) {
+                  var imgs = f.images && f.images.length > 0
+                    ? renderItemImages(f.images, f.partName || '')
+                    : f.url
+                      ? renderPreviewableImage(f.url, f.partName || '', 'h5-flow-item-img')
+                      : '<span class="h5-flow-finding-img is-empty"></span>'
                   return (
                     '<div class="h5-flow-finding">' +
-                    (f.url
-                      ? renderPreviewableImage(f.url, f.partName || '', 'h5-flow-finding-img')
-                      : '<span class="h5-flow-finding-img is-empty"></span>') +
+                    imgs +
                     '<div><p class="h5-flow-finding-name">' +
                     escapeHtml(f.partName || '') +
+                    (f.result ? ' · ' + escapeHtml(f.result) : '') +
                     '</p>' +
                     (f.advice
                       ? '<p class="h5-flow-item-note">' + escapeHtml(f.advice) + '</p>'
@@ -735,28 +766,11 @@
                     : '') +
                   '</span></p>'
                 var note = acc.note ? '<p class="h5-flow-item-note">' + escapeHtml(acc.note) + '</p>' : ''
-                var shots =
-                  Array.isArray(acc.images) && acc.images.length
-                    ? '<div class="h5-flow-imgs">' +
-                      acc.images
-                        .map(function (img) {
-                          var url = (img && (img.url || img)) || ''
-                          return url
-                            ? '<img class="h5-flow-img" src="' +
-                                escapeHtml(url) +
-                                '" alt="' +
-                                escapeHtml(acc.name || '验收图') +
-                                '" loading="lazy" />'
-                            : ''
-                        })
-                        .join('') +
-                      '</div>'
-                    : ''
-                return head + note + shots
+                var shots = renderItemImages(acc.images, acc.name || '')
+                return head + shots + note
               })
               .join('')
           }
-          body += renderFlowPhotos(ch.photos)
           var warrantyBits = [ch.warrantyPeriod, ch.warrantyNotes].filter(function (bit) {
             var bare = String(bit || '').trim().replace(/[。．.]$/, '')
             return bare && bare !== '无' && bare !== '暂无' && bare !== '没有' && bare !== '无备注'
