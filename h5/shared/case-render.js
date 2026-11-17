@@ -711,14 +711,29 @@
     )
   }
 
-  function renderServiceFlow(flow) {
+  function narrativeMapOf(list) {
+    var map = {}
+    ;(Array.isArray(list) ? list : []).forEach(function (row) {
+      var id = row && String(row.id || '').trim()
+      var text = row && String(row.text || '').trim()
+      if (id && text) map[id] = text
+    })
+    return map
+  }
+
+  function renderServiceFlow(flow, narratives) {
     var chapters = (flow && flow.chapters) || []
     if (!chapters.length) return ''
+    var narrativeMap = narrativeMapOf(narratives)
     return (
       '<ol class="h5-flow">' +
       chapters
         .map(function (ch) {
           var body = ''
+          var narrative = narrativeMap[String((ch && ch.id) || '')] || ''
+          if (narrative) {
+            body += '<p class="h5-flow-narrative">' + escapeHtml(narrative) + '</p>'
+          }
           if (ch.chiefComplaint) {
             body +=
               '<p class="h5-flow-k">进店主诉</p><p class="h5-flow-p">' +
@@ -2118,7 +2133,10 @@
 
     var mainHtml = renderArchiveLead(safeData)
     if (flowChapters) {
-      mainHtml += renderServiceFlow(safeData.serviceFlow)
+      mainHtml += renderServiceFlow(
+        safeData.serviceFlow,
+        safeData.hostGeoLayer && safeData.hostGeoLayer.chapterNarratives,
+      )
     } else if (articleMode) {
       mainHtml +=
         (hasConfirmedCaseDraft(safeData) ? '' : renderArticleLead(safeData)) +

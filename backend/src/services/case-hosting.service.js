@@ -332,6 +332,8 @@ function buildRuleHostedGeoDraft(view, album) {
     geoDraft: {
       summary: String(preview.aiSummaryPreview || geo.faultDesc || '').trim(),
       highlights: Array.isArray(geo.keyInfo) ? geo.keyInfo : [],
+      nodeStories: [],
+      chapterNarratives: [],
       faq: faqPack.faq,
       faqCategoryId: faqPack.categoryId,
       faqCategoryLabel: faqPack.categoryLabel,
@@ -405,11 +407,15 @@ function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
   })
   const summary = String(parsed.summary || base.summary || '').trim()
   const nodeStories = sanitizeHostedNodeStories(parsed.nodeStories)
+  const chapterNarratives = sanitizeHostedChapterNarratives(parsed.chapterNarratives)
   return {
     ...base,
     summary,
     highlights,
     nodeStories: nodeStories.length ? nodeStories : sanitizeHostedNodeStories(base.nodeStories),
+    chapterNarratives: chapterNarratives.length
+      ? chapterNarratives
+      : sanitizeHostedChapterNarratives(base.chapterNarratives),
     faq: finalFaq.faq,
     faqCategoryId: finalFaq.categoryId,
     faqCategoryLabel: finalFaq.categoryLabel,
@@ -425,6 +431,68 @@ function sanitizeHostedNodeStories(raw) {
     .map((row) => String((row && typeof row === 'object' ? row.text : row) || '').trim())
     .filter((text) => text.length >= 8 && text.length <= 200)
     .slice(0, 5)
+}
+
+/**
+ * 章节衔接语：把节点讲成人话。只做衔接，不改项目名/文案。
+ * 传 allowedIds 时丢弃对不上章节的 id（防止旧内容残留串位）。
+ */
+function sanitizeHostedChapterNarratives(raw, allowedIds) {
+  const allow =
+    Array.isArray(allowedIds) && allowedIds.length ? new Set(allowedIds.map(String)) : null
+  const seen = new Set()
+  return (Array.isArray(raw) ? raw : [])
+    .map((row) => {
+      const obj = row && typeof row === 'object' ? row : null
+      if (!obj) return null
+      const id = String(obj.id || '').trim()
+      const text = String(obj.text || '').trim()
+      if (!id || !text) return null
+      if (allow && !allow.has(id)) return null
+      if (text.length < 8 || text.length > 140) return null
+      if (seen.has(id)) return null
+      seen.add(id)
+      return { id, text }
+    })
+    .filter(Boolean)
+    .slice(0, 12)
+}
+
+/** 给模型看的章节清单：只给结构与已确认的项名，供它写衔接语 */
+function buildChapterBriefs(chapters) {
+  return (Array.isArray(chapters) ? chapters : []).map((ch) => ({
+    id: String((ch && ch.id) || ''),
+    kind: String((ch && ch.kind) || ''),
+    title: String((ch && ch.title) || ''),
+    chiefComplaint: String((ch && ch.chiefComplaint) || ''),
+    findings: (Array.isArray(ch && ch.findings) ? ch.findings : [])
+      .map((row) => [row && row.partName, row && row.result].filter(Boolean).join('·'))
+      .filter(Boolean)
+      .slice(0, 12),
+    items: (Array.isArray(ch && ch.items) ? ch.items : [])
+      .map((row) => String((row && row.name) || '').trim())
+      .filter(Boolean)
+      .slice(0, 12),
+    acceptance: (Array.isArray(ch && ch.acceptanceItems) ? ch.acceptanceItems : [])
+      .map((row) => String((row && row.name) || '').trim())
+      .filter(Boolean)
+      .slice(0, 12),
+  }))
+}
+
+/** 按相册流程构建公开章节（衔接语校验/渲染共用） */
+function buildHostedPublicChapters(album, view) {
+  const { buildPublicServiceFlow } = require('../utils/public-service-flow')
+  const pkg =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  return buildPublicServiceFlow({
+    flowNodes: Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [],
+    album,
+    contentNodes: (view && view.nodes) || [],
+    allowPrivateFallback: true,
+  }).chapters
 }
 
 async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) {
@@ -455,8 +523,10 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) 
       ? album.contentPackageJson
       : {}
   const factPack = buildCaseFactPack(pkg.flowNodes)
+  const chapters = buildHostedPublicChapters(album, view)
   const userPayload = scrubPiiDeep({
     ...buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo),
+    chapters: buildChapterBriefs(chapters),
     facts: factPack && factPack.hasFlow
       ? {
           chiefComplaint: factPack.chiefComplaint,
@@ -501,6 +571,10 @@ async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) 
     const geoDraft = normalizeHostedGeoDraftFromLlm(parsed, ruleGeo)
     if (!geoDraft.summary) return null
     geoDraft.highlights = []
+    geoDraft.chapterNarratives = sanitizeHostedChapterNarratives(
+      geoDraft.chapterNarratives,
+      chapters.map((ch) => ch && ch.id).filter(Boolean),
+    )
     return geoDraft
   } catch (e) {
     console.warn('[case-hosting] storefront LLM failed, fallback rule', e && e.message)
@@ -537,6 +611,7 @@ function pickReusableHostedGeoDraft(hostMeta, factFingerprint) {
       summary: String(layer.summary).trim(),
       highlights: Array.isArray(layer.highlights) ? layer.highlights : [],
       nodeStories: Array.isArray(layer.nodeStories) ? layer.nodeStories : [],
+      chapterNarratives: Array.isArray(layer.chapterNarratives) ? layer.chapterNarratives : [],
       faq: Array.isArray(layer.faq) ? layer.faq : [],
       source: 'published',
       factFingerprint: String(layer.factFingerprint || '').trim() || factFingerprint,
@@ -614,6 +689,8 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
       summary: existingCopy.summary,
       faq: existingCopy.faq || [],
       highlights: [],
+      nodeStories: [],
+      chapterNarratives: [],
       source: existingCopy.source || 'repair_report',
       factFingerprint,
     }
@@ -647,6 +724,18 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     }
     if (!llmDraft) {
       message = '自动说明暂不可用，以下为简要草稿，请自行改写'
+    }
+  }
+
+  if (!geoDraft) geoDraft = ruleGeo.geoDraft
+  // 章节衔接语按当前章节校验：复用旧草稿/公开内容时，节点变了的 id 直接丢弃
+  {
+    const chapterIds = buildHostedPublicChapters(album, view)
+      .map((ch) => ch && ch.id)
+      .filter(Boolean)
+    geoDraft = {
+      ...geoDraft,
+      chapterNarratives: sanitizeHostedChapterNarratives(geoDraft.chapterNarratives, chapterIds),
     }
   }
 
@@ -945,6 +1034,13 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     publicPublishStage: prev.publicPublishStage,
     privacyPassed: Boolean(prev.privacyAuditPassedAt),
     serviceFlow,
+    // 章节衔接语：已公开优先，其次预览草稿；只保留对得上章节的 id
+    chapterNarratives: sanitizeHostedChapterNarratives(
+      (prev.geoLayer && prev.geoLayer.chapterNarratives) ||
+        (prev.geoDraft && prev.geoDraft.chapterNarratives) ||
+        [],
+      serviceFlow.chapters.map((ch) => ch && ch.id).filter(Boolean),
+    ),
     reviewDocs,
     maskImages,
     /** 仅 call_failed / ok_detect_mask_failed；未检出隐私不算 */
@@ -1011,6 +1107,7 @@ async function confirmHostedPublicPublish(
     summary,
     highlights,
     nodeStories,
+    chapterNarratives,
     faq,
     privacyAgreementAccepted,
     privacyAgreementVersion,
@@ -1060,6 +1157,15 @@ async function confirmHostedPublicPublish(
     : Array.isArray(draft.nodeStories)
       ? draft.nodeStories
       : []
+  const rawNarratives = Array.isArray(chapterNarratives)
+    ? chapterNarratives
+    : Array.isArray(draft.chapterNarratives)
+      ? draft.chapterNarratives
+      : []
+  const view = buildMerchantView(album)
+  const chapterIds = buildHostedPublicChapters(album, view)
+    .map((ch) => ch && ch.id)
+    .filter(Boolean)
   const geoLayer = {
     summary: String(summary != null ? summary : draft.summary || '').trim(),
     highlights: Array.isArray(highlights)
@@ -1068,6 +1174,7 @@ async function confirmHostedPublicPublish(
         ? draft.highlights
         : [],
     nodeStories: sanitizeHostedNodeStories(rawStories),
+    chapterNarratives: sanitizeHostedChapterNarratives(rawNarratives, chapterIds),
     faq: filterPublishableFaq(rawFaq),
     confirmedAt: new Date().toISOString(),
   }

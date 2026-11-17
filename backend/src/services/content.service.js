@@ -430,6 +430,19 @@ function mapPublicCaseRow(row, album, options = {}) {
         .map((row) => String((row && typeof row === 'object' ? row.text : row) || '').trim())
         .filter(Boolean)
         .slice(0, 5),
+      // 章节衔接语：{ id, text }，H5 按 chapter.id 对齐渲染
+      chapterNarratives: (Array.isArray(hostGeoLayer.chapterNarratives)
+        ? hostGeoLayer.chapterNarratives
+        : []
+      )
+        .map((row) => {
+          if (!row || typeof row !== 'object') return null
+          const id = String(row.id || '').trim()
+          const text = String(row.text || '').trim()
+          return id && text ? { id, text } : null
+        })
+        .filter(Boolean)
+        .slice(0, 12),
     }
   }
   layered.faq = collectHostedCaseFaq({

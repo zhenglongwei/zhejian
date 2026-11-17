@@ -121,15 +121,30 @@ function chapterLines(chapter) {
   return lines
 }
 
+function chapterNarrativeMap(data) {
+  const layer = data.hostGeoLayer || (data.contentJson && data.contentJson.hostGeoLayer) || null
+  const map = {}
+  ;(layer && Array.isArray(layer.chapterNarratives) ? layer.chapterNarratives : []).forEach(
+    (row) => {
+      const id = String((row && row.id) || '').trim()
+      const text = String((row && row.text) || '').trim()
+      if (id && text) map[id] = text
+    },
+  )
+  return map
+}
+
 function renderFlowSection(data) {
   const chapters = (data.serviceFlow && data.serviceFlow.chapters) || []
+  const narratives = chapterNarrativeMap(data)
   const blocks = chapters
     .map((chapter) => {
       const lines = chapterLines(chapter)
-      if (!lines.length) return ''
-      return `<article><h3>${escapeHtml(chapter.title || '')}</h3>${lines
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join('')}</article>`
+      const narrative = narratives[String((chapter && chapter.id) || '')] || ''
+      if (!lines.length && !narrative) return ''
+      return `<article><h3>${escapeHtml(chapter.title || '')}</h3>${
+        narrative ? `<p class="h5-flow-narrative">${escapeHtml(narrative)}</p>` : ''
+      }${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}</article>`
     })
     .filter(Boolean)
   if (!blocks.length) return ''
@@ -167,10 +182,14 @@ function buildCrawlText(data) {
   }
   if (evidenceLabels.length) parts.push(evidenceLabels.join(' · '))
   hostNodeStories(data).forEach((text) => parts.push(text))
+  const narratives = chapterNarrativeMap(data)
   ;((data.serviceFlow && data.serviceFlow.chapters) || []).forEach((chapter) => {
     const lines = chapterLines(chapter)
-    if (!lines.length) return
-    parts.push([chapter.title, ...lines].filter(Boolean).join('\n'))
+    const narrative = narratives[String((chapter && chapter.id) || '')] || ''
+    if (!lines.length && !narrative) return
+    parts.push(
+      [chapter.title, narrative, ...lines].filter(Boolean).join('\n'),
+    )
   })
   ;(data.faq || []).forEach((row) => {
     const q = row && (row.q || row.question)

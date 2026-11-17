@@ -41,6 +41,19 @@
   color: var(--color-text-primary);
 }
 
+/* 章节衔接语：人话导语，和证据列表区分开 */
+.host-archive-preview__narrative {
+  display: block;
+  margin: 0 0 var(--space-sm);
+  padding-left: 16rpx;
+  border-left: 4rpx solid var(--color-border);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .host-archive-preview__k {
   display: block;
   margin-top: var(--space-sm);

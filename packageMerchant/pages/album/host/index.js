@@ -132,11 +132,18 @@ function collectMaskImagesFromChapters(chapters) {
   return rows
 }
 
-function normalizeArchiveChapters(chapters) {
+function normalizeArchiveChapters(chapters, narratives) {
+  const narrativeMap = new Map(
+    (Array.isArray(narratives) ? narratives : [])
+      .map((row) => [String((row && row.id) || '').trim(), String((row && row.text) || '').trim()])
+      .filter(([id, text]) => id && text),
+  )
   return (Array.isArray(chapters) ? chapters : []).map((ch, index) => ({
     id: String((ch && ch.id) || `ch_${index}`),
     kind: String((ch && ch.kind) || ''),
     title: String((ch && ch.title) || ''),
+    // 章节衔接语：大模型按章节 id 生成，只做串联，不改项目内容
+    narrative: narrativeMap.get(String((ch && ch.id) || '')) || '',
     chiefComplaint: String((ch && ch.chiefComplaint) || ''),
     findings: Array.isArray(ch && ch.findings) ? ch.findings : [],
     items: Array.isArray(ch && ch.items) ? ch.items : [],
@@ -593,6 +600,7 @@ Page({
       const bust = (u) => (u ? withCacheBust(u, stamp) : u)
       const flowChapters = normalizeArchiveChapters(
         (face.serviceFlow && face.serviceFlow.chapters) || [],
+        face.chapterNarratives,
       ).map((ch) => ({
         ...ch,
         findings: (ch.findings || []).map((row) => {
@@ -995,6 +1003,19 @@ Page({
         publicPublishStage: res.publicPublishStage || this.data.publicPublishStage,
         ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
       })
+      if (Array.isArray(draft.chapterNarratives) && this.data.archiveChapters.length) {
+        const narrativeMap = new Map(
+          draft.chapterNarratives
+            .map((row) => [String((row && row.id) || '').trim(), String((row && row.text) || '').trim()])
+            .filter(([id, text]) => id && text),
+        )
+        this.setData({
+          archiveChapters: this.data.archiveChapters.map((ch) => ({
+            ...ch,
+            narrative: narrativeMap.get(ch.id) || ch.narrative || '',
+          })),
+        })
+      }
       if (forceRegen) wx.showToast({ title: '已按整单记录整理', icon: 'none' })
     } catch (_) {
       if (!this.data.hosted) this.seedGeoFromArchiveCopy()

@@ -8,6 +8,7 @@
     <view class="host-archive-preview__dot" />
     <view class="host-archive-preview__body">
       <text class="host-archive-preview__title">{{ch.title}}</text>
+      <text wx:if="{{ch.narrative}}" class="host-archive-preview__narrative">{{ch.narrative}}</text>
 
       <block wx:if="{{ch.chiefComplaint}}">
         <text class="host-archive-preview__k">进店主诉</text>

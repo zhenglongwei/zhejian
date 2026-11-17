@@ -680,6 +680,15 @@
   font-weight: 600;
 }
 
+/* 章节衔接语：把人话导语和证据区分开，但语气连贯 */
+.h5-flow-narrative {
+  margin: 0 0 var(--space-md);
+  padding-left: 12px;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
 .h5-flow-k {
   margin: var(--space-md) 0 var(--space-xs);
   font-size: var(--font-caption);
