@@ -10,7 +10,7 @@ const {
   isPhotoFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
-  emptyPhotoDraft,
+  emptyNodeContent,
   NODE_CATEGORY,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
@@ -23,9 +23,7 @@ const {
   buildRepairReportPayload,
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
-  collectQuoteConfirmGaps,
-  normalizePhotoDraft,
-  mergePhotoDraft,
+  collectQuoteConfirmGaps,
   normalizeNodeContent,
   mergeNodeContent,
   contentOfFlowNode,
@@ -105,14 +103,7 @@ function sealIntakePhotosPayload(node, payload = {}, options = {}) {
 /** 写入节点唯一内容袋；兼容旧客户端仍传 photoDraft */
 function writeNodeContent(node, patch) {
   const prev = contentOfFlowNode(node)
-  const incoming =
-    patch && typeof patch === 'object'
-      ? patch.content != null
-        ? patch.content
-        : patch.photoDraft != null
-          ? patch.photoDraft
-          : patch
-      : {}
+  const incoming =  patch && typeof patch === 'object' && patch.content != null ? patch.content : (patch && typeof patch === 'object' ? patch : {})
   const content = mergeNodeContent(prev, incoming)
   const next = { ...node, content }
   delete next.photoDraft
@@ -2749,7 +2740,7 @@ async function reopenWorkForRework(albumId, storeId, merchantId = '', payload = 
       photos: [],
       note: '',
       content: {
-        ...emptyPhotoDraft(),
+        ...emptyNodeContent(),
         findings: reworkFindings,
         reworkRecords: [reworkRecord],
       },
@@ -4164,5 +4155,5 @@ module.exports = {
   mapFlowNodeForView,
   healFinishReportPackage,
   persistHealedFinishReport,
-  migrateFlowPackageOnce,
+
 }

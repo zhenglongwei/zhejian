@@ -8,7 +8,7 @@
  */
 const {
   emptyDocument,
-  emptyPhotoDraft,
+  emptyNodeContent,
   QUOTE_CONFIRM_COPY,
   NODE_CATEGORY,
 } = require('../constants/service-flow-nodes')
@@ -144,7 +144,7 @@ function applyAddonInsert(nodes = [], options = {}) {
       status: 'locked',
       photos: [],
       note: '',
-      content: emptyPhotoDraft(),
+      content: emptyNodeContent(),
       document: null,
       insertedReason: 'addon',
       parentNodeId: quoteNode.id,

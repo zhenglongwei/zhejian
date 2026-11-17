@@ -247,7 +247,6 @@ function emptyDocument(docType) {
   return {
     docType: docType || '',
     status: 'draft',
-    payload: {},
     confirmedAt: '',
     confirmedBy: '',
     proxyProofImages: [],
@@ -261,7 +260,7 @@ function emptyDocument(docType) {
  * 真源：docs/04_维修过程相册/26_ 商家端事件节点与单据节点链流程.md §6.2
  * 与 emptyDocument 对称：photo 类节点用它，避免节点对象只带容器字段 photos: []
  */
-function emptyPhotoDraft() {
+function emptyNodeContent() {
   return {
     chiefComplaint: '',
     mileageKm: '',
@@ -285,7 +284,7 @@ function emptyPhotoDraft() {
  * 接车只承载留证：问诊登记 / 里程表+当前里程 / 外观灯光选传。
  * **不承载 findings**（部位与故障判定属于检测节点）
  */
-function emptyIntakeDraft() {
+function emptyNodeContent() {
   return {
     chiefComplaint: '',
     mileageKm: '',
@@ -314,9 +313,9 @@ function buildStandardFlowNodes() {
     content:
       meta.nodeCategory === NODE_CATEGORY.PHOTO
         ? meta.kind === 'intake'
-          ? emptyIntakeDraft()
-          : emptyPhotoDraft()
-        : emptyPhotoDraft(),
+          ? emptyNodeContent()
+          : emptyNodeContent()
+        : emptyNodeContent(),
     document:
       meta.nodeCategory === NODE_CATEGORY.DOCUMENT
         ? emptyDocument(meta.docType || meta.kind)
@@ -434,7 +433,7 @@ module.exports = {
   isDocumentFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
-  emptyPhotoDraft,
-  emptyIntakeDraft,
+  
+  emptyNodeContent,
   newFlowNodeId,
 }

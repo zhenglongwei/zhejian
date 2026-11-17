@@ -325,9 +325,9 @@ function hasFlowCopy(content) {
 }
 
 function flowContentBag(node) {
-  if (node && node.content && typeof node.content === 'object') return node.content
-  const payload = node && node.document && node.document.payload
-  return payload && typeof payload === 'object' ? payload : null
+  if (!node || typeof node !== 'object') return null
+  if (node.content && typeof node.content === 'object') return node.content
+  return null
 }
 
 /**

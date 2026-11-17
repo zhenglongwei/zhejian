@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
-  normalizePhotoDraft,
+  normalizeNodeContent,
   mapFindingRows,
   buildInspectionReportPayload,
   collectInspectionReportGaps,
@@ -22,7 +22,7 @@ const hydraulic = {
 }
 
 test('saving a multi-photo inspection item keeps result and advice', () => {
-  const saved = normalizePhotoDraft({
+  const saved = normalizeNodeContent({
     chiefComplaint: '漏油',
     findings: [hydraulic],
   }).findings[0]
@@ -33,7 +33,7 @@ test('saving a multi-photo inspection item keeps result and advice', () => {
 })
 
 test('explicit empty photos are not restored from a leftover url', () => {
-  const saved = normalizePhotoDraft({
+  const saved = normalizeNodeContent({
     findings: [{ partName: '液压位', result: '需处理', advice: '补油', url: 'https://old.jpg', images: [] }],
   }).findings[0]
   assert.equal(saved.images.length, 0)
@@ -125,7 +125,7 @@ test('a photo that is not on any item and has another part becomes its own item'
 })
 
 test('work item outsideQuote survives persist used by notify-then-cancel', () => {
-  const once = normalizePhotoDraft({
+  const once = normalizeNodeContent({
     findings: [{
       id: 'wf_1',
       partName: '下摆臂胶套',
@@ -137,13 +137,13 @@ test('work item outsideQuote survives persist used by notify-then-cancel', () =>
   }).findings[0]
   assert.equal(once.outsideQuote, true)
   assert.equal(once.material, '胶套')
-  const twice = normalizePhotoDraft({ findings: [once] }).findings[0]
+  const twice = normalizeNodeContent({ findings: [once] }).findings[0]
   assert.equal(twice.outsideQuote, true)
   assert.equal(twice.partName, '下摆臂胶套')
 })
 
 test('work item with photos and no inspection result still saves', () => {
-  const saved = normalizePhotoDraft({
+  const saved = normalizeNodeContent({
     findings: [{
       partName: '更换机油',
       caption: '已紧固',

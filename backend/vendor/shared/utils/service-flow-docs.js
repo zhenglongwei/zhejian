@@ -632,13 +632,72 @@ function matchPendingImage(pending, byKey, rawKey) {
 }
 
 /**
- * 节点唯一内容袋：content（兼容旧 photoDraft / 旧 document.payload 业务字段）。
+ * 节点唯一内容袋：content（仅写 content，旧 photoDraft / document.payload 已删）。
  * 报告正文由此派生，禁止再当第二真源维护。
  */
 function normalizeNodeContent(raw = {}) {
-  const base = normalizePhotoDraft(raw || {})
+  const r = raw || {}
+  const base = {
+    chiefComplaint: String(r.chiefComplaint || '').trim(),
+    mileageKm: parseMileageKm(r.mileageKm || r.mileage),
+    odometerUrl: String(r.odometerUrl || '').trim(),
+    odometerImageId: String(r.odometerImageId || '').trim(),
+    vehicleBrand: String(r.vehicleBrand || '').trim(),
+    vehicleSeries: String(r.vehicleSeries || '').trim(),
+    vehicleYear: String(r.vehicleYear || '').trim(),
+    conclusion: String(r.conclusion || '').trim(),
+    findings: Array.isArray(r.findings)
+      ? r.findings
+          .map((item, index) => {
+            const row = normalizeDraftFinding(item, index)
+            return findingDraftKeeps(row) ? row : null
+          })
+          .filter(Boolean)
+      : [],
+    pendingImages: normalizePendingImages(r.pendingImages),
+    fuelReading: String(r.fuelReading || '').trim(),
+    belongings: String(r.belongings || '').trim(),
+    intakeResults: Array.isArray(r.intakeResults)
+      ? r.intakeResults
+          .map((row) => normalizeIntakeResult(row))
+          .filter((row) => row.images.length || row.reading)
+      : [],
+    warrantyPeriod: String(r.warrantyPeriod || '').trim(),
+    warrantyNotes: resolveWarrantyNotes(r),
+    confirmCopy: String(r.confirmCopy || '').trim(),
+    acceptanceItems: foldLegacyDeliveryPhotos(resolveAcceptanceItems(r), r.deliveryPhotos),
+    reportGeneratedAt: String(r.reportGeneratedAt || '').trim(),
+    ownerSentAt: String(r.ownerSentAt || '').trim(),
+    inspectionAiKey: String(r.inspectionAiKey || '').trim(),
+    receiverName: String(r.receiverName || '').trim(),
+    receivedAt: String(r.receivedAt || '').trim(),
+    inspectorName: String(r.inspectorName || '').trim(),
+    inspectedAt: String(r.inspectedAt || '').trim(),
+    workerName: String(r.workerName || '').trim(),
+    delivererName: String(r.delivererName || '').trim(),
+    deliveredAt: String(r.deliveredAt || '').trim(),
+    deliveryMileage: parseMileageKm(r.deliveryMileage),
+    reworkRecords: normalizeReworkRecords(r.reworkRecords),
+    exteriorPhotoWaived: r.exteriorPhotoWaived === true,
+    revision: Math.max(0, Math.round(Number(r.revision) || 0)),
+    needsRevision: r.needsRevision === true,
+    finishedAt: String(r.finishedAt || '').trim(),
+    recordVersions: Array.isArray(r.recordVersions)
+      ? r.recordVersions
+          .map((row) => ({
+            id: String((row && row.id) || '').trim(),
+            confirmedAt: String((row && row.confirmedAt) || '').trim(),
+            title: String((row && row.title) || '').trim(),
+            summary: String((row && row.summary) || '').trim(),
+          }))
+          .filter((row) => row.id)
+          .slice(-20)
+      : [],
+  }
   if (Array.isArray(raw.lines)) {
-    base.lines = raw.lines.map((row) => normalizeQuoteLine(row)).filter((row) => row && row.name)
+    base.lines = raw.lines
+      .map((row) => normalizeQuoteLine(row))
+      .filter((row) => row && row.name)
   }
   if (Array.isArray(raw.workItems)) {
     base.workItems = raw.workItems
@@ -663,14 +722,12 @@ function normalizeNodeContent(raw = {}) {
   if (raw.archiveCopy && typeof raw.archiveCopy === 'object') {
     base.archiveCopy = raw.archiveCopy
   }
-  // 存量外观照读侧并入「外观」行，不产出旧字段
   if (Array.isArray(raw.deliveryPhotos)) {
     base.acceptanceItems = foldLegacyDeliveryPhotos(base.acceptanceItems, raw.deliveryPhotos)
   }
   if (raw.totalAmount != null && raw.totalAmount !== '') {
     base.totalAmount = raw.totalAmount
   }
-  // 施工节点：未施工报价项的交代记录（交车只读汇总）
   if (Array.isArray(raw.unbuiltQuoteItems)) {
     base.unbuiltQuoteItems = normalizeUnbuiltQuoteItems(raw.unbuiltQuoteItems)
   }
@@ -678,10 +735,73 @@ function normalizeNodeContent(raw = {}) {
 }
 
 function mergeNodeContent(prev = {}, patch = {}) {
-  const next = normalizeNodeContent(prev)
+  let next = normalizeNodeContent(prev)
   if (!patch || typeof patch !== 'object') return next
-  const mergedDraft = mergePhotoDraft(next, patch)
-  Object.assign(next, mergedDraft)
+
+  if (patch.chiefComplaint != null) next.chiefComplaint = String(patch.chiefComplaint || '').trim()
+  if (patch.mileageKm != null || patch.mileage != null) {
+    next.mileageKm = parseMileageKm(patch.mileageKm != null ? patch.mileageKm : patch.mileage)
+  }
+  if (patch.odometerUrl != null) next.odometerUrl = String(patch.odometerUrl || '').trim()
+  if (patch.odometerImageId != null) next.odometerImageId = String(patch.odometerImageId || '').trim()
+  if (patch.vehicleBrand != null) next.vehicleBrand = String(patch.vehicleBrand || '').trim()
+  if (patch.vehicleSeries != null) next.vehicleSeries = String(patch.vehicleSeries || '').trim()
+  if (patch.vehicleYear != null) next.vehicleYear = String(patch.vehicleYear || '').trim()
+  if (patch.conclusion != null) next.conclusion = String(patch.conclusion || '').trim()
+  if (patch.findings != null) {
+    next.findings = normalizeNodeContent({ findings: patch.findings }).findings
+  }
+  if (patch.pendingImages != null) next.pendingImages = normalizePendingImages(patch.pendingImages)
+  if (patch.fuelReading != null) next.fuelReading = String(patch.fuelReading || '').trim()
+  if (patch.belongings != null) next.belongings = String(patch.belongings || '').trim()
+  if (patch.intakeResults != null) {
+    next.intakeResults = normalizeNodeContent({ intakeResults: patch.intakeResults }).intakeResults
+  }
+  if (patch.warrantyPeriod != null) next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
+  if (patch.warrantyNotes != null) next.warrantyNotes = String(patch.warrantyNotes || '').trim()
+  if (patch.warrantyScope != null || patch.warrantyExclusions != null) {
+    next.warrantyNotes = resolveWarrantyNotes({
+      warrantyNotes: patch.warrantyNotes != null ? patch.warrantyNotes : next.warrantyNotes,
+      warrantyScope: patch.warrantyScope,
+      warrantyExclusions: patch.warrantyExclusions,
+    })
+  }
+  if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
+  if (patch.deliveryPhotos != null) {
+    const photos = normalizeDeliveryPhotos(patch.deliveryPhotos)
+    const rows = normalizeAcceptanceItems(next.acceptanceItems)
+    const idx = rows.findIndex((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
+    const prev = idx >= 0 ? rows[idx] : null
+    const exterior = emptyAcceptanceItem({
+      kind: ACCEPTANCE_KIND.EXTERIOR,
+      images: photos,
+      result: prev ? prev.result : '',
+      note: prev ? prev.note : '',
+    })
+    if (idx >= 0) rows[idx] = exterior
+    else rows.push(exterior)
+    next.acceptanceItems = rows
+  }
+  if (patch.acceptanceItems != null) next.acceptanceItems = normalizeAcceptanceItems(patch.acceptanceItems)
+  if (patch.reportGeneratedAt != null) next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()
+  if (patch.ownerSentAt != null) next.ownerSentAt = String(patch.ownerSentAt || '').trim()
+  if (patch.inspectionAiKey != null) next.inspectionAiKey = String(patch.inspectionAiKey || '').trim()
+  if (patch.receiverName != null) next.receiverName = String(patch.receiverName || '').trim()
+  if (patch.receivedAt != null) next.receivedAt = String(patch.receivedAt || '').trim()
+  if (patch.inspectorName != null) next.inspectorName = String(patch.inspectorName || '').trim()
+  if (patch.inspectedAt != null) next.inspectedAt = String(patch.inspectedAt || '').trim()
+  if (patch.workerName != null) next.workerName = String(patch.workerName || '').trim()
+  if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
+  if (patch.deliveredAt != null) next.deliveredAt = String(patch.deliveredAt || '').trim()
+  if (patch.deliveryMileage != null) next.deliveryMileage = parseMileageKm(patch.deliveryMileage)
+  if (patch.reworkRecords != null) next.reworkRecords = normalizeReworkRecords(patch.reworkRecords)
+  if (patch.exteriorPhotoWaived != null) next.exteriorPhotoWaived = patch.exteriorPhotoWaived === true
+  if (patch.revision != null) next.revision = Math.max(0, Math.round(Number(patch.revision) || 0))
+  if (patch.needsRevision != null) next.needsRevision = patch.needsRevision === true
+  if (patch.finishedAt != null) next.finishedAt = String(patch.finishedAt || '').trim()
+  if (patch.recordVersions != null) {
+    next.recordVersions = normalizeNodeContent({ recordVersions: patch.recordVersions }).recordVersions
+  }
   if (patch.lines != null) {
     next.lines = Array.isArray(patch.lines)
       ? patch.lines.map((row) => normalizeQuoteLine(row)).filter((row) => row && row.name)
@@ -703,15 +823,12 @@ function mergeNodeContent(prev = {}, patch = {}) {
           .filter((row) => row && (row.partName || (row.images && row.images.length)))
       : []
   }
-  if (patch.photos != null) {
-    next.photos = normalizePendingImages(patch.photos)
-  }
+  if (patch.photos != null) next.photos = normalizePendingImages(patch.photos)
   if (patch.discovery != null) {
     next.discovery = patch.discovery && typeof patch.discovery === 'object' ? patch.discovery : {}
   }
   if (patch.archiveCopy != null) {
-    next.archiveCopy =
-      patch.archiveCopy && typeof patch.archiveCopy === 'object' ? patch.archiveCopy : {}
+    next.archiveCopy = patch.archiveCopy && typeof patch.archiveCopy === 'object' ? patch.archiveCopy : {}
   }
   if (patch.totalAmount != null && patch.totalAmount !== '') {
     next.totalAmount = patch.totalAmount
@@ -754,18 +871,8 @@ function contentBagHasSubstance(raw) {
 }
 
 function pickContentSource(node) {
-  const payload =
-    node && node.document && node.document.payload && typeof node.document.payload === 'object'
-      ? node.document.payload
-      : null
-  const candidates = [node && node.content, node && node.photoDraft, payload]
-  for (let i = 0; i < candidates.length; i += 1) {
-    const raw = candidates[i]
-    if (raw && typeof raw === 'object' && contentBagHasSubstance(raw)) return raw
-  }
-  if (node && node.content && typeof node.content === 'object') return node.content
-  if (node && node.photoDraft && typeof node.photoDraft === 'object') return node.photoDraft
-  if (payload) return payload
+  if (!node || typeof node !== 'object') return {}
+  if (node.content && typeof node.content === 'object') return node.content
   return {}
 }
 
@@ -774,62 +881,9 @@ function contentOfFlowNode(node) {
   return normalizeNodeContent(pickContentSource(node))
 }
 
-/** @deprecated 使用 contentOfFlowNode；保留别名避免旧调用方断裂 */
-function draftOfFlowNode(node) {
-  return contentOfFlowNode(node)
-}
-
 function envelopeOnlyDocument(doc) {
   if (!doc || typeof doc !== 'object') return doc
-  return { ...doc, payload: {} }
-}
-
-function preserveGeneratedReportFields(content = {}, payload = {}) {
-  if (!payload || typeof payload !== 'object') return content
-  const next = { ...(content || {}) }
-  const copyIfEmpty = (key) => {
-    const cur = next[key]
-    const incoming = payload[key]
-    const curEmpty = Array.isArray(cur) ? !cur.length : !String(cur == null ? '' : cur).trim()
-    const incomingHas = Array.isArray(incoming)
-      ? incoming.length > 0
-      : incoming != null && String(incoming).trim()
-    if (curEmpty && incomingHas) next[key] = incoming
-  }
-  ;[
-    'workItems',
-    'acceptanceItems',
-    'warrantyPeriod',
-    'warrantyNotes',
-    'totalAmount',
-    'delivererName',
-    'finishedAt',
-    'confirmCopy',
-    'lines',
-    'findings',
-    'photos',
-    'chiefComplaint',
-    'conclusion',
-  ].forEach(copyIfEmpty)
-  return normalizeNodeContent(next)
-}
-
-/**
- * 一次性把旧底稿/旧信封收进节点内容。只给库迁移脚本用，禁止挂在每次保存上。
- */
-function migrateNodeToSingleContent(node) {
-  if (!node || typeof node !== 'object') return node
-  const doc = node.document && typeof node.document === 'object' ? { ...node.document } : null
-  const payload = doc && doc.payload && typeof doc.payload === 'object' ? doc.payload : null
-  const folded = mergeNodeContent(
-    mergeNodeContent(payload || {}, node.photoDraft || {}),
-    node.content || {},
-  )
-  const content = preserveGeneratedReportFields(folded, payload || {})
-  const next = { ...node, content }
-  delete next.photoDraft
-  if (doc) next.document = envelopeOnlyDocument(doc)
-  return next
+  return { ...doc }
 }
 
 function compactPriorRow(row = {}) {
@@ -2309,155 +2363,9 @@ function findingDraftKeeps(row = {}) {
   )
 }
 
-function normalizePhotoDraft(raw = {}) {
-  return {
-    chiefComplaint: String(raw.chiefComplaint || '').trim(),
-    mileageKm: parseMileageKm(raw.mileageKm || raw.mileage),
-    odometerUrl: String(raw.odometerUrl || '').trim(),
-    odometerImageId: String(raw.odometerImageId || '').trim(),
-    vehicleBrand: String(raw.vehicleBrand || '').trim(),
-    vehicleSeries: String(raw.vehicleSeries || '').trim(),
-    vehicleYear: String(raw.vehicleYear || '').trim(),
-    conclusion: String(raw.conclusion || '').trim(),
-    findings: Array.isArray(raw.findings)
-      ? raw.findings
-          .map((item, index) => {
-            const row = normalizeDraftFinding(item, index)
-            return findingDraftKeeps(row) ? row : null
-          })
-          .filter(Boolean)
-      : [],
-    pendingImages: normalizePendingImages(raw.pendingImages),
-    fuelReading: String(raw.fuelReading || '').trim(),
-    belongings: String(raw.belongings || '').trim(),
-    intakeResults: Array.isArray(raw.intakeResults)
-      ? raw.intakeResults.map((row) => normalizeIntakeResult(row)).filter((row) => row.images.length || row.reading)
-      : [],
-    warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
-    warrantyNotes: resolveWarrantyNotes(raw),
-    confirmCopy: String(raw.confirmCopy || '').trim(),
-    acceptanceItems: foldLegacyDeliveryPhotos(resolveAcceptanceItems(raw), raw.deliveryPhotos),
-    reportGeneratedAt: String(raw.reportGeneratedAt || '').trim(),
-    ownerSentAt: String(raw.ownerSentAt || '').trim(),
-    inspectionAiKey: String(raw.inspectionAiKey || '').trim(),
-    receiverName: String(raw.receiverName || '').trim(),
-    receivedAt: String(raw.receivedAt || '').trim(),
-    inspectorName: String(raw.inspectorName || '').trim(),
-    inspectedAt: String(raw.inspectedAt || '').trim(),
-    workerName: String(raw.workerName || '').trim(),
-    delivererName: String(raw.delivererName || '').trim(),
-    // 交付确认（2026-11-13）：交车时间与交付里程必填
-    deliveredAt: String(raw.deliveredAt || '').trim(),
-    deliveryMileage: parseMileageKm(raw.deliveryMileage),
-    reworkRecords: normalizeReworkRecords(raw.reworkRecords),
-    // 外观照豁免留痕：true = 定稿时确认过「不拍外观照」，读侧据此标注「商家未留外观照」
-    exteriorPhotoWaived: raw.exteriorPhotoWaived === true,
-    // 报告修订号：已发报告追加/返工后 revision+1，旧版归档在 document.revisions[]
-    revision: Math.max(0, Math.round(Number(raw.revision) || 0)),
-    needsRevision: raw.needsRevision === true,
-    finishedAt: String(raw.finishedAt || '').trim(),
-    recordVersions: Array.isArray(raw.recordVersions)
-      ? raw.recordVersions
-          .map((row) => ({
-            id: String((row && row.id) || '').trim(),
-            confirmedAt: String((row && row.confirmedAt) || '').trim(),
-            title: String((row && row.title) || '').trim(),
-            summary: String((row && row.summary) || '').trim(),
-          }))
-          .filter((row) => row.id)
-          .slice(-20)
-      : [],
-  }
-}
 
-/** 合并过程步草稿：仅覆盖显式传入的字段 */
-function mergePhotoDraft(prev = {}, patch = {}) {
-  const next = normalizePhotoDraft(prev)
-  if (!patch || typeof patch !== 'object') return next
-  if (patch.chiefComplaint != null) next.chiefComplaint = String(patch.chiefComplaint || '').trim()
-  if (patch.mileageKm != null || patch.mileage != null) {
-    next.mileageKm = parseMileageKm(patch.mileageKm != null ? patch.mileageKm : patch.mileage)
-  }
-  if (patch.odometerUrl != null) next.odometerUrl = String(patch.odometerUrl || '').trim()
-  if (patch.odometerImageId != null) next.odometerImageId = String(patch.odometerImageId || '').trim()
-  if (patch.vehicleBrand != null) next.vehicleBrand = String(patch.vehicleBrand || '').trim()
-  if (patch.vehicleSeries != null) next.vehicleSeries = String(patch.vehicleSeries || '').trim()
-  if (patch.vehicleYear != null) next.vehicleYear = String(patch.vehicleYear || '').trim()
-  if (patch.conclusion != null) next.conclusion = String(patch.conclusion || '').trim()
-  if (patch.findings != null) {
-    next.findings = normalizePhotoDraft({ findings: patch.findings }).findings
-  }
-  if (patch.pendingImages != null) {
-    next.pendingImages = normalizePendingImages(patch.pendingImages)
-  }
-  if (patch.fuelReading != null) next.fuelReading = String(patch.fuelReading || '').trim()
-  if (patch.belongings != null) next.belongings = String(patch.belongings || '').trim()
-  if (patch.intakeResults != null) {
-    next.intakeResults = normalizePhotoDraft({ intakeResults: patch.intakeResults }).intakeResults
-  }
-  if (patch.warrantyPeriod != null) {
-    next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
-  }
-  if (patch.warrantyNotes != null) {
-    next.warrantyNotes = String(patch.warrantyNotes || '').trim()
-  }
-  // 旧字段写入时并入注意事项（新字段优先已在 normalize 处理）
-  if (patch.warrantyScope != null || patch.warrantyExclusions != null) {
-    next.warrantyNotes = resolveWarrantyNotes({
-      warrantyNotes: patch.warrantyNotes != null ? patch.warrantyNotes : next.warrantyNotes,
-      warrantyScope: patch.warrantyScope,
-      warrantyExclusions: patch.warrantyExclusions,
-    })
-  }
-  if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
-  // 旧调用方仍可能传 deliveryPhotos：只转成「外观」行写入，不再落旧字段
-  if (patch.deliveryPhotos != null) {
-    const photos = normalizeDeliveryPhotos(patch.deliveryPhotos)
-    const rows = normalizeAcceptanceItems(next.acceptanceItems)
-    const idx = rows.findIndex((row) => row.kind === ACCEPTANCE_KIND.EXTERIOR)
-    const prev = idx >= 0 ? rows[idx] : null
-    const exterior = emptyAcceptanceItem({
-      kind: ACCEPTANCE_KIND.EXTERIOR,
-      images: photos,
-      result: prev ? prev.result : '',
-      note: prev ? prev.note : '',
-    })
-    if (idx >= 0) rows[idx] = exterior
-    else rows.push(exterior)
-    next.acceptanceItems = rows
-  }
-  if (patch.acceptanceItems != null) {
-    next.acceptanceItems = normalizeAcceptanceItems(patch.acceptanceItems)
-  }
-  if (patch.reportGeneratedAt != null) {
-    next.reportGeneratedAt = String(patch.reportGeneratedAt || '').trim()
-  }
-  if (patch.ownerSentAt != null) {
-    next.ownerSentAt = String(patch.ownerSentAt || '').trim()
-  }
-  if (patch.inspectionAiKey != null) {
-    next.inspectionAiKey = String(patch.inspectionAiKey || '').trim()
-  }
-  if (patch.receiverName != null) next.receiverName = String(patch.receiverName || '').trim()
-  if (patch.receivedAt != null) next.receivedAt = String(patch.receivedAt || '').trim()
-  if (patch.inspectorName != null) next.inspectorName = String(patch.inspectorName || '').trim()
-  if (patch.inspectedAt != null) next.inspectedAt = String(patch.inspectedAt || '').trim()
-  if (patch.workerName != null) next.workerName = String(patch.workerName || '').trim()
-  if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
-  if (patch.deliveredAt != null) next.deliveredAt = String(patch.deliveredAt || '').trim()
-  if (patch.deliveryMileage != null) next.deliveryMileage = parseMileageKm(patch.deliveryMileage)
-  if (patch.reworkRecords != null) next.reworkRecords = normalizeReworkRecords(patch.reworkRecords)
-  if (patch.exteriorPhotoWaived != null) {
-    next.exteriorPhotoWaived = patch.exteriorPhotoWaived === true
-  }
-  if (patch.revision != null) next.revision = Math.max(0, Math.round(Number(patch.revision) || 0))
-  if (patch.needsRevision != null) next.needsRevision = patch.needsRevision === true
-  if (patch.finishedAt != null) next.finishedAt = String(patch.finishedAt || '').trim()
-  if (patch.recordVersions != null) {
-    next.recordVersions = normalizePhotoDraft({ recordVersions: patch.recordVersions }).recordVersions
-  }
-  return next
-}
+/** 合并过程步内容：仅覆盖显式传入的字段 */
+function mergeContentDraftStub() { /* 占位，将在下一步删除 */ }
 
 function shotsInOrganizeGroup(images, group) {
   const pending = normalizePendingImages(images)
@@ -2714,16 +2622,16 @@ module.exports = {
   stripFigureIndexTalk,
   parseOdometerMileageFromTexts,
   formatMileageText,
-  normalizePhotoDraft,
+
   looksLikeWorkFinding,
-  mergePhotoDraft,
+
   normalizeNodeContent,
   mergeNodeContent,
   contentOfFlowNode,
   contentBagHasSubstance,
-  draftOfFlowNode,
+
   envelopeOnlyDocument,
-  migrateNodeToSingleContent,
+
   normalizePendingImages,
   applyOrganizeGroups,
   inspectionSuggestions,
