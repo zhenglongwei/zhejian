@@ -61,6 +61,7 @@
 
       <!-- 统一项目区：报价项 / 施工项 -->
       <view wx:if="{{ch.items.length}}" class="host-archive-preview__items">
+        <text class="host-archive-preview__k">{{ch.kind === 'work' ? '施工项目' : '报价项目'}}</text>
         <view
           wx:for="{{ch.items}}"
           wx:for-item="row"
@@ -133,7 +134,7 @@
 
       <text
         wx:if="{{ch.warrantyPeriod || ch.warrantyNotes}}"
-        class="host-archive-preview__row-note"
+        class="host-archive-preview__footer"
       >质保：{{ch.warrantyPeriod}}{{ch.warrantyPeriod && ch.warrantyNotes ? ' · ' : ''}}{{ch.warrantyNotes}}</text>
     </view>
   </view>
