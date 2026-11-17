@@ -9,8 +9,8 @@
   </block>
 
   <block wx:else>
-    <view class="merchant-host-page__intro">
-      <text class="text-body">{{serviceName}}</text>
+    <view class="merchant-host-page__intro" wx:if="{{wizardStep !== 2 || listedOff}}">
+      <text wx:if="{{wizardStep !== 2}}" class="text-body">{{serviceName}}</text>
       <view wx:if="{{listedOff}}" class="merchant-host-page__status">
         <text class="text-body">网站上看不到</text>
         <text class="text-caption merchant-host-page__hint">{{listedOffMessage}}</text>
@@ -72,8 +72,17 @@
           <text class="text-caption merchant-host-page__mask-hint">{{maskStatusHint}}</text>
         </view>
 
-        <text class="text-body merchant-host-page__label">本单档案</text>
-        <text wx:if="{{hostMode === 'public' && hostVisibility !== 'public'}}" class="text-caption text-secondary merchant-host-page__hint">点图可改码</text>
+        <view class="merchant-host-page__copy-head">
+          <text class="text-body merchant-host-page__label">案例详情</text>
+          <ui-button
+            wx:if="{{!hosted && hostMode === 'public'}}"
+            type="ghost"
+            size="sm"
+            loading="{{geoGenerating}}"
+            disabled="{{geoGenerating || working}}"
+            bind:btntap="onRegenerateGeoDraft"
+          >AI 生成</ui-button>
+        </view>
 
         <view wx:if="{{archiveChapters.length}}" class="merchant-host-page__archive">
           <host-archive-preview
@@ -93,15 +102,8 @@
         <view wx:if="{{!hosted && hostMode === 'public'}}" class="merchant-host-page__copy">
           <view class="merchant-host-page__copy-head">
             <text class="text-body merchant-host-page__label">店页摘要</text>
-            <ui-button
-              type="ghost"
-              size="sm"
-              loading="{{geoGenerating}}"
-              disabled="{{geoGenerating || working}}"
-              bind:btntap="onRegenerateGeoDraft"
-            >AI 生成</ui-button>
           </view>
-          <text wx:if="{{geoGenerating}}" class="text-caption text-secondary">正在读整单记录，整理简述与问答…</text>
+          <text wx:if="{{geoGenerating}}" class="text-caption text-secondary">正在读整单记录，重写简述、章节衔接与问答…</text>
           <textarea
             class="merchant-host-page__textarea"
             value="{{geoSummary}}"
