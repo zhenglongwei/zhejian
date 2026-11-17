@@ -23,7 +23,7 @@
           wx:for-item="f"
           wx:for-index="fi"
           wx:key="fi"
-          class="host-archive-preview__finding"
+          class="host-archive-preview__finding host-archive-preview__finding--inspect"
         >
           <view class="host-archive-preview__row-head">
             <text class="host-archive-preview__row-title">{{f.partName}}</text>
@@ -67,7 +67,7 @@
           wx:for-item="row"
           wx:for-index="ri"
           wx:key="ri"
-          class="host-archive-preview__row"
+          class="host-archive-preview__row {{ch.kind === 'work' ? 'host-archive-preview__row--work' : ((ch.title === '施工中新发现' || ch.title === '交车时补充') ? 'host-archive-preview__row--addon' : 'host-archive-preview__row--quote')}}"
         >
           <text wx:if="{{row.name}}" class="host-archive-preview__row-title">{{row.name}}</text>
           <view wx:if="{{row.images && row.images.length}}" class="host-archive-preview__img-grid">
@@ -105,7 +105,7 @@
           wx:for-item="acc"
           wx:for-index="ai"
           wx:key="id"
-          class="host-archive-preview__finding"
+          class="host-archive-preview__finding host-archive-preview__finding--accept"
         >
           <view class="host-archive-preview__row-head">
             <text class="host-archive-preview__row-title">{{acc.name}}</text>

@@ -84,6 +84,27 @@
   align-items: stretch;
   gap: var(--space-xs);
   margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+/* 不同内容用不同底色区分：检测/验收中性灰、报价淡蓝、施工淡绿、新发现暖黄 */
+.host-archive-preview__finding--inspect,
+.host-archive-preview__finding--accept {
+  background-color: var(--color-bg-muted);
+}
+
+.host-archive-preview__row--quote {
+  background-color: var(--color-primary-light);
+}
+
+.host-archive-preview__row--work {
+  background-color: var(--color-success-light);
+}
+
+.host-archive-preview__row--addon {
+  background-color: var(--color-warning-light);
 }
 
 .host-archive-preview__row-head {
