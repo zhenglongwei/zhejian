@@ -219,6 +219,34 @@ function testCollectsAnalyzedImageKeys() {
   assert.equal(keys.length, unique.size, '图片 key 不得重复')
 }
 
+/** 节点业务内容只落 content：旧字段全部为空时仍能取全事实 */
+function toContentOnly(flow) {
+  return flow.map((row) => {
+    const content = {
+      ...(row.photoDraft || {}),
+      ...((row.document && row.document.payload) || {}),
+    }
+    return {
+      ...row,
+      content,
+      document: { ...(row.document || {}), payload: {} },
+    }
+  })
+}
+
+function testReadsContentOnlyNodes() {
+  const pack = buildCaseFactPack(toContentOnly(fullFlowNodes()))
+  assert.ok(pack.chiefComplaint.includes('咯噔响'), '主诉应从 content 取到')
+  assert.equal(pack.vehicle.brand, '大众')
+  assert.equal(pack.findings.length, 2)
+  assert.deepEqual(pack.quoteItems, ['更换右前小吊杆'])
+  assert.equal(pack.addonQuoteItems.length, 1)
+  assert.equal(pack.workItems.length, 2)
+  assert.equal(pack.finish.conclusion, '异响消除，方向盘抖动消失')
+  assert.equal(pack.finish.acceptancePhotoCount, 1)
+  assert.ok(pack.analyzedImageKeys.includes('https://x/insp1.jpg'))
+}
+
 function testHasEnoughFactsGate() {
   assert.equal(factPackHasEnoughFacts(buildCaseFactPack(fullFlowNodes())), true)
   assert.equal(factPackHasEnoughFacts(buildCaseFactPack([])), false, '无单据链判为不足')
@@ -255,5 +283,6 @@ testChiefComplaintFallsBackToIntake()
 testFindingsFallsBackToInspection()
 testLegacyAlbumWithoutFlow()
 testCollectsAnalyzedImageKeys()
+testReadsContentOnlyNodes()
 testHasEnoughFactsGate()
 console.log('case-geo-factpack.test.js OK')

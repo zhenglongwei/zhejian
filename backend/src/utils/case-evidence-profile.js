@@ -9,6 +9,9 @@
  * 4. 不判级：档位判定在 schemas/case-trust-meta.schema.js（与枚举契约同处）
  */
 
+const { resolveShared } = require('./resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+
 /** 图片可能是字符串，也可能是 { url }（与 case-geo-factpack 同口径） */
 function pickImageKey(raw) {
   if (!raw) return ''
@@ -23,13 +26,8 @@ function normalizeImageKey(key) {
   return value.replace(/[?#].*$/, '')
 }
 
-function payloadOf(node) {
-  const doc = node && node.document && typeof node.document === 'object' ? node.document : {}
-  return doc.payload && typeof doc.payload === 'object' ? doc.payload : {}
-}
-
-function photoDraftOf(node) {
-  return node && node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}
+function contentOf(node) {
+  return contentOfFlowNode(node)
 }
 
 function text(value) {
@@ -65,9 +63,7 @@ function collectPayloadImageKeys(payload) {
 }
 
 function stageNodeImages(node) {
-  const keys = collectPayloadImageKeys(payloadOf(node))
-  collectPayloadImageKeys(photoDraftOf(node)).forEach((key) => keys.add(key))
-  return keys
+  return collectPayloadImageKeys(contentOf(node))
 }
 
 /** 单环节：节点集合 + 是否算「有定稿」 */
@@ -138,8 +134,8 @@ function assessCaseEvidenceProfile(flowNodes) {
     const keys = new Set()
     let sealed = false
     stageNodes.forEach((node) => {
-      const payload = payloadOf(node)
-      const draft = photoDraftOf(node)
+      const payload = contentOf(node)
+      const draft = payload
       if (def.sealed(payload, draft)) sealed = true
       stageNodeImages(node).forEach((key) => {
         keys.add(key)

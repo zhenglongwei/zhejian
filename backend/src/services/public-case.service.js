@@ -31,6 +31,8 @@ const {
 } = require('./build-public-view.service')
 const { SPOT_CHECK_STATUS } = require('./gate-b-risk.service')
 const { hostPublicTitle } = require('../utils/host-public-title')
+const { resolveShared } = require('../utils/resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -566,10 +568,9 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     }
     // 公开图说：按完工报告验收清单逐行取（行描述优先、行名兜底），按去签名 URL 供 ImageObject/alt 使用
     const reportNode = (nodesWithMask || []).find((n) => n && n.kind === 'repair_report')
-    const reportPayload =
-      (reportNode && reportNode.document && reportNode.document.payload) || {}
+    const reportContent = reportNode ? contentOfFlowNode(reportNode) : {}
     const captionsByUrl = {}
-    ;(Array.isArray(reportPayload.acceptanceItems) ? reportPayload.acceptanceItems : []).forEach(
+    ;(Array.isArray(reportContent.acceptanceItems) ? reportContent.acceptanceItems : []).forEach(
       (row) => {
         const name = String((row && row.name) || '').trim()
         const note = String((row && row.note) || '').trim()

@@ -3,6 +3,8 @@
  * 真源：docs/01_项目总览与业务架构/15_案例档案与托管状态机.md §7.11
  */
 const { FINDING_RESULT, findingAdviceRequired } = require('../../vendor/shared/constants/service-flow-nodes')
+const { resolveShared } = require('./resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 const QR_HINT = /二维码|微信码|加微信|名片|公众号码/
 const VAGUE_COMPLAINT =
@@ -47,14 +49,14 @@ function findFlow(nodes, kind) {
 function collectFindingRows({ flowNodes, reviewDocs }) {
   const rows = []
   const report = findFlow(flowNodes, 'inspection_report')
-  const payload = (report && report.document && report.document.payload) || {}
-  ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
+  const reportContent = report ? contentOfFlowNode(report) : {}
+  ;(Array.isArray(reportContent.findings) ? reportContent.findings : []).forEach((row) => {
     if (row) rows.push(row)
   })
   // findings 记在检测节点；存量合并节点 intake_inspection 兼容
   const inspection =
     findFlow(flowNodes, 'inspection') || findFlow(flowNodes, 'intake_inspection')
-  const draft = (inspection && inspection.photoDraft) || {}
+  const draft = inspection ? contentOfFlowNode(inspection) : {}
   ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
     if (row) rows.push(row)
   })
@@ -84,28 +86,33 @@ function collectCaptionPool({ flowNodes, reviewDocs }) {
 function resolveMileageKm({ vehicle, flowNodes }) {
   // 里程记在接车节点；存量合并节点 intake_inspection 兼容
   const intake = findFlow(flowNodes, 'intake') || findFlow(flowNodes, 'intake_inspection')
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = intake ? contentOfFlowNode(intake) : {}
   const report = findFlow(flowNodes, 'inspection_report')
-  const payload = (report && report.document && report.document.payload) || {}
+  const reportContent = report ? contentOfFlowNode(report) : {}
+  // content 归一化不保留生成字段 mileageText，仅这一项回退报告 payload
+  const reportPayload = report && report.document && report.document.payload
+  const reportMileageText =
+    text(reportContent.mileageText) ||
+    (reportPayload && typeof reportPayload === 'object' ? text(reportPayload.mileageText) : '')
   return (
     text(draft.mileageKm) ||
     text(vehicle && (vehicle.mileage || vehicle.mileageKm)) ||
-    text(payload.mileageText)
+    reportMileageText
   )
 }
 
 function resolveChiefComplaint({ flowNodes, reviewDocs }) {
   // 主诉记在接车节点；存量合并节点 intake_inspection 兼容
   const intake = findFlow(flowNodes, 'intake') || findFlow(flowNodes, 'intake_inspection')
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = intake ? contentOfFlowNode(intake) : {}
   const report = findFlow(flowNodes, 'inspection_report')
-  const payload = (report && report.document && report.document.payload) || {}
+  const reportContent = report ? contentOfFlowNode(report) : {}
   const fromReview = (Array.isArray(reviewDocs) ? reviewDocs : []).find(
     (doc) => doc && doc.kind === 'inspection_report',
   )
   return (
     text(draft.chiefComplaint) ||
-    text(payload.chiefComplaint) ||
+    text(reportContent.chiefComplaint) ||
     text(fromReview && fromReview.chiefComplaint)
   )
 }
@@ -113,7 +120,7 @@ function resolveChiefComplaint({ flowNodes, reviewDocs }) {
 function resolveVehicleBlob({ vehicle, flowNodes, view }) {
   // 对外车型记在接车节点；存量合并节点 intake_inspection 兼容
   const intake = findFlow(flowNodes, 'intake') || findFlow(flowNodes, 'intake_inspection')
-  const draft = (intake && intake.photoDraft) || {}
+  const draft = intake ? contentOfFlowNode(intake) : {}
   return [
     draft.vehicleBrand,
     draft.vehicleSeries,

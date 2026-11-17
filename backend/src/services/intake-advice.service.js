@@ -41,9 +41,7 @@ function vehicleFacts(album, draft = {}) {
 }
 
 function intakeComplaintText(intake) {
-  const draft = contentOfFlowNode(intake)
-  const payload = (intake && intake.document && intake.document.payload) || {}
-  return text(draft.chiefComplaint || payload.chiefComplaint)
+  return text(contentOfFlowNode(intake).chiefComplaint)
 }
 
 function albumMileageKm(album) {

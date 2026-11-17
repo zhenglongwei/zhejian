@@ -13,6 +13,9 @@
  * 4. **四档结论只取两档**：需处理 / 需关注。状态良好、仅记录写进去等于刷屏
  */
 
+const { resolveShared } = require('./resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+
 /** 只有这两档结论值得喂给大模型 */
 const FEEDABLE_RESULTS = new Set(['需处理', '需关注'])
 
@@ -30,26 +33,15 @@ function normalizeImageKey(key) {
   return value.replace(/[?#].*$/, '')
 }
 
-function payloadOf(node) {
-  const doc = node && node.document && typeof node.document === 'object' ? node.document : {}
-  const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : {}
-  return payload
-}
-
-function photoDraftOf(node) {
-  const draft = node && node.photoDraft && typeof node.photoDraft === 'object' ? node.photoDraft : {}
-  return draft
-}
-
 function nodesOfKind(flowNodes, kind) {
   return (flowNodes || []).filter((node) => String((node && node.kind) || '') === kind)
 }
 
-/** 诉求：优先检测报告，其次接车报告，最后才回落接车草稿 */
+/** 诉求：优先检测报告，其次接车报告 */
 function pickChiefComplaint(flowNodes) {
   const reports = nodesOfKind(flowNodes, 'inspection_report')
   for (const node of reports) {
-    const value = String(payloadOf(node).chiefComplaint || '').trim()
+    const value = String(contentOfFlowNode(node).chiefComplaint || '').trim()
     if (value) return value
   }
   const intakes = [
@@ -57,11 +49,7 @@ function pickChiefComplaint(flowNodes) {
     ...nodesOfKind(flowNodes, 'intake_inspection'),
   ]
   for (const node of intakes) {
-    const fromDoc = String(payloadOf(node).chiefComplaint || '').trim()
-    if (fromDoc) return fromDoc
-  }
-  for (const node of intakes) {
-    const value = String(photoDraftOf(node).chiefComplaint || '').trim()
+    const value = String(contentOfFlowNode(node).chiefComplaint || '').trim()
     if (value) return value
   }
   return ''
@@ -90,14 +78,14 @@ function pickFindings(flowNodes) {
     }
   }
   for (const node of nodesOfKind(flowNodes, 'inspection_report')) {
-    pushRows(payloadOf(node).findings)
+    pushRows(contentOfFlowNode(node).findings)
   }
   if (out.length) return out
   for (const node of [
     ...nodesOfKind(flowNodes, 'inspection'),
     ...nodesOfKind(flowNodes, 'intake_inspection'),
   ]) {
-    pushRows(photoDraftOf(node).findings)
+    pushRows(contentOfFlowNode(node).findings)
   }
   return out
 }
@@ -106,7 +94,7 @@ function pickFindings(flowNodes) {
 function pickQuoteItems(flowNodes, kind) {
   const rows = []
   for (const node of nodesOfKind(flowNodes, kind)) {
-    const lines = payloadOf(node).lines
+    const lines = contentOfFlowNode(node).lines
     if (!Array.isArray(lines)) continue
     for (const line of lines) {
       const name = String((line && line.name) || '').trim()
@@ -117,14 +105,15 @@ function pickQuoteItems(flowNodes, kind) {
 }
 
 /**
- * 工单项：优先定稿 document.payload.workItems；存量/进行中才回落 photoDraft.findings
+ * 工单项：优先 content.workItems；存量/进行中才回落 content.findings
  */
 function pickWorkItems(flowNodes) {
   const out = []
   for (const node of nodesOfKind(flowNodes, 'work')) {
-    const sealed = payloadOf(node).workItems
+    const content = contentOfFlowNode(node)
+    const sealed = content.workItems
     const rows =
-      Array.isArray(sealed) && sealed.length ? sealed : photoDraftOf(node).findings
+      Array.isArray(sealed) && sealed.length ? sealed : content.findings
     if (!Array.isArray(rows)) continue
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue
@@ -144,7 +133,7 @@ function pickWorkItems(flowNodes) {
 /** 完工确认：复查结论 + 验收事实句 + 质保 + 使用注意 */
 function pickFinish(flowNodes) {
   for (const node of nodesOfKind(flowNodes, 'repair_report')) {
-    const payload = payloadOf(node)
+    const payload = contentOfFlowNode(node)
     // 验收项（2026-11-10 二次收敛）：事实句按行（项目 + 结果 + 描述），外观并入末行；不改快照事实
     const acceptanceItems = (Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [])
       .map((row) => {
@@ -183,15 +172,27 @@ function pickFinish(flowNodes) {
   }
 }
 
+/**
+ * 报告里程文案：content 归一化不保留生成字段 mileageText，
+ * 因此 content 取不到时只对这一项回退报告 payload。
+ */
+function reportMileageText(node) {
+  const payload = node && node.document && node.document.payload
+  if (!payload || typeof payload !== 'object') return ''
+  return String(payload.mileageText || '').trim()
+}
+
 /** 车型、年款与里程：跨单据聚合（任一单据写了都算，先到先得） */
 function pickVehicle(flowNodes) {
   const vehicle = { brand: '', series: '', year: '', mileageText: '' }
   for (const node of flowNodes || []) {
-    const payload = payloadOf(node)
+    const payload = contentOfFlowNode(node)
     if (!vehicle.brand) vehicle.brand = String(payload.vehicleBrand || '').trim()
     if (!vehicle.series) vehicle.series = String(payload.vehicleSeries || '').trim()
     if (!vehicle.year) vehicle.year = String(payload.vehicleYear || '').trim()
-    if (!vehicle.mileageText) vehicle.mileageText = String(payload.mileageText || '').trim()
+    if (!vehicle.mileageText) {
+      vehicle.mileageText = String(payload.mileageText || '').trim() || reportMileageText(node)
+    }
     if (vehicle.brand && vehicle.series && vehicle.year && vehicle.mileageText) break
   }
   return vehicle
@@ -215,12 +216,13 @@ function pickAnalyzedImageKeys(flowNodes) {
     }
   }
   for (const node of nodesOfKind(flowNodes, 'inspection_report')) {
-    collect(payloadOf(node).findings)
+    collect(contentOfFlowNode(node).findings)
   }
   for (const node of nodesOfKind(flowNodes, 'work')) {
-    const sealed = payloadOf(node).workItems
+    const content = contentOfFlowNode(node)
+    const sealed = content.workItems
     if (Array.isArray(sealed) && sealed.length) collect(sealed)
-    else collect(photoDraftOf(node).findings)
+    else collect(content.findings)
   }
   return Array.from(keys)
 }

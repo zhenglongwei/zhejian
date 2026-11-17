@@ -100,11 +100,9 @@ function collectNodeImageEntries(node = {}) {
     })
   }
   pushFindings(draft.findings)
-  const payload = (node.document && node.document.payload) || {}
-  pushFindings(payload.findings)
-  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+  const discovery = draft.discovery && typeof draft.discovery === 'object' ? draft.discovery : {}
   ;(Array.isArray(discovery.images) ? discovery.images : []).forEach((url) => push(url, '新发现'))
-  ;(Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : []).forEach((row) => {
+  ;(Array.isArray(draft.acceptanceItems) ? draft.acceptanceItems : []).forEach((row) => {
     const label = row && row.kind === 'exterior' ? '整车外观' : '交车图'
     ;(Array.isArray(row && row.images) ? row.images : []).forEach((img) => push(img, label))
   })
@@ -191,16 +189,15 @@ async function patchFlowNode(albumId, nodeId, mutator) {
 
 function buildReviewContext(album, node, extra = {}) {
   const draft = contentOfFlowNode(node)
-  const doc = (node.document && node.document.payload) || {}
   const reviewStep =
     extra.step || (node.aiReview && node.aiReview.reviewStep) || resolveReviewStep(node.kind)
   const flowNodes = readFlowNodes(album)
   const quoteNode = extra.quoteNode || flowNodes.find(
     (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
   )
-  const quotePayload = (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
+  const quoteDraft = quoteNode ? contentOfFlowNode(quoteNode) : {}
   const reportNode = flowNodes.find((item) => item && item.kind === 'inspection_report')
-  const reportPayload = (reportNode && reportNode.document && reportNode.document.payload) || {}
+  const reportDraft = reportNode ? contentOfFlowNode(reportNode) : {}
   const allQuoteLines = collectQuotedLines(flowNodes)
   /**
    * 只读参考：检测报告与历次报价汇总（首报 + 各次未撤销补充报价）。
@@ -213,19 +210,19 @@ function buildReviewContext(album, node, extra = {}) {
     quoteLines: [],
   }
   const fillConfirmedReference = (excludeNodeId = '') => {
-    reference.reportFindings = Array.isArray(reportPayload.findings) ? reportPayload.findings : []
+    reference.reportFindings = Array.isArray(reportDraft.findings) ? reportDraft.findings : []
     reference.quoteLines = excludeNodeId
       ? collectQuotedLines(flowNodes, { excludeNodeId })
       : allQuoteLines
   }
-  let findings = draft.findings || doc.findings || []
-  let quoteLines = extra.quoteLines || quotePayload.lines || []
+  let findings = draft.findings || []
+  let quoteLines = extra.quoteLines || quoteDraft.lines || []
   if (reviewStep === 'quote_check' || reviewStep === 'addon_check') {
-    if ((!Array.isArray(findings) || !findings.length) && Array.isArray(reportPayload.findings)) {
-      findings = reportPayload.findings
+    if ((!Array.isArray(findings) || !findings.length) && Array.isArray(reportDraft.findings)) {
+      findings = reportDraft.findings
     }
-    if (node.kind === 'quote_confirm' && Array.isArray(doc.lines)) {
-      quoteLines = extra.quoteLines && extra.quoteLines.length ? extra.quoteLines : doc.lines
+    if (node.kind === 'quote_confirm' && Array.isArray(draft.lines)) {
+      quoteLines = extra.quoteLines && extra.quoteLines.length ? extra.quoteLines : draft.lines
     }
   }
   /** 工单项目（含增项工单）与完工报告施工项：完工验收时车主一并看到 */
@@ -240,13 +237,7 @@ function buildReviewContext(album, node, extra = {}) {
     if (insertedReason === 'addon') {
       const parent = flowNodes.find((item) => item && item.id === node.parentNodeId)
       const parentDraft = contentOfFlowNode(parent)
-      const parentDoc = (parent && parent.document && parent.document.payload) || {}
-      quoteLines =
-        Array.isArray(parentDraft.lines) && parentDraft.lines.length
-          ? parentDraft.lines
-          : Array.isArray(parentDoc.lines)
-            ? parentDoc.lines
-            : []
+      quoteLines = Array.isArray(parentDraft.lines) ? parentDraft.lines : []
       fillConfirmedReference(node.parentNodeId)
     } else if (insertedReason === 'rework') {
       quoteLines = []
@@ -266,7 +257,7 @@ function buildReviewContext(album, node, extra = {}) {
   } else if (reviewStep === 'addon_check') {
     const parent = readFlowNodes(album).find((item) => item && item.id === node.parentNodeId)
     const workFindings = contentOfFlowNode(parent).findings || []
-    const discovery = doc.discovery && typeof doc.discovery === 'object' ? doc.discovery : {}
+    const discovery = draft.discovery && typeof draft.discovery === 'object' ? draft.discovery : {}
     const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
     findings = workFindings.concat([
       {
@@ -278,7 +269,7 @@ function buildReviewContext(album, node, extra = {}) {
       },
     ])
     // 当前补充报价是检查对象；历史依据排除当前单，避免把自己当已报项目
-    quoteLines = Array.isArray(doc.lines) ? doc.lines : []
+    quoteLines = Array.isArray(draft.lines) ? draft.lines : []
     fillConfirmedReference(node.id)
   } else if (
     reviewStep === 'delivery' &&
@@ -333,10 +324,10 @@ function buildReviewContext(album, node, extra = {}) {
       )
     })
     // 完工报告正文的施工项：车主这次看到的就是它
-    workItems = Array.isArray(doc.workItems)
-      ? doc.workItems
-      : Array.isArray(doc.items)
-        ? doc.items
+    workItems = Array.isArray(draft.workItems)
+      ? draft.workItems
+      : Array.isArray(draft.items)
+        ? draft.items
         : []
     quoteLines = []
     fillConfirmedReference()
@@ -369,9 +360,8 @@ function buildReviewContext(album, node, extra = {}) {
     rubric,
     chiefComplaint: text(
       draft.chiefComplaint ||
-        doc.chiefComplaint ||
         extra.chiefComplaint ||
-        reportPayload.chiefComplaint ||
+        reportDraft.chiefComplaint ||
         (() => {
           const intake = readFlowNodes(album).find(
             (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
@@ -384,9 +374,9 @@ function buildReviewContext(album, node, extra = {}) {
     findings,
     orderItems,
     workItems,
-    warrantyPeriod: draft.warrantyPeriod || doc.warrantyPeriod || extra.warrantyPeriod,
-    warrantyNotes: draft.warrantyNotes || doc.warrantyNotes,
-    conclusion: draft.conclusion || doc.conclusion,
+    warrantyPeriod: draft.warrantyPeriod || extra.warrantyPeriod,
+    warrantyNotes: draft.warrantyNotes,
+    conclusion: draft.conclusion,
     quoteLines,
     /** 只读参考，与上面的检查对象分离；模型不得对它提修改意见 */
     reference,
@@ -955,15 +945,15 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = 
   if (!capability.entitled) return null
   const quoteLines =
     (payload.quote && payload.quote.payload && payload.quote.payload.lines) || []
+  const incomingContent =
+    (payload.content && typeof payload.content === 'object' && payload.content) ||
+    (payload.photoDraft && typeof payload.photoDraft === 'object' && payload.photoDraft) ||
+    (payload.document && payload.document.payload && typeof payload.document.payload === 'object'
+      ? payload.document.payload
+      : {})
   const mergedNode = {
     ...node,
-    document: {
-      ...(node.document || {}),
-      payload: {
-        ...((node.document && node.document.payload) || {}),
-        ...((payload.document && payload.document.payload) || {}),
-      },
-    },
+    content: { ...contentOfFlowNode(node), ...incomingContent },
   }
   // 报告与方案是一起发的：方案被车主拒绝过，报告这份同样要重查（结论早于拒绝就算作废）
   const quoteNode = readFlowNodes(album).find(
@@ -1036,14 +1026,14 @@ async function maybeStartAiReview({ album, node, merchantId, payload = {} }) {
     return { delivered: false, nextAction: '', review: null, skipped: true, message: '' }
   }
   const kind = String((node && node.kind) || '')
-  const doc = (node.document && node.document.payload) || {}
+  const content = contentOfFlowNode(node)
   const quoteNode = readFlowNodes(album).find(
     (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
   )
   const quoteFromAlbum = collectQuotedLines(readFlowNodes(album))
   const quoteLines =
-    kind === 'quote_confirm' && Array.isArray(doc.lines)
-      ? doc.lines
+    kind === 'quote_confirm' && Array.isArray(content.lines)
+      ? content.lines
       : Array.isArray(payload.quoteLines) && payload.quoteLines.length
         ? payload.quoteLines
         : quoteFromAlbum
@@ -1075,7 +1065,7 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
     console.info('[node-ai-review] 跳过检查：能力未开通', { kind, merchantId })
     return null
   }
-  const doc = (node.document && node.document.payload) || {}
+  const doc = contentOfFlowNode(node)
   const quoteLines = kind === 'quote_confirm' && Array.isArray(doc.lines) ? doc.lines : []
   if (wantsSkip(payload) && !isAckStale(node, { quoteLines })) {
     console.info('[node-ai-review] 放行：本轮已看过检查结论', { kind, nodeId: node.id })

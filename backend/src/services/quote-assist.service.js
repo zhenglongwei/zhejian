@@ -127,10 +127,10 @@ function buildAssistFingerprint(album, targetNode) {
   const intake = nodes.find((item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'))
   const report = nodes.find((item) => item && item.kind === 'inspection_report')
   const quote = target || nodes.find((item) => item && item.kind === 'quote_confirm' && !item.insertedReason)
-  const payload = (report && report.document && report.document.payload) || {}
-  const findings = Array.isArray(payload.findings) ? payload.findings : []
-  const quotePayload = (quote && quote.document && quote.document.payload) || {}
-  const lines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
+  const reportContent = report ? contentOfFlowNode(report) : {}
+  const findings = Array.isArray(reportContent.findings) ? reportContent.findings : []
+  const quoteContent = quote ? contentOfFlowNode(quote) : {}
+  const lines = Array.isArray(quoteContent.lines) ? quoteContent.lines : []
   const intakeDraft = contentOfFlowNode(intake)
   const intakePhotos = Array.isArray(intakeDraft.pendingImages) ? intakeDraft.pendingImages : []
   return crypto
@@ -138,7 +138,7 @@ function buildAssistFingerprint(album, targetNode) {
     .update(
       JSON.stringify({
         v: 'quote-assist-v2',
-        c: text(intakeDraft.chiefComplaint || payload.chiefComplaint),
+        c: text(intakeDraft.chiefComplaint || reportContent.chiefComplaint),
         intake: text((intake && intake.intakeAdvice && intake.intakeAdvice.updatedAt) || ''),
         p: intakePhotos.map((img) => text(img && (img.url || img))),
         f: findings.map((row) => ({
@@ -420,13 +420,13 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
     }))
 
     const report = nodes.find((item) => item && item.kind === 'inspection_report')
-    const payload = (report && report.document && report.document.payload) || {}
+    const reportContent = report ? contentOfFlowNode(report) : {}
     const intake = nodes.find(
       (item) => item && (item.kind === 'intake' || item.kind === 'intake_inspection'),
     )
     const inspection = nodes.find((item) => item && item.kind === 'inspection')
     const inspectionAdvice = (inspection && inspection.inspectionAdvice) || {}
-    const findingsResolved = resolveQuoteFindings(payload, inspectionAdvice)
+    const findingsResolved = resolveQuoteFindings(reportContent, inspectionAdvice)
     const findings = findingsResolved.rows
     if (findingsResolved.source !== 'report') {
       console.warn('[quote-assist] 检测报告未生成，检测依据回落到', {
@@ -435,7 +435,7 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
         count: findings.length,
       })
     }
-    const chiefComplaint = text(contentOfFlowNode(intake).chiefComplaint || payload.chiefComplaint)
+    const chiefComplaint = text(contentOfFlowNode(intake).chiefComplaint || reportContent.chiefComplaint)
     const quoteLines = quoteLinesOf(quote)
     const workFindings = addon ? collectWorkFindings(nodes) : []
     const discovery = addon ? addonDiscoveryOf(quote) : { note: '', images: [] }

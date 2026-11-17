@@ -260,6 +260,54 @@ test('旧册薄报告：用冻住的交车节点重生成一次', () => {
   assert.equal(body.delivererName, '李店长')
 })
 
+test('旧册薄报告：主诉从 inspection_report.content 读取（payload 为空）', () => {
+  const pkg = {
+    flowVersion: 6,
+    flowNodes: [
+      {
+        id: 'inspect_report_1',
+        kind: 'inspection_report',
+        status: 'delivered',
+        content: { chiefComplaint: '右前门剐蹭，需局部补漆' },
+        document: { docType: 'inspection_report', status: 'delivered', payload: {} },
+      },
+      {
+        id: 'work_1',
+        kind: 'work',
+        status: 'completed',
+        content: {
+          findings: [{ partName: '右前门', caption: '补漆并更换饰条', brand: '原厂' }],
+        },
+      },
+      {
+        id: 'delivery_1',
+        kind: 'delivery_photos',
+        status: 'completed',
+        content: {
+          acceptanceItems: [
+            { id: 'acc_1', kind: 'work', name: '右前门', note: '自然光下无明显色差', result: 'pass' },
+          ],
+          warrantyPeriod: '12 个月',
+          delivererName: '李店长',
+        },
+      },
+      {
+        id: 'repair_1',
+        kind: 'repair_report',
+        document: {
+          docType: 'repair_report',
+          status: 'pending_confirm',
+          payload: {},
+        },
+      },
+    ],
+  }
+  const { pkg: next, changed } = healFinishReportPackage(pkg)
+  assert.equal(changed, true)
+  const report = next.flowNodes.find((row) => row.kind === 'repair_report')
+  assert.equal(contentOfFlowNode(report).chiefComplaint, '右前门剐蹭，需局部补漆')
+})
+
 test('车主接车报告：已发出但只留了留证时仍有入店照片', () => {
   const view = buildOwnerFlowView(
     albumWithFlow([

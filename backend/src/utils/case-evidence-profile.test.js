@@ -48,6 +48,36 @@ test('证据画像：五环节定稿 + 多环节图证', () => {
   assert.deepEqual(profile.annotations, [])
 })
 
+function contentNode(kind, content, extra = {}) {
+  return { id: `node_${kind}`, kind, content, document: { status: 'confirmed', payload: {} }, ...extra }
+}
+
+test('证据画像：content-only 节点同样计入定稿与图证', () => {
+  const nodes = [
+    contentNode('intake_inspection', {
+      chiefComplaint: '异响',
+      photos: [{ url: '/p/i1.jpg' }],
+    }),
+    contentNode('inspection_report', {
+      findings: [{ partName: '刹车片', result: '需处理', images: [{ url: '/p/f1.jpg' }] }],
+    }),
+    contentNode('quote_confirm', { lines: [{ name: '换刹车片' }] }),
+    contentNode('work', {
+      findings: [{ partName: '刹车片', images: [{ url: '/p/w1.jpg' }] }],
+    }),
+    contentNode('repair_report', {
+      conclusion: '已更换',
+      acceptanceItems: [
+        { id: 'acc_1', kind: 'work', name: '换刹车片', result: 'pass', images: [{ url: '/p/c1.jpg' }] },
+      ],
+    }),
+  ]
+  const profile = assessCaseEvidenceProfile(nodes)
+  assert.equal(profile.sealedStages, 5)
+  assert.equal(profile.photoStages, 4)
+  assert.equal(profile.totalPhotos, 4)
+})
+
 test('判级：图文全留证（≥3环定稿 + ≥2环图证 + 总图≥4）', () => {
   const profile = assessCaseEvidenceProfile(fullFlowNodes())
   const graded = resolveEvidenceLevel(0, profile)

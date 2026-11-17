@@ -412,13 +412,12 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}, options = {}) 
   const draft = delivery ? contentOfFlowNode(delivery) : {}
   const inspectionReport = (nodes || []).find((row) => row && row.kind === 'inspection_report')
   const repair = (nodes || []).find((row) => row && row.kind === 'repair_report')
-  const prevPayload = (repair && repair.document && repair.document.payload) || {}
   const prevContent = repair ? contentOfFlowNode(repair) : {}
   // 修订号：已发送后重新生成 → revision+1；普通生成/修复沿用已有版本
   const explicit = Number(options && options.revision)
   const revision = Number.isFinite(explicit)
     ? Math.max(0, explicit)
-    : Math.max(0, Number(prevPayload.revision || prevContent.revision) || 0)
+    : Math.max(0, Number(prevContent.revision) || 0)
   // 公开图说：草稿里应用过的优先，其次交车 AI 意见里的（同一次看图产出）
   const adviceCaptions =
     delivery && delivery.deliveryAdvice && delivery.deliveryAdvice.publicCaptions &&
@@ -435,11 +434,7 @@ function buildFinishReportFromFrozenNodes(nodes = [], album = {}, options = {}) 
     albumKm > 0 ? `接车里程 ${albumKm.toLocaleString('zh-CN')} km` : ''
   return buildRepairReportPayload({
     chiefComplaint:
-      (inspectionReport &&
-        inspectionReport.document &&
-        inspectionReport.document.payload &&
-        inspectionReport.document.payload.chiefComplaint) ||
-      '',
+      (inspectionReport && contentOfFlowNode(inspectionReport).chiefComplaint) || '',
     workItems: attachQuoteAmountsToWorkItems(collectAllWorkOrderItems(nodes), nodes),
     deliveryImages: [],
     photoDraft: { ...draft, publicCaptions },
