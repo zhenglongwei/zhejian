@@ -18,7 +18,7 @@ test('有 flowNodes 即走节点真源', () => {
   assert.equal(albumUsesFlowNodes({ contentPackageJson: {} }), false)
 })
 
-test('接车/报价/整车外观照不算可公示；施工图与交车施工验收图算', () => {
+test('接车/报价/外观照不算可公示；施工图与判为施工证据的交车补传图算', () => {
   const album = albumWithFlow([
     {
       id: 'n1',
@@ -59,25 +59,19 @@ test('接车/报价/整车外观照不算可公示；施工图与交车施工验
         acceptanceItems: [{ id: 'acc_1', kind: 'work', name: '换刹车片', images: [{ url: 'https://x/acc.jpg' }] }],
       },
     },
-    {
-      id: 'n6',
-      kind: 'repair_report',
-      content: {
-        acceptanceItems: [
-          {
-            id: 'acc_2',
-            kind: 'work',
-            name: '四轮定位',
-            unbuiltReason: 'customer_declined',
-            images: [{ url: 'https://x/giveup.jpg' }],
-          },
-        ],
-      },
-    },
   ])
+  // 托管生成时模型判定：d2 是施工验收照，out 是整车外观照
+  album.contentPackageJson.hostMeta = {
+    geoDraft: {
+      deliveryPhotoRoles: [
+        { url: 'https://x/d2.jpg', role: 'work', item: '换刹车片' },
+        { url: 'https://x/out.jpg', role: 'exterior', item: '' },
+      ],
+    },
+  }
   const list = collectPublicizableFlowPhotos(album)
   assert.equal(countPublicizableFlowPhotos(album), 2)
-  assert.deepEqual(list.map((r) => r.url), ['https://x/work.jpg', 'https://x/acc.jpg'])
+  assert.deepEqual(list.map((r) => r.url), ['https://x/work.jpg', 'https://x/d2.jpg'])
   const meta = mapFlowImageMeta(album)
   assert.equal(meta.length, 2)
   assert.ok(meta.every((m) => m.visibility === 'public' && m.publicGateStatus === 'passed'))

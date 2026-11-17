@@ -423,6 +423,12 @@ function mapPublicCaseRow(row, album, options = {}) {
     (hostMeta && hostMeta.geoLayer && typeof hostMeta.geoLayer === 'object'
       ? hostMeta.geoLayer
       : null)
+  const deliveryPhotoRoles =
+    (Array.isArray(hostGeoLayer && hostGeoLayer.deliveryPhotoRoles) &&
+      hostGeoLayer.deliveryPhotoRoles) ||
+    (hostMeta && hostMeta.geoDraft && Array.isArray(hostMeta.geoDraft.deliveryPhotoRoles)
+      ? hostMeta.geoDraft.deliveryPhotoRoles
+      : [])
   if (hostGeoLayer) {
     layered.hostGeoLayer = {
       summary: String(hostGeoLayer.summary || '').trim(),
@@ -431,6 +437,8 @@ function mapPublicCaseRow(row, album, options = {}) {
         .map((row) => String((row && typeof row === 'object' ? row.text : row) || '').trim())
         .filter(Boolean)
         .slice(0, 5),
+      // 交车节点补传图归属：只有判为施工证据的图并进施工章
+      deliveryPhotoRoles,
       // 章节衔接语：{ id, text }，H5 按 chapter.id 对齐渲染
       chapterNarratives: (Array.isArray(hostGeoLayer.chapterNarratives)
         ? hostGeoLayer.chapterNarratives
@@ -472,6 +480,8 @@ function mapPublicCaseRow(row, album, options = {}) {
     contentNodes: content.nodes,
     publicView,
     maskLookup: options.maskLookup || null,
+    // 交车节点只有一个整车照入口；判为施工证据的补传图并进施工章
+    deliveryPhotoRoles,
   })
   // 章节衔接语：公开层优先，其次托管草稿；缺的章节按规则兜底，保证网页端与商家预览一致
   {

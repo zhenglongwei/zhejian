@@ -530,8 +530,9 @@ function mergeChapterNarratives(chapters, list) {
 }
 
 /** 按相册流程构建公开章节（衔接语校验/渲染共用） */
-function buildHostedPublicChapters(album, view) {
+function buildHostedPublicChapters(album, view, roles) {
   const { buildPublicServiceFlow } = require('../utils/public-service-flow')
+  const { readHostDeliveryPhotoRoles } = require('../utils/host-delivery-photo-roles')
   const pkg =
     album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
@@ -541,7 +542,112 @@ function buildHostedPublicChapters(album, view) {
     album,
     contentNodes: (view && view.nodes) || [],
     allowPrivateFallback: true,
+    // 交车节点补传图只有被模型判为施工证据的才并进施工章
+    deliveryPhotoRoles: Array.isArray(roles) ? roles : readHostDeliveryPhotoRoles(album),
   }).chapters
+}
+
+const DELIVERY_ROLE_SYSTEM =
+  '你是汽车维修档案的照片归档助手。判断交车环节上传的每张照片属于哪一类：施工证据（施工过程、拆装/更换部位特写、验收特写）或整车外观（车身全貌、外观与内饰全景）。只输出 JSON。'
+
+function parseJsonObject(raw) {
+  const body = String(raw || '')
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/, '')
+    .trim()
+  const start = body.indexOf('{')
+  const end = body.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try {
+    return JSON.parse(body.slice(start, end + 1))
+  } catch (_) {
+    return null
+  }
+}
+
+/** 模型可选的项目名：施工章项目 + 报价章项目（施工漏拍、验收照补传到交车节点的情况） */
+function collectDeliveryRoleItemNames(chapters) {
+  const names = []
+  const seen = new Set()
+  ;(Array.isArray(chapters) ? chapters : []).forEach((chapter) => {
+    const kind = String((chapter && chapter.kind) || '')
+    if (kind !== 'work' && kind !== 'quote_confirm' && kind !== 'addon_quote_confirm') return
+    ;(Array.isArray(chapter.items) ? chapter.items : []).forEach((item) => {
+      const name = String((item && item.name) || '').trim()
+      if (!name || seen.has(name)) return
+      seen.add(name)
+      names.push(name)
+    })
+  })
+  return names
+}
+
+/**
+ * 托管生成时由模型判断交车节点图片归属。
+ * 交车节点只有一个整车照上传入口，门店可能把施工验收照也传到这里；
+ * 判为施工并给出项目名的图在公开预览/公开页并进施工章，其余仍按外观留档。
+ * 复用已判定的草稿时不重复调用模型。
+ */
+async function resolveDeliveryPhotoRoles(album, view, geoDraft, forceRegen) {
+  const existing = geoDraft && Array.isArray(geoDraft.deliveryPhotoRoles) ? geoDraft.deliveryPhotoRoles : []
+  if (existing.length && !forceRegen) return existing
+  const { chatCompletion } = require('../lib/dashscope-chat')
+  const { getAlbumVisionConfig } = require('./album-vision-ondemand.service')
+  const {
+    collectDeliveryEntryPhotos,
+    normalizeDeliveryPhotoRoles,
+  } = require('../utils/host-delivery-photo-roles')
+  const vision = getAlbumVisionConfig()
+  if (!vision.enabled || vision.dryRun || !vision.apiKey) return existing
+  const pkg =
+    album && album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const photos = collectDeliveryEntryPhotos(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+  if (!photos.length) return existing
+  const chapters = buildHostedPublicChapters(album, view)
+  const itemNames = collectDeliveryRoleItemNames(chapters)
+  if (!itemNames.length) return existing
+  const candidates = photos.slice(0, Math.max(1, Number(vision.maxImages) || 8))
+  const itemLines = itemNames.map((name, idx) => `${idx + 1}. ${name}`).join('\n')
+  const content = [
+    {
+      type: 'text',
+      text: `本单施工项目（"项目"只能从中选，不能新造）：\n${itemLines}\n\n下面按顺序给出交车环节上传的 ${candidates.length} 张照片。\n逐张判断：\n- "施工"：能看到具体施工部位、拆装或更换的配件、施工过程或验收特写\n- "外观"：整车、车身外观、内饰全景等交车留档照\n- "其他"：无法判断或与两者都无关\n判为"施工"时，从上面的施工项目里选最匹配的一项填入"项目"；匹配不上就留空字符串。\n只输出 JSON：{"photos":[{"图":1,"归属":"施工","项目":"项目名"}]}`,
+    },
+  ]
+  candidates.forEach((photo, idx) => {
+    content.push({ type: 'text', text: `图${idx + 1}` })
+    content.push({ type: 'image_url', image_url: { url: photo.url } })
+  })
+  try {
+    const res = await chatCompletion({
+      apiUrl: vision.apiUrl,
+      apiKey: vision.apiKey,
+      model: vision.model,
+      temperature: 0.1,
+      timeoutMs: vision.timeoutMs,
+      responseFormat: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: DELIVERY_ROLE_SYSTEM },
+        { role: 'user', content },
+      ],
+    })
+    const parsed = parseJsonObject(res && res.text)
+    const roles = normalizeDeliveryPhotoRoles(parsed && parsed.photos, candidates, itemNames)
+    console.info('[case-hosting] delivery photo roles', {
+      albumId: album && album.id,
+      photos: candidates.length,
+      roles: roles.length,
+    })
+    return roles.length ? roles : existing
+  } catch (error) {
+    console.warn('[case-hosting] delivery photo roles failed', {
+      albumId: album && album.id,
+      error: String((error && error.message) || error).slice(0, 200),
+    })
+    return existing
+  }
 }
 
 async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo, album) {
@@ -779,9 +885,14 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   }
 
   if (!geoDraft) geoDraft = ruleGeo.geoDraft
+  // 交车节点补传图归属：托管生成时由模型判定；施工证据图并进施工章，流程与节点 AI 不变
+  const deliveryPhotoRoles = await resolveDeliveryPhotoRoles(album, view, geoDraft, forceRegen)
+  if (deliveryPhotoRoles.length) {
+    geoDraft = { ...geoDraft, deliveryPhotoRoles }
+  }
   // 章节衔接语按当前章节校验并补齐：复用旧草稿/公开内容时，节点变了的 id 丢弃、缺的补兜底
   {
-    const chapters = buildHostedPublicChapters(album, view)
+    const chapters = buildHostedPublicChapters(album, view, deliveryPhotoRoles)
     geoDraft = {
       ...geoDraft,
       chapterNarratives: mergeChapterNarratives(chapters, geoDraft.chapterNarratives),
@@ -1033,6 +1144,11 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     // 公开托管：只读节点写回的打码图；有码用码，失败/无须打码允许原图
     requireDesensitized: false,
     allowPrivateFallback: true,
+    // 交车节点补传图：只有托管生成时判为施工证据的才并进施工章
+    deliveryPhotoRoles:
+      (prev.geoLayer && Array.isArray(prev.geoLayer.deliveryPhotoRoles) && prev.geoLayer.deliveryPhotoRoles) ||
+      (prev.geoDraft && Array.isArray(prev.geoDraft.deliveryPhotoRoles) && prev.geoDraft.deliveryPhotoRoles) ||
+      [],
   })
   const maskImages = (() => {
     const fromList = collectReviewMaskImages(reviewDocsForMaskList, outcomeIndex)
@@ -1216,7 +1332,10 @@ async function confirmHostedPublicPublish(
       ? draft.chapterNarratives
       : []
   const view = buildMerchantView(album)
-  const chapters = buildHostedPublicChapters(album, view)
+  const deliveryPhotoRoles = Array.isArray(draft.deliveryPhotoRoles)
+    ? draft.deliveryPhotoRoles
+    : (prev.geoLayer && Array.isArray(prev.geoLayer.deliveryPhotoRoles) && prev.geoLayer.deliveryPhotoRoles) || []
+  const chapters = buildHostedPublicChapters(album, view, deliveryPhotoRoles)
   const geoLayer = {
     summary: String(summary != null ? summary : draft.summary || '').trim(),
     highlights: Array.isArray(highlights)
@@ -1227,6 +1346,8 @@ async function confirmHostedPublicPublish(
     nodeStories: sanitizeHostedNodeStories(rawStories),
     chapterNarratives: mergeChapterNarratives(chapters, rawNarratives),
     faq: filterPublishableFaq(rawFaq),
+    // 交车节点补传图的模型判定：公开页据此把施工证据图并进施工章
+    deliveryPhotoRoles,
     confirmedAt: new Date().toISOString(),
   }
   if (!geoLayer.summary) {

@@ -429,72 +429,51 @@ function sortFlowNodes(nodes = []) {
   return nodes.slice().sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
 }
 
-const DELIVERY_PHOTO_KINDS = { delivery_photos: true, repair_report: true }
+const { deliveryWorkPhotoSlots } = require('./host-delivery-photo-roles')
 
 function nameKey(value) {
   return text(value).replace(/\s+/g, '')
 }
 
 /**
- * 交车节点里的施工项验收图：商家可能在施工节点漏拍，流程不能回转，
- * 于是把施工照片传到了交车节点。这些图属于施工证据，收进施工章；
- * 整车外观照（exterior）与未施工项（unbuiltReason）不收。
+ * 交车节点只有一个整车照上传入口，门店可能把施工验收照片也传到这里。
+ * 归属由托管生成时的模型判定（见 host-delivery-photo-roles.js）：
+ * 只有判为施工证据的图才并入施工章，整车外观照不进施工章。
  */
-function collectDeliveryWorkPhotos(flowNodes, lookup) {
-  const rows = []
-  const seen = new Set()
-  flowNodes.forEach((node) => {
-    const kind = text(node && node.kind)
-    if (!DELIVERY_PHOTO_KINDS[kind]) return
-    const payload = contentOfFlowNode(node)
-    const acceptance = Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : []
-    acceptance.forEach((row) => {
-      if (!row || typeof row !== 'object') return
-      if (row.kind === 'exterior' || text(row.unbuiltReason)) return
-      const name = text(row.name)
-      if (!name) return
-      const images = []
-      ;(Array.isArray(row.images) ? row.images : []).forEach((img) => {
-        const rawKey = urlKey(
-          typeof img === 'string' ? img : img && (img.url || img.rawUrl || img.maskedUrl),
-        )
-        if (rawKey && seen.has(rawKey)) return
-        const url = resolvePhotoDisplayUrl(img, lookup)
-        if (!url) return
-        if (rawKey) seen.add(rawKey)
-        images.push({ url })
-      })
-      if (images.length) rows.push({ name, images })
-    })
-  })
-  return rows
-}
-
-/** 把交车节点施工图并入施工章；没有施工章时补一个，排在完工之前 */
-function mergeDeliveryWorkPhotos(chapters, flowNodes, lookup) {
-  const rows = collectDeliveryWorkPhotos(flowNodes, lookup)
+function mergeDeliveryWorkPhotos(chapters, flowNodes, lookup, roles) {
+  const rows = deliveryWorkPhotoSlots(flowNodes, roles)
   if (!rows.length) return
   let work = chapters.find((chapter) => chapter && chapter.kind === 'work')
-  if (!work) {
-    work = { id: '', kind: 'work', title: '施工', items: [] }
+  const ensureWork = () => {
+    if (work) return work
+    work = { id: 'delivery_work_photos', kind: 'work', title: '施工', items: [] }
     const before = chapters.findIndex(
       (chapter) => chapter && (chapter.kind === 'repair_report' || chapter.kind === 'addon_quote_confirm'),
     )
     if (before >= 0) chapters.splice(before, 0, work)
     else chapters.push(work)
+    return work
   }
-  if (!Array.isArray(work.items)) work.items = []
   rows.forEach((row) => {
-    const key = nameKey(row.name)
-    const target = work.items.find((item) => nameKey(item && item.name) === key)
-    if (!target) {
-      work.items.push({ name: row.name, brand: '', note: '', images: row.images })
+    const name = text(row.item)
+    // 判定为施工证据但模型没给出可用的项目名：无法落行，宁可不并
+    if (!name) return
+    const images = []
+    const url = resolvePhotoDisplayUrl(row.slot, lookup)
+    if (url) images.push({ url })
+    if (!images.length) return
+    const target = ensureWork()
+    if (!Array.isArray(target.items)) target.items = []
+    const key = nameKey(name)
+    const hit = target.items.find((item) => nameKey(item && item.name) === key)
+    if (!hit) {
+      target.items.push({ name, brand: '', note: '', images })
       return
     }
-    if (!Array.isArray(target.images)) target.images = []
-    row.images.forEach((img) => {
-      if (!target.images.some((item) => urlKey(item && item.url) === urlKey(img.url))) {
-        target.images.push(img)
+    if (!Array.isArray(hit.images)) hit.images = []
+    images.forEach((img) => {
+      if (!hit.images.some((item) => urlKey(item && item.url) === urlKey(img.url))) {
+        hit.images.push(img)
       }
     })
   })
@@ -533,7 +512,7 @@ function buildPublicServiceFlow(input = {}) {
       prevKind = chapter.kind
     }
   })
-  mergeDeliveryWorkPhotos(chapters, flowNodes, lookup)
+  mergeDeliveryWorkPhotos(chapters, flowNodes, lookup, input.deliveryPhotoRoles)
   return { chapters }
 }
 

@@ -1349,7 +1349,7 @@ Page({
     return missing
   },
 
-  /** 施工项与报价的关联状态：已报价 / 补充报价中 / 待补充报价 */
+  /** 施工项与报价的关联状态：已报价（不标注）/ 补充报价中 / 待补充报价 */
   resolveItemQuoteState(finding = {}) {
     const findingId = String(finding.id || '')
     const partName = String(finding.partName || '').replace(/\s+/g, '')
@@ -1376,7 +1376,7 @@ Page({
         else quoted = true
       })
     })
-    if (quoted) return { state: 'quoted', label: '已报价' }
+    if (quoted) return { state: 'quoted', label: '' }
     if (pending) return { state: 'pending', label: '补充报价中' }
     return { state: 'none', label: '' }
   },
@@ -2318,6 +2318,16 @@ Page({
 
   onCloseWork() {
     this.setData({ workOpen: false, stageKey: '', stageBoard: null, stageEditor: false })
+  },
+
+  /** 补充报价确认后该去的施工节点：有挂在它下面的补充施工就回补充施工，否则回原施工 */
+  addonWorkStageKey(addonNodeId) {
+    const parentId = String(addonNodeId || '')
+    if (!parentId) return ''
+    const addonWork = (this._flowNodes || []).find(
+      (node) => node && node.kind === 'work' && String(node.parentNodeId || '') === parentId,
+    )
+    return addonWork ? this.bucketKeyOf(addonWork.id) : ''
   },
 
   bucketKeyOf(id) {
@@ -7720,7 +7730,12 @@ Page({
           return
         }
         wx.showToast({
-          title: kind === 'intake' || kind === 'intake_inspection' ? '已发给车主' : (res && res.message) || '本步已完成',
+          title:
+            kind === 'intake' || kind === 'intake_inspection'
+              ? '已发给车主'
+              : kind === 'delivery_photos'
+                ? '交车已完成'
+                : (res && res.message) || '本步已完成',
           icon: 'success',
         })
         if (kind === 'work') {
@@ -7798,20 +7813,15 @@ Page({
       const hasExteriorPhoto = Boolean(
         exteriorRow && Array.isArray(exteriorRow.images) && exteriorRow.images.length,
       )
-      if (hasExteriorPhoto) {
-        await run(this.buildAiReviewAckExtra())
-        return
-      }
-      // 外观照选填：缺图不拦交车，但强提醒并留痕（诚实标注优于补拍造假）
+      // 完整性靠必填项非空校验拦截，弹窗只做「提交即锁定」的确认
       wx.showModal({
-        title: '未拍整车外观照',
-        content: '没有外观照，交车后无法用照片证明车辆外观状态。确认不拍并继续交车？',
-        confirmText: '不拍，交车',
-        cancelText: '去补拍',
+        title: '确认交车',
+        content: '提交后将无法修改，是否确认',
+        confirmText: '确认交车',
+        cancelText: '再检查',
         success: (res) => {
-          if (res.confirm) {
-            run(this.buildAiReviewAckExtra(), { exteriorPhotoWaived: true })
-          }
+          if (!res.confirm) return
+          run(this.buildAiReviewAckExtra(), hasExteriorPhoto ? {} : { exteriorPhotoWaived: true })
         },
       })
       return
@@ -8968,6 +8978,12 @@ Page({
     return this.onNotifyOwnerPlan()
   },
 
+  /** 施工节点主动发现新问题：直接插入（或复用）补充报价节点 */
+  onStartAddonFromWork() {
+    if (this.data.readOnly || this.data.confirming) return
+    this.onAddAddonPlan({})
+  },
+
   async onAddAddonPlan(payload = {}) {
     if (this.data.readOnly || this.data.confirming) return
     this.setData({ confirming: true })
@@ -9115,8 +9131,9 @@ Page({
   },
 
   onContinueWork() {
-    // 补充报价已被车主确认：回到施工继续做新增项目
-    this.openStage('work')
+    // 补充报价已被车主确认：有补充施工节点就回补充施工，否则回原施工继续做新增项目
+    const addonId = String((this.data.activeNode && this.data.activeNode.id) || '')
+    this.openStage(this.addonWorkStageKey(addonId) || 'work')
   },
 
   onOpenCancelAddon() {
@@ -9354,8 +9371,12 @@ Page({
         kind === 'addon_quote_confirm' ||
         (kind === 'quote_confirm' &&
           String((this.data.activeNode && this.data.activeNode.insertedReason) || '') === 'addon')
+      const confirmedId = String((this.data.activeNode && this.data.activeNode.id) || '')
       await this.loadFlow({ silent: true })
-      if (wasAddon || kind === 'quote_confirm') {
+      if (wasAddon) {
+        // 补充报价：优先回它自己的补充施工节点，没有才回原施工
+        this.openStage(this.addonWorkStageKey(confirmedId) || 'work')
+      } else if (kind === 'quote_confirm') {
         const work = (this._flowNodes || []).find((node) => node && node.kind === 'work')
         this.openStage(work ? this.bucketKeyOf(work.id) : 'work')
       }

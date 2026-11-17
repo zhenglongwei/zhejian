@@ -6,15 +6,19 @@
 const { collectBagImageRefs } = require('./flow-photo-mask-writeback')
 const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
 const { stripUrlQuery } = require('../lib/media-signed-url')
-const { resolveShared } = require('./resolve-shared')
-const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+const {
+  DELIVERY_PHOTO_ROLE,
+  collectDeliveryEntryPhotos,
+  deliveryPhotoRoleMap,
+  readHostDeliveryPhotoRoles,
+} = require('./host-delivery-photo-roles')
 
 /**
  * 整节点图片不上网：只留档。
  * - 接车 / 接车检测：留证照片不公开
  * - 报价：报价单本体不公开（项目行文字另走 buildFlowNodeViews，仍可上网）
- * - 交车：整车外观照不公开；但交车清单里「施工项验收」的图属于施工过程证据
- *   （商家常在施工节点漏拍、流程又不能回转，只能补传到交车节点），按过程图公开。
+ * - 交车：只有一个整车照上传入口，外观照不公开；托管生成时被模型判为
+ *   施工证据的图（门店常把验收照片补传到这里）按过程图公开。
  * 补充报价 / 补充施工按过程图公开（见 isAddonNode）。
  */
 const PRIVATE_FLOW_KINDS = new Set([
@@ -25,20 +29,18 @@ const PRIVATE_FLOW_KINDS = new Set([
   'repair_report',
 ])
 
-const DELIVERY_FLOW_KINDS = new Set(['delivery_photos', 'repair_report'])
-
-/** 交车节点里可公示的施工验收项（排除整车外观照与未施工项） */
-function deliveryWorkAcceptanceItems(node) {
-  if (!node || !DELIVERY_FLOW_KINDS.has(String(node.kind || '').trim())) return []
-  const payload = contentOfFlowNode(node)
-  const rows = Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : []
-  return rows.filter(
-    (row) =>
-      row &&
-      typeof row === 'object' &&
-      row.kind !== 'exterior' &&
-      !String(row.unbuiltReason || '').trim(),
-  )
+/** 交车节点里被模型判为施工证据的照片（见 host-delivery-photo-roles.js） */
+function deliveryWorkPhotos(album, node) {
+  const roles = readHostDeliveryPhotoRoles(album)
+  if (!roles.length) return []
+  const roleMap = deliveryPhotoRoleMap(roles)
+  if (!roleMap.size) return []
+  return collectDeliveryEntryPhotos([node]).filter((slot) => {
+    const hit = roleMap.get(
+      stripUrlQuery(String((slot && (slot.url || slot.rawUrl)) || '').trim()),
+    )
+    return Boolean(hit && hit.role === DELIVERY_PHOTO_ROLE.WORK)
+  })
 }
 
 /** 补充报价虽沿用 quote_confirm，但属于过程节点，图上公开 */
@@ -98,10 +100,10 @@ function collectPublicizableFlowPhotos(album) {
     if (!node || typeof node !== 'object') return
     const kind = String(node.kind || '').trim()
     if (PRIVATE_FLOW_KINDS.has(kind) && !isAddonNode(node)) {
-      // 交车节点只放行「施工项验收」照片；整车外观照仍留档
-      const workRows = deliveryWorkAcceptanceItems(node)
-      if (!workRows.length) return
-      pushRefs(node, kind, { acceptanceItems: workRows })
+      // 交车节点只放行模型判为施工证据的图；整车外观照仍留档
+      const workPhotos = deliveryWorkPhotos(album, node)
+      if (!workPhotos.length) return
+      pushRefs(node, kind, { photos: workPhotos })
       return
     }
     pushRefs(node, kind, node.content)
