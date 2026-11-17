@@ -151,7 +151,27 @@ function pickWorkItems(flowNodes) {
   return out
 }
 
-/** 完工确认：复查结论 + 验收事实句 + 质保 + 使用注意 */
+/** 施工时间（分钟）：交车节点填写，缺失时回落到完工确认；0 表示未填 */
+function pickWorkDurationMinutes(flowNodes) {
+  for (const kind of ['delivery_photos', 'repair_report']) {
+    for (const node of nodesOfKind(flowNodes, kind)) {
+      const minutes = Number(contentOfFlowNode(node).workDurationMinutes) || 0
+      if (minutes > 0) return Math.round(minutes)
+    }
+  }
+  return 0
+}
+
+/** 施工时长文案：满 1 小时按小时（保留一位），不足 1 小时按分钟 */
+function formatWorkDurationText(minutes) {
+  const n = Number(minutes) || 0
+  if (n <= 0) return ''
+  if (n < 60) return `约 ${n} 分钟`
+  const hours = n / 60
+  return `约 ${hours >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10} 小时`
+}
+
+/** 完工确认：复查结论 + 验收事实句 + 质保 + 使用注意 + 施工时间 */
 function pickFinish(flowNodes) {
   for (const node of nodesOfKind(flowNodes, 'repair_report')) {
     const payload = contentOfFlowNode(node)
@@ -176,12 +196,16 @@ function pickFinish(flowNodes) {
       })
       .filter(Boolean)
     const acceptancePhotoCount = acceptanceItems.reduce((sum, row) => sum + row.photoCount, 0)
+    const workDurationMinutes = pickWorkDurationMinutes(flowNodes)
     return {
       conclusion: String(payload.conclusion || '').trim(),
       acceptanceItems,
       warrantyPeriod: String(payload.warrantyPeriod || '').trim(),
       warrantyNotes: String(payload.warrantyNotes || '').trim(),
       acceptancePhotoCount,
+      // 施工时间：交车时商家确认/修改过的值，供 FAQ 回答同类项目工期
+      workDurationMinutes,
+      workDurationText: formatWorkDurationText(workDurationMinutes),
     }
   }
   return {
@@ -190,6 +214,8 @@ function pickFinish(flowNodes) {
     warrantyPeriod: '',
     warrantyNotes: '',
     acceptancePhotoCount: 0,
+    workDurationMinutes: 0,
+    workDurationText: '',
   }
 }
 
@@ -269,6 +295,8 @@ function buildCaseFactPack(flowNodes) {
         warrantyPeriod: '',
         warrantyNotes: '',
         acceptancePhotoCount: 0,
+        workDurationMinutes: 0,
+        workDurationText: '',
       },
       analyzedImageKeys: [],
       evidenceProfile: null,

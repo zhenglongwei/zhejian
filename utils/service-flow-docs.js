@@ -632,6 +632,24 @@ function matchPendingImage(pending, byKey, rawKey) {
 }
 
 /**
+ * 施工时间（分钟）：交车时商家填写；默认由「交车时间 - 接车时间」算出，可修改。
+ * 0 表示未填。
+ */
+function parseWorkDurationMinutes(value) {
+  const n = Number(String(value == null ? '' : value).trim())
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.round(n)
+}
+
+/** 两个 YYYY-MM-DD HH:mm 文本的分钟差（结束早于开始返回 0） */
+function workMinutesBetween(startText, endText) {
+  const start = Date.parse(String(startText || '').trim().replace(' ', 'T'))
+  const end = Date.parse(String(endText || '').trim().replace(' ', 'T'))
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
+  return Math.round((end - start) / 60000)
+}
+
+/**
  * 节点唯一内容袋：content（仅写 content，旧 content / document.payload 已删）。
  * 报告正文由此派生，禁止再当第二真源维护。
  */
@@ -677,6 +695,8 @@ function normalizeNodeContent(raw = {}) {
     delivererName: String(r.delivererName || '').trim(),
     deliveredAt: String(r.deliveredAt || '').trim(),
     deliveryMileage: parseMileageKm(r.deliveryMileage),
+    // 施工时间（分钟）：交车时填写，默认交车时间 - 接车时间，可改
+    workDurationMinutes: parseWorkDurationMinutes(r.workDurationMinutes),
     mileageText: String(r.mileageText || '').trim(),
     intakeMileageText: String(r.intakeMileageText || '').trim(),
     reworkRecords: normalizeReworkRecords(r.reworkRecords),
@@ -796,6 +816,9 @@ function mergeNodeContent(prev = {}, patch = {}) {
   if (patch.delivererName != null) next.delivererName = String(patch.delivererName || '').trim()
   if (patch.deliveredAt != null) next.deliveredAt = String(patch.deliveredAt || '').trim()
   if (patch.deliveryMileage != null) next.deliveryMileage = parseMileageKm(patch.deliveryMileage)
+  if (patch.workDurationMinutes != null) {
+    next.workDurationMinutes = parseWorkDurationMinutes(patch.workDurationMinutes)
+  }
   if (patch.mileageText != null) next.mileageText = String(patch.mileageText || '').trim()
   if (patch.intakeMileageText != null) {
     next.intakeMileageText = String(patch.intakeMileageText || '').trim()
@@ -1821,6 +1844,10 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!parseMileageKm(payload.deliveryMileage)) {
     gaps.push('请填写交车里程')
   }
+  // 施工时间必填：默认由交车时间与接车时间差算出，商家可改
+  if (!parseWorkDurationMinutes(payload.workDurationMinutes)) {
+    gaps.push('请填写施工时间')
+  }
   // 交付确认不再逐行选结果；只拦截已确认「需返工」但未处理的行
   accItems.forEach((item) => {
     if (item.unbuiltReason) return
@@ -2312,6 +2339,7 @@ function buildRepairReportPayload({
     // 交付确认信息（2026-11-13）：交车时间、交付里程、返工记录、未施工交代
     deliveredAt: String(content.deliveredAt || '').trim(),
     deliveryMileage: parseMileageKm(content.deliveryMileage),
+    workDurationMinutes: parseWorkDurationMinutes(content.workDurationMinutes),
     reworkRecords: normalizeReworkRecords(content.reworkRecords),
     unbuiltQuoteItems: normalizeUnbuiltQuoteItems(unbuiltItems),
     revision: Number.isFinite(Number(revision)) ? Math.max(0, Math.round(Number(revision))) : 0,
@@ -2589,6 +2617,8 @@ module.exports = {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
   collectWorkPhotoDraftGaps,
+  parseWorkDurationMinutes,
+  workMinutesBetween,
   collectQuoteConfirmGaps,
   buildInspectionReportPayload,
   buildQuoteLinesFromFindings,

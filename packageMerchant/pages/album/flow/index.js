@@ -98,6 +98,8 @@ const {
   resolveWarrantyNotes,
   isVagueWarrantyPeriod,
   parseMileageKm,
+  parseWorkDurationMinutes,
+  workMinutesBetween,
   pickOdometerSlot,
   isOdometerFinding,
   resolveAcceptanceItems,
@@ -142,6 +144,13 @@ const DOC_BADGE_KINDS = ['inspection', 'work']
 /** 节点签字时间：统一存 YYYY-MM-DD HH:mm，便于选择器 */
 function formatClerkAtNow(date = new Date()) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
+/** 分钟 → 输入框展示的小时数（最多两位小数）；0 显示为空 */
+function formatWorkHours(minutes) {
+  const n = Number(minutes) || 0
+  if (n <= 0) return ''
+  return String(Math.round((n / 60) * 100) / 100)
 }
 
 function parseClerkAt(value) {
@@ -642,6 +651,9 @@ Page({
     finishedAtTime: '',
     // 交车里程必填、由交车节点单独填写（不默认建档里程）；外观照选填，无图豁免留痕
     deliveryMileage: '',
+    // 施工时间（小时，可改）：默认交车时间 - 接车时间；低于 1 小时提交时重点提醒
+    workDuration: '',
+    workDurationManual: false,
     exteriorPhotoWaived: false,
     deliveryIssueOpen: false,
     deliveryIssueMode: 'addon',
@@ -1646,6 +1658,8 @@ Page({
         deliveredAt: String(this.data.finishedAt || '').trim(),
         // 交车里程是交车节点单独填的，不能拿建档里程顶替
         deliveryMileage: String(this.data.deliveryMileage || '').trim(),
+        // 施工时间：默认交车时间 - 接车时间，商家可改；0 表示未填
+        workDurationMinutes: this.workDurationMinutesValue(),
         finishedAt: String(this.data.finishedAt || '').trim(),
         exteriorPhotoWaived: this.data.exteriorPhotoWaived === true,
         confirmCopy: REPAIR_CONFIRM_COPY,
@@ -2728,6 +2742,12 @@ Page({
           docPayload.deliveredAt ||
           docPayload.finishedAt,
       ),
+      // 施工时间：已填的分钟数原样带回输入框（商家改过以存量为准）
+      workDuration: formatWorkHours(
+        parseWorkDurationMinutes(
+          deliveryDraft.workDurationMinutes || repairPayload.workDurationMinutes,
+        ),
+      ),
     }
   },
 
@@ -2769,6 +2789,11 @@ Page({
       if (kind === 'delivery_photos' && !fields.delivererName && fields.workerName) {
         fields.delivererName = fields.workerName
       }
+      // 施工时间默认 = 交车时间 - 接车时间；商家手填过就不覆盖
+      if (kind === 'delivery_photos' && !fields.workDuration && !this.data.workDurationManual) {
+        const minutes = workMinutesBetween(fields.receivedAt, fields.finishedAt)
+        if (minutes > 0) fields.workDuration = formatWorkHours(minutes)
+      }
     }
     if (defaulted.length) {
       defaulted.forEach((key) => this.schedulePersistClerk(key))
@@ -2805,6 +2830,16 @@ Page({
       },
       () => {
         this.schedulePersistClerk(key)
+        // 交车时间变了且施工时间没手改过：按新的交车时间重算默认值
+        if (
+          key === 'finishedAt' &&
+          this.data.activeKind === 'delivery_photos' &&
+          !this.data.workDurationManual
+        ) {
+          const minutes = workMinutesBetween(this.data.receivedAt, text)
+          const hours = formatWorkHours(minutes)
+          if (hours) this.setData({ workDuration: hours })
+        }
       },
     )
   },
@@ -2876,8 +2911,10 @@ Page({
         finishedAt: text('workFinishedAt'),
       })
     }
-    if (keys.has('delivererName') || keys.has('finishedAt')) {
+    if (keys.has('delivererName') || keys.has('finishedAt') || keys.has('workDuration')) {
       const patch = { delivererName: text('delivererName'), finishedAt: text('finishedAt') }
+      // 只有商家动过施工时间才写，避免用默认值盖掉别人已填的数
+      if (keys.has('workDuration')) patch.workDurationMinutes = this.workDurationMinutesValue()
       patchDraft(nodes.find((node) => node && node.kind === 'delivery_photos'), patch)
       patchDoc(nodes.find((node) => node && node.kind === 'repair_report'), patch)
     }
@@ -2907,7 +2944,11 @@ Page({
       return { workerName: this.data.workerName, finishedAt: this.data.workFinishedAt }
     }
     if (kind === 'delivery_photos' || kind === 'repair_report') {
-      return { delivererName: this.data.delivererName, finishedAt: this.data.finishedAt }
+      return {
+        delivererName: this.data.delivererName,
+        finishedAt: this.data.finishedAt,
+        workDurationMinutes: this.workDurationMinutesValue(),
+      }
     }
     return {}
   },
@@ -5479,6 +5520,26 @@ Page({
     )
   },
 
+  /** 施工时间输入（小时，可带两位小数）；手动改过后不再用时间差覆盖 */
+  onWorkDurationInput(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const raw = String((e.detail && e.detail.value) || '').replace(/[^\d.]/g, '')
+    const dot = raw.indexOf('.')
+    const value =
+      dot >= 0
+        ? `${raw.slice(0, dot + 1)}${raw.slice(dot + 1).replace(/\./g, '').slice(0, 2)}`
+        : raw
+    this.setData(
+      { workDuration: value.slice(0, 6), workDurationManual: true, autoSaveLabel: '保存中…' },
+      () => this.schedulePersistClerk('workDuration'),
+    )
+  },
+
+  /** 施工时间（分钟）；输入框按小时填写，0 表示未填 */
+  workDurationMinutesValue() {
+    return parseWorkDurationMinutes(Number(this.data.workDuration || 0) * 60)
+  },
+
   /** 交车发现新问题：三出口（当场追加 / 转新单 / 返工） */
   onOpenDeliveryIssue() {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
@@ -7695,6 +7756,7 @@ Page({
         delivererName: this.data.delivererName,
         deliveredAt: this.data.finishedAt,
         deliveryMileage: this.data.deliveryMileage,
+        workDurationMinutes: this.workDurationMinutesValue(),
       })
       if (gaps.length) {
         wx.showModal({
@@ -7813,17 +7875,34 @@ Page({
       const hasExteriorPhoto = Boolean(
         exteriorRow && Array.isArray(exteriorRow.images) && exteriorRow.images.length,
       )
-      // 完整性靠必填项非空校验拦截，弹窗只做「提交即锁定」的确认
-      wx.showModal({
-        title: '确认交车',
-        content: '提交后将无法修改，是否确认',
-        confirmText: '确认交车',
-        cancelText: '再检查',
-        success: (res) => {
-          if (!res.confirm) return
-          run(this.buildAiReviewAckExtra(), hasExteriorPhoto ? {} : { exteriorPhotoWaived: true })
-        },
-      })
+      const askFinal = () => {
+        // 完整性靠必填项非空校验拦截，弹窗只做「提交即锁定」的确认
+        wx.showModal({
+          title: '确认交车',
+          content: '提交后将无法修改，是否确认',
+          confirmText: '确认交车',
+          cancelText: '再检查',
+          success: (res) => {
+            if (!res.confirm) return
+            run(this.buildAiReviewAckExtra(), hasExteriorPhoto ? {} : { exteriorPhotoWaived: true })
+          },
+        })
+      }
+      // 施工时间低于 1 小时视为明显填错：单独重点提醒一次，确认无误再进最终确认
+      const minutes = this.workDurationMinutesValue()
+      if (minutes > 0 && minutes < 60) {
+        wx.showModal({
+          title: '施工时间明显偏短',
+          content: `施工时间只填了 ${minutes} 分钟，明显不对。请核对「施工时间」后再提交。`,
+          confirmText: '确认无误',
+          cancelText: '去修改',
+          success: (res) => {
+            if (res.confirm) askFinal()
+          },
+        })
+        return
+      }
+      askFinal()
       return
     }
 

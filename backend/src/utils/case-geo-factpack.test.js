@@ -135,6 +135,7 @@ function fullFlowNodes() {
           warrantyPeriod: '12个月或2万公里',
           warrantyNotes: '含更换配件的质保，人为损坏除外',
           conclusion: '异响消除，方向盘抖动消失',
+          workDurationMinutes: 210,
         },
         document: {
         status: 'confirmed',
@@ -160,6 +161,27 @@ function testFullFlowExtractsAllFacts() {
   assert.equal(pack.finish.acceptanceItems.length, 2)
   assert.equal(pack.finish.acceptanceItems[1].kind, 'exterior')
   assert.equal(pack.finish.acceptancePhotoCount, 1)
+  assert.equal(pack.finish.workDurationMinutes, 210)
+  assert.equal(pack.finish.workDurationText, '约 3.5 小时')
+}
+
+/** 施工时间：完工确认没写时回落到交车节点；不足 1 小时按分钟说 */
+function testWorkDurationFallsBackToDelivery() {
+  const flow = fullFlowNodes().map((row) =>
+    row.kind === 'repair_report'
+      ? { ...row, content: { ...row.content, workDurationMinutes: 0 } }
+      : row,
+  )
+  const noDuration = buildCaseFactPack(flow)
+  assert.equal(noDuration.finish.workDurationMinutes, 0)
+  assert.equal(noDuration.finish.workDurationText, '')
+
+  const withDelivery = buildCaseFactPack([
+    ...flow,
+    node('delivery_photos', { content: { workDurationMinutes: 45 } }),
+  ])
+  assert.equal(withDelivery.finish.workDurationMinutes, 45)
+  assert.equal(withDelivery.finish.workDurationText, '约 45 分钟')
 }
 
 /** 状态良好、仅记录 不喂：写进去等于刷屏 */
@@ -285,4 +307,5 @@ testLegacyAlbumWithoutFlow()
 testCollectsAnalyzedImageKeys()
 testReadsContentOnlyNodes()
 testHasEnoughFactsGate()
+testWorkDurationFallsBackToDelivery()
 console.log('case-geo-factpack.test.js OK')

@@ -371,6 +371,10 @@ function keepFilledDeliveryPatch(prev = {}, incoming = {}) {
   ) {
     next.pendingImages = prev.pendingImages
   }
+  // 施工时间：老客户端不带该字段时不得把已填的值清空
+  if (!Number(next.workDurationMinutes) && Number(prev.workDurationMinutes)) {
+    next.workDurationMinutes = prev.workDurationMinutes
+  }
   return next
 }
 
@@ -1768,6 +1772,9 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       : {}),
     ...(payload.confirmCopy != null ? { confirmCopy: payload.confirmCopy } : {}),
     ...(payload.acceptanceItems != null ? { acceptanceItems: payload.acceptanceItems } : {}),
+    ...(payload.workDurationMinutes != null
+      ? { workDurationMinutes: payload.workDurationMinutes }
+      : {}),
   })
   // 交车：空验收/质保不得盖掉节点里已有内容（定稿前后都适用）
   if (node.kind === 'delivery_photos') {

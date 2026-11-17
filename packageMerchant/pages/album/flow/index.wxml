@@ -1207,6 +1207,18 @@
                   </picker>
                 </view>
                 <text wx:else class="st-quote">{{finishedAt || '未填'}}</text>
+                <text class="text-body merchant-flow-page__label">施工时间（必填）</text>
+                <view class="st-field-row">
+                  <input
+                    class="st-field"
+                    type="digit"
+                    placeholder="例：3.5（默认交车-接车时间差）"
+                    value="{{workDuration}}"
+                    disabled="{{readOnly}}"
+                    bindinput="onWorkDurationInput"
+                  />
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-mileage-unit">小时</text>
+                </view>
                 <text class="text-body merchant-flow-page__label">交车里程（必填）</text>
                 <view class="st-field-row">
                   <input
