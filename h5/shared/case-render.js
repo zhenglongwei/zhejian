@@ -680,8 +680,9 @@
     )
   }
 
-  function renderFlowItems(items) {
+  function renderFlowItems(items, variant) {
     if (!items || !items.length) return ''
+    var itemClass = 'h5-flow-item' + (variant ? ' h5-flow-item--' + variant : '')
     return (
       '<div class="h5-flow-items">' +
       items
@@ -695,7 +696,7 @@
               ? renderItemImages([{ url: item.evidenceUrl }], item.name || '')
               : ''
           return (
-            '<div class="h5-flow-item">' +
+            '<div class="' + itemClass + '">' +
             (name
               ? '<p class="h5-flow-item-name">' + name + '</p>'
               : '') +
@@ -765,9 +766,14 @@
                 })
                 .join('')
           }
-          body += renderFlowItems(ch.items)
+          if (ch.items && ch.items.length) {
+            var isWork = ch.kind === 'work'
+            var isAddon = ch.title === '施工中新发现' || ch.title === '交车时补充'
+            body += '<p class="h5-flow-k">' + (isWork ? '施工项目' : '报价项目') + '</p>'
+            body += renderFlowItems(ch.items, isWork ? 'work' : isAddon ? 'addon' : 'quote')
+          }
           if (ch.acceptanceItems && ch.acceptanceItems.length) {
-            body += '<p class="h5-flow-k">验收</p>'
+            body += '<p class="h5-flow-k">交车验收</p>'
             body += ch.acceptanceItems
               .map(function (acc) {
                 var head =
@@ -779,7 +785,7 @@
                   '</span></p>'
                 var note = acc.note ? '<p class="h5-flow-item-note">' + escapeHtml(acc.note) + '</p>' : ''
                 var shots = renderItemImages(acc.images, acc.name || '')
-                return head + shots + note
+                return '<div class="h5-flow-accept">' + head + shots + note + '</div>'
               })
               .join('')
           }
@@ -789,7 +795,7 @@
           })
           if (warrantyBits.length) {
             body +=
-              '<p class="h5-flow-item-note">质保：' +
+              '<p class="h5-flow-footer">质保：' +
               escapeHtml(warrantyBits.join(' · ')) +
               '</p>'
           }
