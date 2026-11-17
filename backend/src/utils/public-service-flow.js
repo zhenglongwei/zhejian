@@ -429,6 +429,77 @@ function sortFlowNodes(nodes = []) {
   return nodes.slice().sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
 }
 
+const DELIVERY_PHOTO_KINDS = { delivery_photos: true, repair_report: true }
+
+function nameKey(value) {
+  return text(value).replace(/\s+/g, '')
+}
+
+/**
+ * 交车节点里的施工项验收图：商家可能在施工节点漏拍，流程不能回转，
+ * 于是把施工照片传到了交车节点。这些图属于施工证据，收进施工章；
+ * 整车外观照（exterior）与未施工项（unbuiltReason）不收。
+ */
+function collectDeliveryWorkPhotos(flowNodes, lookup) {
+  const rows = []
+  const seen = new Set()
+  flowNodes.forEach((node) => {
+    const kind = text(node && node.kind)
+    if (!DELIVERY_PHOTO_KINDS[kind]) return
+    const payload = contentOfFlowNode(node)
+    const acceptance = Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : []
+    acceptance.forEach((row) => {
+      if (!row || typeof row !== 'object') return
+      if (row.kind === 'exterior' || text(row.unbuiltReason)) return
+      const name = text(row.name)
+      if (!name) return
+      const images = []
+      ;(Array.isArray(row.images) ? row.images : []).forEach((img) => {
+        const rawKey = urlKey(
+          typeof img === 'string' ? img : img && (img.url || img.rawUrl || img.maskedUrl),
+        )
+        if (rawKey && seen.has(rawKey)) return
+        const url = resolvePhotoDisplayUrl(img, lookup)
+        if (!url) return
+        if (rawKey) seen.add(rawKey)
+        images.push({ url })
+      })
+      if (images.length) rows.push({ name, images })
+    })
+  })
+  return rows
+}
+
+/** 把交车节点施工图并入施工章；没有施工章时补一个，排在完工之前 */
+function mergeDeliveryWorkPhotos(chapters, flowNodes, lookup) {
+  const rows = collectDeliveryWorkPhotos(flowNodes, lookup)
+  if (!rows.length) return
+  let work = chapters.find((chapter) => chapter && chapter.kind === 'work')
+  if (!work) {
+    work = { id: '', kind: 'work', title: '施工', items: [] }
+    const before = chapters.findIndex(
+      (chapter) => chapter && (chapter.kind === 'repair_report' || chapter.kind === 'addon_quote_confirm'),
+    )
+    if (before >= 0) chapters.splice(before, 0, work)
+    else chapters.push(work)
+  }
+  if (!Array.isArray(work.items)) work.items = []
+  rows.forEach((row) => {
+    const key = nameKey(row.name)
+    const target = work.items.find((item) => nameKey(item && item.name) === key)
+    if (!target) {
+      work.items.push({ name: row.name, brand: '', note: '', images: row.images })
+      return
+    }
+    if (!Array.isArray(target.images)) target.images = []
+    row.images.forEach((img) => {
+      if (!target.images.some((item) => urlKey(item && item.url) === urlKey(img.url))) {
+        target.images.push(img)
+      }
+    })
+  })
+}
+
 /**
  * @returns {{ chapters: object[] }}
  */
@@ -462,6 +533,7 @@ function buildPublicServiceFlow(input = {}) {
       prevKind = chapter.kind
     }
   })
+  mergeDeliveryWorkPhotos(chapters, flowNodes, lookup)
   return { chapters }
 }
 

@@ -6,13 +6,15 @@
 const { collectBagImageRefs } = require('./flow-photo-mask-writeback')
 const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
 const { stripUrlQuery } = require('../lib/media-signed-url')
+const { resolveShared } = require('./resolve-shared')
+const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
 
 /**
  * 整节点图片不上网：只留档。
  * - 接车 / 接车检测：留证照片不公开
  * - 报价：报价单本体不公开（项目行文字另走 buildFlowNodeViews，仍可上网）
- * - 交车：完工照（delivery_photos）与完工确认（repair_report）的验收照片不公开；
- *   该环节只公开质保、施工人员等文字信息
+ * - 交车：整车外观照不公开；但交车清单里「施工项验收」的图属于施工过程证据
+ *   （商家常在施工节点漏拍、流程又不能回转，只能补传到交车节点），按过程图公开。
  * 补充报价 / 补充施工按过程图公开（见 isAddonNode）。
  */
 const PRIVATE_FLOW_KINDS = new Set([
@@ -22,6 +24,22 @@ const PRIVATE_FLOW_KINDS = new Set([
   'delivery_photos',
   'repair_report',
 ])
+
+const DELIVERY_FLOW_KINDS = new Set(['delivery_photos', 'repair_report'])
+
+/** 交车节点里可公示的施工验收项（排除整车外观照与未施工项） */
+function deliveryWorkAcceptanceItems(node) {
+  if (!node || !DELIVERY_FLOW_KINDS.has(String(node.kind || '').trim())) return []
+  const payload = contentOfFlowNode(node)
+  const rows = Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : []
+  return rows.filter(
+    (row) =>
+      row &&
+      typeof row === 'object' &&
+      row.kind !== 'exterior' &&
+      !String(row.unbuiltReason || '').trim(),
+  )
+}
 
 /** 补充报价虽沿用 quote_confirm，但属于过程节点，图上公开 */
 function isAddonNode(node) {
@@ -56,12 +74,9 @@ function albumUsesFlowNodes(album) {
 function collectPublicizableFlowPhotos(album) {
   const out = []
   const seen = new Set()
-  flowNodesOf(album).forEach((node) => {
-    if (!node || typeof node !== 'object') return
-    const kind = String(node.kind || '').trim()
-    if (PRIVATE_FLOW_KINDS.has(kind) && !isAddonNode(node)) return
+  const pushRefs = (node, kind, bag) => {
     const refs = []
-    collectBagImageRefs(node.content, refs)
+    collectBagImageRefs(bag, refs)
     refs.forEach((ref) => {
       const url = String((ref && ref.url) || '').trim()
       // 大模型判为疑似纸质单据：商家未确认前不进公域
@@ -78,6 +93,18 @@ function collectPublicizableFlowPhotos(album) {
         maskOutcome: String((ref && ref.maskOutcome) || '').trim(),
       })
     })
+  }
+  flowNodesOf(album).forEach((node) => {
+    if (!node || typeof node !== 'object') return
+    const kind = String(node.kind || '').trim()
+    if (PRIVATE_FLOW_KINDS.has(kind) && !isAddonNode(node)) {
+      // 交车节点只放行「施工项验收」照片；整车外观照仍留档
+      const workRows = deliveryWorkAcceptanceItems(node)
+      if (!workRows.length) return
+      pushRefs(node, kind, { acceptanceItems: workRows })
+      return
+    }
+    pushRefs(node, kind, node.content)
   })
   return out
 }

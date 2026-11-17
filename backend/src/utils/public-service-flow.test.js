@@ -575,3 +575,91 @@ test('llm_failed / not_analyzed 公开预览允许原图上网', () => {
   )
 })
 
+test('交车节点补传的施工验收图并入施工章；外观照与未施工项不收', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'w',
+        kind: 'work',
+        sortOrder: 3,
+        content: {
+          findings: [{ partName: '更换右前小吊杆', images: [{ url: WORK }] }],
+        },
+      },
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        content: {
+          acceptanceItems: [
+            {
+              id: 'acc_1',
+              kind: 'work',
+              name: '更换右前小吊杆',
+              result: 'pass',
+              images: [{ url: 'https://cdn.example.com/files/uploads/desensitized/after.jpg' }],
+            },
+            {
+              id: 'acc_2',
+              kind: 'work',
+              name: '四轮定位',
+              result: 'pass',
+              images: [{ url: 'https://cdn.example.com/files/uploads/desensitized/align.jpg' }],
+            },
+            {
+              id: 'acc_skip',
+              kind: 'work',
+              name: '更换刹车片',
+              unbuiltReason: 'customer_declined',
+              images: [{ url: 'https://cdn.example.com/files/uploads/desensitized/skip.jpg' }],
+            },
+            {
+              id: 'exterior',
+              kind: 'exterior',
+              name: '外观',
+              result: 'pass',
+              images: [{ url: 'https://cdn.example.com/files/uploads/desensitized/out.jpg' }],
+            },
+          ],
+        },
+      },
+    ],
+  })
+  const work = flow.chapters.find((c) => c.kind === 'work')
+  assert.ok(work)
+  const sling = work.items.find((row) => row.name === '更换右前小吊杆')
+  assert.equal(sling.images.length, 2, '同名施工项追加交车验收图')
+  const align = work.items.find((row) => row.name === '四轮定位')
+  assert.ok(align, '施工章缺失的施工项由交车验收图补出')
+  assert.equal(align.images.length, 1)
+  assert.ok(!work.items.some((row) => row.name === '更换刹车片'), '未施工项不收')
+  assert.ok(!work.items.some((row) => row.name === '外观'), '整车外观照不收')
+})
+
+test('没有施工章时，交车施工验收图补出一个施工章并排在完工之前', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'f',
+        kind: 'repair_report',
+        sortOrder: 6,
+        content: {
+          acceptanceItems: [
+            {
+              id: 'acc_1',
+              kind: 'work',
+              name: '更换右前小吊杆',
+              result: 'pass',
+              images: [{ url: WORK }],
+            },
+          ],
+        },
+        document: { status: 'confirmed' },
+      },
+    ],
+  })
+  const kinds = flow.chapters.map((c) => c.kind)
+  assert.deepEqual(kinds, ['work', 'repair_report'])
+  assert.equal(flow.chapters[0].items[0].name, '更换右前小吊杆')
+})
+
