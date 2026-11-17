@@ -59,7 +59,11 @@ function buildFinishReportLinks(rows = []) {
       row.isAddon === true ||
       kind === 'addon_quote_confirm' ||
       String(row.insertedReason || '') === 'addon'
-    const title = kind === 'work' && isAddon ? '补充施工' : baseTitle
+    let title = baseTitle
+    if (isAddon) {
+      if (kind === 'work') title = '补充施工'
+      else if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') title = '补充报价单'
+    }
     seen[nodeId] = true
     links.push({ nodeId, kind, title })
   })
