@@ -65,6 +65,7 @@ const { buildMerchantAlbumOverview, buildMerchantDocBrief } = require('../../../
 const { stageChrome, stageGateFor } = require('../../../../utils/merchant-record-preview')
 const {
   buildOwnerPreviewDoc,
+  buildFinishReportLinks,
   buildIntakePreviewFromContent,
   previewAlbumOf,
   workItemsFromFindings,
@@ -146,11 +147,16 @@ function formatClerkAtNow(date = new Date()) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
 
-/** 分钟 → 输入框展示的小时数（最多两位小数）；0 显示为空 */
-function formatWorkHours(minutes) {
+/** 分钟 → 「天 + 小时」两个输入框的展示值；0 显示为空 */
+function splitWorkDuration(minutes) {
   const n = Number(minutes) || 0
-  if (n <= 0) return ''
-  return String(Math.round((n / 60) * 100) / 100)
+  if (n <= 0) return { workDays: '', workHours: '' }
+  const days = Math.floor(n / 1440)
+  const hours = Math.round(((n % 1440) / 60) * 10) / 10
+  return {
+    workDays: days > 0 ? String(days) : '',
+    workHours: hours > 0 ? String(hours) : '',
+  }
 }
 
 function parseClerkAt(value) {
@@ -455,42 +461,8 @@ function mapCompletedStepPreview(step, node, album = {}) {
   }
 
   if (kind === 'repair_report') {
-    // 单据预览：正文以节点 content 为准
-    const bag = nodeContentOf(node)
-    const workItems = Array.isArray(bag.workItems)
-      ? bag.workItems
-      : Array.isArray(bag.items)
-        ? bag.items
-        : []
-    const mapped = workItems.map((row) => ({
-      name: String((row && row.name) || ''),
-      brand: String((row && row.brand) || ''),
-      amount: row && row.amount != null ? row.amount : '',
-    }))
-    const total =
-      bag.totalAmount != null
-        ? Number(bag.totalAmount) || 0
-        : mapped.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-    return {
-      ...base,
-      kind,
-      detailKind: 'doc_sheet',
-      summary,
-      sheetDoc: {
-        kind,
-        title: merchantDocTitle(kind) || '交车报告',
-        sealed: String((node.document && node.document.status) || '') === 'confirmed',
-        statusLabel: summary === '草稿' ? '' : summary,
-        storeName,
-        metaLine: buildSheetMetaLine(bag, album),
-        styleVariant: 'document',
-        workItems: mapped,
-        totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
-        warrantyPeriod: String(bag.warrantyPeriod || ''),
-        warrantyNotes: resolveWarrantyNotes(bag),
-        confirmCopy: REPAIR_CONFIRM_COPY,
-      },
-    }
+    // 交车报告 = 交车凭证，统一由 openDoneReview 走 reportPreviewFor 现场构建
+    return { ...base, kind, summary }
   }
 
   return { ...base, kind, summary }
@@ -651,8 +623,9 @@ Page({
     finishedAtTime: '',
     // 交车里程必填、由交车节点单独填写（不默认建档里程）；外观照选填，无图豁免留痕
     deliveryMileage: '',
-    // 施工时间（小时，可改）：默认交车时间 - 接车时间；低于 1 小时提交时重点提醒
-    workDuration: '',
+    // 施工时间（天 + 小时，可改）：默认交车时间 - 接车时间；低于 1 小时提交时重点提醒
+    workDays: '',
+    workHours: '',
     workDurationManual: false,
     exteriorPhotoWaived: false,
     deliveryIssueOpen: false,
@@ -2742,8 +2715,8 @@ Page({
           docPayload.deliveredAt ||
           docPayload.finishedAt,
       ),
-      // 施工时间：已填的分钟数原样带回输入框（商家改过以存量为准）
-      workDuration: formatWorkHours(
+      // 施工时间：已填的分钟数拆成「天 + 小时」带回输入框（商家改过以存量为准）
+      ...splitWorkDuration(
         parseWorkDurationMinutes(
           deliveryDraft.workDurationMinutes || repairPayload.workDurationMinutes,
         ),
@@ -2790,9 +2763,14 @@ Page({
         fields.delivererName = fields.workerName
       }
       // 施工时间默认 = 交车时间 - 接车时间；商家手填过就不覆盖
-      if (kind === 'delivery_photos' && !fields.workDuration && !this.data.workDurationManual) {
+      if (
+        kind === 'delivery_photos' &&
+        !fields.workDays &&
+        !fields.workHours &&
+        !this.data.workDurationManual
+      ) {
         const minutes = workMinutesBetween(fields.receivedAt, fields.finishedAt)
-        if (minutes > 0) fields.workDuration = formatWorkHours(minutes)
+        if (minutes > 0) Object.assign(fields, splitWorkDuration(minutes))
       }
     }
     if (defaulted.length) {
@@ -2837,8 +2815,8 @@ Page({
           !this.data.workDurationManual
         ) {
           const minutes = workMinutesBetween(this.data.receivedAt, text)
-          const hours = formatWorkHours(minutes)
-          if (hours) this.setData({ workDuration: hours })
+          const next = splitWorkDuration(minutes)
+          if (next.workDays || next.workHours) this.setData(next)
         }
       },
     )
@@ -2911,10 +2889,17 @@ Page({
         finishedAt: text('workFinishedAt'),
       })
     }
-    if (keys.has('delivererName') || keys.has('finishedAt') || keys.has('workDuration')) {
+    if (
+      keys.has('delivererName') ||
+      keys.has('finishedAt') ||
+      keys.has('workDays') ||
+      keys.has('workHours')
+    ) {
       const patch = { delivererName: text('delivererName'), finishedAt: text('finishedAt') }
       // 只有商家动过施工时间才写，避免用默认值盖掉别人已填的数
-      if (keys.has('workDuration')) patch.workDurationMinutes = this.workDurationMinutesValue()
+      if (keys.has('workDays') || keys.has('workHours')) {
+        patch.workDurationMinutes = this.workDurationMinutesValue()
+      }
       patchDraft(nodes.find((node) => node && node.kind === 'delivery_photos'), patch)
       patchDoc(nodes.find((node) => node && node.kind === 'repair_report'), patch)
     }
@@ -2994,12 +2979,15 @@ Page({
               ? 'work'
               : 'quote'
     const targetNode = quotePreview ? quote : workPreview ? work : requestedNode || active
+    // 交车报告 = 交车凭证：不再读冻结快照，统一按节点 content 现场构建
     const frozenNode =
-      targetNode && targetNode.renderDoc && targetNode.renderDoc.family === frozenFamily
-        ? targetNode
-        : !requestedId && !quotePreview && !workPreview
-          ? nodes.find((node) => node && node.renderDoc && node.renderDoc.family === frozenFamily)
-          : null
+      frozenFamily === 'finish'
+        ? null
+        : targetNode && targetNode.renderDoc && targetNode.renderDoc.family === frozenFamily
+          ? targetNode
+          : !requestedId && !quotePreview && !workPreview
+            ? nodes.find((node) => node && node.renderDoc && node.renderDoc.family === frozenFamily)
+            : null
     if (frozenNode) {
       const frozen = frozenNode.renderDoc
       return {
@@ -3021,11 +3009,7 @@ Page({
     const deliveryDraft = this.nodeDraft(delivery)
     const repair = nodes.find((node) => node && node.kind === 'repair_report')
     const repairPayload = nodeContentOf(repair)
-    // 交车报告页眉：接车里程取建档里程，交车里程只认交车节点填的值
-    const intakeKm = parseMileageKm(vehicle.mileage)
-    const intakeMileageText = intakeKm
-      ? `接车里程 ${Number(intakeKm).toLocaleString('zh-CN')} km`
-      : ''
+    // 交车报告页眉：只写交车节点填的交车里程
     const deliveryKm = parseMileageKm(
       repairPayload.deliveryMileage || deliveryDraft.deliveryMileage || this.data.deliveryMileage,
     )
@@ -3137,6 +3121,10 @@ Page({
         signAt: formatClerkAtForDoc(draft.finishedAt || (live ? this.data.workFinishedAt : '')),
       })
     }
+    const finishReportLinks = (() => {
+      const repairIndex = nodes.findIndex((node) => node && node.kind === 'repair_report')
+      return buildFinishReportLinks(repairIndex > 0 ? nodes.slice(0, repairIndex) : [])
+    })()
     const reportReady = Boolean(
       String(repairPayload.warrantyPeriod || '').trim() ||
         (Array.isArray(repairPayload.acceptanceItems) && repairPayload.acceptanceItems.length) ||
@@ -3147,18 +3135,19 @@ Page({
         family: 'finish',
         album: previewAlbumOf(album),
         mileageText: repairPayload.mileageText || finishMileageText,
-        intakeMileageText: repairPayload.intakeMileageText || intakeMileageText,
         workItems: Array.isArray(repairPayload.workItems) ? repairPayload.workItems : [],
-        totalAmount: repairPayload.totalAmount,
         acceptanceItems: repairPayload.acceptanceItems,
         warrantyPeriod: repairPayload.warrantyPeriod,
         warrantyNotes: repairPayload.warrantyNotes,
+        workDurationMinutes: repairPayload.workDurationMinutes,
+        exteriorPhotoWaived: repairPayload.exteriorPhotoWaived === true,
+        reportLinks: finishReportLinks,
         signName: repairPayload.delivererName,
         signAt: formatClerkAtForDoc(repairPayload.finishedAt || ''),
       })
     }
     const works = nodes.filter((node) => node && node.kind === 'work')
-    const { quoteByName, quoteTotal } = quoteTotalsFromNodes(nodes)
+    const { quoteByName } = quoteTotalsFromNodes(nodes)
     const workItems = finishWorkItemsFromFindingsList(
       // 返工是新开施工节点重做一遍，报告如实记录并给这一次打「返工」标记
       works.map((node) => {
@@ -3171,15 +3160,17 @@ Page({
       family: 'finish',
       album: previewAlbumOf(album),
       mileageText: finishMileageText,
-      intakeMileageText,
       workItems,
-      totalAmount: quoteTotal,
       acceptanceItems:
         resolveAcceptanceItems(deliveryDraft).length
           ? resolveAcceptanceItems(deliveryDraft)
           : this.data.acceptanceItems || [],
       warrantyPeriod: deliveryDraft.warrantyPeriod || this.data.warrantyPeriod,
       warrantyNotes: deliveryDraft.warrantyNotes || this.data.warrantyNotes,
+      workDurationMinutes:
+        deliveryDraft.workDurationMinutes || this.workDurationMinutesValue(),
+      exteriorPhotoWaived: deliveryDraft.exteriorPhotoWaived === true,
+      reportLinks: finishReportLinks,
       signName: deliveryDraft.delivererName,
       signAt: formatClerkAtForDoc(deliveryDraft.finishedAt || this.data.finishedAt),
     })
@@ -3697,6 +3688,20 @@ Page({
   openDoneReview(nodeId) {
     const node = (this._flowNodes || []).find((item) => item && item.id === nodeId)
     if (!node) return
+    if (node.kind === 'repair_report') {
+      // 交车凭证：与发送预览同一套构建逻辑，旧报告也统一新样式
+      const preview = this.reportPreviewFor('交车报告', { issuedOnly: true, nodeId })
+      if (preview && preview.doc) {
+        this.setData({
+          doneView: {
+            mode: 'doc',
+            title: preview.doc.title || '交车报告',
+            sheetDoc: preview.doc,
+          },
+        })
+        return
+      }
+    }
     const preview = mapCompletedStepPreview({ id: nodeId, summary: '' }, node, this._album || {})
     if (preview.detailKind === 'doc_sheet' && preview.sheetDoc) {
       this.setData({
@@ -3718,6 +3723,26 @@ Page({
         complaint: preview.chiefComplaint || '',
         images,
         photoCount: Number(preview.photoCount) || images.length,
+      },
+    })
+  },
+
+  /** 交车凭证里的相关报告入口：用只读层直接打开目标报告 */
+  onDocLink(e) {
+    const detail = (e && e.detail) || {}
+    const nodeId = String(detail.nodeId || '').trim()
+    const title = String(detail.title || '').trim()
+    if (!nodeId || !title) return
+    const preview = this.reportPreviewFor(title, { issuedOnly: true, nodeId })
+    if (!preview || !preview.doc) {
+      wx.showToast({ title: '该报告暂不可查看', icon: 'none' })
+      return
+    }
+    this.setData({
+      doneView: {
+        mode: 'doc',
+        title: preview.doc.title || title,
+        sheetDoc: preview.doc,
       },
     })
   },
@@ -5520,24 +5545,38 @@ Page({
     )
   },
 
-  /** 施工时间输入（小时，可带两位小数）；手动改过后不再用时间差覆盖 */
-  onWorkDurationInput(e) {
+  /** 施工时间：天（整数） */
+  onWorkDaysInput(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const raw = String((e.detail && e.detail.value) || '').replace(/\D/g, '').slice(0, 3)
+    this.setData(
+      { workDays: raw, workDurationManual: true, autoSaveLabel: '保存中…' },
+      () => this.schedulePersistClerk('workDays'),
+    )
+  },
+
+  /** 施工时间：小时（0-23.9，一位小数） */
+  onWorkHoursInput(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const raw = String((e.detail && e.detail.value) || '').replace(/[^\d.]/g, '')
     const dot = raw.indexOf('.')
     const value =
       dot >= 0
-        ? `${raw.slice(0, dot + 1)}${raw.slice(dot + 1).replace(/\./g, '').slice(0, 2)}`
+        ? `${raw.slice(0, dot + 1)}${raw.slice(dot + 1).replace(/\./g, '').slice(0, 1)}`
         : raw
+    const num = Number(value)
+    const next = value && Number.isFinite(num) && num > 23.9 ? '23.9' : value
     this.setData(
-      { workDuration: value.slice(0, 6), workDurationManual: true, autoSaveLabel: '保存中…' },
-      () => this.schedulePersistClerk('workDuration'),
+      { workHours: next.slice(0, 4), workDurationManual: true, autoSaveLabel: '保存中…' },
+      () => this.schedulePersistClerk('workHours'),
     )
   },
 
-  /** 施工时间（分钟）；输入框按小时填写，0 表示未填 */
+  /** 施工时间（分钟）；输入框按「天 + 小时」填写，0 表示未填 */
   workDurationMinutesValue() {
-    return parseWorkDurationMinutes(Number(this.data.workDuration || 0) * 60)
+    const days = parseWorkDurationMinutes(Number(this.data.workDays || 0) * 1440)
+    const hours = parseWorkDurationMinutes(Number(this.data.workHours || 0) * 60)
+    return days + hours
   },
 
   /** 交车发现新问题：三出口（当场追加 / 转新单 / 返工） */

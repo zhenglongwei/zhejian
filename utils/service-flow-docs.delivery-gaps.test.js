@@ -31,6 +31,7 @@ const filled = {
   delivererName: '李店长',
   deliveredAt: '2026-11-13 17:30',
   deliveryMileage: '36800',
+  workDurationMinutes: 120,
   acceptanceItems: [
     acc('pass'),
     acc('pass', '路试无异响'),

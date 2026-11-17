@@ -104,6 +104,18 @@ Component({
       wx.makePhoneCall({ phoneNumber: phone })
     },
 
+    /** 交车凭证里的「相关报告」入口：交给页面直接打开目标报告 */
+    onDocLink(e) {
+      const dataset = (e && e.currentTarget && e.currentTarget.dataset) || {}
+      const nodeId = String(dataset.nodeId || '').trim()
+      if (!nodeId) return
+      this.triggerEvent('doclink', {
+        nodeId,
+        kind: String(dataset.kind || ''),
+        title: String(dataset.title || ''),
+      })
+    },
+
     onPreviewImage(e) {
       const url = e.currentTarget.dataset.url
       const list = e.currentTarget.dataset.urls

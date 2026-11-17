@@ -844,6 +844,7 @@
                         data-finding-index="{{findingIndex}}"
                         bindtap="onToggleFinding"
                       >
+                        <text class="merchant-flow-page__finding-open-title">{{finding.summaryText}}</text>
                         <text class="text-caption merchant-flow-page__finding-collapse">收起</text>
                         <text
                           wx:if="{{!readOnly}}"
@@ -917,10 +918,9 @@
                           </view>
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">施工说明</text>
-                            <text wx:if="{{!readOnly}}" class="text-caption text-secondary">写清做了什么、怎么做的、结果如何；说明 + 图片即视为验收通过</text>
                             <textarea
                               class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
-                              placeholder="{{finding.captionPlaceholder || workCaptionPlaceholder}}"
+                              placeholder="写清做了什么、怎么做的、结果如何"
                               value="{{finding.caption}}"
                               maxlength="500"
                               auto-height="{{true}}"
@@ -1211,14 +1211,24 @@
                 <view class="st-field-row">
                   <input
                     class="st-field"
-                    type="digit"
-                    placeholder="例：3.5（默认交车-接车时间差）"
-                    value="{{workDuration}}"
+                    type="number"
+                    placeholder="0"
+                    value="{{workDays}}"
                     disabled="{{readOnly}}"
-                    bindinput="onWorkDurationInput"
+                    bindinput="onWorkDaysInput"
+                  />
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-mileage-unit">天</text>
+                  <input
+                    class="st-field"
+                    type="digit"
+                    placeholder="0"
+                    value="{{workHours}}"
+                    disabled="{{readOnly}}"
+                    bindinput="onWorkHoursInput"
                   />
                   <text class="text-caption text-secondary merchant-flow-page__delivery-mileage-unit">小时</text>
                 </view>
+                <text class="text-caption text-secondary">默认按交车时间减接车时间折算，可改；不足 1 天只填小时。</text>
                 <text class="text-body merchant-flow-page__label">交车里程（必填）</text>
                 <view class="st-field-row">
                   <input
@@ -1849,6 +1859,7 @@
       <view wx:if="{{stageBoard && (stageShowPreview || stagePrimary || (isAddonQuote && stageEditor && !stageLocked) || (isAddonQuote && (docStatus === 'confirmed' || docStatus === 'delivered')))}}" class="st-bar">
         <view wx:if="{{isAddonQuote && (docStatus === 'confirmed' || docStatus === 'delivered')}}" class="st-bar__btn st-bar__btn--go" bindtap="onContinueWork">继续施工</view>
         <view wx:if="{{isAddonQuote && stageEditor && !stageLocked}}" class="st-bar__btn" bindtap="onOpenCancelAddon">撤销补充报价</view>
+        <view wx:if="{{stageBoard.family === 'work' && !readOnly && stagePrimary}}" class="st-bar__btn" bindtap="onStartAddonFromWork">发现新问题</view>
         <view wx:if="{{stageShowPreview && stageBoard.family !== 'work'}}" class="st-bar__btn {{stagePrimary ? '' : 'st-bar__btn--go'}}" bindtap="onOpenOwnerView">预览报告</view>
         <view wx:if="{{stagePrimary}}" class="st-bar__btn st-bar__btn--go" bindtap="onStagePrimary">{{stagePrimary}}</view>
       </view>
@@ -1868,6 +1879,7 @@
           mode="owner"
           quote-lines="{{recordPreview.quoteLines}}"
           show-header="{{true}}"
+          bind:doclink="onDocLink"
         />
       </scroll-view>
       <view class="st-bar">
@@ -1888,7 +1900,7 @@
         </view>
       </view>
       <scroll-view scroll-y class="ov-work__body" show-scrollbar="{{false}}">
-        <service-doc-sheet wx:if="{{doneView.mode === 'doc'}}" doc="{{doneView.sheetDoc}}" mode="merchant" />
+        <service-doc-sheet wx:if="{{doneView.mode === 'doc'}}" doc="{{doneView.sheetDoc}}" mode="merchant" bind:doclink="onDocLink" />
         <view wx:else class="ov-done">
           <text wx:if="{{doneView.complaint}}" class="ov-done__line">{{doneView.complaint}}</text>
           <view wx:if="{{doneView.images.length}}" class="ov-done__photos">
@@ -2288,6 +2300,7 @@
           mode="merchant"
           quote-lines="{{docBrief.quoteLines}}"
           show-header="{{true}}"
+          bind:doclink="onDocLink"
         />
         <text wx:else class="doc-brief__empty">{{docBrief.emptyText || '还没有这份内容'}}</text>
       </scroll-view>

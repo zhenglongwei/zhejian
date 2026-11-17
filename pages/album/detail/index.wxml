@@ -166,6 +166,7 @@
           confirming="{{flowConfirmingId === openDoc.id}}"
           bind:confirm="onOwnerFlowConfirm"
           bind:reject="onOwnerFlowReject"
+          bind:doclink="onOpenOwnerDocLink"
         />
       </scroll-view>
     </view>

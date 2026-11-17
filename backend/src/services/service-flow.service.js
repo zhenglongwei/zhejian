@@ -42,6 +42,7 @@ const {
 } = resolveShared('utils/service-flow-docs.js')
 const {
   buildOwnerPreviewDoc,
+  buildFinishReportLinks,
   buildIntakePreviewFromContent,
   previewAlbumOf,
   workItemsFromFindings,
@@ -519,6 +520,8 @@ function healFinishReportPackage(pkg = {}, album = {}) {
     finishReportStatusSent(repair.document) &&
     finishReportMissingFrozenFields(reportBody, frozen, list)
   ) {
+    // 历史缺陷：冻结报告时漏掉了验收清单，导致交车整车照没进报告。
+    // 交车报告渲染已改为只读 content，这里只修补 content，不再重写冻结快照。
     const generated = buildFinishReportFromFrozenNodes(list, album)
     list[repairIdx] = {
       ...writeNodeContent(list[repairIdx], { content: generated }),
@@ -2930,6 +2933,8 @@ function signPreviewMedia(doc) {
     acceptanceItems: Array.isArray(doc.acceptanceItems)
       ? doc.acceptanceItems.map(signItem)
       : doc.acceptanceItems,
+    // 交车报告单区展示行（项目名 + 图同住一行）
+    rows: Array.isArray(doc.rows) ? doc.rows.map(signItem) : doc.rows,
   }
 }
 
@@ -3133,12 +3138,12 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
     result: ownerFindingResultLabel((row && row.result) || ''),
   }))
   const workItemsRaw =
-    snapDoc && Array.isArray(snapDoc.workItems)
-      ? snapDoc.workItems
-      : kind === 'repair_report'
-        ? Array.isArray(payload.workItems)
-          ? payload.workItems
-          : []
+    kind === 'repair_report'
+      ? Array.isArray(payload.workItems)
+        ? payload.workItems
+        : []
+      : snapDoc && Array.isArray(snapDoc.workItems)
+        ? snapDoc.workItems
         : Array.isArray(payload.workItems) && payload.workItems.length
           ? payload.workItems
           : items
@@ -3185,27 +3190,25 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
     )
     .map((url) => String(url || '').trim())
     .filter(Boolean)
+  // 交车报告 = 交车凭证：一律从节点 content 现场构建，旧冻结快照不再参与渲染
   const finishDoc =
-    snapDoc && snapDoc.kind === 'repair_report'
-      ? signPreviewMedia(snapDoc)
-      : kind === 'repair_report'
-        ? signPreviewMedia(
-            buildOwnerPreviewDoc({
-              family: 'finish',
-              album: previewAlbumOf(album),
-              mileageText,
-              intakeMileageText: String(payload.intakeMileageText || ''),
-              workItems: Array.isArray(payload.workItems) ? payload.workItems : [],
-              totalAmount: payload.totalAmount,
-              acceptanceItems: Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [],
-              warrantyPeriod: payload.warrantyPeriod,
-              warrantyNotes: resolveWarrantyNotes(payload),
-              reworkRecords: Array.isArray(payload.reworkRecords) ? payload.reworkRecords : [],
-              signName: payload.delivererName,
-              signAt: formatClerkAtForDoc(payload.finishedAt || ''),
-            }).doc,
-          )
-        : null
+    kind === 'repair_report'
+      ? signPreviewMedia(
+          buildOwnerPreviewDoc({
+            family: 'finish',
+            album: previewAlbumOf(album),
+            mileageText,
+            workItems: Array.isArray(payload.workItems) ? payload.workItems : [],
+            acceptanceItems: Array.isArray(payload.acceptanceItems) ? payload.acceptanceItems : [],
+            warrantyPeriod: payload.warrantyPeriod,
+            warrantyNotes: resolveWarrantyNotes(payload),
+            workDurationMinutes: payload.workDurationMinutes,
+            exteriorPhotoWaived: payload.exteriorPhotoWaived === true,
+            signName: payload.delivererName,
+            signAt: formatClerkAtForDoc(payload.finishedAt || ''),
+          }).doc,
+        )
+      : null
   return {
     id: node.id,
     kind,
@@ -3300,10 +3303,9 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
         ? payload.totalAmount
         : totalAmount
       : totalAmount,
-    totalAmountLabel: intakeSheet
-      ? ''
-      : finishDoc
-        ? finishDoc.totalAmountLabel
+    totalAmountLabel:
+      intakeSheet || kind === 'repair_report'
+        ? ''
         : `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
     acceptanceItems: finishDoc
       ? finishDoc.acceptanceItems
@@ -3314,7 +3316,12 @@ function mapOwnerFlowDocCard(node = {}, album = {}, allNodes = []) {
       ? finishDoc.warrantyPeriod
       : String(payload.warrantyPeriod || ''),
     warrantyNotes: finishDoc ? finishDoc.warrantyNotes : resolveWarrantyNotes(payload),
-    reworkRecords: (finishDoc && Array.isArray(finishDoc.reworkRecords) ? finishDoc.reworkRecords : []),
+    // 交车凭证：整车照 + 施工时长；相关报告入口由 buildOwnerFlowView 按顺序挂上
+    exteriorImages: finishDoc && Array.isArray(finishDoc.exteriorImages) ? finishDoc.exteriorImages : [],
+    exteriorMissing: Boolean(finishDoc && finishDoc.exteriorMissing),
+    exteriorPhotoWaived: Boolean(finishDoc && finishDoc.exteriorPhotoWaived),
+    workDurationText: (finishDoc && finishDoc.workDurationText) || '',
+    reportLinks: [],
     warrantyScope: String(payload.warrantyScope || ''),
     warrantyExclusions: String(payload.warrantyExclusions || ''),
   }
@@ -3557,6 +3564,17 @@ function buildOwnerFlowView(album, albumNodes = []) {
     }
     return row
   })
+
+  // 交车凭证：按流程顺序挂上「本次维修相关报告」入口（仅交车之前的可读单据）
+  const repairIndex = finalDocs.findIndex(
+    (row) => row && !row.locked && row.kind === 'repair_report',
+  )
+  if (repairIndex >= 0) {
+    finalDocs[repairIndex] = {
+      ...finalDocs[repairIndex],
+      reportLinks: buildFinishReportLinks(finalDocs.slice(0, repairIndex)),
+    }
+  }
 
   const pendingConfirmCount = finalDocs.filter((row) => row.needsConfirm).length
   const focusNode =

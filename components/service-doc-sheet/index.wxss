@@ -379,6 +379,32 @@
   border: 1rpx solid var(--color-border);
 }
 
+.service-doc-sheet__doclink {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.service-doc-sheet__doclink-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+.service-doc-sheet__doclink-arrow {
+  flex-shrink: 0;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-tertiary);
+}
+
 .service-doc-sheet__line-name {
   font-size: var(--font-body);
   line-height: var(--font-body-lh);

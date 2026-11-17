@@ -6,6 +6,7 @@ const {
   REPAIR_CONFIRM_COPY,
 } = require('../constants/service-flow-nodes')
 const { quoteFace, resolveQuoteConfirmCopy } = require('./service-flow-quote-draft')
+const { formatWorkDurationText } = require('./service-flow-docs')
 
 function photoRows(list) {
   const rows = []
@@ -23,6 +24,46 @@ function moneySum(lines) {
     const n = Number(line && line.amount)
     return sum + (Number.isFinite(n) ? n : 0)
   }, 0)
+}
+
+/** 交车报告「本次维修相关报告」入口标题 */
+const FINISH_REPORT_LINK_TITLES = {
+  intake: '接车报告',
+  intake_inspection: '接车报告',
+  inspection_report: '检测报告',
+  quote_confirm: '报价单',
+  addon_quote_confirm: '补充报价单',
+  work: '维修工单',
+}
+
+/**
+ * 交车报告入口：只纳入交车之前的可读单据，供车主确认前回看。
+ * 输入可以是车主端 doc 卡片，也可以是商家端流程节点。
+ */
+function buildFinishReportLinks(rows = []) {
+  const list = Array.isArray(rows) ? rows : []
+  const links = []
+  const seen = {}
+  list.forEach((row) => {
+    if (!row || typeof row !== 'object') return
+    const nodeId = String(row.id || row.nodeId || '').trim()
+    if (!nodeId || seen[nodeId]) return
+    if (row.locked === true || row.cancelled === true) return
+    if (row.status === 'locked') return
+    const doc = row.document && typeof row.document === 'object' ? row.document : {}
+    if (String(doc.status || '') === 'cancelled') return
+    const kind = String(row.kind || '').trim()
+    const baseTitle = FINISH_REPORT_LINK_TITLES[kind]
+    if (!baseTitle) return
+    const isAddon =
+      row.isAddon === true ||
+      kind === 'addon_quote_confirm' ||
+      String(row.insertedReason || '') === 'addon'
+    const title = kind === 'work' && isAddon ? '补充施工' : baseTitle
+    seen[nodeId] = true
+    links.push({ nodeId, kind, title })
+  })
+  return links
 }
 
 function quoteRows(lines) {
@@ -344,9 +385,6 @@ function buildOwnerPreviewDoc(input = {}) {
       .filter((row) => row.name)
     const warrantyPeriod = String(input.warrantyPeriod || '').trim()
     const warrantyNotes = String(input.warrantyNotes || '').trim()
-    const lineTotal = moneySum(workItems)
-    const quoted = Number(input.totalAmount)
-    const total = Number.isFinite(quoted) && quoted > 0 ? quoted : lineTotal
     const acceptanceItems = (Array.isArray(input.acceptanceItems) ? input.acceptanceItems : [])
       .map((row, index) => {
         const obj = row && typeof row === 'object' ? row : {}
@@ -370,49 +408,51 @@ function buildOwnerPreviewDoc(input = {}) {
           resultTone: result || 'observe',
           images,
           missingPhoto: Boolean(obj.kind === 'exterior' && !images.length),
+          // 未施工交代（施工节点写入）：数据保留，交车凭证不再展示
+          unbuiltReason: String(obj.unbuiltReason || '').trim(),
+          unbuiltNote: String(obj.unbuiltNote || '').trim(),
         }
       })
       .filter(Boolean)
-    // 返工记录：交车时发现新问题并转返工，报告如实留痕
-    const reworkRecords = (Array.isArray(input.reworkRecords) ? input.reworkRecords : [])
-      .map((row) => ({
-        reason: String((row && row.reason) || '').trim(),
-        itemNames: (Array.isArray(row && row.itemNames) ? row.itemNames : [])
-          .map((name) => String(name || '').trim())
-          .filter(Boolean),
-        operator: String((row && row.operator) || '').trim(),
-        at: String((row && row.at) || '').trim(),
-        doneAt: String((row && row.doneAt) || '').trim(),
-      }))
-      .filter((row) => row.reason)
-    // 交车报告同时展示接车里程与交车里程
-    const intakeMileageText = String(input.intakeMileageText || '').trim()
-    const deliveryMileageText = String(input.mileageText || '').trim()
-    const mileageLine = [intakeMileageText, deliveryMileageText].filter(Boolean).join(' · ')
-    const finishMetaLine = albumMetaLine(album, mileageLine)
+    // 整车外观照：交车节点验收清单里的「外观」行
+    const exteriorRow = acceptanceItems.find((row) => row.kind === 'exterior') || null
+    const exteriorImages = exteriorRow ? exteriorRow.images : []
+    const exteriorMissing = Boolean(exteriorRow && !exteriorImages.length)
+    const workDurationText = formatWorkDurationText(input.workDurationMinutes)
+    // 交车凭证只写交车里程
+    const finishMetaLine = albumMetaLine(album, String(input.mileageText || '').trim())
     return {
       doc: {
         kind: 'repair_report',
         title: '交车报告',
         styleVariant: 'document',
         storeName,
+        // 兼容字段：公开章与商家回填仍读 content 派生值，交车凭证不渲染
         workItems,
         acceptanceItems,
+        exteriorImages,
+        exteriorMissing,
+        exteriorPhotoWaived: input.exteriorPhotoWaived === true,
+        workDurationText,
+        reportLinks: Array.isArray(input.reportLinks) ? input.reportLinks : [],
         warrantyPeriod,
         warrantyNotes,
-        reworkRecords,
-        totalAmountLabel: workItems.length ? `合计 ¥${total.toFixed(2)}` : '',
         confirmCopy: REPAIR_CONFIRM_COPY,
         needsConfirm: false,
         metaLine: finishMetaLine,
         signLabel: signLabel || '交付人',
         signName,
         signAt,
-        signAtLabel: signAtLabel || '完工时间',
+        signAtLabel: signAtLabel || '交车时间',
       },
       quoteLines: [],
       hasBody: Boolean(
-        workItems.length || acceptanceItems.length || warrantyPeriod || warrantyNotes || reworkRecords.length,
+        workItems.length ||
+          acceptanceItems.length ||
+          warrantyPeriod ||
+          warrantyNotes ||
+          exteriorImages.length ||
+          workDurationText,
       ),
     }
   }
@@ -421,6 +461,7 @@ function buildOwnerPreviewDoc(input = {}) {
 
 module.exports = {
   buildOwnerPreviewDoc,
+  buildFinishReportLinks,
   buildIntakePreviewFromContent,
   intakePhotoRowsFromContent,
   previewAlbumOf,

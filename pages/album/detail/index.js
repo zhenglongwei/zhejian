@@ -1126,6 +1126,18 @@ Page({
     this.setData({ openDoc: null })
   },
 
+  /** 交车凭证里的相关报告入口：直接覆盖当前报告层打开目标报告 */
+  onOpenOwnerDocLink(e) {
+    const nodeId = String((e && e.detail && e.detail.nodeId) || '').trim()
+    if (!nodeId) return
+    const doc = (this.data.ownerFlowDocs || []).find((row) => row && row.id === nodeId)
+    if (!doc || doc.locked) {
+      wx.showToast({ title: '该报告暂不可查看', icon: 'none' })
+      return
+    }
+    this.setData({ openDoc: doc })
+  },
+
   onOwnerBoardConfirm() {
     const nodeId = this.data.ownerBoard && this.data.ownerBoard.pendingId
     if (!nodeId) return

@@ -182,6 +182,12 @@ function testWorkDurationFallsBackToDelivery() {
   ])
   assert.equal(withDelivery.finish.workDurationMinutes, 45)
   assert.equal(withDelivery.finish.workDurationText, '约 45 分钟')
+
+  const withDays = buildCaseFactPack([
+    ...flow,
+    node('delivery_photos', { content: { workDurationMinutes: 2880 } }),
+  ])
+  assert.equal(withDays.finish.workDurationText, '约 2 天')
 }
 
 /** 状态良好、仅记录 不喂：写进去等于刷屏 */

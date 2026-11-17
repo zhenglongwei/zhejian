@@ -14,7 +14,7 @@
  */
 
 const { resolveShared } = require('./resolve-shared')
-const { contentOfFlowNode } = resolveShared('utils/service-flow-docs.js')
+const { contentOfFlowNode, formatWorkDurationText } = resolveShared('utils/service-flow-docs.js')
 
 /** 只有这两档结论值得喂给大模型 */
 const FEEDABLE_RESULTS = new Set(['需处理', '需关注'])
@@ -160,15 +160,6 @@ function pickWorkDurationMinutes(flowNodes) {
     }
   }
   return 0
-}
-
-/** 施工时长文案：满 1 小时按小时（保留一位），不足 1 小时按分钟 */
-function formatWorkDurationText(minutes) {
-  const n = Number(minutes) || 0
-  if (n <= 0) return ''
-  if (n < 60) return `约 ${n} 分钟`
-  const hours = n / 60
-  return `约 ${hours >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10} 小时`
 }
 
 /** 完工确认：复查结论 + 验收事实句 + 质保 + 使用注意 + 施工时间 */

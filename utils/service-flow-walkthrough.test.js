@@ -219,6 +219,7 @@ test('从接车到交车，施工中可以连续报两次新故障', () => {
     delivererName: '李店长',
     deliveredAt: '2026-11-13 17:30',
     deliveryMileage: '36800',
+    workDurationMinutes: 120,
     acceptanceItems: [
       { id: 'a1', kind: 'work', name: '故障现象', note: '路试底盘异响已消除', result: 'pass' },
       { id: 'a2', kind: 'work', name: '渗漏检查', note: '举升目视无油液渗漏', result: 'pass' },

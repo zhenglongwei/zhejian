@@ -148,6 +148,8 @@ test('车主交车报告：只读已生成正文', () => {
     warrantyPeriod: '12 个月',
     warrantyNotes: '不含事故损伤',
     delivererName: '李店长',
+    workDurationMinutes: 150,
+    finishedAt: '2026-11-17 09:42',
     totalAmount: 800,
   }
   const view = buildOwnerFlowView(
@@ -181,16 +183,27 @@ test('车主交车报告：只读已生成正文', () => {
   assert.equal(Number(repair.workItems[0].amount), 800)
   assert.equal(repair.warrantyNotes, '不含事故损伤')
   assert.equal(repair.signName, '李店长')
+  // 交车凭证：整车照、施工时长、交车时间，不再有合计
+  assert.deepEqual(
+    repair.exteriorImages.map((row) => row.url),
+    ['https://cdn.example.com/finish-front.jpg', 'https://cdn.example.com/finish-side.jpg'],
+  )
+  assert.equal(repair.workDurationText, '约 2.5 小时')
+  assert.equal(repair.signAtLabel, '交车时间')
+  assert.equal(repair.signAt, '11月17日 09:42')
+  assert.equal(repair.totalAmountLabel, '')
+  assert.deepEqual(repair.reportLinks, [])
 
   const expected = buildOwnerPreviewDoc({
     family: 'finish',
     album: previewAlbumOf(albumWithFlow([])),
     workItems: payload.workItems,
-    totalAmount: 800,
     acceptanceItems: payload.acceptanceItems,
     warrantyPeriod: payload.warrantyPeriod,
     warrantyNotes: payload.warrantyNotes,
+    workDurationMinutes: payload.workDurationMinutes,
     signName: payload.delivererName,
+    signAt: repair.signAt,
   }).doc
   assert.deepEqual(
     repair.acceptanceItems.map((row) => row.name),
@@ -248,6 +261,77 @@ test('旧册薄报告：主诉从 inspection_report.content 读取（payload 为
   assert.equal(changed, true)
   const report = next.flowNodes.find((row) => row.kind === 'repair_report')
   assert.equal(contentOfFlowNode(report).chiefComplaint, '右前门剐蹭，需局部补漆')
+})
+
+test('旧册交车报告缺验收清单：heal 只修补 content，交车凭证现场补回整车照', () => {
+  const pkg = {
+    flowVersion: 6,
+    flowNodes: [
+      {
+        id: 'work_1',
+        kind: 'work',
+        status: 'completed',
+        content: {
+          findings: [{ id: 'f1', partName: '右前门补漆', images: [{ url: 'work.jpg' }] }],
+        },
+      },
+      {
+        id: 'delivery_1',
+        kind: 'delivery_photos',
+        status: 'completed',
+        content: {
+          warrantyPeriod: '12 个月',
+          delivererName: '李店长',
+          acceptanceItems: [
+            { id: 'acc_1', kind: 'work', name: '右前门补漆', note: '自然光下无色差', result: 'pass' },
+            { id: 'ext_1', kind: 'exterior', name: '外观', images: [{ url: 'exterior.jpg' }] },
+          ],
+        },
+        document: { status: 'confirmed' },
+      },
+      {
+        id: 'repair_1',
+        kind: 'repair_report',
+        content: {
+          workItems: [{ name: '右前门补漆', images: [{ url: 'work.jpg' }] }],
+          warrantyPeriod: '12 个月',
+          delivererName: '李店长',
+        },
+        document: {
+          docType: 'repair_report',
+          status: 'pending_confirm',
+          payload: {},
+          renderDoc: {
+            family: 'finish',
+            revision: 2,
+            frozenAt: '2026-11-17T00:00:00.000Z',
+            doc: { rows: [] },
+            quoteLines: [],
+            hasBody: true,
+          },
+        },
+      },
+    ],
+  }
+  const { pkg: next, changed } = healFinishReportPackage(pkg)
+  assert.equal(changed, true)
+  const report = next.flowNodes.find((row) => row.kind === 'repair_report')
+  const body = contentOfFlowNode(report)
+  const exterior = body.acceptanceItems.find((row) => row.kind === 'exterior')
+  assert.ok(exterior)
+  assert.equal(exterior.images[0].url, 'exterior.jpg')
+  // 交车报告不再读冻结快照，heal 也不重写它
+  assert.equal(report.document.renderDoc.revision, 2)
+  assert.deepEqual(report.document.renderDoc.doc.rows, [])
+  // 车主端凭证从 content 现场构建：整车照与相关报告入口都在
+  const view = buildOwnerFlowView(albumWithFlow(next.flowNodes), [])
+  const repair = view.docs.find((row) => row && row.kind === 'repair_report')
+  assert.ok(repair)
+  assert.equal(repair.exteriorImages[0].url, 'exterior.jpg')
+  assert.deepEqual(
+    repair.reportLinks.map((row) => row.title),
+    ['维修工单'],
+  )
 })
 
 test('车主接车报告：已发出但只留了留证时仍有入店照片', () => {

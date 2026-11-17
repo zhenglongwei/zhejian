@@ -20,7 +20,7 @@ test('开口活补充报价预览用车主标题和明细', () => {
   assert.equal(preview.doc.needsConfirm, false)
 })
 
-test('交车报告用完整车牌，合计用报价金额', () => {
+test('交车报告用完整车牌，页眉只写交车里程', () => {
   const preview = buildOwnerPreviewDoc({
     family: 'finish',
     album: {
@@ -32,14 +32,13 @@ test('交车报告用完整车牌，合计用报价金额', () => {
         series: '高尔夫',
       },
     },
-    mileageText: '里程 10,000 km',
+    mileageText: '交车里程 10,000 km',
     workItems: [
       { name: '更换下摆臂胶套', note: '更换了已经开裂的下摆臂胶套', amount: '' },
     ],
-    totalAmount: 1400,
   })
-  assert.equal(preview.doc.metaLine, '粤B12345 · 大众 高尔夫 · 里程 10,000 km')
-  assert.equal(preview.doc.totalAmountLabel, '合计 ¥1400.00')
+  assert.equal(preview.doc.metaLine, '粤B12345 · 大众 高尔夫 · 交车里程 10,000 km')
+  assert.equal(preview.doc.totalAmountLabel, undefined)
 })
 
 test('交车报告施工项目清单带施工图（去重）', () => {
@@ -58,7 +57,8 @@ test('交车报告施工项目清单带施工图（去重）', () => {
     item.images.map((row) => row.url),
     ['from-work.jpg', 'uploaded.jpg'],
   )
-  assert.equal(preview.doc.acceptanceItems, undefined)
+  // 交车凭证不再合并展示清单
+  assert.equal(preview.doc.rows, undefined)
 })
 
 test('施工记录转报告项只保留有名称的项', () => {

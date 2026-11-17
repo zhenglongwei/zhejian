@@ -641,6 +641,19 @@ function parseWorkDurationMinutes(value) {
   return Math.round(n)
 }
 
+/** 施工时长文案：不足 1 小时按分钟，不足 1 天按小时，满 1 天按天（保留一位小数） */
+function formatWorkDurationText(value) {
+  const n = parseWorkDurationMinutes(value)
+  if (n <= 0) return ''
+  if (n < 60) return `约 ${n} 分钟`
+  const hours = n / 60
+  if (n < 1440) {
+    return `约 ${hours >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10} 小时`
+  }
+  const days = hours / 24
+  return `约 ${days >= 10 ? Math.round(days) : Math.round(days * 10) / 10} 天`
+}
+
 /** 两个 YYYY-MM-DD HH:mm 文本的分钟差（结束早于开始返回 0） */
 function workMinutesBetween(startText, endText) {
   const start = Date.parse(String(startText || '').trim().replace(' ', 'T'))
@@ -2311,6 +2324,9 @@ function buildRepairReportPayload({
       images,
     }
   })
+  // 交车验收清单（含外观末行）必须随报告一起冻结：
+  // 报告「施工与验收」按行名与工单合并展示，缺了它交车时上传的整车照就会从报告里消失
+  const acceptanceItems = withExteriorAcceptanceRow(content.acceptanceItems)
   const computedTotal =
     totalAmount != null
       ? parseAmount(totalAmount)
@@ -2327,6 +2343,8 @@ function buildRepairReportPayload({
   return {
     chiefComplaint: String(chiefComplaint || '').trim(),
     workItems: items,
+    // 验收清单：报告「施工与验收」合并行与末行整车外观照的唯一来源
+    acceptanceItems,
     totalAmount: computedTotal == null ? 0 : computedTotal,
     mileageText,
     intakeMileageText: String(intakeMileageText || '').trim(),
@@ -2618,6 +2636,7 @@ module.exports = {
   collectDeliveryPhotoDraftGaps,
   collectWorkPhotoDraftGaps,
   parseWorkDurationMinutes,
+  formatWorkDurationText,
   workMinutesBetween,
   collectQuoteConfirmGaps,
   buildInspectionReportPayload,

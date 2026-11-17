@@ -1681,6 +1681,19 @@
   padding: var(--space-xs) var(--space-md) 0;
 }
 
+/* 展开后保留项目标题，避免收起/展开两态信息断层 */
+.merchant-flow-page__finding-open-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .merchant-flow-page__finding-collapse {
   color: var(--color-primary);
 }
