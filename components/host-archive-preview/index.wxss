@@ -114,26 +114,17 @@
   border-color: currentColor;
 }
 
-/* 图片：统一两种形态 */
+/* 图片：统一每行3张等尺寸小图，超出逢3换行 */
 .host-archive-preview__img-grid {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 8rpx;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10rpx;
 }
 
 .host-archive-preview__grid-img {
-  width: calc(50% - 4rpx);
-  height: 240rpx;
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
-}
-
-.host-archive-preview__single-img {
   width: 100%;
-  height: 360rpx;
-  border-radius: var(--radius-md);
+  height: 200rpx;
+  border-radius: var(--radius-sm);
   background-color: var(--color-bg-card);
   border: 1rpx solid var(--color-border);
 }

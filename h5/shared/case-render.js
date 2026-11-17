@@ -669,9 +669,6 @@
       return typeof img === 'string' ? img : img && img.url ? img.url : ''
     }).filter(Boolean)
     if (!urls.length) return ''
-    if (urls.length === 1) {
-      return renderPreviewableImage(urls[0], alt || '', 'h5-flow-item-img')
-    }
     return (
       '<div class="h5-flow-item-img-grid">' +
       urls
@@ -695,7 +692,7 @@
           var imgHtml = hasImages
             ? renderItemImages(item.images, item.name || '')
             : item.evidenceUrl
-              ? renderPreviewableImage(item.evidenceUrl, item.name || '', 'h5-flow-item-img')
+              ? renderItemImages([{ url: item.evidenceUrl }], item.name || '')
               : ''
           return (
             '<div class="h5-flow-item">' +
