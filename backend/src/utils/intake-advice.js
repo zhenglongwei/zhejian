@@ -163,36 +163,48 @@ function parseCheckpoints(raw) {
     .map((row, index) => ({ ...row, sortOrder: index }))
 }
 
-const BODY_SIDES = ['车头', '车尾', '左侧', '右侧']
 const COVERAGE_KEYS = [
-  { key: 'front', label: '车头' },
-  { key: 'rear', label: '车尾' },
-  { key: 'left', label: '左侧' },
-  { key: 'right', label: '右侧' },
+  { key: 'front', label: '车头', aliases: ['车头'], how: '再拍一张能看清车头的照片。' },
+  { key: 'rear', label: '车尾', aliases: ['车尾'], how: '再拍一张能看清车尾的照片。' },
+  { key: 'left', label: '左侧', aliases: ['左侧'], how: '再拍一张能看清车身左侧的照片。' },
+  { key: 'right', label: '右侧', aliases: ['右侧'], how: '再拍一张能看清车身右侧的照片。' },
+  {
+    key: 'odometer',
+    label: '里程表',
+    aliases: ['行驶里程表', '里程表', '里程', '仪表'],
+    how: '再拍一张能看清行驶里程读数的里程表照片。',
+  },
+  {
+    key: 'fuel',
+    label: '油量表',
+    aliases: ['油量表', '油量', '油表', '油位'],
+    how: '再拍一张能看清油量或油位的油量表照片。',
+  },
 ]
 
-function sideName(value) {
+function coverageName(value) {
   const line = text(value)
-  return BODY_SIDES.find((side) => line.includes(side)) || ''
+  const hit = COVERAGE_KEYS.find(({ aliases }) => aliases.some((alias) => line.includes(alias)))
+  return hit ? hit.label : ''
 }
 
 function sidesFromList(list) {
   const missing = []
   const seen = new Set()
   ;(Array.isArray(list) ? list : []).forEach((item) => {
-    const side = sideName(
+    const name = coverageName(
       typeof item === 'string'
         ? item
         : item && (item['标题'] || item.title || item['正文'] || item.body || item.name),
     )
-    if (!side || seen.has(side)) return
-    seen.add(side)
-    missing.push(side)
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    missing.push(name)
   })
   return missing
 }
 
-/** 有 coverage 布尔字段时以它为准；某侧 true 绝不再进缺侧 */
+/** 有 coverage 布尔字段时以它为准；明确 true 的留证项绝不再进缺失清单 */
 function missingSidesFromPayload(parsed = {}) {
   const cov = parsed.coverage
   const hasCoverageBool =
@@ -204,8 +216,8 @@ function missingSidesFromPayload(parsed = {}) {
   }
   const fromList = sidesFromList(parsed['提醒'] || parsed.missing || parsed.risks)
   if (cov && typeof cov === 'object') {
-    return fromList.filter((side) => {
-      const hit = COVERAGE_KEYS.find((row) => row.label === side)
+    return fromList.filter((name) => {
+      const hit = COVERAGE_KEYS.find((row) => row.label === name)
       return !(hit && cov[hit.key] === true)
     })
   }
@@ -217,10 +229,13 @@ function buildCoverageResult(missingSides) {
   const missing = Array.isArray(missingSides) ? missingSides : []
   return {
     covered: missing.length === 0,
-    risks: missing.map((side) => ({
-      title: `缺${side}`,
-      body: `再拍一张能看清${side}的照片。`,
-    })),
+    risks: missing.map((name) => {
+      const meta = COVERAGE_KEYS.find((row) => row.label === name)
+      return {
+        title: `缺${name}`,
+        body: meta ? meta.how : `再拍一张能看清${name}的照片。`,
+      }
+    }),
     fixes: [],
   }
 }
@@ -267,11 +282,7 @@ function sanitizeIntakeAdviceForView(advice, options = {}) {
   const coverage =
     advice.scope === 'coverage'
       ? advice.noPhotos
-        ? {
-            covered: false,
-            risks: [{ title: '还没有车身照片', body: '先拍车头、车尾、左右，能看清每一侧即可。' }],
-            fixes: [],
-          }
+        ? buildCoverageResult(COVERAGE_KEYS.map(({ label }) => label))
         : buildCoverageResult(sidesFromList(advice.risks))
       : { covered: false, risks: [], fixes: [] }
   const fingerprint = text(advice.fingerprint)

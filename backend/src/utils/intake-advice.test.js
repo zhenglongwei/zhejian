@@ -48,10 +48,10 @@ test('优先 coverage：coverage 为 true 的侧面即使出现在 missing 也�
   assert.equal(got.fixes.length, 0)
 })
 
-test('coverage 全 true 则四周已齐', () => {
+test('六项 coverage 全 true 则留证已齐', () => {
   const got = parseIntakeAdvicePayload({
-    coverage: { front: true, rear: true, left: true, right: true },
-    missing: ['车尾'],
+    coverage: { front: true, rear: true, left: true, right: true, odometer: true, fuel: true },
+    missing: ['车尾', '里程表', '油量表'],
   })
   assert.equal(got.covered, true)
   assert.equal(got.risks.length, 0)
@@ -91,6 +91,67 @@ test('sanitize 覆盖态只出一块还缺清单', () => {
   assert.equal(view.risks[0].title, '缺车尾')
   assert.match(view.risks[0].body, /再拍一张/)
   assert.equal(view.fixes.length, 0)
+})
+
+test('四侧齐全但缺里程表和油量表时并列提醒两项', () => {
+  const got = parseIntakeAdvicePayload({
+    提醒: [
+      { 标题: '缺行驶里程表', 正文: '补拍仪表。' },
+      { 标题: '缺油量表', 正文: '补拍油表。' },
+    ],
+  })
+  assert.equal(got.covered, false)
+  assert.deepEqual(got.risks.map((row) => row.title), ['缺里程表', '缺油量表'])
+  assert.match(got.risks[0].body, /行驶里程读数/)
+  assert.match(got.risks[1].body, /油量或油位/)
+})
+
+test('里程表和油量表独立判断，只提醒未覆盖的一项', () => {
+  const got = parseIntakeAdvicePayload({
+    coverage: {
+      front: true,
+      rear: true,
+      left: true,
+      right: true,
+      odometer: true,
+      fuel: false,
+    },
+    missing: ['里程表', '油量表'],
+  })
+  assert.deepEqual(got.risks.map((row) => row.title), ['缺油量表'])
+})
+
+test('读侧清洗保留里程表和油量表提醒', () => {
+  const view = sanitizeIntakeAdviceForView({
+    status: 'ready',
+    scope: 'coverage',
+    risks: [
+      { title: '缺行驶里程表', body: '补拍仪表。' },
+      { title: '缺油量表', body: '补拍油表。' },
+    ],
+  })
+  assert.deepEqual(view.risks.map((row) => row.title), ['缺里程表', '缺油量表'])
+  assert.match(view.risks[0].body, /再拍一张/)
+  assert.match(view.risks[1].body, /再拍一张/)
+})
+
+test('没有任何接车照片时给出六项留证提醒', () => {
+  const view = sanitizeIntakeAdviceForView({
+    status: 'ready',
+    scope: 'coverage',
+    noPhotos: true,
+    covered: false,
+    risks: [],
+  })
+  assert.equal(view.covered, false)
+  assert.deepEqual(view.risks.map((row) => row.title), [
+    '缺车头',
+    '缺车尾',
+    '缺左侧',
+    '缺右侧',
+    '缺里程表',
+    '缺油量表',
+  ])
 })
 
 test('unmatched checkpoints skip findings that already cover the part', () => {
