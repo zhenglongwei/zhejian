@@ -13,7 +13,7 @@ function buildStoreH5Url(storeId) {
 
 function buildStoreShareTitle(store = {}) {
   const name = (store.name || '').trim() || '汽修门店'
-  return `【${name}】门店资料 · 辙见`
+  return `【${name}】门店资料`
 }
 
 function buildStoreShareImageUrl(store = {}) {
@@ -52,7 +52,7 @@ function buildPublicStoreTimelinePayload(store = {}, storeId = '') {
   const title =
     store && (store.name || '').trim()
       ? buildStoreShareTitle(store)
-      : '辙见 · 门店资料'
+      : '门店资料'
   const result = {
     title,
     query: id ? `id=${encodeURIComponent(id)}` : '',

@@ -395,14 +395,14 @@ Page({
     }
     if (this.storeId) {
       return {
-        title: store && store.name ? buildStoreShareTitle(store) : '辙见 · 门店资料',
+        title: store && store.name ? buildStoreShareTitle(store) : '门店资料',
         path: withStoreContextPath(`/pages/store/detail/index?id=${this.storeId}`, {
           storeId: this.storeId,
           isolated: true,
         }),
       }
     }
-    return { title: '辙见 · 门店资料', path: TOOL_HOME_PATH }
+    return { title: '门店资料', path: TOOL_HOME_PATH }
   },
 
   onShareTimeline() {

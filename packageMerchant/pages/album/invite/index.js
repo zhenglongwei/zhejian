@@ -9,6 +9,7 @@ const {
 } = require('../../../../services/merchant')
 const { buildAlbumClaimShareMessage } = require('../../../../utils/album-claim')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
+const { buildStoreFallbackTitle } = require('../../../../utils/share-title')
 const { MERCHANT_ALBUM_FLOW_PAGE } = require('../../../../utils/merchant-album-nav')
 
 Page({
@@ -142,7 +143,7 @@ Page({
     const detail = this.data.detail || {}
     if (!this.albumId || detail.hasOwner) {
       return {
-        title: '辙见 · 服务相册',
+        title: buildStoreFallbackTitle(detail.storeName, '服务相册'),
         path: TOOL_HOME_PATH,
       }
     }

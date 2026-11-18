@@ -36,6 +36,7 @@ const {
   SHARE_CHANNEL,
 } = require('../../../utils/album-owner-share')
 const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
+const { resolveShareStoreName, buildStoreFallbackTitle } = require('../../../utils/share-title')
 const { inviteUiFieldsFromDetail } = require('../../../utils/album-auth-share-handlers')
 const { AUTH_ACTION_LABEL, AUTH_CONFIRM_TEXT, AUTH_REJECT_TEXT, AUTH_SHEET_TITLE, CONTROL_LINE, CONSENT_CHECKBOX } = require('../../../utils/publish-thank-you')
 const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
@@ -1498,7 +1499,7 @@ Page({
     })
     if (payload) return payload
     return {
-      title: '辙见 · 我的服务相册',
+      title: buildStoreFallbackTitle(resolveShareStoreName(detail), '我的服务相册'),
       path: this.albumId
         ? withStoreContextPath(`/pages/album/detail/index?albumId=${this.albumId}`, {
             isolated: true,
@@ -1516,7 +1517,7 @@ Page({
         ? `albumId=${encodeURIComponent(this.albumId)}`
         : ''
     return {
-      title: payload?.title || '辙见 · 我的服务相册',
+      title: payload?.title || buildStoreFallbackTitle(resolveShareStoreName(detail), '我的服务相册'),
       query,
     }
   },

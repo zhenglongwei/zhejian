@@ -40,6 +40,7 @@ const {
   SHARE_CHANNEL,
 } = require('../../../utils/album-owner-share')
 const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
+const { resolveShareStoreName, buildStoreFallbackTitle } = require('../../../utils/share-title')
 const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
 const {
   withStoreContextPath,
@@ -798,7 +799,7 @@ Page({
     })
     if (payload) return payload
     return {
-      title: '辙见 · 我的服务相册',
+      title: buildStoreFallbackTitle(resolveShareStoreName(actionDetail), '我的服务相册'),
       path: this.actionAlbumId
         ? withStoreContextPath(`/pages/album/detail/index?albumId=${this.actionAlbumId}`, {
             isolated: true,

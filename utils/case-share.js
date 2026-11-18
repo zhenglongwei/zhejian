@@ -4,6 +4,7 @@
  */
 const { ENV } = require('../services/config')
 const { pickCaseDisplayCover, isDesensitizedUrl } = require('./desensitize-url')
+const { resolveShareStoreName } = require('./share-title')
 
 function buildCaseH5Url(caseId) {
   if (!caseId) return ''
@@ -14,7 +15,9 @@ function buildCaseH5Url(caseId) {
 
 function buildCaseShareTitle(detail) {
   const title = (detail && (detail.title || detail.serviceName)) || '维修案例'
-  return `【${title}】脱敏维修过程参考，修车前值得一看 · 辙见`
+  const storeName = resolveShareStoreName(detail)
+  const head = storeName ? `${storeName}｜` : ''
+  return `${head}【${title}】脱敏维修过程参考，修车前值得一看`
 }
 
 function buildPublicCaseSocialCopy(detail = {}, url = '') {
@@ -22,7 +25,7 @@ function buildPublicCaseSocialCopy(detail = {}, url = '') {
   const storeName =
     (detail && detail.storeName) || (detail && detail.store && detail.store.name) || ''
   const lines = [
-    `辙见公开案例 · 【${title}】`,
+    `公开维修案例 · 【${title}】`,
     storeName
       ? `来自【${storeName}】，门店放到店页的打码施工说明。`
       : '门店放到店页的打码施工说明，含关键节点与参考信息。',

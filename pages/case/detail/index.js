@@ -4,6 +4,7 @@ const {
   copyPublicCaseWebLink,
 } = require('../../../utils/case-share')
 const { checkAuth } = require('../../../utils/auth')
+const { buildStoreFallbackTitle } = require('../../../utils/share-title')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const {
   resolvePageShareContext,
@@ -240,7 +241,7 @@ Page({
     const payload = buildPublicCaseSharePayload(shareCase)
     if (payload) return payload
     return {
-      title: '辙见 · 公开案例',
+      title: buildStoreFallbackTitle(shareCase.storeName, '公开案例'),
       path: `/pages/case/detail/index?id=${this.caseId}`,
     }
   },
@@ -249,7 +250,7 @@ Page({
     const shareCase = buildShareCaseFromDetail(this.data.detail)
     const payload = buildPublicCaseSharePayload(shareCase)
     return {
-      title: payload?.title || '辙见 · 公开案例',
+      title: payload?.title || buildStoreFallbackTitle(shareCase.storeName, '公开案例'),
       query: `id=${encodeURIComponent(this.caseId)}`,
     }
   },

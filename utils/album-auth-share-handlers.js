@@ -18,6 +18,7 @@ const {
   SHARE_CHANNEL,
 } = require('./album-owner-share')
 const { withStoreContextPath, TOOL_HOME_PATH } = require('./share-store-context')
+const { resolveShareStoreName, buildStoreFallbackTitle } = require('./share-title')
 const { initAlbumShareState } = require('./album-share-state')
 const {
   AUTH_ACTION_LABEL,
@@ -407,7 +408,7 @@ function createAlbumAuthShareHandlers(options = {}) {
       if (payload) return payload
       const albumId = this.actionAlbumId || this.data.albumId
       return {
-        title: '辙见 · 我的服务相册',
+        title: buildStoreFallbackTitle(resolveShareStoreName(actionDetail), '我的服务相册'),
         path: albumId
           ? withStoreContextPath(`/pages/album/detail/index?albumId=${albumId}`, {
               isolated: true,

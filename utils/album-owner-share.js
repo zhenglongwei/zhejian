@@ -9,6 +9,7 @@ const {
   resolveImageSrc,
   isDesensitizedUrl,
 } = require('./desensitize-url')
+const { resolveShareStoreName } = require('./share-title')
 
 function canOwnerShareAlbum(detail = {}) {
   if (!detail || !detail.albumId) return false
@@ -17,10 +18,12 @@ function canOwnerShareAlbum(detail = {}) {
 }
 
 function buildShareTitle(detail = {}) {
+  const storeName = resolveShareStoreName(detail)
   const serviceName = detail.serviceName || '服务维修'
   const imageCount = Number(detail.imageCount) || 0
   const countHint = imageCount > 0 ? `${imageCount}张过程图` : '全过程实拍'
-  return `【${serviceName}】${countHint}，修车前值得一看 · 辙见`
+  const head = storeName ? `${storeName}｜` : ''
+  return `${head}【${serviceName}】${countHint}，修车前值得一看`
 }
 
 function buildOwnerShareSocialCopy(detail = {}, url = '') {

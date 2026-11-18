@@ -267,7 +267,7 @@ Page({
       if (payload) return payload
     }
     return {
-      title: '辙见 · 服务相册',
+      title: '服务相册',
       path: TOOL_HOME_PATH,
     }
   },
