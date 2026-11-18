@@ -5,15 +5,7 @@ const {
   prepareReviewImagePreview,
 } = require('../../../services/album-review')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
-const { fetchServiceAlbum, fetchAlbumSocialCards } = require('../../../services/service-album')
-const {
-  applySocialPayload,
-  rememberSocialText,
-  rememberSocialCaption,
-  switchSocialPlatform,
-  toggleSocialImage,
-} = require('../../../utils/social-card-session')
-const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../utils/social-card-actions')
+const { fetchServiceAlbum } = require('../../../services/service-album')
 const { persistLocalImages } = require('../../../utils/media-upload')
 const { checkAuth } = require('../../../utils/auth')
 const {
@@ -48,6 +40,25 @@ const {
 const { formatUpdatedAtDisplay } = require('../../../utils/album-summary')
 const { stripTagOnlyReviewContent, normalizeReviewTags } = require('../../../utils/review-display')
 
+function buildStarList(score) {
+  const filled = Math.max(0, Math.min(5, Math.round(Number(score) || 0)))
+  return [1, 2, 3, 4, 5].map((index) => ({ key: index, active: index <= filled }))
+}
+
+function buildRatingRows(review) {
+  if (!review) return []
+  return [
+    { key: 'repair', label: '维修服务', score: Number(review.repairScore) || 0 },
+    { key: 'album', label: '相册记录', score: Number(review.albumScore) || 0 },
+  ]
+    .filter((row) => row.score > 0)
+    .map((row) => ({
+      ...row,
+      stars: buildStarList(row.score),
+      scoreText: row.score.toFixed(1),
+    }))
+}
+
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
     return this.loadContext(this.data.albumTitle)
@@ -63,8 +74,7 @@ Page({
     eligible: false,
     ineligibleReason: '',
     hasReview: false,
-    existingRepairScore: 0,
-    existingAlbumScore: 0,
+    existingRatingRows: [],
     existingCreatedAt: '',
     existingContent: '',
     existingTags: [],
@@ -155,8 +165,7 @@ Page({
         eligible: Boolean(reviewCtx.eligible),
         ineligibleReason: reviewCtx.ineligibleReason || '',
         hasReview,
-        existingRepairScore: review ? Number(review.repairScore) || 0 : 0,
-        existingAlbumScore: review ? Number(review.albumScore) || 0 : 0,
+        existingRatingRows: buildRatingRows(review),
         existingCreatedAt: review ? formatUpdatedAtDisplay(review.createdAt) : '',
         existingTags: reviewTags,
         existingContent: review
@@ -423,8 +432,6 @@ Page({
       this.setData({
         hasReview: true,
         needsReviewImagePreview,
-        existingRepairScore: Number(review.repairScore) || payload.repairScore || 0,
-        existingAlbumScore: Number(review.albumScore) || payload.albumScore || 0,
       })
       await this.loadContext(this.data.albumTitle)
       const toastTitle =
@@ -460,70 +467,5 @@ Page({
 
   onShareAppMessage() {
     return this.buildShareAppMessagePayload()
-  },
-
-  async onOpenSocialCard() {
-    if (!this.data.albumId || this._socialOpening) return
-    this._socialOpening = true
-    this.setData({
-      socialVisible: true,
-      socialLoading: true,
-      socialPlatforms: [],
-      socialImages: [],
-      socialText: '',
-      socialSaveDisabled: true,
-    })
-    try {
-      const payload = await fetchAlbumSocialCards(this.data.albumId)
-      applySocialPayload(this, payload, '照片还在处理')
-    } catch (e) {
-      this.setData({ socialVisible: false, socialLoading: false })
-      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
-    } finally {
-      this._socialOpening = false
-    }
-  },
-
-  async onRefreshSocial() {
-    if (!this.data.albumId || this._socialOpening) return
-    this._socialOpening = true
-    this.setData({ socialRefreshing: true })
-    try {
-      const payload = await fetchAlbumSocialCards(this.data.albumId, { refresh: true })
-      applySocialPayload(this, payload, '照片还在处理')
-    } catch (e) {
-      this.setData({ socialRefreshing: false })
-      wx.showToast({ title: (e && e.message) || '暂时准备不好', icon: 'none' })
-    } finally {
-      this._socialOpening = false
-    }
-  },
-
-  onCloseSocial() {
-    this.setData({ socialVisible: false })
-  },
-
-  onSocialPlatform(e) {
-    switchSocialPlatform(this, e.detail && e.detail.id)
-  },
-
-  onSocialToggle(e) {
-    toggleSocialImage(this, e.detail && e.detail.id)
-  },
-
-  onSocialText(e) {
-    rememberSocialText(this, e.detail && e.detail.value)
-  },
-
-  onSocialCaption(e) {
-    rememberSocialCaption(this, e.detail && e.detail.value)
-  },
-
-  onCopySocial() {
-    copyCurrentSocialText(this)
-  },
-
-  onSaveSocial() {
-    saveCurrentSocialImages(this)
   },
 })

@@ -14,7 +14,6 @@
     "ui-login-sheet": "/components/login-sheet/index",
     "ui-bottom-sheet": "/components/bottom-sheet/index",
     "ui-album-authorize-section": "/components/album-authorize-section/index",
-    "ui-share-sheet": "/components/share-sheet/index",
-    "social-card": "/components/social-card-sheet/index"
+    "ui-share-sheet": "/components/share-sheet/index"
   }
 }
