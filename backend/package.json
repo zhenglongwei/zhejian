@@ -28,6 +28,8 @@
     "media:migrate-oss": "node scripts/migrate-media-to-oss.js",
     "subscription:force-free": "node scripts/merchant-subscription-force-free.js",
     "leads:smoke": "node scripts/merchant-leads-smoke.js",
+    "stats:aggregate": "node scripts/merchant-daily-stats-aggregate.js",
+    "stats:aggregate:cron": "bash scripts/stats-aggregate-cron.sh",
     "stats:smoke": "node scripts/merchant-stats-smoke.js",
     "store-asset:smoke": "node scripts/store-asset-smoke.js",
     "crawler:smoke": "node scripts/crawler-track-smoke.js",
