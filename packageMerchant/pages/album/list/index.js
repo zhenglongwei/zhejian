@@ -2,7 +2,7 @@ const {
   fetchMerchantServiceAlbumList,
   deleteMerchantServiceAlbum,
 } = require('../../../../services/merchant-service-album')
-const { inviteAlbumReview } = require('../../../../services/merchant-album-review')
+const { inviteOwnerReview } = require('../../../../utils/merchant-review-invite')
 const {
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
   normalizeMerchantServiceAlbumListTab,
@@ -248,27 +248,7 @@ Page({
   onInviteReview(e) {
     const id = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || ''
     if (!id) return
-    if (this._inviting) return
-    wx.showModal({
-      title: '邀请车主评价',
-      content: '完工后提醒车主对本次服务进行评价，评价内容可展示在公开案例中。是否发送邀请？',
-      confirmText: '发送邀请',
-      success: async (res) => {
-        if (!res.confirm) return
-        this._inviting = true
-        wx.showLoading({ title: '发送中', mask: true })
-        try {
-          await inviteAlbumReview(id)
-          wx.hideLoading()
-          wx.showToast({ title: '邀请已发送', icon: 'success' })
-        } catch (err) {
-          wx.hideLoading()
-          wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
-        } finally {
-          this._inviting = false
-        }
-      },
-    })
+    inviteOwnerReview(id)
   },
 
   onOpenHostedSite(e) {

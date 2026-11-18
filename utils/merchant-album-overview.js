@@ -312,6 +312,41 @@ function rowDetail(bucket, nodes) {
   return '交车报告与车主确认'
 }
 
+/** 交车由车主确认后才谈得上评价，时间线末才补这一条 */
+function ownerConfirmedDelivery(nodes) {
+  return (nodes || []).some((node) => {
+    if (!node || node.kind !== 'repair_report') return false
+    const status = String((node.document && node.document.status) || '')
+    return status === 'confirmed' || status === 'delivered'
+  })
+}
+
+function reviewRow(album, index) {
+  const brief = (album && album.reviewBrief) || {}
+  const reviewed = Boolean(brief.reviewed)
+  const score = Number(brief.overallScore) || 0
+  const detail = [
+    reviewed ? (score ? `综合 ${score} 星` : '车主已评价') : '交车后邀请车主写下真实感受',
+    reviewed && brief.replied ? '门店已回复' : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return {
+    key: 'review',
+    index,
+    title: '客户评价',
+    state: reviewed ? 'done' : 'current',
+    mark: reviewed ? '已评价' : '待评价',
+    detail,
+    nodeId: '',
+    reviewId: reviewed ? String(brief.reviewId || '') : '',
+    invite: !reviewed,
+    advice: '',
+    shots: [],
+    canAddShot: false,
+  }
+}
+
 function heroPill(current, finished) {
   if (finished) return { text: '已交车', tone: 'green' }
   if (!current) return { text: '进行中', tone: 'blue' }
@@ -360,7 +395,8 @@ function presentBuckets(buckets, nodes) {
       state,
       mark: state === 'current' ? '进行中' : state === 'todo' ? '待开始' : '已完成',
       nodeId: (bucket.nodes.find((node) => !isFlowNodeDone(node)) || bucket.nodes[0] || {}).id || '',
-      advice: state === 'todo' ? '' : advice,
+      // 节点已完结时无法再改内容，旧意见不再展示
+      advice: state === 'current' ? advice : '',
       shots: showShots ? shotsOf(bucket.nodes[0]) : [],
       canAddShot: showShots,
     }
@@ -395,6 +431,9 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     .filter(Boolean)
     .join(' · ')
   const records = nodes.reduce((sum, node) => sum + (Number(node.photoCount) || 0), 0)
+  const timelineRows = ownerConfirmedDelivery(nodes)
+    ? timeline.rows.concat([reviewRow(album, timeline.rows.length + 1)])
+    : timeline.rows
   const modelName = String(vehicle.modelName || '').trim()
   const brandSeriesYear = [vehicle.brand, vehicle.series, year ? `${year}款` : '']
     .map((part) => String(part || '').trim())
@@ -457,7 +496,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     records,
     docs: docs.filter((item) => item.label !== '待生成' && item.label !== '填写中'),
     rows,
-    timelineRows: timeline.rows,
+    timelineRows,
     action: actionLabel(current, finished),
     actionId: (current && (current.nodes.find((node) => !isFlowNodeDone(node)) || current.nodes[0] || {}).id) || '',
   }

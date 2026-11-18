@@ -2681,6 +2681,10 @@
   gap: 12rpx;
 }
 
+.ov-row__cta {
+  flex: none;
+}
+
 .ov-row__title {
   font-size: var(--font-h3);
   font-weight: var(--font-weight-semibold);

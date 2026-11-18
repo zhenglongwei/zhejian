@@ -295,7 +295,8 @@ test('时间线只摘这一步自己的分析，交车不借用施工的补拍�
   )
   const work = view.timelineRows.find((row) => row.title === '维修施工')
   const finish = view.timelineRows.find((row) => row.title === '完工交车')
-  assert.equal(work.advice, '报价里的侧裙，施工没有做。')
+  assert.equal(work.state, 'done')
+  assert.equal(work.advice, '')
   assert.equal(finish.advice, '')
 })
 
@@ -415,4 +416,42 @@ test('横排单据按节点区分首次、历次补充报价与施工', () => {
   assert.equal(work.totalText, '')
   assert.equal(work.nodeId, 'w1')
   assert.equal(work.stageKey, 'work')
+})
+
+test('车主确认交车后时间线末补一条客户评价，未评价时给邀请动作', () => {
+  const nodes = [
+    node({ kind: 'intake', sortOrder: 0, photoCount: 2 }),
+    node({ kind: 'work', sortOrder: 1, content: { findings: [{ partName: '刹车片' }] } }),
+    node({ id: 'repair', kind: 'repair_report', sortOrder: 2, document: { status: 'confirmed' } }),
+  ]
+  const pending = buildMerchantAlbumOverview({ vehicle: { plate: '粤B7K52M' } }, nodes)
+  const pendingRow = pending.timelineRows[pending.timelineRows.length - 1]
+  assert.equal(pendingRow.key, 'review')
+  assert.equal(pendingRow.title, '客户评价')
+  assert.equal(pendingRow.index, pending.timelineRows.length)
+  assert.equal(pendingRow.state, 'current')
+  assert.equal(pendingRow.invite, true)
+  assert.equal(pendingRow.mark, '待评价')
+
+  const reviewed = buildMerchantAlbumOverview(
+    {
+      vehicle: { plate: '粤B7K52M' },
+      reviewBrief: { reviewed: true, reviewId: 'rev-1', overallScore: 4.5, replied: true },
+    },
+    nodes,
+  )
+  const reviewedRow = reviewed.timelineRows[reviewed.timelineRows.length - 1]
+  assert.equal(reviewedRow.state, 'done')
+  assert.equal(reviewedRow.mark, '已评价')
+  assert.equal(reviewedRow.invite, false)
+  assert.equal(reviewedRow.reviewId, 'rev-1')
+  assert.equal(reviewedRow.detail, '综合 4.5 星 · 门店已回复')
+
+  const notDelivered = buildMerchantAlbumOverview(
+    { vehicle: { plate: '粤B7K52M' } },
+    nodes.map((row) =>
+      row.kind === 'repair_report' ? { ...row, document: { status: 'pending_confirm' } } : row,
+    ),
+  )
+  assert.equal(notDelivered.timelineRows.some((row) => row.key === 'review'), false)
 })

@@ -180,10 +180,23 @@
               </view>
               <view wx:if="{{index < overview.timelineRows.length - 1}}" class="ov-row__bar" />
             </view>
-            <view class="ov-row__main" data-id="{{item.nodeId}}" data-state="{{item.state}}" bindtap="onOpenOverview">
+            <view
+              class="ov-row__main"
+              data-id="{{item.nodeId}}"
+              data-key="{{item.key}}"
+              data-review-id="{{item.reviewId}}"
+              bindtap="onTimelineRowTap"
+            >
               <view class="ov-row__head">
                 <text class="ov-row__title">{{item.title}}</text>
-                <text class="ov-row__mark">{{item.mark}}</text>
+                <view
+                  wx:if="{{item.invite}}"
+                  class="ov-row__cta"
+                  catchtap="onInviteRowReview"
+                >
+                  <ui-button type="secondary" size="sm">邀请客户评价</ui-button>
+                </view>
+                <text wx:else class="ov-row__mark">{{item.mark}}</text>
               </view>
               <text class="ov-row__detail">{{item.detail}}</text>
               <view

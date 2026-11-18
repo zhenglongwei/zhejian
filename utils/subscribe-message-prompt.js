@@ -84,6 +84,35 @@ function promptAlbumProgressSubscribe(albumId) {
   })
 }
 
+/**
+ * 报价与交车共用一张微信模板，一次授权只给一条额度。
+ * 车主确认报价时顺手再要一次：勾过「总是保持以上选择」的用户不会再看到弹窗，
+ * 这样交车那条通知才发得出去；没勾的用户拒绝也不影响，站内信照发。
+ */
+function topUpAlbumFlowSubscribeQuota(albumId) {
+  if (!albumId) return Promise.resolve({ skipped: true })
+  const storageKey = `album:${albumId}:flow-quota`
+  if (hasPrompted(storageKey)) return Promise.resolve({ skipped: true })
+  markPrompted(storageKey)
+  return requestUserNotificationSubscribe('flow_confirm', { showToast: false })
+}
+
+/**
+ * 车主首次打开某个相册时：一次授权「订单状态变更提醒」（确认报价 + 确认交车）和「服务评价通知」。
+ * 报价与交车共用同一张微信模板，一次授权只能发出其中一条，额度用完后走站内信。
+ */
+function promptAlbumFlowSubscribe(albumId) {
+  if (!albumId) return Promise.resolve({ skipped: true })
+  return promptUserNotificationSubscribe({
+    scene: 'flow_confirm',
+    title: '开启本次服务的提醒',
+    content:
+      '门店确认报价、确认交车、邀请评价时会各通知你一次，避免错过要确认的单据。微信为一次性订阅，每条通知需单独授权。',
+    confirmText: '开启通知',
+    storageKey: `album:${albumId}:flow`,
+  })
+}
+
 /** 提交发布到公开网站后：引导接收审核结果 */
 function promptAuthorizeAuditSubscribe(albumId = '') {
   const storageKey = albumId ? `authorize:audit:${albumId}` : 'authorize:audit'
@@ -128,6 +157,8 @@ function promptMerchantWorkbenchSubscribe() {
 module.exports = {
   promptUserNotificationSubscribe,
   promptAlbumProgressSubscribe,
+  promptAlbumFlowSubscribe,
+  topUpAlbumFlowSubscribeQuota,
   promptAuthorizeAuditSubscribe,
   promptMerchantAuditSubscribe,
   promptMerchantWorkbenchSubscribe,

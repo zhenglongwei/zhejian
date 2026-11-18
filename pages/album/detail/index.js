@@ -19,7 +19,11 @@ const {
 const { runGateUserAction } = require('../../../utils/album-gate-actions')
 const { buildOwnerProgressBoard } = require('../../../utils/owner-progress-overview')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
-const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
+const {
+  promptAuthorizeAuditSubscribe,
+  promptAlbumFlowSubscribe,
+  topUpAlbumFlowSubscribeQuota,
+} = require('../../../utils/subscribe-message-prompt')
 const {
   buildShareableCaseFromAlbum,
   copyPublicCaseWebLink,
@@ -587,6 +591,10 @@ Page({
           }
         } catch (err) {
           // ignore
+        }
+        if (!hasOwnerReview) {
+          // 首次打开这个相册就把三条通知要下来：确认报价、确认交车、邀请评价各推一条
+          promptAlbumFlowSubscribe(this.albumId)
         }
       }
       // 评价仅页底 album-end-page 入口
@@ -1157,6 +1165,12 @@ Page({
     if (!isLoggedIn() || !checkAuth({ needPhone: true }).ok) {
       wx.showToast({ title: '请先登录', icon: 'none' })
       return
+    }
+    const confirmedDoc =
+      (this.data.ownerFlowDocs || []).find((row) => row && row.id === nodeId) || {}
+    if (confirmedDoc.kind === 'quote_confirm' || confirmedDoc.kind === 'addon_quote_confirm') {
+      // 报价、交车共用一张模板：趁这次点击补一条额度，交车通知才发得出
+      topUpAlbumFlowSubscribeQuota(this.albumId)
     }
     this.setData({ flowConfirmingId: nodeId })
     try {

@@ -26,6 +26,7 @@ const {
 const { copyCurrentSocialText, saveCurrentSocialImages } = require('../../../../utils/social-card-actions')
 const { fetchMerchantProfile } = require('../../../../services/merchant')
 const { promptMerchantHostEntry } = require('../../../../utils/merchant-host-public-gate')
+const { inviteOwnerReview } = require('../../../../utils/merchant-review-invite')
 const {
   SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_STATUS_LABEL,
@@ -3596,6 +3597,24 @@ Page({
   onOpenOverview(e) {
     const id = String((e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     this.openStage(this.resolveStageKey(id))
+  },
+
+  /** 时间线末的客户评价节点不是流程节点，已评价时看评价详情，未评价时由行内按钮邀请 */
+  onTimelineRowTap(e) {
+    const dataset = e.currentTarget.dataset || {}
+    if (String(dataset.key || '') !== 'review') {
+      this.openStage(this.resolveStageKey(String(dataset.id || '')))
+      return
+    }
+    const reviewId = String(dataset.reviewId || '')
+    if (!reviewId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/review/detail/index?id=${encodeURIComponent(reviewId)}`,
+    })
+  },
+
+  onInviteRowReview() {
+    inviteOwnerReview(this.albumId)
   },
 
   onOpenStepAdvice(e) {
