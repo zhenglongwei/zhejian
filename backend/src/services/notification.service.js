@@ -490,7 +490,7 @@ async function notifyReviewInvited(album) {
     wechatPage: jumpPath.replace(/^\//, ''),
     wechatPayload: {
       serviceName: album.serviceName || '本次服务',
-      tips: '门店邀请你写下真实感受',
+      tips: '邀请你写下真实感受',
       storeName: album.storeName,
       serviceDate: album.createdAt,
     },
@@ -526,7 +526,7 @@ async function notifyAlbumDocPendingConfirm(album, nodeKind = '') {
       orderStatus: '待确认',
       status: '待确认',
       tips: isQuote ? '确认后门店开始施工' : '请核对后确认交车',
-      storeName,
+      storeName: album.storeName,
     },
   })
 }

@@ -34,10 +34,11 @@ test('订单状态变更提醒：phrase2 状态 + thing3 内容 + thing4 提醒 
     serviceName: '发动机渗油维修',
     orderStatus: '待确认',
     tips: '确认后门店开始施工',
+    storeName: '驰援汽车服务中心',
   })
   assert.deepEqual(Object.keys(data), ['phrase2', 'thing3', 'thing4', 'time5'])
   assert.equal(data.phrase2.value, '待确认')
-  assert.equal(data.thing3.value, '发动机渗油维修')
+  assert.equal(data.thing3.value, '驰援汽车服务中心 · 发动机渗油维修')
   assert.equal(data.thing4.value, '确认后门店开始施工')
   assert.match(data.time5.value, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
 })
@@ -48,13 +49,41 @@ test('服务评价通知：thing3 订单内容 + thing15 评价反馈 + date1 �
     content: '邀请你为这次服务写下评价',
     time: new Date('2026-11-18T07:30:00.000Z'),
     serviceName: '发动机渗油维修',
-    tips: '门店邀请你写下真实感受',
+    tips: '邀请你写下真实感受',
+    storeName: '驰援汽车服务中心',
     serviceDate: new Date('2026-10-11T01:00:00.000Z'),
   })
   assert.deepEqual(Object.keys(data), ['thing3', 'thing15', 'date1'])
-  assert.equal(data.thing3.value, '发动机渗油维修')
-  assert.equal(data.thing15.value, '门店邀请你写下真实感受')
+  assert.equal(data.thing3.value, '驰援汽车服务中心 · 发动机渗油维修')
+  assert.equal(data.thing15.value, '邀请你写下真实感受')
   assert.match(data.date1.value, /^\d{4}年\d{1,2}月\d{1,2}日$/)
+})
+
+test('门店名进订单内容：20 字内先保门店名，服务名让位', () => {
+  const mid = buildSubscribePayload('order_status', {
+    orderStatus: '待确认',
+    serviceName: '发动机渗油维修',
+    storeName: '杭州市拱墅区鑫诚汽修厂',
+  })
+  assert.equal(mid.thing3.value, '杭州市拱墅区鑫诚汽修厂 · 发动机渗油维')
+  assert.ok(mid.thing3.value.length <= 20)
+
+  const long = buildSubscribePayload('review', {
+    serviceName: '钣金喷漆',
+    tips: '邀请你写下真实感受',
+    storeName: '杭州市拱墅区鑫诚达汽车钣金喷漆修理厂',
+  })
+  assert.equal(long.thing3.value, '杭州市拱墅区鑫诚达汽车钣金喷漆修理厂')
+  assert.ok(long.thing3.value.length <= 20)
+})
+
+test('门店名为空时不硬拼分隔符', () => {
+  const data = buildSubscribePayload('review', {
+    serviceName: '发动机渗油维修',
+    tips: '邀请你写下真实感受',
+  })
+  assert.equal(data.thing3.value, '发动机渗油维修')
+  assert.equal(data.thing15.value, '邀请你写下真实感受')
 })
 
 test('服务进度模板字段不受影响，仍走 thing1/thing2/thing6', () => {

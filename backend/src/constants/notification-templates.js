@@ -65,6 +65,19 @@ function shortRefNo(refId = '', max = 32) {
   return value.length <= max ? value : value.slice(-max)
 }
 
+/**
+ * 订阅消息卡片抬头只能显示小程序账号名，车主看得见的「谁发的」就剩 thing 字段这 20 个字。
+ * 所以门店名优先保住，服务名让位。
+ */
+function composeOrderContent(storeName, serviceName, max = 20) {
+  const store = String(storeName || '').trim()
+  const service = String(serviceName || '').trim()
+  if (!store) return clipWechatField(service, max)
+  const room = max - store.length - 3
+  if (room < 2) return clipWechatField(store, max)
+  return service ? `${store} · ${service.slice(0, room)}` : clipWechatField(store, max)
+}
+
 /** 微信 time 类型字段：与审核日期同一套本地时区口径，避免 UTC 少 8 小时 */
 function formatWechatTime(value = new Date()) {
   const d = value instanceof Date ? value : new Date(value)
@@ -143,7 +156,9 @@ function buildSubscribePayload(templateKey, payload = {}) {
   /** 订单状态变更提醒（确认报价 / 确认交车共用）：phrase2 + thing3 + thing4 + time5 */
   if (fields.orderStatus && fields.changeTime) {
     data[fields.orderStatus] = { value: clipWechatField(payload.orderStatus || status, 5) }
-    data[fields.orderContent || 'thing3'] = { value: serviceName }
+    data[fields.orderContent || 'thing3'] = {
+      value: composeOrderContent(payload.storeName, serviceName),
+    }
     if (fields.tips) {
       data[fields.tips] = { value: tips }
     }
@@ -153,8 +168,12 @@ function buildSubscribePayload(templateKey, payload = {}) {
 
   /** 服务评价通知：thing3 订单内容 + thing15 评价反馈 + date1 服务时间 */
   if (fields.orderContent && fields.reviewFeedback) {
-    data[fields.orderContent] = { value: serviceName }
-    data[fields.reviewFeedback] = { value: tips }
+    data[fields.orderContent] = {
+      value: composeOrderContent(payload.storeName, serviceName),
+    }
+    data[fields.reviewFeedback] = {
+      value: clipWechatField(payload.tips || '邀请你写下真实感受', 20),
+    }
     if (fields.serviceDate) {
       data[fields.serviceDate] = { value: formatAuditDate(payload.serviceDate || payload.time) }
     }
