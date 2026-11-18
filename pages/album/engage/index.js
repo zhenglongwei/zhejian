@@ -285,10 +285,13 @@ Page({
 
   onScoresChange(e) {
     const scores = { ...this.data.scores, ...((e.detail && e.detail.values) || {}) }
+    const repairScore = calcRepairScore(scores)
+    const albumScore = calcAlbumScore(scores)
     this.setData({
       scores,
-      repairScore: calcRepairScore(scores),
-      albumScore: calcAlbumScore(scores),
+      repairScore,
+      albumScore,
+      showContentHint: (repairScore > 0 || albumScore > 0) && !this.data.content.trim(),
     })
     this.syncTagPool(scores)
   },
@@ -307,7 +310,11 @@ Page({
 
   onContentInput(e) {
     const value = e.detail.value || ''
-    this.setData({ content: value, contentLength: value.length })
+    this.setData({
+      content: value,
+      contentLength: value.length,
+      showContentHint: (this.data.repairScore > 0 || this.data.albumScore > 0) && !value.trim(),
+    })
   },
 
   onTagTap(e) {

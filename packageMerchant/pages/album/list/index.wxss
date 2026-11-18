@@ -33,22 +33,44 @@ page {
 
 .mch-chips {
   display: flex;
-  gap: 12rpx;
-  padding: 20rpx 32rpx 0;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--page-padding-x) 0;
 }
 
 .mch-chip {
-  padding: 12rpx 22rpx;
-  border-radius: 999rpx;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
   background: var(--color-bg-card);
   color: var(--color-text-secondary);
-  font-size: 24rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-medium);
 }
 
 .mch-chip.is-on {
   background: var(--color-primary);
   color: var(--color-text-inverse);
+}
+
+.mch-review-chips {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--page-padding-x) 0;
+}
+
+.mch-review-chip {
+  padding: 6rpx var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-review-chip.is-on {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .mch-search {
@@ -247,3 +269,56 @@ page {
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
 }
+
+.mch-review-badge {
+  flex: none;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  font-size: 22rpx;
+  font-weight: var(--font-weight-medium);
+}
+
+.mch-review-badge--pending {
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-muted);
+}
+
+.mch-review-badge--reviewed {
+  color: var(--color-mch-green);
+  background: var(--color-mch-green-soft);
+}
+
+.mch-review-badge--replied {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.mch-invite-row {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1rpx solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.mch-invite-hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.mch-invite-btn {
+  flex: none;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--color-primary);
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-caption-lh);
+}
+

@@ -208,18 +208,19 @@
 .mine__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
+  gap: var(--space-xs);
   margin-bottom: var(--space-sm);
 }
 
 .mine__chip {
-  padding: 12rpx 22rpx;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-full);
   background: var(--color-bg-card);
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
   font-weight: var(--font-weight-medium);
   line-height: var(--font-caption-lh);
+  border: 1rpx solid transparent;
 }
 
 .mine__chip.is-on {

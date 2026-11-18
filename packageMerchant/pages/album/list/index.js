@@ -2,6 +2,7 @@ const {
   fetchMerchantServiceAlbumList,
   deleteMerchantServiceAlbum,
 } = require('../../../../services/merchant-service-album')
+const { inviteAlbumReview } = require('../../../../services/merchant-album-review')
 const {
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
   normalizeMerchantServiceAlbumListTab,
@@ -38,6 +39,12 @@ Page({
     list: [],
     statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS.map((tab) => ({ ...tab, count: 0 })),
     tab: 'all',
+    reviewTabs: [
+      { key: 'all', label: '全部评价' },
+      { key: 'pending', label: '待评价' },
+      { key: 'reviewed', label: '已评价' },
+    ],
+    reviewTab: 'all',
     keyword: '',
     errorMessage: '',
     createOpen: false,
@@ -121,7 +128,17 @@ Page({
         confirm: cards.filter((card) => card.quotePending && !card.repairDone).length,
         done: cards.filter((card) => card.repairDone).length,
       }
-      const list = cards.filter((card) => matchesListTab(card, this.data.tab))
+      const reviewTab = this.data.reviewTab
+      const reviewFiltered = cards.filter((card) => {
+        if (reviewTab === 'pending') {
+          return card.repairDone && card.reviewStatus === 'not_reviewed'
+        }
+        if (reviewTab === 'reviewed') {
+          return card.repairDone && card.reviewStatus !== 'not_reviewed'
+        }
+        return true
+      })
+      const list = reviewFiltered.filter((card) => matchesListTab(card, this.data.tab))
       this.setData({
         list,
         statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS.map((tab) => ({
@@ -160,6 +177,20 @@ Page({
     const key = normalizeMerchantServiceAlbumListTab(e.currentTarget.dataset.key)
     if (key === this.data.tab) return
     this.setData({ tab: key }, () => this.loadList({ forceLoading: true }))
+  },
+
+  onReviewChip(e) {
+    const key = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) || 'all'
+    if (key === this.data.reviewTab) return
+    this.setData({ reviewTab: key }, () => this.loadList({ forceLoading: true }))
+  },
+
+  onOpenReview(e) {
+    const id = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.reviewId) || ''
+    if (!id) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/review/detail/index?id=${encodeURIComponent(id)}`,
+    })
   },
 
   onCreate() {
@@ -212,6 +243,32 @@ Page({
     const item = (this.data.list || []).find((row) => row.albumId === id) || { albumId: id }
     markListNeedRefresh(this)
     wx.navigateTo({ url: buildMerchantAlbumEntryPath(id, item) })
+  },
+
+  onInviteReview(e) {
+    const id = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || ''
+    if (!id) return
+    if (this._inviting) return
+    wx.showModal({
+      title: '邀请车主评价',
+      content: '完工后提醒车主对本次服务进行评价，评价内容可展示在公开案例中。是否发送邀请？',
+      confirmText: '发送邀请',
+      success: async (res) => {
+        if (!res.confirm) return
+        this._inviting = true
+        wx.showLoading({ title: '发送中', mask: true })
+        try {
+          await inviteAlbumReview(id)
+          wx.hideLoading()
+          wx.showToast({ title: '邀请已发送', icon: 'success' })
+        } catch (err) {
+          wx.hideLoading()
+          wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' })
+        } finally {
+          this._inviting = false
+        }
+      },
+    })
   },
 
   onOpenHostedSite(e) {

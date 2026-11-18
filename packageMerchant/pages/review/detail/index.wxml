@@ -21,7 +21,7 @@
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-review-detail__head">
           <text class="text-h3">{{review.serviceName}}</text>
-          <text class="text-body">维修 {{review.repairScore}} · 记录 {{review.albumScore}}</text>
+          <text class="text-body">维修服务 <text class="review-stars">{{review.repairStars}}</text> · 过程相册 <text class="review-stars">{{review.albumStars}}</text></text>
         </view>
         <text wx:if="{{review.vehicleLine}}" class="text-body">{{review.vehicleLine}}</text>
         <text class="text-caption text-secondary">
@@ -47,9 +47,10 @@
         </view>
       </ui-card>
 
-      <ui-card wx:if="{{review.content || review.tags.length}}" shadow="{{true}}" padding="{{true}}">
+      <ui-card wx:if="{{review}}" shadow="{{true}}" padding="{{true}}">
         <text class="merchant-review-detail__section text-h3">车主评价</text>
         <text wx:if="{{review.content}}" class="text-body">{{review.content}}</text>
+        <text wx:else class="text-body text-secondary">车主未填写文字评价</text>
         <view wx:if="{{review.tags.length}}" class="merchant-review-detail__tag-row">
           <ui-tag
             wx:for="{{review.tags}}"

@@ -383,6 +383,16 @@
       .replace(/"/g, '&quot;')
   }
 
+  function renderStarsH5(score) {
+    var n = Math.round(Number(score) || 0)
+    var full = Math.max(0, Math.min(5, n))
+    var empty = 5 - full
+    return '<span class="h5-stars">' +
+      new Array(full + 1).join('★') +
+      new Array(empty + 1).join('☆') +
+      '</span>'
+  }
+
   function resolveCaseId() {
     if (window.__CASE_ID__) return String(window.__CASE_ID__).trim()
     var params = new URLSearchParams(location.search)
@@ -1063,6 +1073,27 @@
     return remaining ? text : ''
   }
 
+  function reviewOverallOf(review) {
+    var overall = Number(review.overallScore) || 0
+    if (overall) return overall
+    var repair = Number(review.repairScore) || 0
+    var album = Number(review.albumScore) || 0
+    if (repair && album) return Math.round(((repair + album) / 2) * 10) / 10
+    return repair || album || 0
+  }
+
+  function renderRatingRow(label, score) {
+    var num = Number(score) || 0
+    if (!num) return ''
+    return (
+      '<div class="h5-review-rating-row">' +
+      '<span class="h5-review-rating-label">' + escapeHtml(label) + '</span>' +
+      renderStarsH5(num) +
+      '<span class="h5-review-rating-num">' + num.toFixed(1) + '</span>' +
+      '</div>'
+    )
+  }
+
   function renderOwnerReviews(data) {
     var reviews = data && data.ownerReviews
     if (!Array.isArray(reviews) || !reviews.length) {
@@ -1072,11 +1103,35 @@
         '<p class="h5-compliance">这条案例暂时还没有车主评价。</p></div>'
       )
     }
+    var sum = 0
+    var rated = 0
+    reviews.forEach(function (review) {
+      var score = reviewOverallOf(review)
+      if (score) {
+        sum += score
+        rated += 1
+      }
+    })
+    var average = rated ? Math.round((sum / rated) * 10) / 10 : 0
+    var summaryHtml = rated
+      ? '<div class="h5-review-summary">' +
+        '<div class="h5-review-summary-score"><strong>' +
+        average.toFixed(1) +
+        '</strong><span>综合评分</span></div>' +
+        '<div class="h5-review-summary-right">' +
+        renderStarsH5(average) +
+        '<span class="h5-review-summary-count">共 ' +
+        reviews.length +
+        ' 条评价</span></div></div>'
+      : ''
     var body = reviews
       .map(function (review) {
-        var scoreBits = []
-        if (review.repairScore) scoreBits.push('维修 ' + review.repairScore)
-        if (review.albumScore) scoreBits.push('记录 ' + review.albumScore)
+        var ratingHtml =
+          renderRatingRow('维修服务', review.repairScore) +
+          renderRatingRow('过程相册', review.albumScore)
+        if (!ratingHtml) {
+          ratingHtml = renderRatingRow('综合评分', reviewOverallOf(review))
+        }
         var tags = (review.tags || [])
           .map(function (tag) {
             return (
@@ -1111,32 +1166,27 @@
             renderReviewImages(review.followUpImages) +
             '</div>'
         }
+        var created = review.createdAtText || formatReviewTimeText(review.createdAt)
         return (
           '<article class="h5-review-item">' +
           '<div class="h5-review-head">' +
           '<span class="h5-review-avatar" aria-hidden="true"></span>' +
           '<div class="h5-review-meta">' +
-          '<span>' +
+          '<span class="h5-review-name">' +
           escapeHtml(review.displayName || '车主') +
           '</span>' +
-          (scoreBits.length
-            ? '<span class="h5-review-scores">' +
-              escapeHtml(scoreBits.join(' · ')) +
-              '</span>'
+          (created
+            ? '<span class="h5-review-date">' + escapeHtml(created) + '</span>'
             : '') +
-          (function () {
-            var created =
-              review.createdAtText || formatReviewTimeText(review.createdAt)
-            return created
-              ? '<span class="h5-review-date">' + escapeHtml(created) + '</span>'
-              : ''
-          })() +
           '</div></div>' +
+          (ratingHtml
+            ? '<div class="h5-review-rating">' + ratingHtml + '</div>'
+            : '') +
           (function () {
             var bodyText = stripTagOnlyReviewContent(review.content, review.tags)
             return bodyText
               ? '<p class="h5-summary">' + escapeHtml(bodyText) + '</p>'
-              : ''
+              : '<p class="h5-summary h5-summary--placeholder">车主仅评分，未填写文字评价</p>'
           })() +
           (tags ? '<div class="h5-tags">' + tags + '</div>' : '') +
           renderReviewImages(review.images) +
@@ -1149,6 +1199,7 @@
     return (
       '<div class="h5-card" id="case-owner-reviews">' +
       '<h2 class="h5-section-title">车主评价</h2>' +
+      summaryHtml +
       '<p class="h5-section-note">不显示微信名，仅用编号。配图已脱敏。</p>' +
       body +
       '</div>'

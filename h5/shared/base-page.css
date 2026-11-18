@@ -159,6 +159,11 @@
   margin: 0 0 var(--space-lg);
 }
 
+.h5-summary--placeholder {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
 .h5-breadcrumb {
   font-size: var(--font-caption);
   color: var(--color-text-secondary);

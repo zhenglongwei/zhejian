@@ -7,6 +7,7 @@ const {
   fetchMerchantReviewStats,
   getMerchantAlbumReviewById,
   replyMerchantAlbumReview,
+  inviteAlbumReview,
 } = require('../services/album-review.service')
 const {
   listMerchantPartVerifications,
@@ -57,6 +58,16 @@ router.post('/reviews/:reviewId/reply', requireAuth(['merchant']), async (req, r
       req.auth.userId,
       req.body || {},
     )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/albums/:albumId/invite-review', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await inviteAlbumReview(req.params.albumId, storeId)
     return ok(res, data)
   } catch (e) {
     next(e)

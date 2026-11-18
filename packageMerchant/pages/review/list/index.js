@@ -7,12 +7,15 @@ const {
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 const { formatUpdatedAtDisplay } = require('../../../../utils/album-summary')
+const { renderStarsText } = require('../../../../utils/album-review-score')
 
 function normalizeReviewList(raw) {
   const list = Array.isArray(raw) ? raw : raw && Array.isArray(raw.list) ? raw.list : []
   return list.map((item) => ({
     ...item,
     createdAtText: formatUpdatedAtDisplay(item.createdAt) || item.createdAt || '',
+    repairStars: renderStarsText(item.repairScore),
+    albumStars: renderStarsText(item.albumScore),
   }))
 }
 

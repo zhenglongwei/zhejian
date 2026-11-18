@@ -653,6 +653,61 @@ async function replyMerchantAlbumReview(reviewId, storeId, merchantUserId, paylo
   return getMerchantAlbumReviewById(updated.id, storeId)
 }
 
+async function inviteAlbumReview(albumId, storeId) {
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: { id: true, storeId: true, status: true, userId: true, serviceName: true },
+  })
+  if (!album || album.storeId !== storeId) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  if (!isServiceAlbumRepairDone(album.status)) {
+    const err = new Error('维修完工后才能邀请评价')
+    err.status = 409
+    throw err
+  }
+  const existing = await prisma.serviceAlbumReview.findUnique({
+    where: { albumId_userId: { albumId, userId: album.userId } },
+  })
+  if (existing) {
+    const err = new Error('车主已评价本次服务')
+    err.status = 409
+    throw err
+  }
+
+  // 尝试发送订阅消息（需配置 WECHAT_REVIEW_INVITE_TEMPLATE_ID 且车主已订阅）
+  const templateId = process.env.WECHAT_REVIEW_INVITE_TEMPLATE_ID || ''
+  if (templateId && album.userId) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: album.userId },
+        select: { openid: true },
+      })
+      if (user && user.openid) {
+        const { sendSubscribeMessage } = require('../lib/wechat')
+        await sendSubscribeMessage({
+          openid: user.openid,
+          templateId,
+          page: `/pages/album/engage/index?albumId=${albumId}`,
+          data: {
+            thing1: { value: (album.serviceName || '维修服务').slice(0, 20) },
+            thing2: { value: '邀请您对本次服务进行评价' },
+          },
+        }).catch(() => {})
+      }
+    } catch (e) {
+      console.warn('[review] invite subscribe message failed', {
+        albumId,
+        message: e && e.message,
+      })
+    }
+  }
+
+  return { ok: true, albumId }
+}
+
 async function setReviewAuthorizePublic(albumId, userId, authorizePublic) {
   await loadAlbumMeta(albumId, userId)
   const album = await prisma.album.findUnique({
@@ -691,6 +746,7 @@ module.exports = {
   fetchMerchantReviewStats,
   getMerchantAlbumReviewById,
   replyMerchantAlbumReview,
+  inviteAlbumReview,
   mapPublicReviewRow,
   calcRepairScore,
   calcAlbumScore,

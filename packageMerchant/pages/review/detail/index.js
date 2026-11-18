@@ -10,6 +10,7 @@ const { REVIEW_DIMENSIONS } = require('../../../../constants/review-dimensions')
 const { ALL_REVIEW_DIMENSIONS } = require('../../../../constants/album-review-dimensions')
 const { formatUpdatedAtDisplay } = require('../../../../utils/album-summary')
 const { stripTagOnlyReviewContent } = require('../../../../utils/review-display')
+const { renderStarsText } = require('../../../../utils/album-review-score')
 
 function buildScoreRows(scores = {}) {
   const dims = scores.repairAttitude != null ? ALL_REVIEW_DIMENSIONS : REVIEW_DIMENSIONS
@@ -74,6 +75,8 @@ Page({
           createdAtText: formatUpdatedAtDisplay(review.createdAt),
           merchantReplyAtText: formatUpdatedAtDisplay(review.merchantReplyAt),
           followUpAtText: formatUpdatedAtDisplay(review.followUpAt),
+          repairStars: renderStarsText(review.repairScore),
+          albumStars: renderStarsText(review.albumScore),
         },
         scoreRows: buildScoreRows(review.scores),
         replyDraft: review.merchantReply || '',

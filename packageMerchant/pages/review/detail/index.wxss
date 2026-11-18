@@ -60,3 +60,8 @@
   color: var(--color-text-tertiary);
   margin-bottom: var(--space-sm);
 }
+
+.review-stars {
+  color: #f5a623;
+  letter-spacing: 2rpx;
+}

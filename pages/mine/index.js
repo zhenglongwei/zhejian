@@ -23,8 +23,10 @@ const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildCaseListH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
 function hubEmptyTitle(key) {
-  if (key === 'review') return '没有待评价的服务'
   if (key === 'active') return '没有进行中的服务'
+  if (key === 'pending' || key === 'review') return '没有待评价的服务'
+  if (key === 'reviewed') return '还没有评价记录'
+  if (key === 'recent') return '最近没有更新的服务'
   return '这里还没有服务'
 }
 
@@ -73,13 +75,15 @@ Page({
     pendingAuthBadge: '',
     hubDock: buildMineHubDock(),
     hubLinks: buildOwnerHubLinks(),
-    hubFilter: 'preview',
+    hubFilter: 'recent',
     hubEmptyTitle: '这里还没有服务',
     hubAlbums: [],
     hubFilters: [
-      { key: 'all', label: '全部' },
+      { key: 'recent', label: '最近' },
       { key: 'active', label: '进行中' },
-      { key: 'review', label: '待评价' },
+      { key: 'pending', label: '待评价' },
+      { key: 'reviewed', label: '已评价' },
+      { key: 'all', label: '全部' },
     ],
     heroLine: '',
     needPhoneHint: false,
@@ -145,7 +149,7 @@ Page({
     )
     const showGuestH5Link =
       !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
-    const hubFilter = filterKey || this.data.hubFilter || 'preview'
+    const hubFilter = filterKey || this.data.hubFilter || 'recent'
     this.setData({
       menuSections: buildMineMenuSections(badges),
       albumHeroCards: visibleOwnerHubAlbums(albums, hubFilter),

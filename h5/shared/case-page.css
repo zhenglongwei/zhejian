@@ -452,6 +452,104 @@
   color: var(--color-text-secondary);
 }
 
+.h5-review-scores {
+  color: var(--color-text-secondary);
+}
+
+.h5-review-scores .h5-stars {
+  color: #f5a623;
+  letter-spacing: 1px;
+  margin-left: 2px;
+}
+
+.h5-review-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-light);
+}
+
+.h5-review-summary-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 76px;
+}
+
+.h5-review-summary-score strong {
+  font-size: var(--font-h1);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--color-primary);
+}
+
+.h5-review-summary-score span {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-review-summary-right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-review-summary-right .h5-stars {
+  color: #f5a623;
+  letter-spacing: 2px;
+  font-size: var(--font-h3);
+}
+
+.h5-review-summary-count {
+  color: var(--color-text-secondary);
+}
+
+.h5-review-name {
+  font-size: var(--font-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-review-date {
+  color: var(--color-text-tertiary);
+}
+
+.h5-review-rating {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-sm);
+}
+
+.h5-review-rating-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-review-rating-label {
+  min-width: 4.5em;
+  color: var(--color-text-tertiary);
+}
+
+.h5-review-rating-row .h5-stars {
+  color: #f5a623;
+  letter-spacing: 1px;
+}
+
+.h5-review-rating-num {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 .h5-review-reply,
 .h5-review-followup {
   margin-top: var(--space-sm);

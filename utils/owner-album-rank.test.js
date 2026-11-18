@@ -51,11 +51,13 @@ test('首页筛选项按进度文案分', () => {
   assert.deepEqual(filterOwnerHubAlbums(rows, 'active').map((item) => item.id), ['a', 'b'])
   assert.deepEqual(filterOwnerHubAlbums(rows, 'confirm').map((item) => item.id), ['b'])
   assert.deepEqual(filterOwnerHubAlbums(rows, 'review').map((item) => item.id), ['c'])
+  assert.deepEqual(filterOwnerHubAlbums(rows, 'pending').map((item) => item.id), ['c'])
+  assert.deepEqual(filterOwnerHubAlbums(rows, 'reviewed').map((item) => item.id), [])
 })
 
-test('再点一次当前筛选项，回到首页默认', () => {
-  assert.equal(nextOwnerHubFilter('preview', 'all'), 'all')
+test('再点一次当前筛选项，保持当前筛选不回退', () => {
+  assert.equal(nextOwnerHubFilter('recent', 'all'), 'all')
   assert.equal(nextOwnerHubFilter('all', 'active'), 'active')
-  assert.equal(nextOwnerHubFilter('all', 'all'), 'preview')
-  assert.equal(nextOwnerHubFilter('review', 'review'), 'preview')
+  assert.equal(nextOwnerHubFilter('all', 'all'), 'all')
+  assert.equal(nextOwnerHubFilter('reviewed', 'reviewed'), 'reviewed')
 })

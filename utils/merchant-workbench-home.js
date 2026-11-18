@@ -115,6 +115,9 @@ function presentAlbumCard(item = {}, now = new Date()) {
     hostedSiteUrl: item.hostedSiteUrl || '',
     hasOwner: Boolean(item.hasOwner),
     status: item.status || '',
+    reviewId: item.reviewId || '',
+    reviewStatus: item.reviewStatus || 'not_reviewed',
+    reviewScore: Number(item.reviewScore) || 0,
   }
 }
 

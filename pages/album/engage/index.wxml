@@ -156,6 +156,7 @@
             bindinput="onContentInput"
           />
           <text class="album-engage__counter text-caption">{{contentLength}}/300</text>
+          <text wx:if="{{showContentHint}}" class="album-engage__hint text-caption">说说这次服务的感受，会帮助更多车主</text>
         </ui-card>
 
         <ui-card shadow="{{true}}" padding="{{true}}">

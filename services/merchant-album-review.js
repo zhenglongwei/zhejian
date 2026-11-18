@@ -32,9 +32,17 @@ async function replyMerchantAlbumReview(reviewId, storeId, reply) {
   return post(`/merchant/reviews/${reviewId}/reply`, { storeId, reply })
 }
 
+async function inviteAlbumReview(albumId) {
+  if (ENV.mode === 'mock') {
+    return { ok: true }
+  }
+  return post(`/merchant/albums/${albumId}/invite-review`)
+}
+
 module.exports = {
   fetchMerchantReviewStats,
   fetchMerchantAlbumReviews,
   getMerchantAlbumReviewById,
   replyMerchantAlbumReview,
+  inviteAlbumReview,
 }

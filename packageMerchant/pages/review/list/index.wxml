@@ -40,13 +40,14 @@
       >
         <view class="merchant-review-list__head">
           <text class="text-h3">{{item.serviceName}}</text>
-          <text class="text-caption">维修 {{item.repairScore}} · 记录 {{item.albumScore}}</text>
+          <text class="text-caption">维修服务 <text class="review-stars">{{item.repairStars}}</text> · 过程相册 <text class="review-stars">{{item.albumStars}}</text></text>
         </view>
         <text wx:if="{{item.vehicleLine}}" class="text-body">{{item.vehicleLine}}</text>
         <text class="text-caption text-secondary">{{item.ownerHint}} · {{item.createdAtText || item.createdAt}}</text>
         <text wx:if="{{item.contentPreview}}" class="text-body merchant-review-list__preview">
           {{item.contentPreview}}
         </text>
+        <text wx:else class="text-body text-secondary merchant-review-list__preview">车主未填写文字评价</text>
         <view class="merchant-review-list__tags">
           <ui-tag wx:if="{{item.hasFollowUp}}" variant="info" text="已追评" />
           <ui-tag wx:if="{{item.hasReply}}" variant="success" text="已回复" />

@@ -139,7 +139,7 @@
         <view class="op-spacer" />
       </scroll-view>
 
-      <view wx:if="{{!openDoc && (hasStorePhone || ownerBoard.pendingId || pendingOwnerReview)}}" class="op-foot">
+      <view wx:if="{{!openDoc && (hasStorePhone || ownerBoard.pendingId || pendingOwnerReview || hasOwnerReview)}}" class="op-foot">
         <view wx:if="{{hasStorePhone}}" class="op-call" bindtap="onContactStore">
           <image src="/assets/mch/phone-ink.png" mode="aspectFit" />
           <text>电话联系门店</text>
@@ -147,6 +147,7 @@
         <view wx:if="{{ownerBoard.pendingId}}" class="op-no" bindtap="onOwnerBoardReject">不同意</view>
         <view wx:if="{{ownerBoard.pendingId}}" class="op-yes" bindtap="onOwnerBoardConfirm">确认</view>
         <view wx:elif="{{pendingOwnerReview}}" class="op-yes" bindtap="onEndPageFeedback">去评价</view>
+        <view wx:elif="{{hasOwnerReview}}" class="op-yes" bindtap="onEndPageFeedback">查看评价</view>
       </view>
     </view>
 

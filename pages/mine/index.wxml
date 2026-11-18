@@ -57,7 +57,7 @@
           />
         </view>
       </block>
-      <block wx:elif="{{isLoggedIn && hubAlbums.length && hubFilter !== 'preview'}}">
+      <block wx:elif="{{isLoggedIn && hubAlbums.length}}">
         <ui-empty theme="album" title="{{hubEmptyTitle}}" />
       </block>
       <block wx:else>

@@ -44,29 +44,48 @@ function compareOwnerAlbums(a, b) {
   return ownerAlbumTime(b) - ownerAlbumTime(a)
 }
 
+function isAlbumCompleted(item = {}) {
+  if (item.hasReview === true || item.pendingOwnerReview === true) return true
+  if (item.reviewEligible === true) return true
+  const label = String(item.progressLine || item.progressLabel || '')
+  return label === '已完工' || label === '已完成'
+}
+
 function filterOwnerHubAlbums(albums = [], key = 'all') {
   const list = albums || []
   if (key === 'active') {
-    return list.filter((item) => String(item.progressLine || item.progressLabel || '') !== '已完工')
+    return list.filter((item) => !isAlbumCompleted(item))
   }
   if (key === 'confirm') return list.filter((item) => needsOwnerConfirm(item))
-  if (key === 'review') return list.filter((item) => item && item.pendingOwnerReview)
+  // pending / review：已完工但未评价
+  if (key === 'pending' || key === 'review') {
+    return list.filter((item) => item && item.pendingOwnerReview)
+  }
+  // reviewed：已评价
+  if (key === 'reviewed') {
+    return list.filter((item) => item && item.hasReview)
+  }
   return list
 }
 
-function nextOwnerHubFilter(current, tapped) {
-  if (!tapped) return current || 'preview'
-  return current === tapped ? 'preview' : tapped
+function sortRecentOwnerAlbums(list = []) {
+  return (list || [])
+    .slice()
+    .sort(compareOwnerAlbums)
+    .filter((item) => ownerAlbumTier(item) < 3)
+    .slice(0, 3)
 }
 
-function visibleOwnerHubAlbums(albums = [], key = 'preview') {
+function nextOwnerHubFilter(current, tapped) {
+  // 再次点击当前筛选项保持当前筛选，不再回退到默认三份
+  return tapped || current || 'recent'
+}
+
+function visibleOwnerHubAlbums(albums = [], key = 'recent') {
   const list = albums || []
-  if (!key || key === 'preview') {
-    return list
-      .slice()
-      .sort(compareOwnerAlbums)
-      .filter((item) => ownerAlbumTier(item) < 3)
-      .slice(0, 3)
+  // recent / preview：最近修改的三份
+  if (!key || key === 'recent' || key === 'preview') {
+    return sortRecentOwnerAlbums(list)
   }
   return filterOwnerHubAlbums(list, key)
 }

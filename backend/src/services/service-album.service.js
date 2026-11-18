@@ -1462,7 +1462,15 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     const rows = await prisma.serviceAlbumReview.findMany({
       where: { albumId: { in: doneIds } },
       orderBy: { createdAt: 'desc' },
-      select: { albumId: true, overallScore: true, content: true, status: true },
+      select: {
+        albumId: true,
+        overallScore: true,
+        repairScore: true,
+        albumScore: true,
+        content: true,
+        status: true,
+        merchantReply: true,
+      },
     })
     rows.forEach((row) => {
       if (reviewByAlbum.has(row.albumId)) return
@@ -1498,6 +1506,12 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
         completedAt: view.completedAt,
         updatedAt: view.updatedAt,
       })
+      const reviewRow = reviewByAlbum.get(album.id) || null
+      const reviewStatus = reviewRow
+        ? reviewRow.merchantReply
+          ? 'replied'
+          : 'reviewed'
+        : 'not_reviewed'
       return {
         albumId: view.albumId,
         serviceName: view.serviceName,
@@ -1518,7 +1532,10 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
         hostedSiteUrl: host.hostedSiteUrl,
         hostedTag: host.hostedTag,
         hubCard,
-        reviewLine: reviewLineForAlbum(hubCard.repairDone, reviewByAlbum.get(album.id)),
+        reviewLine: reviewLineForAlbum(hubCard.repairDone, reviewRow),
+        reviewId: reviewRow ? reviewRow.id : '',
+        reviewStatus,
+        reviewScore: reviewRow ? Number(reviewRow.overallScore) || 0 : 0,
       }
     })
     .filter((item) => matchMerchantAlbumTab(item.hubCard, merchantTab))

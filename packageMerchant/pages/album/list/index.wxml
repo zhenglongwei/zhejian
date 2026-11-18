@@ -26,6 +26,16 @@
     />
   </view>
 
+  <view class="mch-review-chips">
+    <text
+      wx:for="{{reviewTabs}}"
+      wx:key="key"
+      class="mch-review-chip {{reviewTab === item.key ? 'is-on' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onReviewChip"
+    >{{item.label}}</text>
+  </view>
+
   <view wx:if="{{status === 'loading'}}" class="mch-albums__state">加载中</view>
   <view wx:elif="{{status === 'error'}}" class="mch-albums__state" bindtap="onRetry">{{errorMessage || '加载失败'}}，点此重试</view>
   <view wx:elif="{{status === 'empty'}}" class="mch-albums__state">
@@ -59,12 +69,37 @@
         <view class="mch-card__meta-row">
           <text wx:if="{{item.metaLine}}" class="mch-card__meta">{{item.metaLine}}</text>
           <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
+          <text
+            wx:if="{{item.repairDone && item.reviewStatus === 'not_reviewed'}}"
+            class="mch-review-badge mch-review-badge--pending"
+          >待评价</text>
+          <text
+            wx:elif="{{item.repairDone && item.reviewStatus === 'reviewed'}}"
+            class="mch-review-badge mch-review-badge--reviewed"
+            data-review-id="{{item.reviewId}}"
+            catchtap="onOpenReview"
+          >已评价 ★{{item.reviewScore}}</text>
+          <text
+            wx:elif="{{item.repairDone && item.reviewStatus === 'replied'}}"
+            class="mch-review-badge mch-review-badge--replied"
+            data-review-id="{{item.reviewId}}"
+            catchtap="onOpenReview"
+          >已回复 ★{{item.reviewScore}}</text>
         </view>
         <view class="mch-track">
           <view class="mch-track__bar mch-track__bar--{{item.pillTone}}" style="width: {{item.progress}}%;" />
         </view>
         <view wx:if="{{item.chips.length}}" class="mch-tags">
           <text wx:for="{{item.chips}}" wx:for-item="chip" wx:key="*this" class="mch-tag">{{chip}}</text>
+        </view>
+        <view
+          wx:if="{{item.repairDone && item.reviewStatus === 'not_reviewed'}}"
+          class="mch-invite-row"
+          data-id="{{item.albumId}}"
+          catchtap="onInviteReview"
+        >
+          <text class="mch-invite-hint">车主还未评价，邀请后可沉淀口碑</text>
+          <view class="mch-invite-btn">邀请车主评价</view>
         </view>
       </view>
     </view>
