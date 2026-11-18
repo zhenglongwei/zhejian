@@ -71,6 +71,10 @@ const config = {
       album: process.env.WECHAT_TMPL_ALBUM || '',
       audit: process.env.WECHAT_TMPL_AUDIT || '',
       lead: process.env.WECHAT_TMPL_LEAD || '',
+      // 「订单状态变更提醒」：确认报价、确认交车两步共用这一张模板
+      order_status: process.env.WECHAT_TMPL_ORDER_STATUS || '',
+      // 「服务评价通知」：门店邀请车主评价时送达
+      review: process.env.WECHAT_TMPL_REVIEW || '',
       subscription_renew: process.env.WECHAT_TMPL_SUBSCRIPTION_RENEW || '',
     },
     subscribeFields: {
@@ -100,6 +104,17 @@ const config = {
           process.env.WECHAT_TMPL_SUBSCRIPTION_RENEW_FIELD_TYPE || 'phrase1',
         renewDesc:
           process.env.WECHAT_TMPL_SUBSCRIPTION_RENEW_FIELD_DESC || 'thing2',
+      },
+      order_status: {
+        orderStatus: process.env.WECHAT_TMPL_ORDER_STATUS_FIELD_STATUS || 'phrase2',
+        orderContent: process.env.WECHAT_TMPL_ORDER_STATUS_FIELD_CONTENT || 'thing3',
+        tips: process.env.WECHAT_TMPL_ORDER_STATUS_FIELD_TIPS || 'thing4',
+        changeTime: process.env.WECHAT_TMPL_ORDER_STATUS_FIELD_TIME || 'time5',
+      },
+      review: {
+        orderContent: process.env.WECHAT_TMPL_REVIEW_FIELD_CONTENT || 'thing3',
+        reviewFeedback: process.env.WECHAT_TMPL_REVIEW_FIELD_FEEDBACK || 'thing15',
+        serviceDate: process.env.WECHAT_TMPL_REVIEW_FIELD_DATE || 'date1',
       },
     },
   },

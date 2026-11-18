@@ -7,6 +7,8 @@ const SUBSCRIBE_TEMPLATE_KEYS = {
     album: ['album', 'audit'],
     authorize: ['audit'],
     lead: ['lead'],
+    // 车主首次打开相册时一次授权：报价/交车待确认 + 评价邀请
+    flow_confirm: ['order_status', 'review'],
     audit: ['audit'],
     merchant: ['lead', 'audit'],
     subscription: ['subscription_renew'],
@@ -61,6 +63,16 @@ function shortRefNo(refId = '', max = 32) {
   const value = String(refId || '').trim()
   if (!value) return '—'
   return value.length <= max ? value : value.slice(-max)
+}
+
+/** 微信 time 类型字段：与审核日期同一套本地时区口径，避免 UTC 少 8 小时 */
+function formatWechatTime(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value)
+  const src = Number.isNaN(d.getTime()) ? new Date() : d
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${src.getFullYear()}-${pad(src.getMonth() + 1)}-${pad(src.getDate())} ${pad(
+    src.getHours(),
+  )}:${pad(src.getMinutes())}:${pad(src.getSeconds())}`
 }
 
 /**
@@ -128,6 +140,27 @@ function buildSubscribePayload(templateKey, payload = {}) {
     return data
   }
 
+  /** 订单状态变更提醒（确认报价 / 确认交车共用）：phrase2 + thing3 + thing4 + time5 */
+  if (fields.orderStatus && fields.changeTime) {
+    data[fields.orderStatus] = { value: clipWechatField(payload.orderStatus || status, 5) }
+    data[fields.orderContent || 'thing3'] = { value: serviceName }
+    if (fields.tips) {
+      data[fields.tips] = { value: tips }
+    }
+    data[fields.changeTime] = { value: formatWechatTime(payload.time) }
+    return data
+  }
+
+  /** 服务评价通知：thing3 订单内容 + thing15 评价反馈 + date1 服务时间 */
+  if (fields.orderContent && fields.reviewFeedback) {
+    data[fields.orderContent] = { value: serviceName }
+    data[fields.reviewFeedback] = { value: tips }
+    if (fields.serviceDate) {
+      data[fields.serviceDate] = { value: formatAuditDate(payload.serviceDate || payload.time) }
+    }
+    return data
+  }
+
   /** 服务进度通知：thing1 服务项目 + thing2 服务状态 + thing6 温馨提示 */
   if (fields.tips) {
     data[fields.service || 'thing1'] = { value: serviceName }
@@ -150,6 +183,7 @@ module.exports = {
   ensureSubscribeTemplateMap,
   buildSubscribePayload,
   formatAuditDate,
+  formatWechatTime,
   formatLeadTime,
   shortRefNo,
 }

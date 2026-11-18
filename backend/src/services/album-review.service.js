@@ -653,10 +653,33 @@ async function replyMerchantAlbumReview(reviewId, storeId, merchantUserId, paylo
   return getMerchantAlbumReviewById(updated.id, storeId)
 }
 
+/** 商家时间线末的客户评价节点摘要。交车是否已确认由时间线节点自己说明，这里只补评价。 */
+async function getAlbumReviewBrief(albumId) {
+  const review = await prisma.serviceAlbumReview.findFirst({
+    where: { albumId },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!review) return { reviewed: false, reviewId: '', overallScore: 0, replied: false }
+  return {
+    reviewed: true,
+    reviewId: review.id,
+    overallScore: review.overallScore || calcOverallScore(review.scoresJson || {}),
+    replied: Boolean(review.merchantReply),
+  }
+}
+
 async function inviteAlbumReview(albumId, storeId) {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
-    select: { id: true, storeId: true, status: true, userId: true, serviceName: true },
+    select: {
+      id: true,
+      storeId: true,
+      status: true,
+      userId: true,
+      serviceName: true,
+      storeName: true,
+      createdAt: true,
+    },
   })
   if (!album || album.storeId !== storeId) {
     const err = new Error('相册不存在')
@@ -677,35 +700,14 @@ async function inviteAlbumReview(albumId, storeId) {
     throw err
   }
 
-  // 尝试发送订阅消息（需配置 WECHAT_REVIEW_INVITE_TEMPLATE_ID 且车主已订阅）
-  const templateId = process.env.WECHAT_REVIEW_INVITE_TEMPLATE_ID || ''
-  if (templateId && album.userId) {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: album.userId },
-        select: { openid: true },
-      })
-      if (user && user.openid) {
-        const { sendSubscribeMessage } = require('../lib/wechat')
-        await sendSubscribeMessage({
-          openid: user.openid,
-          templateId,
-          page: `/pages/album/engage/index?albumId=${albumId}`,
-          data: {
-            thing1: { value: (album.serviceName || '维修服务').slice(0, 20) },
-            thing2: { value: '邀请您对本次服务进行评价' },
-          },
-        }).catch(() => {})
-      }
-    } catch (e) {
-      console.warn('[review] invite subscribe message failed', {
-        albumId,
-        message: e && e.message,
-      })
-    }
+  if (!album.userId) {
+    const err = new Error('这个相册没有绑定车主手机号，无法邀请评价')
+    err.status = 409
+    throw err
   }
-
-  return { ok: true, albumId }
+  const { notifyReviewInvited } = require('./notification.service')
+  const message = await notifyReviewInvited(album)
+  return { ok: true, albumId, notified: Boolean(message) }
 }
 
 async function setReviewAuthorizePublic(albumId, userId, authorizePublic) {
@@ -746,6 +748,7 @@ module.exports = {
   fetchMerchantReviewStats,
   getMerchantAlbumReviewById,
   replyMerchantAlbumReview,
+  getAlbumReviewBrief,
   inviteAlbumReview,
   mapPublicReviewRow,
   calcRepairScore,

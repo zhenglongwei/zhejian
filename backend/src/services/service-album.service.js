@@ -1625,6 +1625,8 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
   // 卷十五：删除相册教练主路径；清单见 view.checklist
   view.albumCoach = null
+  const { getAlbumReviewBrief } = require('./album-review.service')
+  view.reviewBrief = await getAlbumReviewBrief(album.id)
   return view
 }
 

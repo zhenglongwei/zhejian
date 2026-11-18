@@ -1579,6 +1579,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
   }
 
+  let pendingConfirmNoticeKind = ''
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     const index = nodes.findIndex((n) => n.id === id)
@@ -1649,6 +1650,14 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
       })
       nextNode.document = { ...nextNode.document, ...prevSnapState }
       if (nextDocStatus === 'pending_confirm') {
+        if (
+          String((prev.document && prev.document.status) || '') !== 'pending_confirm' &&
+          (prev.kind === 'quote_confirm' ||
+            prev.kind === 'addon_quote_confirm' ||
+            prev.kind === 'repair_report')
+        ) {
+          pendingConfirmNoticeKind = prev.kind
+        }
         // 车主拒绝过上一版才归档；商家自己撤回/重发不产生新版本
         nextNode.document = archiveRenderDocIfNeeded(
           nextNode.document,
@@ -1716,6 +1725,12 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   const nodes = mapNodesForView(refreshed)
   const flowNodes = sortFlowNodes(readFlowNodesRaw(refreshed))
   const node = flowNodes.find((n) => n.id === id)
+  if (pendingConfirmNoticeKind) {
+    const { notifyAlbumDocPendingConfirm } = require('./notification.service')
+    notifyAlbumDocPendingConfirm(refreshed, pendingConfirmNoticeKind).catch((e) => {
+      console.warn('[notification] flow doc pending confirm', e && e.message)
+    })
+  }
   return {
     node: node ? mapFlowNodeForView(node, nodes) : null,
     unlockedNext,
@@ -1861,6 +1876,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
   }
 
+  let deliveryReportSentNow = false
   await writeFlowPackage(albumId, (pkg) => {
     const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     const idx = list.findIndex((n) => n.id === id)
@@ -2053,6 +2069,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
         }
         // 交车报告生成即发送：冻结（旧版本按规则归档）
         list[repairIdx] = freezeNodeRenderDoc(list[repairIdx], album, list)
+        deliveryReportSentNow = !wasSent
       }
     }
 
@@ -2067,6 +2084,12 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   const updated = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
+  if (deliveryReportSentNow) {
+    const { notifyAlbumDocPendingConfirm } = require('./notification.service')
+    notifyAlbumDocPendingConfirm(refreshed, 'repair_report').catch((e) => {
+      console.warn('[notification] delivery doc pending confirm', e && e.message)
+    })
+  }
   const messages = {
     intake: '接车留证已完成，下一步做检测',
     inspection: '检测报告已生成',
@@ -2261,6 +2284,10 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   const node = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
+  const { notifyAlbumDocPendingConfirm } = require('./notification.service')
+  notifyAlbumDocPendingConfirm(refreshed, 'quote_confirm').catch((e) => {
+    console.warn('[notification] quote delivered', e && e.message)
+  })
   return {
     node: node ? mapFlowNodeForView(node, viewNodes) : null,
     message: '已通知车主（检测报告与方案）',

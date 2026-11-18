@@ -473,6 +473,64 @@ async function notifyAlbumCompleted(album) {
   return null
 }
 
+/** 门店邀请车主评价：站内信必达，车主有订阅额度时才补一条微信通知 */
+async function notifyReviewInvited(album) {
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  const jumpPath = `/pages/album/review/submit/index?albumId=${album.id}`
+  return notifyUser({
+    receiverId: userId,
+    messageType: 'review_invite',
+    title: '门店邀请你评价',
+    content: `${album.storeName || '门店'}邀请你为这次服务写下评价，你的描述会成为其他车主的参考。`,
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'review',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '本次服务',
+      tips: '门店邀请你写下真实感受',
+      storeName: album.storeName,
+      serviceDate: album.createdAt,
+    },
+  })
+}
+
+/**
+ * 报价单 / 交车报告发给车主：站内信 + 「订单状态变更提醒」订阅消息。
+ * 两类单据共用一张模板，所以 messageType 分开，同一天各通知一次。
+ */
+async function notifyAlbumDocPendingConfirm(album, nodeKind = '') {
+  const isQuote = nodeKind === 'quote_confirm' || nodeKind === 'addon_quote_confirm'
+  const isDelivery = nodeKind === 'repair_report'
+  if (!isQuote && !isDelivery) return null
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  const jumpPath = `/pages/album/detail/index?albumId=${album.id}&focus=pending`
+  const storeName = album.storeName || '门店'
+  return notifyUser({
+    receiverId: userId,
+    messageType: isQuote ? 'album_quote_pending' : 'album_delivery_pending',
+    title: isQuote ? '报价单待确认' : '交车报告待确认',
+    content: isQuote
+      ? `${storeName}已发出报价单，你确认后门店才开始施工。`
+      : `${storeName}已发出交车报告，确认后本次服务留档完成。`,
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'order_status',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '本次服务',
+      orderStatus: '待确认',
+      status: '待确认',
+      tips: isQuote ? '确认后门店开始施工' : '请核对后确认交车',
+      storeName,
+    },
+  })
+}
+
 async function notifyAlbumPreMaskReady(album) {
   const userId = await resolveAlbumUserId(album)
   if (!userId) return null
@@ -815,6 +873,8 @@ module.exports = {
   notifyLeadClosed,
   notifyNewLead,
   notifyAlbumCompleted,
+  notifyReviewInvited,
+  notifyAlbumDocPendingConfirm,
   notifyAlbumPreMaskReady,
   notifyAlbumPreMaskFailed,
   notifyAlbumNodeUpdated,

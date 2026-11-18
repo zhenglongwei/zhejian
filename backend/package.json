@@ -48,6 +48,7 @@
     "hosting:smoke": "node scripts/hosting-flow-smoke.js",
     "test:geo-topic-matcher": "node src/utils/geo-topic-matcher.test.js",
     "test:geo-topic-seed": "node src/constants/geo-topic-seed.test.js",
+    "test:notification-templates": "node src/constants/notification-templates.test.js",
     "cases:check": "node scripts/public-case-prod-check.js",
     "cases:backfill-published-h5": "node scripts/backfill-published-h5.js",
     "cases:repair-invalid-slugs": "node scripts/repair-invalid-case-slugs.js",
