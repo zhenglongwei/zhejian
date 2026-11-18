@@ -385,53 +385,87 @@
 .merchant-host-page__agreement-panel {
   display: flex;
   flex-direction: column;
-  max-height: 85vh;
+  height: 88vh;
+  max-height: 88vh;
   background-color: var(--color-bg-card);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: var(--shadow-popup);
   overflow: hidden;
 }
 
+/* 协议头：居中标题，和页面里左对齐的文案标签区分开 */
 .merchant-host-page__agreement-head {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-lg) var(--space-md) var(--space-md);
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
   border-bottom: 1rpx solid var(--color-border);
 }
 
 .merchant-host-page__agreement-title {
-  font-weight: 600;
+  font-size: var(--font-h3);
+  line-height: var(--font-h3-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-align: center;
 }
 
 .merchant-host-page__agreement-body {
   flex: 1;
-  height: 50vh;
+  height: 0;
   padding: var(--space-md);
   box-sizing: border-box;
+  background-color: var(--color-bg-page);
+}
+
+/* 整份协议排成一张「纸」：连续正文 + 条款分隔线，不再用页面卡片样式 */
+.merchant-host-page__agreement-paper {
+  padding: var(--space-lg) var(--space-md);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-card);
 }
 
 .merchant-host-page__agreement-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
+  gap: var(--space-xs);
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-md);
+  border-bottom: 1rpx dashed var(--color-border);
+}
+
+.merchant-host-page__agreement-section:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
 }
 
 .merchant-host-page__agreement-heading {
-  font-weight: 600;
+  font-size: var(--font-sub);
+  line-height: var(--font-sub-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .merchant-host-page__agreement-para {
+  font-size: var(--font-sub);
+  line-height: 1.9;
   color: var(--color-text-secondary);
-  line-height: 1.6;
 }
 
-/* 核心免责条款（第四/五条）：显著提示，避免埋入滚动正文 */
+/* 核心免责条款：左侧警示条 + 浅底，提示但不做整块橙色卡片 */
 .merchant-host-page__agreement-section--emphasis {
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 0;
+  border-left: 6rpx solid var(--color-warning);
+  border-radius: var(--radius-sm);
   background-color: var(--color-warning-light);
-  border-radius: var(--radius-md);
+}
+
+.merchant-host-page__agreement-section--emphasis .merchant-host-page__agreement-heading {
+  color: var(--color-text-primary);
 }
 
 .merchant-host-page__agreement-section--emphasis .merchant-host-page__agreement-para {
@@ -444,6 +478,7 @@
   padding: var(--space-md);
   border-top: 1rpx solid var(--color-border);
   background-color: var(--color-bg-card);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .merchant-host-page__agreement-btn {

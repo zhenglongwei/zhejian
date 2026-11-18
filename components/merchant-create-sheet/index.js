@@ -75,7 +75,11 @@ Component({
 
     onInput(e) {
       const { field } = e.currentTarget.dataset
-      const value = e.detail.value
+      let value = e.detail.value
+      // 车牌号、车架号输入时实时规范化：字母大写、去空白，与提交口径一致
+      if (field === 'vin' || field === 'plate') {
+        value = String(value || '').replace(/\s+/g, '').toUpperCase()
+      }
       this.setData({ [`form.${field}`]: value }, () => {
         if (field !== 'vin') return
         const vin = normalizeVinInput(value)

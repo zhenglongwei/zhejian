@@ -183,22 +183,24 @@
   <view wx:if="{{showPrivacyAgreement}}" class="merchant-host-page__agreement">
     <view class="merchant-host-page__agreement-panel">
       <view class="merchant-host-page__agreement-head">
-        <text class="text-body merchant-host-page__agreement-title">{{privacyAgreementTitle}}</text>
+        <text class="merchant-host-page__agreement-title">{{privacyAgreementTitle}}</text>
         <text class="text-caption text-secondary">版本 {{privacyAgreementVersion}}</text>
       </view>
       <scroll-view scroll-y class="merchant-host-page__agreement-body" enhanced="{{true}}" show-scrollbar="{{true}}">
-        <view
-          wx:for="{{privacyAgreementSections}}"
-          wx:key="heading"
-          class="merchant-host-page__agreement-section{{item.emphasis ? ' merchant-host-page__agreement-section--emphasis' : ''}}"
-        >
-          <text class="text-body merchant-host-page__agreement-heading">{{item.heading}}</text>
-          <text
-            wx:for="{{item.paragraphs}}"
-            wx:for-item="para"
-            wx:key="*this"
-            class="text-caption merchant-host-page__agreement-para"
-          >{{para}}</text>
+        <view class="merchant-host-page__agreement-paper">
+          <view
+            wx:for="{{privacyAgreementSections}}"
+            wx:key="heading"
+            class="merchant-host-page__agreement-section{{item.emphasis ? ' merchant-host-page__agreement-section--emphasis' : ''}}"
+          >
+            <text class="merchant-host-page__agreement-heading">{{item.heading}}</text>
+            <text
+              wx:for="{{item.paragraphs}}"
+              wx:for-item="para"
+              wx:key="*this"
+              class="merchant-host-page__agreement-para"
+            >{{para}}</text>
+          </view>
         </view>
       </scroll-view>
       <view class="merchant-host-page__agreement-foot safe-bottom">
