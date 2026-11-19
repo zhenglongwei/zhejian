@@ -94,53 +94,6 @@
     return ''
   }
 
-  function resolveFixedAmount(data) {
-    if (data.amount != null && data.amount !== '') {
-      var amount = Number(data.amount)
-      if (Number.isFinite(amount)) return amount
-    }
-    var min = data.minAmount != null ? Number(data.minAmount) : null
-    var max = data.maxAmount != null ? Number(data.maxAmount) : null
-    if (min != null && max != null && min === max) return min
-    if (data.priceMode === 'fixed' && data.planAmount != null && data.planAmount !== '') {
-      var plan = Number(data.planAmount)
-      if (Number.isFinite(plan)) return plan
-    }
-    return null
-  }
-
-  function stripPriceSuffix(text) {
-    return String(text || '')
-      .replace(/\s*起\s*$/u, '')
-      .trim()
-  }
-
-  function buildPriceDisplay(data) {
-    var mode = data.priceMode === 'fixed' ? 'fixed' : 'consult'
-    var currency = '¥'
-    var fixedAmount = resolveFixedAmount(data)
-    var isAuthorized =
-      data.authorizationTier === 'named' || data.authorizationTier === 'anonymous'
-
-    if (fixedAmount != null && (mode === 'fixed' || isAuthorized)) {
-      return { priceText: currency + fixedAmount }
-    }
-    if (mode === 'consult') {
-      var ref = null
-      if (data.amount != null && data.amount !== '') {
-        var a = Number(data.amount)
-        if (Number.isFinite(a)) ref = a
-      }
-      if (ref == null && data.minAmount != null) {
-        var min = Number(data.minAmount)
-        if (Number.isFinite(min)) ref = min
-      }
-      if (ref != null) return { priceText: '参考价 ' + currency + ref }
-      return { priceText: '到店检测后确定' }
-    }
-    return { priceText: stripPriceSuffix(data.priceText || '到店检测后确定') }
-  }
-
   function setPageMeta(data) {
     var seo = data.seo || {}
     var store = data.store || {}
@@ -216,12 +169,12 @@
           })
         }
         var cover = pickCaseCover(item)
-        var price = buildPriceDisplay(item)
         var coverHtml = cover
           ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
             '" alt="案例封面" loading="lazy" />'
           : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
+        var metaParts = [item.city, item.publishedAt ? String(item.publishedAt).slice(0, 10) : ''].filter(Boolean)
         return (
           '<a class="h5-media-list-item" href="' +
           casePagePath(item) +
@@ -233,8 +186,11 @@
           '<div class="h5-media-list-title">' +
           escapeHtml(item.title || item.serviceName || '公开案例') +
           '</div>' +
-          '<div class="h5-media-list-meta">' +
-          escapeHtml(stripPriceSuffix(price.priceText)) +
+          (metaParts.length
+            ? '<div class="h5-media-list-meta">' +
+              escapeHtml(metaParts.join(' · ')) +
+              '</div>'
+            : '') +
           '</div></div></a>'
         )
       })

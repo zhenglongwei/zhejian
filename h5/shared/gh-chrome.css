@@ -8,8 +8,8 @@
   top: 0;
   z-index: 200;
   overflow: visible;
-  background: var(--color-text-primary);
-  border-bottom: 0;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .gh-topbar-row {
@@ -88,21 +88,22 @@
   width: 100%;
   height: 36px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-inverse);
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
   font-size: var(--font-body);
 }
 
 .gh-topbar-input::placeholder {
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--color-text-secondary);
 }
 
 .gh-topbar-input:focus {
   outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
   border-color: var(--color-primary);
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-bg-card);
 }
 
 .gh-topbar-right {
@@ -112,36 +113,35 @@
 .gh-logo {
   font-size: var(--font-h3);
   font-weight: 600;
-  color: var(--color-text-inverse);
+  color: var(--color-text-primary);
   text-decoration: none;
   letter-spacing: 0.02em;
 }
 
 .gh-topbar-link {
   font-size: var(--font-body);
-  color: var(--color-text-inverse);
+  color: var(--color-text-secondary);
   text-decoration: none;
-  opacity: 0.85;
   padding: 4px 0;
   border-bottom: 2px solid transparent;
 }
 
 .gh-topbar-link.is-on {
-  opacity: 1;
+  color: var(--color-text-primary);
+  font-weight: 500;
   border-bottom-color: var(--color-primary);
 }
 
 .gh-topbar-link:hover,
 .gh-logo:hover {
-  opacity: 1;
-  color: var(--color-text-inverse);
+  color: var(--color-primary);
 }
 
 .gh-header-signin {
   appearance: none;
-  border: 1px solid var(--color-text-inverse);
+  border: 1px solid var(--color-primary);
   background: transparent;
-  color: var(--color-text-inverse);
+  color: var(--color-primary);
   border-radius: var(--radius-sm);
   padding: 5px 12px;
   font-size: var(--font-body);
@@ -150,8 +150,8 @@
 }
 
 .gh-header-signin:hover {
-  background: var(--color-text-primary);
-  opacity: 0.9;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
 }
 
 .gh-btn {
@@ -199,7 +199,7 @@
   gap: var(--space-sm);
   border: 0;
   background: transparent;
-  color: var(--color-text-inverse);
+  color: var(--color-text-primary);
   cursor: pointer;
   padding: 0;
   font-size: var(--font-body);

@@ -299,29 +299,6 @@
     })
   }
 
-  function isGenericConsultPrice(text) {
-    var value = String(text || '')
-    return /到店检测后报价/.test(value) && !/\d/.test(value)
-  }
-
-  function caseCardTitle(item) {
-    var cover = String((item && item.coverTitle) || '').trim()
-    if (cover) return cover
-    var shop = String((item && item.storeName) || '').trim()
-    var vehicle = String((item && item.vehicleText) || '').trim()
-    var complaint = String((item && item.chiefComplaint) || '').trim()
-    var service = String((item && item.serviceName) || '').trim()
-    if (service === '服务留档') service = ''
-    var job = complaint || service || String((item && item.title) || '').trim()
-    if (job === '服务留档') job = ''
-    var parts = []
-    if (shop) parts.push(shop)
-    if (vehicle && parts.indexOf(vehicle) < 0) parts.push(vehicle)
-    if (job && parts.indexOf(job) < 0) parts.push(job)
-    if (parts.length) return parts.join(' · ')
-    return '公开案例'
-  }
-
   function renderCaseListItem(item, options) {
     options = options || {}
     var pc = global.zhejianPublicCopy || {}
@@ -337,19 +314,46 @@
         escapeHtml(coverAlt) +
         '" loading="lazy" />'
       : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
-    var title = caseCardTitle(item)
-    var priceLine = stripPriceSuffix(buildPriceDisplay(item).priceText)
-    if (isGenericConsultPrice(priceLine)) priceLine = ''
+    var coverTitle = String((item && item.coverTitle) || '').trim()
+    var service = String((item && item.serviceName) || '').trim()
+    if (service === '服务留档') service = ''
+    var complaint = String((item && item.chiefComplaint) || '').trim()
+    if (complaint === '服务留档') complaint = ''
+    var vehicle = strip(item.vehicleText)
+      .replace(/[（(]\s*已脱敏\s*[)）]/g, '')
+      .trim()
+    var title =
+      coverTitle ||
+      complaint ||
+      service ||
+      String((item && item.title) || '').trim() ||
+      vehicle ||
+      '公开案例'
+    // 车型/服务不再拼进标题（同句只出现一次）；公开卡片一律不展示金额
+    var vehicleLine = vehicle && title.indexOf(vehicle) < 0 ? vehicle : ''
+    var pill = service && title.indexOf(service) < 0 ? service : ''
     var metaParts = []
     if (item.city) metaParts.push(item.city)
     if (item.storeName) metaParts.push(item.storeName)
     if (item.publishedAt) metaParts.push(String(item.publishedAt).slice(0, 10))
-    if (priceLine) metaParts.push(priceLine)
     var summary = strip(item.summary || item.aiSummary || '')
     if (summary.length > 72) summary = summary.slice(0, 72) + '…'
     var href = options.href || caseHref(item)
     var className = options.className || 'h5-media-list-item'
     var extraAttrs = options.extraAttrs || ''
+    var tagsHtml =
+      pill || vehicleLine
+        ? '<div class="h5-media-list-tags">' +
+          (pill
+            ? '<span class="h5-media-list-pill">' + escapeHtml(pill) + '</span>'
+            : '') +
+          (vehicleLine
+            ? '<span class="h5-media-list-vehicle">' +
+              escapeHtml(vehicleLine) +
+              '</span>'
+            : '') +
+          '</div>'
+        : ''
     return (
       '<a class="' +
       className +
@@ -363,6 +367,7 @@
       '<div class="h5-media-list-title">' +
       escapeHtml(title) +
       '</div>' +
+      tagsHtml +
       (summary
         ? '<div class="h5-media-list-summary">' + escapeHtml(summary) + '</div>'
         : '') +
@@ -511,7 +516,6 @@
     stripPriceSuffix: stripPriceSuffix,
     buildPriceDisplay: buildPriceDisplay,
     caseHref: caseHref,
-    caseCardTitle: caseCardTitle,
     pickListCover: pickListCover,
     resolveH5ImageSrc: function (url) {
       var fn = global.zhejianPublicCopy && global.zhejianPublicCopy.resolveH5ImageSrc

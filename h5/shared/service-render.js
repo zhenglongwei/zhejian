@@ -418,12 +418,12 @@
           })
         }
         var cover = pickCaseCover(item)
-        var price = buildPriceDisplay(item)
         var coverHtml = cover
           ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
             '" alt="案例封面" loading="lazy" />'
           : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
+        var metaParts = [item.city, item.storeName].filter(Boolean)
         return (
           '<a class="h5-media-list-item" href="' +
           casePagePath(item.id) +
@@ -435,8 +435,11 @@
           '<div class="h5-media-list-title">' +
           escapeHtml(item.title || item.serviceName || '公开案例') +
           '</div>' +
-          '<div class="h5-media-list-meta">' +
-          escapeHtml(stripPriceSuffix(price.priceText)) +
+          (metaParts.length
+            ? '<div class="h5-media-list-meta">' +
+              escapeHtml(metaParts.join(' · ')) +
+              '</div>'
+            : '') +
           '</div></div></a>'
         )
       })

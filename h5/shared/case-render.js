@@ -588,12 +588,9 @@
     var owner = archiveOwnerName(data)
     var fact = archiveFactTitle(data)
     var heading = owner ? owner + ' / ' + fact : fact
+    // h1 已含车系/工单/门店，facts 只留 h1 没有的城市与日期，避免同句三现
     var facts = []
-    if (data.vehicleText) facts.push(String(data.vehicleText).trim())
-    var jobName = displayJobName(data)
-    if (jobName && jobName !== '维修案例') facts.push(jobName)
     if (data.city) facts.push(data.city)
-    if (owner) facts.push(owner)
     if (data.publishedAt) facts.push(String(data.publishedAt).slice(0, 10))
     return (
       '<header class="h5-archive-head">' +
@@ -607,6 +604,60 @@
       renderStarBlock(data) +
       '</div>' +
       '</header>'
+    )
+  }
+
+  function archiveStatText(data, keywords) {
+    var rows = (data && data.keyInfo) || []
+    for (var i = 0; i < rows.length; i += 1) {
+      var label = String((rows[i] && rows[i].label) || '')
+      for (var k = 0; k < keywords.length; k += 1) {
+        if (label.indexOf(keywords[k]) >= 0) {
+          var v = String(rows[i].value || '').trim()
+          if (v) return v
+        }
+      }
+    }
+    return ''
+  }
+
+  function renderArchiveStats(chapters, data) {
+    if (!chapters) return ''
+    var findingsCount = 0
+    var workCount = 0
+    var warranty = ''
+    chapters.forEach(function (ch) {
+      findingsCount += (ch.findings || []).length
+      if (ch.kind === 'work') workCount += (ch.items || []).length
+      if (!warranty && ch.warrantyPeriod) warranty = String(ch.warrantyPeriod)
+    })
+    if (!warranty) warranty = archiveStatText(data, ['质保'])
+    var mileage = archiveStatText(data, ['里程', '公里'])
+    var cells = []
+    if (findingsCount) cells.push({ num: String(findingsCount), label: '检测项', text: false })
+    if (workCount) cells.push({ num: String(workCount), label: '施工项', text: false })
+    if (warranty) cells.push({ num: warranty, label: '质保', text: true })
+    if (mileage) cells.push({ num: mileage, label: '里程', text: true })
+    if (cells.length < 2) return ''
+    return (
+      '<div class="h5-archive-stats">' +
+      cells
+        .map(function (c) {
+          return (
+            '<div class="h5-archive-stat">' +
+            '<span class="h5-archive-stat__num' +
+            (c.text ? ' is-text' : '') +
+            '">' +
+            escapeHtml(c.num) +
+            '</span>' +
+            '<span class="h5-archive-stat__label">' +
+            escapeHtml(c.label) +
+            '</span>' +
+            '</div>'
+          )
+        })
+        .join('') +
+      '</div>'
     )
   }
 
@@ -746,7 +797,7 @@
     return (
       '<ol class="h5-flow">' +
       chapters
-        .map(function (ch) {
+        .map(function (ch, chIndex) {
           var body = ''
           var narrative = narrativeMap[String((ch && ch.id) || '')] || ''
           if (narrative) {
@@ -821,7 +872,10 @@
           }
           return (
             '<li class="h5-flow-step">' +
-            '<h2>' +
+            '<h2><span class="h5-flow-step__no">' +
+            (chIndex < 9 ? '0' : '') +
+            (chIndex + 1) +
+            '</span>' +
             escapeHtml(ch.title || '') +
             '</h2>' +
             body +
@@ -1281,12 +1335,12 @@
           })
         }
         var cover = pickCaseCover(item)
-        var price = buildPriceDisplay(item)
         var coverHtml = cover
           ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
             '" alt="' + escapeHtml((PC.caseCoverAlt || '案例封面')) + '" loading="lazy" />'
           : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
+        var metaParts = [item.city, item.storeName].filter(Boolean)
         return (
           '<a class="h5-media-list-item" href="' +
           casePagePath(item.id, item) +
@@ -1298,8 +1352,11 @@
           '<div class="h5-media-list-title">' +
           escapeHtml(item.title || item.serviceName || '公开案例') +
           '</div>' +
-          '<div class="h5-media-list-meta">' +
-          escapeHtml(stripPriceSuffix(price.priceText)) +
+          (metaParts.length
+            ? '<div class="h5-media-list-meta">' +
+              escapeHtml(metaParts.join(' · ')) +
+              '</div>'
+            : '') +
           '</div></div></a>'
         )
       })
@@ -2198,7 +2255,7 @@
         ? safeData.serviceFlow.chapters
         : null
 
-    var mainHtml = renderArchiveLead(safeData)
+    var mainHtml = renderArchiveStats(flowChapters, safeData) + renderArchiveLead(safeData)
     if (flowChapters) {
       mainHtml += renderServiceFlow(
         safeData.serviceFlow,
