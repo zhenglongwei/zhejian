@@ -570,9 +570,19 @@
   }
 
   function archiveFactTitle(data) {
-    var vehicle = String((data && data.vehicleText) || '').trim()
+    var vehicle = String((data && data.vehicleText) || '')
+      .trim()
+      .replace(/[（(]\s*已脱敏\s*[)）]/g, '')
     var service = displayJobName(data)
-    if (vehicle && service) return vehicle + ' · ' + service
+    var norm = function (s) {
+      return String(s || '').replace(/\s+/g, '')
+    }
+    if (vehicle && service) {
+      // 工单句里已带车系时不再前置车型，避免 h1 同句两现
+      return norm(service).indexOf(norm(vehicle)) < 0
+        ? vehicle + ' · ' + service
+        : service
+    }
     if (data && data.attribution && data.attribution.factHeadline) {
       return String(data.attribution.factHeadline)
     }
