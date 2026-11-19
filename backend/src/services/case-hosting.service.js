@@ -10,6 +10,14 @@ const { publicCaseIdForAlbum } = require('../utils/public-case-id')
 const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { hostPublicTitle } = require('../utils/host-public-title')
+const {
+  readHostPreviewCache,
+  patchHostPreviewCache,
+  backfillHostPreviewCache,
+  readHostPreviewView,
+  buildHostPreviewEdits,
+  buildDeliveryPhotoFingerprint,
+} = require('./host-preview-cache.service')
 
 function readHostMeta(album) {
   const pkg =
@@ -586,9 +594,16 @@ function collectDeliveryRoleItemNames(chapters) {
  * 托管生成时由模型判断交车节点图片归属。
  * 交车节点只有一个整车照上传入口，门店可能把施工验收照也传到这里；
  * 判为施工并给出项目名的图在公开预览/公开页并进施工章，其余仍按外观留档。
- * 复用已判定的草稿时不重复调用模型。
+ * 判定按交车图集合指纹进预览缓存：判过即复用，「全判外观」也算判过，不再重看图。
  */
-async function resolveDeliveryPhotoRoles(album, view, geoDraft, forceRegen) {
+async function resolveDeliveryPhotoRoles(album, view, geoDraft, options = {}) {
+  const {
+    forceRegen = false,
+    judged = false,
+    judgedRoles = [],
+    photoFingerprint = '',
+  } = options
+  if (judged && !forceRegen) return Array.isArray(judgedRoles) ? judgedRoles : []
   const existing = geoDraft && Array.isArray(geoDraft.deliveryPhotoRoles) ? geoDraft.deliveryPhotoRoles : []
   if (existing.length && !forceRegen) return existing
   const { chatCompletion } = require('../lib/dashscope-chat')
@@ -634,11 +649,20 @@ async function resolveDeliveryPhotoRoles(album, view, geoDraft, forceRegen) {
       ],
     })
     const parsed = parseJsonObject(res && res.text)
+    const answered = Array.isArray(parsed && parsed.photos)
     const roles = normalizeDeliveryPhotoRoles(parsed && parsed.photos, candidates, itemNames)
+    // 模型答过就记账（含全判外观的空结果）；没答上不留记，下次再看图
+    if (answered && photoFingerprint) {
+      await patchHostPreviewCache(album.id, {
+        photos: { deliveryPhotoRoles: roles },
+        photoFingerprint,
+      })
+    }
     console.info('[case-hosting] delivery photo roles', {
       albumId: album && album.id,
       photos: candidates.length,
       roles: roles.length,
+      cached: answered,
     })
     return roles.length ? roles : existing
   } catch (error) {
@@ -755,40 +779,9 @@ function buildHostedFactFingerprint(album) {
 }
 
 /**
- * 预览可复用的文案：已公开内容 > 上次草稿（指纹一致 / 历史无指纹） > null
- * forceRegen 由调用方在外层跳过
- */
-function pickReusableHostedGeoDraft(hostMeta, factFingerprint) {
-  const layer =
-    hostMeta && hostMeta.geoLayer && typeof hostMeta.geoLayer === 'object'
-      ? hostMeta.geoLayer
-      : null
-  if (layer && String(layer.summary || '').trim()) {
-    return {
-      summary: String(layer.summary).trim(),
-      highlights: Array.isArray(layer.highlights) ? layer.highlights : [],
-      nodeStories: Array.isArray(layer.nodeStories) ? layer.nodeStories : [],
-      chapterNarratives: Array.isArray(layer.chapterNarratives) ? layer.chapterNarratives : [],
-      faq: Array.isArray(layer.faq) ? layer.faq : [],
-      source: 'published',
-      factFingerprint: String(layer.factFingerprint || '').trim() || factFingerprint,
-      confirmedAt: String(layer.confirmedAt || ''),
-    }
-  }
-  const draft =
-    hostMeta && hostMeta.geoDraft && typeof hostMeta.geoDraft === 'object'
-      ? hostMeta.geoDraft
-      : null
-  if (!draft || !String(draft.summary || '').trim()) return null
-  const cachedFingerprint = String(draft.factFingerprint || '').trim()
-  if (cachedFingerprint && cachedFingerprint !== factFingerprint) return null
-  return { ...draft, factFingerprint: cachedFingerprint || factFingerprint }
-}
-
-/**
  * 公开托管：店页说明草稿
- * 先复用已有产物（已公开内容 / 上次草稿 / archiveCopy），只有全都没有才跑模型。
- * 规则拼句仅兜底。真源：15_ §6.1 · 17_ §0 · docs/changes/20261116-托管预览文案缓存与复用.md
+ * 先复用预览缓存（大模型文案 + 商家人工覆盖稿），只有全都没有才跑模型。
+ * 规则拼句仅兜底。真源：15_ §6.1 · 17_ §0 · docs/changes/20261119-托管预览独立缓存.md
  */
 async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen = false } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
@@ -811,16 +804,35 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   const prev = readHostMeta(album)
   // 两步托管：预览步即可拉店页草稿；隐私协议与校验在「继续公开」时完成，此处不再要求 privacyAuditPassedAt
 
-  // 复用优先级：已公开内容 → 上次草稿（事实指纹一致）→ archiveCopy → 模型
-  // 文档口径：15_§6.1 + album-archive-copy.js + docs/changes/20261116-托管预览文案缓存与复用.md
-  const factFingerprint = buildHostedFactFingerprint(album)
-  const reusableDraft = forceRegen ? null : pickReusableHostedGeoDraft(prev, factFingerprint)
-  const existingCopy = forceRegen ? null : readPublicCopyFromAlbum(album)
-
   const pkg =
     album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
       : {}
+  // 复用优先级：预览缓存的人工稿/文案产物（host_preview_caches）→ archiveCopy → 模型
+  // 文档口径：15_§6.1 + docs/changes/20261119-托管预览独立缓存.md
+  const factFingerprint = buildHostedFactFingerprint(album)
+  const photoFingerprint = buildDeliveryPhotoFingerprint(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+  const cacheRow =
+    (await readHostPreviewCache(albumId)) ||
+    (await backfillHostPreviewCache(albumId, {
+      hostMeta: prev,
+      storeId,
+      merchantId,
+      copyFingerprint: factFingerprint,
+      photoFingerprint,
+    }))
+  const previewCache = readHostPreviewView(cacheRow, {
+    copyFingerprint: factFingerprint,
+    photoFingerprint,
+  })
+
+  const reusableDraft = forceRegen
+    ? null
+    : previewCache.copy
+      ? { ...previewCache.copy, factFingerprint }
+      : null
+  const existingCopy = forceRegen ? null : readPublicCopyFromAlbum(album)
+
   const view = buildMerchantView(album)
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
   let geoDraft = null
@@ -828,12 +840,12 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
 
   let cached = false
   if (reusableDraft) {
-    // 已公开内容 / 上次托管的草稿：整份复用，不跑模型
+    // 预览缓存里的文案产物：整份复用，不跑模型
     geoDraft = reusableDraft
     cached = true
     message =
-      geoDraft.source === 'published'
-        ? '已复用公开案例内容，无需重复生成'
+      previewCache.effective && previewCache.effective.humanEdited
+        ? '已复用上次托管的店页内容（含你的修改）'
         : '已复用上次托管的店页内容'
     console.info('[case-hosting] generate-geo reuse cache', {
       albumId,
@@ -885,8 +897,42 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
   }
 
   if (!geoDraft) geoDraft = ruleGeo.geoDraft
+  // 模型/规则产物是缓存里的「文案层」，人工稿另存一层，重新生成时才动它
+  const modelCopy = geoDraft
+  if (!cached) {
+    await patchHostPreviewCache(albumId, {
+      storeId,
+      merchantId,
+      copy: modelCopy,
+      copyFingerprint: factFingerprint,
+      // 「AI 生成」是商家确认过的覆盖动作，人工稿到此作废
+      ...(forceRegen ? { edits: null } : {}),
+    })
+  }
+  // 人工覆盖稿优先：改过的摘要/问答压在模型稿之上展示，离开页面再回来不丢
+  if (!forceRegen && previewCache.effective) {
+    const humanSummary = String(previewCache.effective.summary || '').trim()
+    const humanFaqEdited = Boolean(previewCache.edits && previewCache.edits.faqEdited)
+    geoDraft = {
+      ...geoDraft,
+      ...(humanSummary ? { summary: humanSummary } : {}),
+      ...(humanFaqEdited
+        ? {
+            faq: Array.isArray(previewCache.effective.faq)
+              ? previewCache.effective.faq
+              : [],
+          }
+        : {}),
+      humanEdited: Boolean(previewCache.effective.humanEdited),
+    }
+  }
   // 交车节点补传图归属：托管生成时由模型判定；施工证据图并进施工章，流程与节点 AI 不变
-  const deliveryPhotoRoles = await resolveDeliveryPhotoRoles(album, view, geoDraft, forceRegen)
+  const deliveryPhotoRoles = await resolveDeliveryPhotoRoles(album, view, geoDraft, {
+    forceRegen,
+    judged: previewCache.photoJudged,
+    judgedRoles: previewCache.deliveryPhotoRoles,
+    photoFingerprint,
+  })
   if (deliveryPhotoRoles.length) {
     geoDraft = { ...geoDraft, deliveryPhotoRoles }
   }
@@ -923,6 +969,85 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId, forceRegen
     ...meta,
     message,
   }
+}
+
+/**
+ * 预览缓存读取：进页时回显用，人工稿优先。
+ * hostMeta 里的草稿只作冷启动回填来源，回填之后一律以缓存表为准。
+ */
+async function getHostPreviewCache(albumId, { storeId, merchantId } = {}) {
+  const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const prev = readHostMeta(album)
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const copyFingerprint = buildHostedFactFingerprint(album)
+  const photoFingerprint = buildDeliveryPhotoFingerprint(flowNodes)
+  const existing = await readHostPreviewCache(albumId)
+  const row =
+    existing ||
+    (await backfillHostPreviewCache(albumId, {
+      hostMeta: prev,
+      storeId: album.storeId || storeId,
+      merchantId: album.merchantId || merchantId,
+      copyFingerprint,
+      photoFingerprint,
+    }))
+  const view = readHostPreviewView(row, { copyFingerprint, photoFingerprint })
+  return {
+    albumId,
+    hasCache: Boolean(row),
+    cacheSource: existing ? 'preview_cache' : row ? 'host_meta' : 'none',
+    copy: view.copy,
+    edits: view.edits,
+    effective: view.effective,
+    deliveryPhotoRoles: view.deliveryPhotoRoles,
+    photoJudged: view.photoJudged,
+    copyFingerprint,
+    photoFingerprint,
+  }
+}
+
+/**
+ * 人工覆盖稿落缓存：摘要 / 问答在失焦与离页时保存，下次进页优先回显这份。
+ * 只写 edits 分区，模型文案层与打码结论都不动；未带分区的旧编辑保留，
+ * 免得摘要失焦把「问答全删光」这个决定冲掉。
+ */
+async function saveHostPreviewEdit(albumId, { storeId, merchantId, summary, faq } = {}) {
+  const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const hasSummary = summary != null
+  const hasFaq = Array.isArray(faq)
+  const row = await readHostPreviewCache(albumId)
+  const prevEdits = row && row.editsJson && typeof row.editsJson === 'object' ? row.editsJson : null
+  if (!hasSummary && !hasFaq) {
+    return { albumId, saved: false, edits: prevEdits }
+  }
+  const edits = buildHostPreviewEdits({
+    summary: hasSummary ? summary : prevEdits && prevEdits.summary,
+    faq: hasFaq ? faq : prevEdits && prevEdits.faqEdited ? prevEdits.faq : undefined,
+  })
+  await patchHostPreviewCache(albumId, {
+    storeId: album.storeId || storeId || '',
+    merchantId: album.merchantId || merchantId || '',
+    edits,
+  })
+  return { albumId, saved: Boolean(edits), edits }
 }
 
 /**
@@ -1137,6 +1262,31 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     album.contentPackageJson && typeof album.contentPackageJson === 'object'
       ? album.contentPackageJson
       : {}
+  // 交车补传图归属：只认预览缓存；hostMeta 仅作冷启动来源，缓存不可用时不退化
+  const hostMetaDeliveryRoles =
+    (prev.geoLayer && Array.isArray(prev.geoLayer.deliveryPhotoRoles) && prev.geoLayer.deliveryPhotoRoles) ||
+    (prev.geoDraft && Array.isArray(prev.geoDraft.deliveryPhotoRoles) && prev.geoDraft.deliveryPhotoRoles) ||
+    []
+  let cachedDeliveryPhotoRoles = hostMetaDeliveryRoles
+  try {
+    const photoFingerprint = buildDeliveryPhotoFingerprint(
+      Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [],
+    )
+    const cacheRow =
+      (await readHostPreviewCache(albumId)) ||
+      (await backfillHostPreviewCache(albumId, {
+        hostMeta: prev,
+        storeId: album.storeId || storeId,
+        merchantId: album.merchantId || merchantId,
+        photoFingerprint,
+      }))
+    if (cacheRow) {
+      cachedDeliveryPhotoRoles = readHostPreviewView(cacheRow, { photoFingerprint })
+        .deliveryPhotoRoles
+    }
+  } catch (_) {
+    /* 读不到缓存仍按 hostMeta，公开预览不能因缓存缺一档就少并图 */
+  }
   const serviceFlow = buildPublicServiceFlow({
     flowNodes: Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [],
     album,
@@ -1145,10 +1295,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId, requireM
     requireDesensitized: false,
     allowPrivateFallback: true,
     // 交车节点补传图：只有托管生成时判为施工证据的才并进施工章
-    deliveryPhotoRoles:
-      (prev.geoLayer && Array.isArray(prev.geoLayer.deliveryPhotoRoles) && prev.geoLayer.deliveryPhotoRoles) ||
-      (prev.geoDraft && Array.isArray(prev.geoDraft.deliveryPhotoRoles) && prev.geoDraft.deliveryPhotoRoles) ||
-      [],
+    deliveryPhotoRoles: cachedDeliveryPhotoRoles,
   })
   const maskImages = (() => {
     const fromList = collectReviewMaskImages(reviewDocsForMaskList, outcomeIndex)
@@ -1332,9 +1479,26 @@ async function confirmHostedPublicPublish(
       ? draft.chapterNarratives
       : []
   const view = buildMerchantView(album)
-  const deliveryPhotoRoles = Array.isArray(draft.deliveryPhotoRoles)
+  // 施工章取图与预览同口径：认预览缓存的归属判定，空数组也是判定结论
+  let deliveryPhotoRoles = Array.isArray(draft.deliveryPhotoRoles)
     ? draft.deliveryPhotoRoles
     : (prev.geoLayer && Array.isArray(prev.geoLayer.deliveryPhotoRoles) && prev.geoLayer.deliveryPhotoRoles) || []
+  try {
+    const pkg =
+      album.contentPackageJson && typeof album.contentPackageJson === 'object'
+        ? album.contentPackageJson
+        : {}
+    const cacheRow = await readHostPreviewCache(albumId)
+    if (cacheRow) {
+      deliveryPhotoRoles = readHostPreviewView(cacheRow, {
+        photoFingerprint: buildDeliveryPhotoFingerprint(
+          Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [],
+        ),
+      }).deliveryPhotoRoles
+    }
+  } catch (_) {
+    /* 缓存不可用时退回草稿 / 已公开层 */
+  }
   const chapters = buildHostedPublicChapters(album, view, deliveryPhotoRoles)
   const geoLayer = {
     summary: String(summary != null ? summary : draft.summary || '').trim(),
@@ -1355,6 +1519,13 @@ async function confirmHostedPublicPublish(
     err.status = 400
     throw err
   }
+  // 商家确认公开的这一版就是人工稿真源：同步进缓存，预览不会再端出旧修订
+  // 问答存确认前的原列表（含未答的问法），回来才和屏幕上一样
+  await patchHostPreviewCache(albumId, {
+    storeId: album.storeId || storeId || '',
+    merchantId: album.merchantId || merchantId || '',
+    edits: buildHostPreviewEdits({ summary: geoLayer.summary, faq: rawFaq }),
+  })
 
   const overview = geoLayer.summary
   const faqList = geoLayer.faq
@@ -1546,6 +1717,12 @@ async function saveHostedPublicCopy(albumId, { storeId, merchantId, overview, fa
     // 人工改过 FAQ：生效稿就是这一份，不再回退到机器草稿（对齐摘要的覆盖语义）
     faqOverridden: true,
     revisions,
+  })
+  // 概况 / 问法在公开后另有编辑入口：改完必须更新缓存人工层，否则再次预览端出旧稿
+  await patchHostPreviewCache(albumId, {
+    storeId: album.storeId || storeId || '',
+    merchantId: album.merchantId || merchantId || '',
+    edits: buildHostPreviewEdits({ summary: revision.overview, faq: revision.faq }),
   })
 
   if (album.publicCase) {
@@ -1744,8 +1921,9 @@ module.exports = {
   hostAlbum,
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
+  getHostPreviewCache,
+  saveHostPreviewEdit,
   buildHostedFactFingerprint,
-  pickReusableHostedGeoDraft,
   confirmHostedPublicPublish,
   cancelPublicHostIntent,
   getHostPublicFacePreview,

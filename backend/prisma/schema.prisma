@@ -242,6 +242,30 @@ model AlbumImageVisionCache {
   @@map("album_image_vision_caches")
 }
 
+/// HOST-PREVIEW · 托管预览缓存：大模型文案产物 + 商家人工覆盖稿
+/// 生命周期独立于托管开关（unhost / cancel-public 都不清），只在事实指纹变化时失效。
+/// 打码图不进这张表：结论只住 flowNodes 图槽（hosted-public-mask.service 现读现建索引）。
+model HostPreviewCache {
+  albumId    String   @id @map("album_id")
+  storeId    String   @default("") @map("store_id")
+  merchantId String   @default("") @map("merchant_id")
+  /// AI 产物：summary / faq / chapterNarratives / nodeStories / highlights
+  copyJson   Json?    @map("copy_json")
+  /// 交车补传图归属判定：{ deliveryPhotoRoles: [...] }（空数组也是有效判定）
+  photosJson Json?    @map("photos_json")
+  /// 商家人工覆盖：summary / faq / editedAt；优先于 copyJson 展示
+  editsJson  Json?    @map("edits_json")
+  /// 文案事实指纹：单据链变化才重跑模型
+  copyFingerprint  String   @default("") @map("copy_fingerprint") @db.VarChar(64)
+  /// 交车补传图集合指纹：空 = 从未判定；图变了才重判归属
+  photoFingerprint String   @default("") @map("photo_fingerprint") @db.VarChar(64)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([storeId])
+  @@map("host_preview_caches")
+}
+
 model ConsultLead {
   id              String          @id
   userId          String          @map("user_id")

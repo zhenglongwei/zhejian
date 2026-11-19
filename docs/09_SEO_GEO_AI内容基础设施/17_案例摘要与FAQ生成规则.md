@@ -1,7 +1,7 @@
 # 案例摘要与 FAQ 生成规则
 
 > 状态：生效
-> 生效：2026-11-16
+> 生效：2026-11-19
 
 | 项目 | 内容 |
 | --- | --- |
@@ -12,7 +12,7 @@
 | 生成方式 | **大模型主路径**：交车「AI分析」与对账同一次请求生成；托管复用。规则/模板**仅兜底** |
 | 上位文档 | `04_AI可引用摘要规范.md`（通用摘要原则）· `05_FAQ生成规范.md`（证据问答口径）· `15_` §6.1 |
 | 数据结构真源 | `docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md` §2.1 |
-| 代码现状 | `step-advice.service.js`（交车双段）· `case-geo-factpack.js`（原料）· 托管读 `archiveCopy`；旧 `album-geo-extract` 规则拼句**不得**再作托管主路径 |
+| 代码现状 | `step-advice.service.js`（交车双段）· `case-geo-factpack.js`（原料）· 托管预览读写 `host-preview-cache.service.js`（`host_preview_caches`）；旧 `album-geo-extract` 规则拼句**不得**再作托管主路径 |
 
 > 本文只管**案例页 / 本单公开说明**。服务专题页、门店页仍按 `04` / `05` 原有规范。
 > 本文与 `04` / `05` 冲突时，**以本文为准**。
@@ -28,8 +28,9 @@
 | **店页字段** | **只要摘要 + FAQ**，不要要点/highlights |
 | **原料** | 接车→检测→报价→施工→交车全量（`buildCaseFactPack`）；**送模前洗掉**车牌 / VIN / 姓名 / 手机号 |
 | **禁止** | 用旧 `stage_*` note 规则拼句当日常主输出；把交车对账意见原文当摘要 |
-| **托管第 3 步** | 默认展示已有草稿：已公开内容（`geoLayer`）→ 上次 `geoDraft`（指纹一致）→ `archiveCopy` → 模型；事实变更可重生成；LLM 失败才规则兜底并标明需手改 |
-| **缓存与复用** | 只有首次（三处都为空）才调模型；生成结果写 `hostMeta.geoDraft`（含 `factFingerprint`）与 `archiveCopy`。指纹 = `buildCaseFactPack(flowNodes)` 的 SHA1，人工文本不变就不重跑；`forceRegen` 跳过缓存 |
+| **托管第 3 步** | 默认展示预览缓存产物：`host_preview_caches.editsJson`（人工稿）压在 `copyJson`（模型稿）之上；缓存判活即整份复用不跑模型，事实变更可重生成；LLM 失败才规则兜底并标明需手改 |
+| **缓存与复用** | 见 `15_` §6.1「预览独立缓存」。文案按 `copyFingerprint`（= `buildCaseFactPack(flowNodes)` 的 SHA1）失效；交车图归属按 `photoFingerprint`（图集合，签名参数不算）失效，**空判定也算判过**；人工稿永不过期。`forceRegen` 跳缓存并清人工稿 |
+| **人工稿** | 预览页允许改摘要 / 问法、允许手动打码。文案在失焦与离页时 `POST .../host/preview-edit` 落 `editsJson`（只送改过的分区）；打码结论只住节点图槽，写回即生效。人工稿优先展示，重跑前先弹窗确认 |
 | **根因备忘** | 旧托管链路 `generateHostedGeoDraft` → `album-geo-extract` 只读节点 note，DOC-FLOW 真料在 `flowNodes`，易出「含过程图片记录」套话 |
 
 ---

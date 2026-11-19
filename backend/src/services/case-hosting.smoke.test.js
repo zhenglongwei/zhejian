@@ -5,8 +5,13 @@ const assert = require('assert')
 const {
   buildHostedArchiveSnapshot,
   readHostMeta,
-  pickReusableHostedGeoDraft,
 } = require('./case-hosting.service')
+const {
+  buildHostPreviewBackfillPatch,
+  buildHostPreviewEdits,
+  buildDeliveryPhotoFingerprint,
+  readHostPreviewView,
+} = require('./host-preview-cache.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 
 function sampleAlbum(extra = {}) {
@@ -177,40 +182,151 @@ function testGenerateGeoNoLongerRequiresHosted() {
   )
 }
 
-/** 已公开内容优先复用，不重跑模型 */
-function testReusePublishedGeoLayer() {
-  const draft = pickReusableHostedGeoDraft(
+/** 生成走预览缓存表，不再从 hostMeta 里挑草稿 */
+function testGenerateGeoReadsPreviewCache() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'case-hosting.service.js'), 'utf8')
+  const start = src.indexOf('async function generateHostedGeoDraft')
+  const end = src.indexOf('\nasync function ', start + 10)
+  const fnSrc = src.slice(start, end > start ? end : undefined)
+  assert.ok(start > 0, '未找到 generateHostedGeoDraft')
+  assert.ok(/readHostPreviewCache\(albumId\)/.test(fnSrc), '生成须先读预览缓存')
+  assert.ok(!/pickReusableHostedGeoDraft/.test(src), 'hostMeta 挑草稿的旧口径已删')
+}
+
+/** 交车图判过就直接复用判定，不再调视觉模型（实测 15s 的来源） */
+function testDeliveryRolesSkipsModelWhenCacheJudged() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'case-hosting.service.js'), 'utf8')
+  const start = src.indexOf('async function resolveDeliveryPhotoRoles')
+  const end = src.indexOf('\nasync function ', start + 10)
+  const fnSrc = src.slice(start, end > start ? end : undefined)
+  assert.ok(start > 0, '未找到 resolveDeliveryPhotoRoles')
+  const judgedAt = fnSrc.indexOf('if (judged && !forceRegen)')
+  const chatAt = fnSrc.indexOf("require('../lib/dashscope-chat')")
+  assert.ok(judgedAt > 0 && chatAt > 0 && judgedAt < chatAt, '判过就该短路，不能每次都看图')
+  assert.ok(/patchHostPreviewCache\(album\.id/.test(fnSrc), '判定结果要落回预览缓存')
+}
+
+/** 缓存生命周期独立于托管开关：取消托管 / 收回私密都不碰它 */
+function testUnhostKeepsPreviewCache() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'case-hosting.service.js'), 'utf8')
+  const fnNames = ['cancelPublicHostIntent', 'unhostAlbum', 'unpublishHostedCase']
+  fnNames.forEach((name) => {
+    const start = src.indexOf(`async function ${name}`)
+    assert.ok(start > 0, `未找到 ${name}`)
+    const end = src.indexOf('\nasync function ', start + 10)
+    const fnSrc = src.slice(start, end > start ? end : undefined)
+    assert.ok(!/patchHostPreviewCache|hostPreviewCache\.delete/.test(fnSrc), `${name} 不应清预览缓存`)
+  })
+}
+
+/** 已公开内容回填进缓存：模型层留草稿，公开稿记成人工覆盖，不重跑模型 */
+function testPublishedLayerBackfillsIntoPreviewCache() {
+  const patch = buildHostPreviewBackfillPatch(
     {
       geoLayer: {
         summary: '已上线摘要',
-        nodeStories: ['段一'],
         faq: [{ q: '问', a: '答' }],
         confirmedAt: '2026-11-10T00:00:00.000Z',
       },
-      geoDraft: { summary: '旧草稿', factFingerprint: 'stale' },
+      geoDraft: { summary: '模型草稿', nodeStories: ['段一'], faq: [], factFingerprint: 'fp1' },
     },
-    'fp1',
+    { copyFingerprint: 'fp1', photoFingerprint: 'ph1' },
   )
-  assert.strictEqual(draft.source, 'published')
-  assert.strictEqual(draft.summary, '已上线摘要')
-  assert.deepStrictEqual(draft.nodeStories, ['段一'])
-  assert.strictEqual(draft.factFingerprint, 'fp1')
-}
-
-/** 上次草稿指纹一致才复用；事实变了要重生成 */
-function testReuseDraftByFingerprint() {
-  const hostMeta = {
-    geoDraft: { summary: '草稿摘要', nodeStories: ['段一'], faq: [], factFingerprint: 'fp1' },
+  assert.ok(patch, '已公开层须回填进缓存，不能空手重跑模型')
+  assert.strictEqual(patch.copy.summary, '模型草稿')
+  assert.strictEqual(patch.copyFingerprint, 'fp1')
+  assert.strictEqual(patch.edits.summary, '已上线摘要')
+  const row = {
+    copyFingerprint: patch.copyFingerprint,
+    copyJson: patch.copy,
+    editsJson: patch.edits,
+    photoFingerprint: '',
+    photosJson: null,
   }
-  assert.strictEqual(pickReusableHostedGeoDraft(hostMeta, 'fp1').summary, '草稿摘要')
-  assert.strictEqual(pickReusableHostedGeoDraft(hostMeta, 'fp2'), null)
+  const view = readHostPreviewView(row, { copyFingerprint: 'fp1', photoFingerprint: '' })
+  assert.strictEqual(view.effective.summary, '已上线摘要')
+  assert.strictEqual(view.effective.humanEdited, true)
+  // 人工稿只覆盖摘要与问答，模型层的其余字段仍在
+  assert.deepStrictEqual(view.effective.nodeStories, ['段一'])
+  assert.deepStrictEqual(view.effective.faq, [{ q: '问', a: '答', needsAnswer: false }])
+  // 没有产物可搬才返回 null，让调用方去跑模型
+  assert.strictEqual(buildHostPreviewBackfillPatch({ geoDraft: {} }, {}), null)
+  // 草稿自带旧事实指纹：如实记录，不把旧产物记成新事实
+  const stale = buildHostPreviewBackfillPatch(
+    { geoDraft: { summary: '旧草稿', factFingerprint: 'fp0' } },
+    { copyFingerprint: 'fp1' },
+  )
+  assert.strictEqual(stale.copyFingerprint, 'fp0')
 }
 
-/** 历史草稿没有指纹：按可复用处理，避免一次性全量重跑 */
-function testReuseLegacyDraftWithoutFingerprint() {
-  const draft = pickReusableHostedGeoDraft({ geoDraft: { summary: '老草稿', faq: [] } }, 'fp9')
-  assert.strictEqual(draft.summary, '老草稿')
-  assert.strictEqual(draft.factFingerprint, 'fp9')
+/** 上次草稿指纹一致才复用模型层；事实变了人工稿仍留在 */
+function testHumanCopyWinsAfterFactChange() {
+  const row = {
+    copyFingerprint: 'fp1',
+    copyJson: { summary: '模型摘要', faq: [], nodeStories: ['段一'] },
+    editsJson: buildHostPreviewEdits({ summary: '商家改过的摘要', faq: [{ q: '问', a: '' }] }),
+    photoFingerprint: '',
+    photosJson: null,
+  }
+  const alive = readHostPreviewView(row, { copyFingerprint: 'fp1' })
+  assert.strictEqual(alive.copy && alive.copy.summary, '模型摘要')
+  assert.strictEqual(alive.effective.summary, '商家改过的摘要')
+  // 单据链变了：模型层作废要重跑，人工稿不作废
+  const stale = readHostPreviewView(row, { copyFingerprint: 'fp2' })
+  assert.strictEqual(stale.copy, null)
+  assert.strictEqual(stale.effective.summary, '商家改过的摘要')
+  assert.strictEqual(stale.effective.humanEdited, true)
+  // 空摘要不能把模型稿遮住
+  assert.strictEqual(buildHostPreviewEdits({ summary: '  ', faq: [] }), null)
+}
+
+/** 交车补传图判过即复用（含「全判外观」的空结果），只有图换了才重判 */
+function testDeliveryPhotoJudgementReusedIncludingEmpty() {
+  const roles = [{ url: 'https://cdn/x.jpg', role: 'work', item: '更换刹车片' }]
+  const row = {
+    copyFingerprint: '',
+    copyJson: null,
+    editsJson: null,
+    photoFingerprint: 'ph1',
+    photosJson: { deliveryPhotoRoles: [] },
+  }
+  assert.strictEqual(readHostPreviewView(row, { photoFingerprint: 'ph1' }).photoJudged, true)
+  assert.deepStrictEqual(readHostPreviewView(row, { photoFingerprint: 'ph1' }).deliveryPhotoRoles, [])
+  assert.strictEqual(readHostPreviewView(row, { photoFingerprint: 'ph2' }).photoJudged, false)
+  assert.strictEqual(readHostPreviewView(row, { photoFingerprint: '' }).photoJudged, false)
+  const judged = readHostPreviewView(
+    { ...row, photosJson: { deliveryPhotoRoles: roles } },
+    { photoFingerprint: 'ph1' },
+  )
+  assert.deepStrictEqual(judged.deliveryPhotoRoles, roles)
+
+  // 指纹只认图本身：签名参数、顺序变了都不重判
+  const flowNodes = [
+    {
+      kind: 'delivery_photos',
+      content: {
+        acceptanceItems: [
+          { kind: 'exterior', images: [{ url: 'https://cdn/a.jpg' }, { url: 'https://cdn/b.jpg' }] },
+        ],
+      },
+    },
+  ]
+  const base = buildDeliveryPhotoFingerprint(flowNodes)
+  assert.ok(base, '有交车图才应有指纹')
+  assert.strictEqual(
+    buildDeliveryPhotoFingerprint([
+      {
+        kind: 'delivery_photos',
+        content: {
+          acceptanceItems: [
+            { kind: 'exterior', images: [{ url: 'https://cdn/b.jpg?sig=2' }, { url: 'https://cdn/a.jpg?sig=1' }] },
+          ],
+        },
+      },
+    ]),
+    base,
+  )
+  assert.strictEqual(buildDeliveryPhotoFingerprint([]), '')
 }
 
 testArchiveSnapshotExcludesDraft()
@@ -280,9 +396,12 @@ testMapHostedCaseListVisibilityAndPath()
 
 testGenerateGeoNoLongerRequiresPrivacyGate()
 testGenerateGeoNoLongerRequiresHosted()
-testReusePublishedGeoLayer()
-testReuseDraftByFingerprint()
-testReuseLegacyDraftWithoutFingerprint()
+testGenerateGeoReadsPreviewCache()
+testDeliveryRolesSkipsModelWhenCacheJudged()
+testUnhostKeepsPreviewCache()
+testPublishedLayerBackfillsIntoPreviewCache()
+testHumanCopyWinsAfterFactChange()
+testDeliveryPhotoJudgementReusedIncludingEmpty()
 
 ;(async () => {
   await testGenerateCaseBlockedForNewAlbum()

@@ -762,6 +762,47 @@ router.post(
   },
 )
 
+/** HOST-PREVIEW · 预览缓存回显（人工稿优先） */
+router.get(
+  '/service-albums/:albumId/host/preview-cache',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { getHostPreviewCache } = require('../services/case-hosting.service')
+      const data = await getHostPreviewCache(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+/** HOST-PREVIEW · 摘要 / 问答人工覆盖稿：失焦与离页时落缓存 */
+router.post(
+  '/service-albums/:albumId/host/preview-edit',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const body = req.body || {}
+      const { saveHostPreviewEdit } = require('../services/case-hosting.service')
+      const data = await saveHostPreviewEdit(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        summary: body.summary,
+        faq: body.faq,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post(
   '/service-albums/:albumId/host/confirm-public',
   requireAuth(['merchant']),
