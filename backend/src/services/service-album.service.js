@@ -346,11 +346,25 @@ function buildListCoverUrl(album) {
   if (images.length) {
     const url =
       images[0].rawUrl || images[0].url || images[0].imageUrl || ''
-    return resolveClientReadableMediaUrl(url)
+    const resolved = resolveClientReadableMediaUrl(url)
+    if (resolved) return resolved
+  }
+  // 流程相册照片挂在 contentPackageJson.flowNodes 袋里，mapNodesForView 取不到，按流程真源兜底
+  const { albumUsesFlowNodes, collectAllFlowPhotos } = require('../utils/flow-public-media')
+  if (albumUsesFlowNodes(album)) {
+    const photos = collectAllFlowPhotos(album)
+    if (photos.length) {
+      const resolved = resolveClientReadableMediaUrl(photos[0].url)
+      if (resolved) return resolved
+    }
   }
   const nodes = mapNodesForView(album)
   for (const node of nodes) {
-    if (node.images && node.images[0]) return node.images[0]
+    const first = node.images && node.images[0]
+    if (!first) continue
+    const url = typeof first === 'string' ? first : first.url || first.rawUrl || ''
+    const resolved = resolveClientReadableMediaUrl(url)
+    if (resolved) return resolved
   }
   return ''
 }
