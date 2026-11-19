@@ -496,7 +496,6 @@ function buildUserAlbumGateBFields(album) {
       gateBRejectHint: '',
       gateBUserActions: [],
       canResubmitPublicCase: false,
-      desensitizePreviewSource: '',
     }
   }
   return {
@@ -505,7 +504,6 @@ function buildUserAlbumGateBFields(album) {
     gateBRejectHint: gateB.userHint,
     gateBUserActions: gateB.userActions,
     canResubmitPublicCase: gateB.canResubmitPublicCase,
-    desensitizePreviewSource: gateB.desensitizePreviewSource,
   }
 }
 
@@ -1101,6 +1099,8 @@ function mapUserServiceAlbumListItem(album) {
   const view = buildAlbumView(album)
   const parts = Array.isArray(album.partsJson) ? album.partsJson : []
   const ownerFlow = view.ownerFlow || {}
+  const intakeDoc = (Array.isArray(ownerFlow.docs) ? ownerFlow.docs : [])
+    .find((row) => row && (row.kind === 'intake' || row.kind === 'intake_inspection'))
   return {
     id: view.albumId,
     albumId: view.albumId,
@@ -1147,6 +1147,7 @@ function mapUserServiceAlbumListItem(album) {
     pendingConfirmCount: Number(ownerFlow.pendingConfirmCount || 0),
     pendingConfirmKind: String(ownerFlow.pendingConfirmKind || ''),
     nodeUpdatedAt: String(ownerFlow.nodeUpdatedAt || view.updatedAt || ''),
+    chiefComplaint: String((intakeDoc && intakeDoc.chiefComplaint) || '').trim(),
     vehicle: view.vehicle || {},
   }
 }
