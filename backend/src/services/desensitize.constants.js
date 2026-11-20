@@ -12,7 +12,6 @@ const BIZ_TYPE = {
   SERVICE_PRE_MASK: 'service_pre_mask',
   ORDER_AUTHORIZE: 'order_authorize',
   SERVICE_AUTHORIZE: 'service_authorize',
-  SERVICE_REVIEW_PREVIEW: 'service_review_preview',
   MERCHANT_HISTORY: 'merchant_history',
 }
 
@@ -218,10 +217,6 @@ function buildHostMaskTaskId(albumId) {
   return `task_host_mask_${albumId}`
 }
 
-function buildReviewPreviewTaskId(reviewId) {
-  return `task_review_preview_${reviewId}`
-}
-
 function albumToNodeView(album) {
   const { excludeLibraryNodes, isLibraryNodeId } = require('../constants/album-media-library')
   const imagesByNode = {}
@@ -269,6 +264,5 @@ module.exports = {
   buildAuthorizeTaskId,
   buildMerchantColdStartTaskId,
   buildHostMaskTaskId,
-  buildReviewPreviewTaskId,
   albumToNodeView,
 }

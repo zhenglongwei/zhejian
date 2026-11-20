@@ -17,7 +17,6 @@ const {
   buildAuthorizeTaskId,
   buildMerchantColdStartTaskId,
   buildHostMaskTaskId,
-  buildReviewPreviewTaskId,
   albumToNodeView,
 } = require('./desensitize.constants')
 const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl, applyManualMaskToAsset } = require('./media.service')
@@ -27,11 +26,6 @@ const { stripUrlQuery } = require('../lib/media-signed-url')
 const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
 const { ROLES } = require('../lib/jwt')
 const { assertMerchantAlbumAccess } = require('../lib/merchant-album-access')
-const { ALBUM_REVIEW_STATUS } = require('../constants/album-review')
-const {
-  ensureReviewImagesMasked,
-  parseRawReviewImages,
-} = require('./album-review-image.service')
 const { writeMaskedPairsIntoFlowNodes } = require('../utils/flow-photo-mask-writeback')
 
 const MASK_JOB_LIMIT = 1
@@ -211,52 +205,6 @@ async function restampHostMaskAssets(items, albumId) {
   return pairs
 }
 
-function buildReviewAssetInputsFromRow(row) {
-  const rawUrls = parseRawReviewImages(row?.imagesJson)
-  if (!rawUrls.length) return []
-  const maskedSlots = Array.isArray(row?.imagesMaskedJson) ? row.imagesMaskedJson : []
-  return rawUrls.map((rawUrl, idx) => {
-    const maskedUrl = String(maskedSlots[idx] || '').trim()
-    return {
-      assetId: `review_${idx}`,
-      mediaId: '',
-      nodeId: 'review',
-      nodeTitle: '评价配图',
-      idx,
-      rawUrl,
-      maskedUrl,
-      preMaskedUrl: maskedUrl,
-      status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
-      previewed: false,
-      riskTags: [],
-      riskLevel: maskedUrl ? 'low' : '',
-    }
-  })
-}
-
-async function buildReviewAuthorizeAssetInputs(albumId) {
-  const review = await prisma.serviceAlbumReview.findFirst({
-    where: {
-      albumId,
-      status: { in: [ALBUM_REVIEW_STATUS.SUBMITTED, ALBUM_REVIEW_STATUS.REPLIED] },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-  if (!review) return []
-
-  const row = await ensureReviewImagesMasked(review)
-  return buildReviewAssetInputsFromRow(row)
-}
-
-async function shouldIncludeReviewInAuthorizePreview(albumId) {
-  const album = await prisma.album.findUnique({
-    where: { id: albumId },
-    select: { publicCaseStatus: true },
-  })
-  const status = album?.publicCaseStatus || 'private'
-  return ['private', 'user_rejected'].includes(status)
-}
-
 /**
  * 托管打码收图：与预览/可公示硬拦同一真源——流程节点挂图。
  * 禁止只扫 document.payload（DOC-FLOW 图住在节点 content；定稿后 payload 常无图 → 误报暂无可脱敏）。
@@ -311,13 +259,11 @@ function mapPreMaskAssetToAuthorizeInput(asset) {
 
 async function buildAuthorizeAssetInputs(albumId, preMaskTask) {
   const album = await loadAlbumWithRelations(albumId)
-  const includeReview = await shouldIncludeReviewInAuthorizePreview(albumId)
-  const reviewAssets = includeReview ? await buildReviewAuthorizeAssetInputs(albumId) : []
   let albumAssets = (preMaskTask.assets || []).map(mapPreMaskAssetToAuthorizeInput)
   if (config.publicViewV2 && album) {
     albumAssets = albumAssets.filter((asset) => isPublicAuthorizeAsset(album, asset))
   }
-  return [...albumAssets, ...reviewAssets]
+  return albumAssets
 }
 
 function isPublicAuthorizeAsset(album, asset) {
@@ -368,19 +314,6 @@ async function assertDesensitizeTaskAccess(task, auth = {}) {
   }
   const roles = auth.roles || []
   if (roles.includes(ROLES.SYSTEM)) return
-
-  if (task.bizType === BIZ_TYPE.SERVICE_REVIEW_PREVIEW) {
-    const review = await prisma.serviceAlbumReview.findUnique({
-      where: { id: task.bizId },
-      select: { userId: true },
-    })
-    if (!review || review.userId !== auth.userId) {
-      const err = new Error('无权访问该脱敏任务')
-      err.status = 403
-      throw err
-    }
-    return
-  }
 
   const albumId = String(task.bizId || task.albumId || '').trim()
   if (!albumId) {
@@ -1822,138 +1755,6 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
       maskingConfirmedAt: new Date(),
     },
   })
-  if (task.bizType === BIZ_TYPE.SERVICE_AUTHORIZE || task.bizType === BIZ_TYPE.ORDER_AUTHORIZE) {
-    await markAlbumReviewImagesPreviewConfirmed(task.bizId)
-  }
-  return getTaskById(taskId)
-}
-
-async function markAlbumReviewImagesPreviewConfirmed(albumId) {
-  const review = await prisma.serviceAlbumReview.findFirst({
-    where: {
-      albumId,
-      status: { in: [ALBUM_REVIEW_STATUS.SUBMITTED, ALBUM_REVIEW_STATUS.REPLIED] },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-  if (!review) return
-  const rawUrls = parseRawReviewImages(review.imagesJson)
-  if (!rawUrls.length) return
-  await prisma.serviceAlbumReview.update({
-    where: { id: review.id },
-    data: { imagesPreviewConfirmed: true },
-  })
-}
-
-async function createReviewImagePreviewTask(reviewId, userId) {
-  const review = await prisma.serviceAlbumReview.findUnique({ where: { id: reviewId } })
-  if (!review) {
-    const err = new Error('评价不存在')
-    err.status = 404
-    throw err
-  }
-  if (review.userId !== userId) {
-    const err = new Error('无权查看该评价')
-    err.status = 403
-    throw err
-  }
-
-  const album = await prisma.album.findUnique({
-    where: { id: review.albumId },
-    select: { publicCaseStatus: true },
-  })
-  const publicCaseStatus = album?.publicCaseStatus || 'private'
-  if (!['pending_review', 'public_approved'].includes(publicCaseStatus)) {
-    const err = new Error('当前无需核对评价配图')
-    err.status = 409
-    throw err
-  }
-
-  const rawUrls = parseRawReviewImages(review.imagesJson)
-  if (!rawUrls.length) {
-    const err = new Error('该评价无配图')
-    err.status = 409
-    throw err
-  }
-
-  const row = await ensureReviewImagesMasked(review)
-  const assetInputs = buildReviewAssetInputsFromRow(row)
-  if (!assetInputs.length) {
-    const err = new Error('评价配图尚未就绪')
-    err.status = 409
-    throw err
-  }
-
-  const taskId = buildReviewPreviewTaskId(reviewId)
-  await prisma.desensitizeTask.upsert({
-    where: { taskId },
-    create: {
-      taskId,
-      bizType: BIZ_TYPE.SERVICE_REVIEW_PREVIEW,
-      bizId: reviewId,
-      orderId: null,
-      operatorRole: 'user',
-      liabilityType: 'user',
-      fromPreMask: true,
-      assets: { create: assetInputs },
-    },
-    update: {
-      bizType: BIZ_TYPE.SERVICE_REVIEW_PREVIEW,
-      bizId: reviewId,
-      operatorRole: 'user',
-      liabilityType: 'user',
-      fromPreMask: true,
-      maskingConfirmed: false,
-      maskingConfirmedAt: null,
-      assets: {
-        deleteMany: {},
-        create: assetInputs,
-      },
-    },
-  })
-
-  return {
-    taskId,
-    albumId: review.albumId,
-    reviewId,
-    fromPreMask: true,
-  }
-}
-
-async function confirmReviewImagePreviewTask(taskId, opts = {}) {
-  if (!opts.liabilityAccepted) {
-    const err = new Error('请勾选责任确认')
-    err.status = 400
-    throw err
-  }
-  const task = await getTaskById(taskId)
-  const auth = normalizeTaskAuthOptions(opts)
-  if (auth) await assertDesensitizeTaskAccess(task, auth)
-  if (!task || task.bizType !== BIZ_TYPE.SERVICE_REVIEW_PREVIEW) {
-    const err = new Error('任务类型不匹配')
-    err.status = 400
-    throw err
-  }
-  if (!allMaskingSucceeded(task.rawAssets)) {
-    const err = new Error('仍有图片未完成脱敏')
-    err.status = 400
-    throw err
-  }
-  await prisma.desensitizeAsset.updateMany({
-    where: { taskId },
-    data: { status: ASSET_STATUS.CONFIRMED, previewed: true },
-  })
-  await prisma.desensitizeTask.update({
-    where: { taskId },
-    data: {
-      maskingConfirmed: true,
-      maskingConfirmedAt: new Date(),
-    },
-  })
-  await prisma.serviceAlbumReview.update({
-    where: { id: task.bizId },
-    data: { imagesPreviewConfirmed: true },
-  })
   return getTaskById(taskId)
 }
 
@@ -2377,8 +2178,6 @@ module.exports = {
   markAssetPreviewed,
   excludeAuthorizeAsset,
   confirmOrderAuthorizeTask,
-  confirmReviewImagePreviewTask,
-  createReviewImagePreviewTask,
   persistMaskedPairsToAlbumFlow,
   createMerchantColdStartAuthorizeTaskFromPreMask,
 }

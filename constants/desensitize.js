@@ -7,7 +7,6 @@ const BIZ_TYPE = {
   ORDER_AUTHORIZE: 'order_authorize',
   SERVICE_PRE_MASK: 'service_pre_mask',
   SERVICE_AUTHORIZE: 'service_authorize',
-  SERVICE_REVIEW_PREVIEW: 'service_review_preview',
   STANDALONE_TOOL: 'standalone_tool',
 }
 
@@ -50,10 +49,6 @@ const LIABILITY_COPY = {
   [BIZ_TYPE.SERVICE_AUTHORIZE]: {
     body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
     confirmLabel: '发布到公开网站',
-  },
-  [BIZ_TYPE.SERVICE_REVIEW_PREVIEW]: {
-    body: '本人已逐张核对评价配图脱敏效果，同意在已发布公开案例中展示。',
-    confirmLabel: '确认评价配图',
   },
   [BIZ_TYPE.STANDALONE_TOOL]: {
     body:

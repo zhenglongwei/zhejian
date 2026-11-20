@@ -74,7 +74,7 @@
     <el-card shadow="never" class="section">
       <template #header>
         <div class="section-head">
-          <span>脱敏图审核 · OCR 风险</span>
+          <span>脱敏图审核 · AI 识别风险</span>
           <el-button
             v-if="hasRetryableAssets"
             size="small"
@@ -253,7 +253,7 @@ const desensitizeAlert = computed(() => {
   if (s.needManualCount) parts.push(`${s.needManualCount} 张需人工`)
   if (s.failedCount) parts.push(`${s.failedCount} 张脱敏失败`)
   if (s.pendingCount) parts.push(`${s.pendingCount} 张待脱敏`)
-  return `部分图片脱敏未完成（${parts.join('、')}），仅供参考；不阻断通过。可结合 OCR 判断隐私风险，必要时驳回。`
+  return `部分图片脱敏未完成（${parts.join('、')}），仅供参考；不阻断通过。可结合图片识别结果判断隐私风险，必要时驳回。`
 })
 const showGeoEditor = computed(
   () =>

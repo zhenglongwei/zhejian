@@ -65,9 +65,8 @@ async function runGateUserAction(page, actionKey, detail = {}) {
       wx.showLoading({ title: '加载中', mask: true })
       const preview = await prepareServiceAuthorizePreview(albumId)
       wx.hideLoading()
-      const source = detail.desensitizePreviewSource || 'service'
       wx.navigateTo({
-        url: `/pages/desensitize/preview/index?taskId=${encodeURIComponent(preview.taskId || '')}&albumId=${albumId}&source=${source}&fromPreMask=1`,
+        url: `/pages/desensitize/preview/index?taskId=${encodeURIComponent(preview.taskId || '')}&albumId=${albumId}&source=service&fromPreMask=1`,
       })
     } catch (e) {
       wx.hideLoading()

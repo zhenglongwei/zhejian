@@ -36,7 +36,7 @@
       <el-empty v-else description="暂无脱敏图" :image-size="48" />
     </div>
     <div v-if="detectionRows.length" class="compare-panel__ocr">
-      <div class="compare-panel__label">OCR / 检测摘要</div>
+      <div class="compare-panel__label">隐私识别摘要</div>
       <el-table :data="detectionRows" size="small" border>
         <el-table-column prop="detectType" label="类型" width="100" />
         <el-table-column prop="riskLevel" label="风险" width="90" />

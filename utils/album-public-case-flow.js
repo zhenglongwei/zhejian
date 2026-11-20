@@ -12,14 +12,6 @@ const PUBLIC_CASE_STATUS_VARIANT = {
   user_rejected: 'info',
 }
 
-const IMAGE_MASK_TAG = {
-  none: '',
-  pending: '脱敏中',
-  ready: '已脱敏',
-  partial: '部分脱敏',
-  failed: '脱敏失败',
-}
-
 function resolveReviewStepLabel(hasReview) {
   return hasReview ? '已完成' : '待填写'
 }
@@ -43,7 +35,6 @@ function canStartAuthorizePublic(publicCaseStatus, eligible) {
 function buildSyncStatusTags({
   publicCaseStatus,
   reviewAuthorizePublic,
-  imagesMaskStatus,
   hasReview,
 }) {
   if (!hasReview) return []
@@ -54,13 +45,6 @@ function buildSyncStatusTags({
     tags.push({ text: '待案例通过', variant: 'warning' })
   } else {
     tags.push({ text: '待授权公示', variant: 'info' })
-  }
-  const mask = IMAGE_MASK_TAG[imagesMaskStatus]
-  if (mask) {
-    tags.push({
-      text: mask,
-      variant: imagesMaskStatus === 'failed' ? 'warning' : 'info',
-    })
   }
   return tags
 }
@@ -90,11 +74,6 @@ function buildReviewSyncedHint() {
   return ''
 }
 
-/** @deprecated 改用 buildSyncStatusTags */
-function buildReviewImageMaskHint(imagesMaskStatus) {
-  return IMAGE_MASK_TAG[imagesMaskStatus] || ''
-}
-
 module.exports = {
   PUBLIC_CASE_STATUS_LABEL,
   resolveReviewStepLabel,
@@ -107,5 +86,4 @@ module.exports = {
   buildFlowGuideText,
   buildPublicConsentHint,
   buildReviewSyncedHint,
-  buildReviewImageMaskHint,
 }

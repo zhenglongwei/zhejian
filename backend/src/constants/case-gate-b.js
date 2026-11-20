@@ -39,8 +39,8 @@ const GATE_B_REJECT_META = {
   },
   [GATE_B_REJECT_TYPE.REVIEW_IMAGE]: {
     label: '评价配图',
-    userHint: '评价配图脱敏或内容不符合要求，请修改评价配图后重新提交公示。',
-    userActions: ['edit_review', 'retry_desensitize', 'resubmit_public_case'],
+    userHint: '评价配图内容不符合要求，请在评价页更换配图后重新提交公示。',
+    userActions: ['edit_review', 'resubmit_public_case'],
   },
   [GATE_B_REJECT_TYPE.AUTHORIZATION]: {
     label: '授权信息',
@@ -95,7 +95,6 @@ function buildGateBUserPayload(publicCase) {
     userHint: meta.userHint,
     userActions: meta.userActions,
     canResubmitPublicCase: status === 'need_modify' || status === 'rejected',
-    desensitizePreviewSource: 'review',
   }
 }
 

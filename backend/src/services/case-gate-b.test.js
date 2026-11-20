@@ -26,7 +26,14 @@ test('buildGateBUserPayload for need_modify', () => {
   assert.equal(payload.rejectType, GATE_B_REJECT_TYPE.REVIEW_CONTENT)
   assert.equal(payload.canResubmitPublicCase, true)
   assert.ok(payload.userActions.includes('edit_review'))
-  assert.equal(payload.desensitizePreviewSource, 'review')
+})
+
+test('评价配图驳回只让车主更换配图，不再引导去脱敏预览', () => {
+  const payload = buildGateBUserPayload({
+    status: 'need_modify',
+    gateBRejectType: GATE_B_REJECT_TYPE.REVIEW_IMAGE,
+  })
+  assert.deepEqual(payload.userActions, ['edit_review', 'resubmit_public_case'])
 })
 
 test('B gate reject unlocks merchant album when case rejected', () => {

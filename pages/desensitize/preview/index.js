@@ -61,21 +61,14 @@ Page({
     const taskId = (query && query.taskId) || ''
     const albumId = (query && query.albumId) || ''
     const orderId = (query && query.orderId) || ''
-    const albumTitle = decodeURIComponent((query && query.albumTitle) || '')
     const source = (query && query.source) || (orderId ? 'order' : 'service')
     const fromPreMask = query && query.fromPreMask === '1'
-    const isReviewPreview = source === 'review'
     const isDraftOnly = source === 'service'
-    const copyKey = isReviewPreview
-      ? BIZ_TYPE.SERVICE_REVIEW_PREVIEW
-      : source === 'service'
-        ? BIZ_TYPE.SERVICE_AUTHORIZE
-        : BIZ_TYPE.ORDER_AUTHORIZE
+    const copyKey = isDraftOnly ? BIZ_TYPE.SERVICE_AUTHORIZE : BIZ_TYPE.ORDER_AUTHORIZE
     const copy = LIABILITY_COPY[copyKey] || LIABILITY_COPY[BIZ_TYPE.SERVICE_AUTHORIZE]
-    const showPolicyLink = !isReviewPreview
-    const consentParts = splitConsentWithPolicyLink(copy.body, showPolicyLink)
+    const consentParts = splitConsentWithPolicyLink(copy.body, true)
     wx.setNavigationBarTitle({
-      title: isReviewPreview ? '评价配图预览' : isDraftOnly ? '预览案例文案' : '脱敏预览',
+      title: isDraftOnly ? '预览案例文案' : '脱敏预览',
     })
     if (isDraftOnly) {
       wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
@@ -90,7 +83,6 @@ Page({
       fromPreMask,
       isDraftOnly,
       authTier: 'named',
-      albumTitle,
       liabilityText: consentParts.before,
       liabilityTextAfter: consentParts.after,
       policyLinkText: consentParts.link,
@@ -170,7 +162,7 @@ Page({
 
   async loadAuthorizeAiSummary(task = null) {
     const { source, albumId } = this.data
-    if (source === 'review' || source !== 'service' || !albumId) return ''
+    if (source !== 'service' || !albumId) return ''
     try {
       const album = this._authorizeAlbum || (await fetchServiceAlbum(albumId))
       const draft = album.merchantCaseDraft || null
@@ -339,15 +331,7 @@ Page({
   },
 
   onBackAlbum() {
-    const { orderId, albumId, source, albumTitle } = this.data
-    if (source === 'review' && albumId) {
-      wx.redirectTo({
-        url:
-          `/pages/album/engage/index?albumId=${encodeURIComponent(albumId)}` +
-          (albumTitle ? `&albumTitle=${encodeURIComponent(albumTitle)}` : ''),
-      })
-      return
-    }
+    const { orderId, albumId, source } = this.data
     if (source === 'service' && albumId) {
       wx.redirectTo({
         url: `/pages/album/owner-share/index?albumId=${encodeURIComponent(albumId)}`,
@@ -394,10 +378,6 @@ Page({
   async onExcludeAsset(e) {
     const assetId = e.detail && e.detail.assetId
     if (!assetId || !this.data.taskId) return
-    if (this.data.source === 'review') {
-      wx.showToast({ title: '评价配图请在评价页调整', icon: 'none' })
-      return
-    }
     try {
       const res = await new Promise((resolve) => {
         wx.showModal({
@@ -506,13 +486,6 @@ Page({
       await confirmOrderAuthorizeTask(this.data.taskId, {
         liabilityAccepted: true,
       })
-      if (this.data.source === 'review') {
-        wx.showToast({ title: '已确认评价配图', icon: 'success', duration: 2000 })
-        setTimeout(() => {
-          this.onBackAlbum()
-        }, 2000)
-        return
-      }
       if (this.data.source === 'service') {
         const detail = this.data.detail || this._authorizeAlbum || {}
         const publicStatus = String(detail.publicCaseStatus || '')

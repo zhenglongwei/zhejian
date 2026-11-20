@@ -102,7 +102,7 @@
       </view>
     </block>
 
-    <!-- 订单授权 / 评价配图等：保留脱敏对比工作台 -->
+    <!-- 订单授权：保留脱敏对比工作台 -->
     <block wx:else>
       <view class="desensitize-preview__banner">
         <ui-privacy-banner scene="desensitize" />

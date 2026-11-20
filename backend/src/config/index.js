@@ -197,13 +197,9 @@ const config = {
     timeoutMs: Number(process.env.ALIYUN_VIN_TIMEOUT_MS || 12000),
   },
   desensitize: {
-    engine: process.env.DESENSITIZE_ENGINE || 'aliyun',
+    /** 只有 dev 有意义（本地角标引擎）；其余值一律走「大模型给框 → 贴码」 */
+    engine: process.env.DESENSITIZE_ENGINE || 'model',
     apiTimeoutMs: Number(process.env.DESENSITIZE_API_TIMEOUT_MS || 15000),
-    maxFaceNumber: Number(process.env.DESENSITIZE_MAX_FACE_NUMBER || 10),
-    /** 车辆接车图默认不做人脸检测，避免误检整图 */
-    detectFace: process.env.DESENSITIZE_DETECT_FACE === 'true',
-    /** ocr-api 在部分 ECS 不可达，默认 viapi（ocr.cn-shanghai） */
-    plateProvider: process.env.DESENSITIZE_PLATE_PROVIDER || 'viapi',
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
     cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v9',
   },
