@@ -1,9 +1,6 @@
 /* ============================================================
    盈简科技 simplewin.cn 统一设计系统
    与首页 index.html 同款设计令牌：--ink/--sub/--line/--brand/--brand-bg/--ok
-   注意：--color-border / --color-muted / --color-danger 是
-   js/check.js 与 js/rank.js 生成 DOM 时内联引用的变量名，
-   改名会让内联样式失效，只能作为别名保留。
    ============================================================ */
 :root {
   /* 新设计令牌（与 index.html 完全一致） */
@@ -28,13 +25,6 @@
   --color-success: var(--ok);
   --color-warning: var(--warn);
   --color-danger: var(--danger);
-
-  /* js/check.js、js/rank.js 内联样式引用的变量别名，勿删 */
-  --color-border: var(--line);
-  --color-muted: var(--sub);
-  --color-bg-muted: var(--soft);
-  --color-bg-card: #fff;
-  --color-bg-page: #fff;
 
   --radius-md: 10px;
   --radius-lg: 12px;
@@ -157,24 +147,7 @@ footer.site a:hover { color: var(--brand); }
 .mp-entry img { width: 96px; height: 96px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .mp-entry p { margin: 0; max-width: 420px; font-size: 13px; }
 
-/* ===== 体检页 ===== */
-.tag {
-  display: inline-block;
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: var(--brand-bg);
-  color: var(--brand);
-  font-weight: 600;
-  margin-right: 6px;
-}
-.gap { color: var(--warn); }
-.ok { color: var(--ok); }
-.err { color: var(--danger); }
-.hit { font-size: 14px; margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid var(--soft); }
-.hit a { word-break: break-all; }
-.empty, .error-box { padding: 16px; background: var(--soft); border-radius: var(--radius-md); font-size: 14px; }
-.error-box { color: var(--danger); }
+/* 说明页分节小标题（zhejian.html 在用） */
 .step-kicker {
   margin: 0 0 8px;
   font-size: 12px;
@@ -182,46 +155,6 @@ footer.site a:hover { color: var(--brand); }
   color: var(--brand);
   font-weight: 600;
 }
-.how-to { padding-left: 1.2em; color: var(--sub); }
-.how-to-box {
-  background: var(--soft);
-  border-left: 4px solid var(--brand);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  margin: 12px 0 16px;
-}
-.how-to-box p { margin: 0 0 8px; }
-.question-list { list-style: none; padding: 0; margin: 12px 0; }
-.question-list li {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--soft);
-  font-size: 15px;
-}
-.btn-copy, .btn-competitor { flex-shrink: 0; padding: 6px 14px; font-size: 13px; }
-/* 体检页 · 题单编辑器（2026-08-30 老板 4 点优化：问题先确认再轮询） */
-.question-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--soft);
-}
-.question-item input[type='text'] {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-}
-.question-item .btn-ghost { flex-shrink: 0; padding: 6px 12px; font-size: 13px; }
-@media (max-width: 640px) {
-  .question-item { flex-wrap: wrap; }
-  .question-item input[type='text'] { flex-basis: 100%; }
-}
-.check-list { padding-left: 1.2em; }
-.shot-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 
 /* ===== 榜单页 ===== */
 .stat-grid {

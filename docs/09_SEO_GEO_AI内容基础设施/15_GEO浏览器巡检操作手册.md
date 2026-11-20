@@ -128,25 +128,15 @@ npm run geo:probe:rescore -- --stale 1             # 同时回收 1 分钟以上
 node scripts/diagnose-bing.js "杭州某店" 3         # 连查 18 次，看某平台是不是真的挂了
 node scripts/probe-search-smoke.js                 # 各搜索平台抓域名/来源的抽样体检
 node scripts/probe-dom-dump.js                     # 导出结果节点 DOM，用于校准选择器
-
-# 页面渲染冒烟
-node scripts/diagnose-page.js rank                 # 榜单页：统计条、三分数对照、表格行数
-node scripts/diagnose-page.js check                # 体检页：只验静态文案，不调接口
-npm run geo-check:page-smoke                       # 体检页全流程：带桩接口，不联网不写库
+node scripts/smoke-llm-poll.js                     # 轮询通道纯函数冒烟（不联网、不写库）
 ```
 
-### 4.1 改完前端用哪个脚本验
+### 4.1 前端冒烟脚本随体检页一起下线（2026-11-20）
 
-| 改动位置 | 用哪个 | 它验到哪一层 |
-|---|---|---|
-| `brand-web/check.html` 静态文案 | `diagnose-page.js check` | 只渲染页面，不调接口 |
-| `brand-web/js/check.js` **任何改动** | `geo-check:page-smoke` | **点提交 → 出接口联网分 → 点巡检 → 出双分数对照，16 条断言** |
-
-`geo-check:page-smoke` 为什么必须存在：体检第一步要调百度、通义、混元、豆包四个外部接口，
-本机通常一个密钥都没配，页面只会显示「后端还没配检索密钥」，这条渲染路径就再也没被自动验过。
-脚本起一个桩接口喂结构完全真实的假数据，把 `check.js` 从头渲染到尾——不联网、不花钱、不写库。
-它盯的是三类最容易翻车的错：分数渲染成 `undefined/undefined`、`未测` 被 0 顶替、
-「截图 / 手动补测」这类已下线的字样死灰复燃。
+`scripts/diagnose-page.js`、`scripts/diagnose-check-flow.js` 与 `npm run geo-check:page-smoke` 只服务
+`brand-web/check.html` + `js/check.js` 的渲染，官网体检页下线后一并删除。  
+要验评分口径改动，直接跑 `npm run geo:probe:rescore -- --all`（用库内历史回执重算，不回浏览器）；
+要验轮询通道，跑 `npm run geo-check:hunyuan-weixin-smoke` 或 `node scripts/smoke-llm-poll.js`。
 
 参数速查：
 - `--questions N` 每平台题数（默认 3，最大 6）

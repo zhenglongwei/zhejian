@@ -478,7 +478,7 @@ const config = {
     /** 单次粘贴的群聊文本上限，超了直接拒——长群聊没有归档价值，还容易把 token 烧穿 */
     maxChars: Number(envStr('WECHAT_ARCHIVE_MAX_CHARS') || 20000),
   },
-  /** 卷十六 · 公开 GEO 体检 */
+  /** 卷十六 · GEO 体检：官网公开入口已下线，这套配置只服务内部巡检脚本 */
   geoCheck: {
     dailyLimitPerIp: Number(process.env.GEO_CHECK_DAILY_LIMIT || 8),
     baiduSearchUrl: envStr(
