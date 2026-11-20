@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-form.wxss';
+@import '../../../../styles/mch-craft.wxss';
 
 .wechat-archive {
   padding-bottom: calc(var(--page-fixed-clearance) + var(--space-lg));
@@ -77,8 +78,8 @@
 }
 
 .wechat-archive__plus {
-  color: var(--color-text-tertiary);
-  font-size: 48rpx;
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .wechat-archive__chip {

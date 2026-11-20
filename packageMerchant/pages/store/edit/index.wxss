@@ -1,6 +1,7 @@
 @import '../../../../styles/merchant-form.wxss';
 @import '../../../../styles/merchant-hours.wxss';
 @import '../../onboarding/index.wxss';
+@import '../../../../styles/mch-craft.wxss';
 
 .merchant-store-edit__panel {
   margin-top: var(--space-md);
@@ -326,8 +327,9 @@
   margin-top: var(--space-sm);
   padding: 30rpx;
   border-radius: 34rpx;
-  color: var(--color-text-inverse);
-  background: linear-gradient(135deg, var(--color-mch-ai-start), var(--color-mch-ai-end));
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
+  box-shadow: var(--mch-shadow-card);
 }
 
 .merchant-store-edit__score-copy {
@@ -338,7 +340,7 @@
 .merchant-store-edit__score-kicker,
 .merchant-store-edit__score-sub {
   display: block;
-  color: var(--color-mch-hero-sub);
+  color: var(--color-text-secondary);
   font-size: var(--font-mch-kicker);
   line-height: var(--font-mch-kicker-lh);
 }
@@ -349,13 +351,13 @@
   font-size: var(--font-h3);
   line-height: var(--font-h3-lh);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-inverse);
+  color: var(--color-text-primary);
 }
 
 .merchant-store-edit__score-gaps {
   display: block;
   margin-top: 6rpx;
-  color: var(--color-mch-hero-sub);
+  color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
 }
@@ -384,12 +386,13 @@
 .merchant-store-edit__score-num {
   width: 112rpx;
   height: 112rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.28);
+  border: 2rpx solid var(--color-border);
   border-radius: var(--radius-full);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  color: var(--color-primary);
   font-size: var(--font-h2);
   font-weight: var(--font-weight-semibold);
   flex: none;
@@ -471,8 +474,9 @@
   margin-top: var(--space-sm);
   padding: 28rpx;
   border-radius: 34rpx;
-  color: var(--color-text-inverse);
-  background: linear-gradient(135deg, var(--color-mch-ai-start), var(--color-mch-ai-end));
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
+  box-shadow: var(--mch-shadow-card);
 }
 
 .merchant-store-edit__skill-ico {
@@ -480,13 +484,13 @@
   height: 72rpx;
   padding: 16rpx;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--color-mch-blue-soft);
   flex: none;
 }
 
 .merchant-store-edit__skill-kicker {
   display: block;
-  color: var(--color-mch-hero-sub);
+  color: var(--color-text-secondary);
   font-size: var(--font-mch-kicker);
   line-height: var(--font-mch-kicker-lh);
 }
@@ -534,8 +538,17 @@
 }
 
 .merchant-store-edit__brand-x {
-  color: var(--color-text-tertiary);
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
   padding: 8rpx;
+  box-sizing: content-box;
+}
+
+.merchant-store-edit__check {
+  flex: none;
+  width: 26rpx;
+  height: 26rpx;
 }
 
 .merchant-store-edit__skill {

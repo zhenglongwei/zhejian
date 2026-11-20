@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-form.wxss';
+@import '../../../../styles/mch-craft.wxss';
 
 .svc-create__cover-wrap {
   margin-top: var(--space-sm);
@@ -32,10 +33,8 @@
   right: 8rpx;
   width: 40rpx;
   height: 40rpx;
-  line-height: 40rpx;
-  text-align: center;
   border-radius: var(--radius-full);
   background-color: rgba(0, 0, 0, 0.45);
-  color: var(--color-text-inverse);
-  font-size: 28rpx;
+  padding: 10rpx;
+  box-sizing: border-box;
 }

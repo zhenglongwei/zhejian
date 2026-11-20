@@ -7,6 +7,8 @@ const {
   confirmHostedPublicPublish,
   fetchHostPublicFace,
   ensureHostDesensitizeTask,
+  fetchHostPreviewCache,
+  saveHostPreviewEdit,
 } = require('../../../../services/merchant-service-album')
 const { fetchTask, runAutoMask } = require('../../../../services/desensitize')
 const { SERVICE_ALBUM_STATUS } = require('../../../../constants/service-album-status')
@@ -381,6 +383,7 @@ Page({
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
     geoGenerating: false,
+    geoHumanEdited: false,
     summaryHint: '',
     faqHint: '',
   },
@@ -398,6 +401,88 @@ Page({
   onShow() {
     if (this.albumId && this.data.status === 'ready' && this.data.wizardStep === 2) {
       this.loadPublicFace({ silent: true })
+    }
+  },
+
+  onHide() {
+    this.flushGeoPreviewEdits()
+  },
+
+  onUnload() {
+    this.flushGeoPreviewEdits()
+  },
+
+  /**
+   * HOST-PREVIEW · 预览缓存里的人工稿优先回显。
+   * hostMeta.geoDraft 只在跑过一次生成后才带上覆盖稿，直接进页要认缓存表这份。
+   */
+  applyCachedPreviewEdits(edits) {
+    if (!edits || typeof edits !== 'object') return
+    const summary = String(edits.summary || '').trim()
+    const faqEdited = Boolean(edits.faqEdited)
+    if (!summary && !faqEdited) return
+    const list = faqEdited ? normalizeGeoFaq(edits.faq) : this.data.geoFaq
+    const next = {
+      geoHumanEdited: true,
+      ...(summary ? { geoSummary: summary } : {}),
+      ...(faqEdited
+        ? {
+            geoFaq: list,
+            geoFaqEmpty: !list.length,
+            geoFaqUnanswered: list.filter((row) => !String(row.a || '').trim()).length,
+          }
+        : {}),
+    }
+    this._previewCacheEdits = edits
+    this.setData({
+      ...next,
+      ...decorateGeoCopyState(
+        this._baseQualitySuggestions,
+        next.geoSummary || this.data.geoSummary,
+        next.geoFaq || this.data.geoFaq,
+      ),
+    })
+  },
+
+  async loadPreviewCacheEdits() {
+    if (!this.albumId) return
+    try {
+      const cache = await fetchHostPreviewCache(this.albumId)
+      this.applyCachedPreviewEdits(cache && cache.edits)
+    } catch (_) {
+      /* 缓存读不到不挡预览，退回相册里的草稿 */
+    }
+  },
+
+  markGeoEditDirty(partition) {
+    this._geoEditDirty = this._geoEditDirty || {}
+    this._geoEditDirty[partition] = true
+  },
+
+  /** 只送改过的分区：摘要失焦不该把问答的「全删光」决定一起冲掉 */
+  buildGeoEditPayload() {
+    const dirty = this._geoEditDirty || {}
+    const payload = {}
+    if (dirty.summary) payload.summary = String(this.data.geoSummary || '')
+    if (dirty.faq) {
+      payload.faq = (this.data.geoFaq || []).map((row) => ({
+        q: String((row && row.q) || ''),
+        a: String((row && row.a) || ''),
+      }))
+    }
+    return payload
+  },
+
+  async flushGeoPreviewEdits() {
+    const payload = this.buildGeoEditPayload()
+    if (!Object.keys(payload).length) return
+    this._geoEditDirty = {}
+    this.setData({ geoHumanEdited: true })
+    try {
+      const res = await saveHostPreviewEdit(this.albumId, payload)
+      this._previewCacheEdits = (res && res.edits) || this._previewCacheEdits
+    } catch (_) {
+      /* 保存失败下次失焦再试，不打断编辑 */
     }
   },
 
@@ -960,6 +1045,8 @@ Page({
     try {
       this._autoMaskTried = false
       await this.ensureAutoMaskOnReview()
+      // 上次改过的摘要/问法住缓存表：先回显，再决定要不要跑生成
+      await this.loadPreviewCacheEdits()
       await this.ensureGeoDraftForPreview()
       await this.loadPublicFace({ silent: true })
       this.setData({
@@ -998,8 +1085,12 @@ Page({
         : this.data.qualitySuggestions
       this._baseQualitySuggestions = qualitySuggestions
       this._geoDraftFetched = true
+      // 服务端返回的草稿已含人工覆盖层，本地待存标记到此作废
+      this._geoEditDirty = {}
+      this._previewCacheEdits = null
       this.setData({
         ...applyGeoDraftToPageData(draft),
+        geoHumanEdited: Boolean(draft.humanEdited),
         publicPublishStage: res.publicPublishStage || this.data.publicPublishStage,
         ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
       })
@@ -1034,7 +1125,19 @@ Page({
 
   onRegenerateGeoDraft() {
     if (this.data.working || this.data.geoGenerating) return
-    return this.runGeoDraftGeneration({ forceRegen: true })
+    if (!this.data.geoHumanEdited) {
+      return this.runGeoDraftGeneration({ forceRegen: true })
+    }
+    // 重生成会清掉缓存里的人工稿，且找不回来，先问一句
+    wx.showModal({
+      title: '覆盖你的修改？',
+      content: '摘要或问法里有你手动改过的内容，重新生成会用 AI 稿覆盖，改回来的版本不再保留。',
+      confirmText: '重新生成',
+      cancelText: '保留我的',
+      success: (res) => {
+        if (res && res.confirm) this.runGeoDraftGeneration({ forceRegen: true })
+      },
+    })
   },
 
   onDismissPrivacyAgreement() {
@@ -1113,14 +1216,20 @@ Page({
 
   onGeoSummaryInput(e) {
     const geoSummary = e.detail.value
+    this.markGeoEditDirty('summary')
     this.setData({
       geoSummary,
+      geoHumanEdited: true,
       ...decorateGeoCopyState(
         this._baseQualitySuggestions,
         geoSummary,
         this.data.geoFaq,
       ),
     })
+  },
+
+  onGeoSummaryBlur() {
+    this.flushGeoPreviewEdits()
   },
 
   onAddHighlight() {
@@ -1160,12 +1269,15 @@ Page({
       { q: '', a: '', needsAnswer: true, _k: `faq_${Date.now()}` },
     ]
     const unanswered = list.filter((row) => !String(row.a || '').trim()).length
+    this.markGeoEditDirty('faq')
     this.setData({
       geoFaq: list,
       geoFaqEmpty: false,
       geoFaqUnanswered: unanswered,
+      geoHumanEdited: true,
       ...decorateGeoCopyState(this._baseQualitySuggestions, this.data.geoSummary, list),
     })
+    this.flushGeoPreviewEdits()
   },
 
   onRemoveFaq(e) {
@@ -1173,18 +1285,22 @@ Page({
     if (!Number.isFinite(index)) return
     const list = (this.data.geoFaq || []).filter((_, i) => i !== index)
     const unanswered = list.filter((row) => !String(row.a || '').trim()).length
+    this.markGeoEditDirty('faq')
     this.setData({
       geoFaq: list,
       geoFaqEmpty: !list.length,
       geoFaqUnanswered: unanswered,
+      geoHumanEdited: true,
       ...decorateGeoCopyState(this._baseQualitySuggestions, this.data.geoSummary, list),
     })
+    this.flushGeoPreviewEdits()
   },
 
   onFaqFieldInput(e) {
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
     if (!Number.isFinite(index) || (field !== 'q' && field !== 'a')) return
+    this.markGeoEditDirty('faq')
     const list = (this.data.geoFaq || []).map((row, i) => {
       if (i !== index) return row
       const next = { ...row, [field]: e.detail.value }
@@ -1196,8 +1312,13 @@ Page({
       geoFaq: list,
       geoFaqEmpty: !list.length,
       geoFaqUnanswered: unanswered,
+      geoHumanEdited: true,
       ...decorateGeoCopyState(this._baseQualitySuggestions, this.data.geoSummary, list),
     })
+  },
+
+  onFaqFieldBlur() {
+    this.flushGeoPreviewEdits()
   },
 
 })

@@ -174,10 +174,10 @@
       <view class="merchant-onboard__photo-grid">
         <view wx:for="{{form.workshopPhotoUrls}}" wx:key="*this" class="merchant-onboard__photo-wrap">
           <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
-          <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
+          <image class="merchant-onboard__photo-del" src="/assets/mch/close-white.png" mode="aspectFit" data-index="{{index}}" catchtap="onRemoveWorkshop" />
         </view>
         <view class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
-          <text class="text-caption">+</text>
+          <image class="merchant-onboard__photo-add" src="/assets/mch/plus-gray.png" mode="aspectFit" />
         </view>
       </view>
     </view>

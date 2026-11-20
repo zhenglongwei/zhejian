@@ -57,7 +57,6 @@
     <block wx:else>
       <view class="mch-top" style="padding-right: {{capsulePad}}px;">
         <view class="mch-top__main">
-          <text class="mch-kicker">服务相册 · 商家端</text>
           <view class="mch-brand-block">
             <view class="mch-brand">{{profile.storeName}}</view>
             <text
@@ -71,46 +70,46 @@
       </view>
 
       <view class="mch-hero">
-        <image class="mch-hero__car" src="/assets/mch/car-white.png" mode="aspectFit" />
         <view class="mch-hero__copy">
           <block wx:if="{{home.heroCount}}">
-            <view class="mch-hero__title">今天，有 <text class="mch-hero__em">{{home.heroCount}} 台车</text></view>
+            <view class="mch-hero__title">今天，有 <text class="mch-hero__em">{{home.heroCount}}</text> 台车</view>
             <view class="mch-hero__title">等待继续服务</view>
           </block>
           <view wx:else class="mch-hero__title">今天没有车在服务</view>
           <view class="mch-hero__desc">记录过程，沉淀信任，让每一次维修都成为门店的数字口碑。</view>
-          <view class="mch-hero__btn" bindtap="onCreateAlbum">+ 新建服务相册</view>
+          <view class="mch-hero__btn" bindtap="onCreateAlbum"><text class="mch-hero__btn-plus"></text>新建服务相册</view>
         </view>
       </view>
 
-      <view class="mch-metrics">
-        <view class="mch-metric">
-          <text class="mch-metric__label">进行中</text>
-          <text class="mch-metric__num">{{home.activeCountText}}</text>
-          <text class="mch-metric__hint mch-metric__hint--green">本店进行中</text>
-        </view>
-        <view class="mch-metric">
-          <text class="mch-metric__label">待确认</text>
-          <text class="mch-metric__num">{{home.pendingCountText}}</text>
-          <text class="mch-metric__hint">{{home.pendingHint}}</text>
-        </view>
+      <view
+        class="mch-metrics"
+        hover-class="mch-metrics--press"
+        hover-stay-time="80"
+        bindtap="onAlbumList"
+      >
         <view class="mch-metric">
           <text class="mch-metric__label">本月案例</text>
-          <text class="mch-metric__num">{{home.monthCountText}}</text>
-          <text class="mch-metric__hint">{{home.monthPublicText}}</text>
+          <text class="mch-metric__num {{home.monthCountText === '0' ? 'is-zero' : ''}}">{{home.monthCountText}}<text class="mch-metric__unit">本</text></text>
+        </view>
+        <view class="mch-metric">
+          <text class="mch-metric__label">已公开</text>
+          <text class="mch-metric__num {{home.monthPublicCountText === '0' ? 'is-zero' : ''}}">{{home.monthPublicCountText}}<text class="mch-metric__unit">本</text></text>
+        </view>
+        <view class="mch-metrics__go">
+          <text>服务相册</text>
+          <image class="mch-metrics__go-ico" src="/assets/mch/chevron-right-blue.png" mode="aspectFit" />
         </view>
       </view>
 
       <view class="mch-section-head">
         <view>
-          <text class="mch-kicker">今日进度</text>
           <view class="mch-section-title">正在服务</view>
         </view>
         <text class="mch-more" bindtap="onAlbumList">查看全部</text>
       </view>
 
       <block wx:if="{{home.featured}}">
-        <view class="mch-order" data-id="{{home.featured.albumId}}" bindtap="onHomeAlbumTap">
+        <view class="mch-order" hover-class="mch-order--press" hover-stay-time="80" data-id="{{home.featured.albumId}}" bindtap="onHomeAlbumTap">
           <view class="mch-order__top">
             <view class="mch-order__avatar">
               <image class="mch-mark__img" src="/assets/mch/car-blue.png" mode="aspectFit" />
@@ -126,26 +125,32 @@
             <view
               wx:for="{{home.featured.steps}}"
               wx:key="label"
-              class="mch-step {{item.state === 'done' || item.state === 'current' ? 'is-on' : ''}}"
+              class="mch-step {{item.state === 'done' ? 'is-done' : item.state === 'current' ? 'is-current' : ''}}"
             >
-              <text wx:if="{{item.state === 'done'}}" class="mch-step__mark">✓</text>
+              <view wx:if="{{item.state === 'done'}}" class="mch-step__check" />
               <text wx:else class="mch-step__dot" />
               <text>{{item.label}}</text>
             </view>
           </view>
         </view>
       </block>
+      <view wx:elif="{{listFailed}}" class="mch-empty mch-empty--error">
+        <text>相册没加载出来，检查一下网络再试。</text>
+        <text class="mch-empty__retry" hover-class="mch-empty__retry--press" hover-stay-time="80" bindtap="onRetryAlbums">重试</text>
+      </view>
       <view wx:else class="mch-empty">暂无服务相册。点上方按钮新建一本。</view>
 
       <view
         wx:for="{{home.compact}}"
         wx:key="albumId"
         class="mch-compact"
+        hover-class="mch-compact--press"
+        hover-stay-time="80"
         data-id="{{item.albumId}}"
         bindtap="onHomeAlbumTap"
       >
-        <view class="mch-compact__mark mch-compact__mark--{{item.pillTone}}">
-          <image class="mch-mark__img mch-mark__img--sm" src="{{item.markIcon}}" mode="aspectFit" />
+        <view class="mch-compact__mark">
+          <image class="mch-mark__img mch-mark__img--sm" src="/assets/mch/car-blue.png" mode="aspectFit" />
         </view>
         <view class="mch-compact__main">
           <text class="mch-compact__plate">{{item.plate}}</text>

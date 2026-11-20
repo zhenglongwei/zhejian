@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 page {
   background: var(--color-mch-bg);
 }

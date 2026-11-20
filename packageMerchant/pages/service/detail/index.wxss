@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 .service-detail__pad {
   padding-top: var(--space-md);
 }
@@ -85,9 +87,16 @@
 }
 
 .service-detail__store-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
   margin-top: var(--space-sm);
   color: var(--color-primary);
+}
+
+.service-detail__store-link-ico {
+  width: 24rpx;
+  height: 24rpx;
 }
 
 .merchant-svc-detail__banner {

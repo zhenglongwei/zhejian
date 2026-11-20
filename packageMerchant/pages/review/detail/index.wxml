@@ -20,15 +20,45 @@
     <view class="page-content merchant-review-detail__body">
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-review-detail__head">
-          <text class="text-h3">{{review.serviceName}}</text>
-          <text class="text-body">维修服务 <text class="review-stars">{{review.repairStars}}</text> · 过程相册 <text class="review-stars">{{review.albumStars}}</text></text>
+          <text class="merchant-review-detail__title text-h3">{{review.serviceName}}</text>
+          <text class="merchant-review-detail__time text-caption">{{review.createdAtText || review.createdAt}}</text>
         </view>
-        <text wx:if="{{review.vehicleLine}}" class="text-body">{{review.vehicleLine}}</text>
-        <text class="text-caption text-secondary">
-          {{review.ownerHint}} · 评价于 {{review.createdAtText || review.createdAt}}
-        </text>
+        <view wx:if="{{review.plate || review.model}}" class="merchant-review-detail__vehicle">
+          <text wx:if="{{review.plate}}" class="merchant-review-detail__plate">{{review.plate}}</text>
+          <text wx:if="{{review.model}}" class="merchant-review-detail__model">{{review.model}}</text>
+        </view>
+        <text class="merchant-review-detail__meta text-caption text-secondary">{{review.ownerHint}}</text>
         <view class="merchant-review-detail__tags">
           <ui-tag wx:if="{{review.hasFollowUp}}" variant="info" text="已追评" />
+        </view>
+        <view class="merchant-review-detail__divider" />
+        <view class="merchant-review-detail__rate">
+          <text class="merchant-review-detail__rate-label">维修服务</text>
+          <view class="merchant-review-detail__rate-right">
+            <view class="merchant-review-detail__stars">
+              <image
+                wx:for="{{starRange}}"
+                wx:key="*this"
+                src="{{review.repairScoreRounded >= item ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+                mode="aspectFit"
+              />
+            </view>
+            <text class="merchant-review-detail__score">{{review.repairScoreText}}</text>
+          </view>
+        </view>
+        <view class="merchant-review-detail__rate">
+          <text class="merchant-review-detail__rate-label">过程相册</text>
+          <view class="merchant-review-detail__rate-right">
+            <view class="merchant-review-detail__stars">
+              <image
+                wx:for="{{starRange}}"
+                wx:key="*this"
+                src="{{review.albumScoreRounded >= item ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+                mode="aspectFit"
+              />
+            </view>
+            <text class="merchant-review-detail__score">{{review.albumScoreText}}</text>
+          </view>
         </view>
       </ui-card>
 
@@ -43,14 +73,22 @@
             <text class="text-body">{{item.label}}</text>
             <text wx:if="{{item.hint}}" class="text-caption text-secondary">{{item.hint}}</text>
           </view>
-          <text class="text-body">{{item.value}} 星</text>
+          <view class="merchant-review-detail__stars merchant-review-detail__stars--sm">
+            <image
+              wx:for="{{starRange}}"
+              wx:for-item="star"
+              wx:key="*this"
+              src="{{item.value >= star ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+              mode="aspectFit"
+            />
+          </view>
         </view>
       </ui-card>
 
       <ui-card wx:if="{{review}}" shadow="{{true}}" padding="{{true}}">
         <text class="merchant-review-detail__section text-h3">车主评价</text>
         <text wx:if="{{review.content}}" class="text-body">{{review.content}}</text>
-        <text wx:else class="text-body text-secondary">车主未填写文字评价</text>
+        <text wx:else class="merchant-review-detail__empty text-body text-secondary">车主未填写文字评价</text>
         <view wx:if="{{review.tags.length}}" class="merchant-review-detail__tag-row">
           <ui-tag
             wx:for="{{review.tags}}"
@@ -59,7 +97,6 @@
             text="{{item}}"
           />
         </view>
-        <text wx:if="{{review.createdAtText}}" class="text-caption text-secondary">{{review.createdAtText}}</text>
       </ui-card>
 
       <ui-card wx:if="{{review.hasFollowUp}}" shadow="{{true}}" padding="{{true}}">

@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-album.wxss';
+@import '../../../../styles/mch-craft.wxss';
 
 .album-invite {
   display: flex;

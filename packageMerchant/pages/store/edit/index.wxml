@@ -29,7 +29,6 @@
   <view wx:if="{{showBasic}}" class="merchant-store-edit__panel surface-album-panel">
     <view class="merchant-store-edit__head">
       <view>
-        <text class="merchant-store-edit__kicker">BASIC</text>
         <text class="merchant-store-edit__panel-title text-h3">基础资料</text>
       </view>
     </view>
@@ -55,7 +54,6 @@
   <view wx:if="{{showIntro}}" class="merchant-store-edit__panel surface-album-panel">
     <view class="merchant-store-edit__head merchant-store-edit__head--spread">
       <view>
-        <text class="merchant-store-edit__kicker">ABOUT US</text>
         <text class="merchant-store-edit__panel-title text-h3">门店介绍</text>
         <text wx:if="{{gapNote.intro}}" class="merchant-store-edit__gap">{{gapNote.intro}}</text>
       </view>
@@ -157,7 +155,6 @@
   <view wx:if="{{showEnv}}" class="merchant-store-edit__panel surface-album-panel">
     <view class="merchant-store-edit__head">
       <view>
-        <text class="merchant-store-edit__kicker">PHOTOS</text>
         <text class="merchant-store-edit__panel-title text-h3">门店环境</text>
       </view>
     </view>
@@ -178,7 +175,7 @@
         <view class="merchant-onboard__photo-grid">
           <view wx:for="{{form.workshopPhotoUrls}}" wx:key="index" class="merchant-onboard__photo-wrap">
             <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
-            <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
+            <image class="merchant-onboard__photo-del" src="/assets/mch/close-white.png" mode="aspectFit" data-index="{{index}}" catchtap="onRemoveWorkshop" />
           </view>
           <view wx:if="{{form.workshopPhotoUrls.length < 6}}" class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
             <text class="text-caption">添加</text>
@@ -191,7 +188,7 @@
         <view class="merchant-onboard__photo-grid">
           <view wx:for="{{form.receptionPhotoUrls}}" wx:key="index" class="merchant-onboard__photo-wrap">
             <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
-            <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveReception">×</text>
+            <image class="merchant-onboard__photo-del" src="/assets/mch/close-white.png" mode="aspectFit" data-index="{{index}}" catchtap="onRemoveReception" />
           </view>
           <view wx:if="{{form.receptionPhotoUrls.length < 6}}" class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickReception">
             <text class="text-caption">添加</text>
@@ -208,7 +205,7 @@
 
   <block wx:if="{{showSkill}}">
     <view class="merchant-store-edit__skill-hero">
-      <image class="merchant-store-edit__skill-ico" src="/assets/mch/car-white.png" mode="aspectFit" />
+      <image class="merchant-store-edit__skill-ico" src="/assets/mch/car-blue.png" mode="aspectFit" />
       <view>
         <text class="merchant-store-edit__skill-kicker">已配置</text>
         <text class="merchant-store-edit__skill-title">{{brandList.length}} 个品牌 · {{form.services.length}} 项服务</text>
@@ -218,14 +215,13 @@
     <view class="merchant-store-edit__panel surface-album-panel">
       <view class="merchant-store-edit__head merchant-store-edit__head--spread">
         <view>
-          <text class="merchant-store-edit__kicker">BRANDS</text>
           <text class="merchant-store-edit__panel-title text-h3">擅长品牌</text>
         </view>
       </view>
       <view class="merchant-store-edit__brand-grid">
         <view wx:for="{{brandList}}" wx:key="*this" class="merchant-store-edit__brand">
           <text class="merchant-store-edit__brand-name">{{item}}</text>
-          <text class="merchant-store-edit__brand-x" data-name="{{item}}" catchtap="onRemoveBrand">×</text>
+          <image class="merchant-store-edit__brand-x" src="/assets/mch/close-gray.png" mode="aspectFit" data-name="{{item}}" catchtap="onRemoveBrand" />
         </view>
       </view>
       <view class="merchant-store-edit__add-line">
@@ -237,7 +233,6 @@
     <view class="merchant-store-edit__panel surface-album-panel">
       <view class="merchant-store-edit__head">
         <view>
-          <text class="merchant-store-edit__kicker">SERVICES</text>
           <text class="merchant-store-edit__panel-title text-h3">服务能力</text>
         </view>
       </view>
@@ -249,7 +244,7 @@
           data-name="{{item.name}}"
           catchtap="onToggleService"
         >
-          <text wx:if="{{item.selected}}">✓</text>
+          <image wx:if="{{item.selected}}" class="merchant-store-edit__check" src="/assets/mch/check-blue.png" mode="aspectFit" />
           <text>{{item.name}}</text>
         </view>
       </view>
@@ -282,7 +277,6 @@
   <view wx:if="{{showTech}}" class="merchant-store-edit__panel surface-album-panel">
     <view class="merchant-store-edit__head">
       <view>
-        <text class="merchant-store-edit__kicker">TECHNICIANS</text>
         <text class="merchant-store-edit__panel-title text-h3">技师团队</text>
       </view>
     </view>
@@ -350,12 +344,14 @@
                 data-index="{{index}}"
                 bindtap="onPreviewTechImage"
               />
-              <text
+              <image
                 class="merchant-onboard__photo-del"
+                src="/assets/mch/close-white.png"
+                mode="aspectFit"
                 data-index="{{index}}"
                 data-photo-index="{{photoIndex}}"
                 catchtap="onRemoveTechCredential"
-              >×</text>
+              />
             </view>
             <view
               wx:if="{{!item.credentialPhotoUrls || item.credentialPhotoUrls.length < 6}}"

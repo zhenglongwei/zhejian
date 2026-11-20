@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-form.wxss';
+@import '../../../../styles/mch-craft.wxss';
 
 .merchant-svc-list__tabs {
   padding-top: var(--space-md);

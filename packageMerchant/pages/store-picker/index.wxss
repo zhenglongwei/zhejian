@@ -1,4 +1,5 @@
 @import '../../../styles/merchant-form.wxss';
+@import '../../../styles/mch-craft.wxss';
 
 .merchant-store-picker {
   display: flex;

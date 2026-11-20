@@ -49,7 +49,7 @@
       </view>
       <view wx:if="{{editable && showPublishPrimary}}" class="case-draft__commit">
         <label class="case-draft__check">
-          <switch checked="{{useDesensitizeTool}}" disabled bindchange="onToggleDesensitize" color="#2B6CB0" />
+          <switch checked="{{useDesensitizeTool}}" disabled bindchange="onToggleDesensitize" color="#1269f2" />
           <text class="text-caption">使用脱敏工具（公开强制，不可取消）</text>
         </label>
       </view>
@@ -150,7 +150,9 @@
                 data-node-id="{{m.nodeId}}"
                 data-idx="{{m.idx}}"
                 catchtap="onRemoveMedia"
-              >×</view>
+              >
+                <image class="case-draft__thumb-remove-ico" src="/assets/mch/close-white.png" mode="aspectFit" />
+              </view>
             </view>
             <text wx:if="{{m.caption}}" class="text-caption case-draft__media-caption">{{m.caption}}</text>
             <text wx:if="{{m.hint}}" class="text-caption text-secondary case-draft__media-hint">{{m.hint}}</text>

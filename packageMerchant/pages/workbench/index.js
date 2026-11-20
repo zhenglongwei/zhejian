@@ -219,6 +219,7 @@ Page({
     let albumHeroCards = []
     let albumRows = []
     let home = buildWorkbenchHome([])
+    let listFailed = false
     let planTag = null
     let pricingCue = ''
     let pricingCueKind = 'plan'
@@ -245,7 +246,12 @@ Page({
         fetchMerchantReviewStats({ storeId: profile.storeId }).catch(() => ({ pendingReply: 0 })),
         fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
         fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
-        fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
+        fetchMerchantServiceAlbumList({ tab: 'all' })
+          .then((rows) => rows || [])
+          .catch(() => {
+            listFailed = true
+            return []
+          }),
         canManageStaff
           ? fetchMerchantSubscriptionPanel().catch(() => null)
           : Promise.resolve(null),
@@ -283,6 +289,7 @@ Page({
       albumRows = albumList || []
       home = buildWorkbenchHome(albumRows)
     } catch (e) {
+      listFailed = true
       // keep defaults
     }
 
@@ -298,6 +305,7 @@ Page({
       albumHeroCards,
       albumRows,
       home,
+      listFailed,
       albumSectionBadge: buildAlbumSectionBadge(todos),
       hubDock: buildMerchantHubDock(todos),
       hubMoreLinks: buildMerchantHubMoreLinks(canManageStaff, todos),
@@ -509,6 +517,10 @@ Page({
 
   onAlbumList() {
     wx.redirectTo({ url: '/packageMerchant/pages/album/list/index' })
+  },
+
+  onRetryAlbums() {
+    this.loadProfile()
   },
 
   onServiceList() {

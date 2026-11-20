@@ -111,7 +111,13 @@
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
+    <view class="ov" style="padding-top: {{statusBarHeight}}px;">
+      <view class="ov-nav" style="padding-right: {{capsulePad}}px;">
+        <image class="ov-back" src="/assets/mch/chevron-left-ink.png" mode="aspectFit" bindtap="onOverviewBack" />
+        <view class="ov-nav__text">
+          <text class="ov-kicker">服务相册详情</text>
+        </view>
+      </view>
       <ui-empty title="无法加载服务进度" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
     </view>
   </block>
@@ -120,9 +126,8 @@
     <block wx:if="{{showOverview && overview}}">
       <view class="ov" style="padding-top: {{statusBarHeight}}px;">
         <view class="ov-nav" style="padding-right: {{capsulePad}}px;">
-          <text class="ov-back" bindtap="onOverviewBack">‹</text>
+          <image class="ov-back" src="/assets/mch/chevron-left-ink.png" mode="aspectFit" bindtap="onOverviewBack" />
           <view class="ov-nav__text">
-            <text class="ov-kicker">服务相册详情</text>
             <text class="ov-plate">{{overview.plate}}</text>
           </view>
         </view>
@@ -130,14 +135,23 @@
         <view class="ov-hero">
           <text class="ov-pill ov-pill--{{overview.pill.tone}}">{{overview.pill.text}}</text>
           <text class="ov-hero__name">{{overview.vehicleName}}</text>
-          <text wx:if="{{overview.spec}}" class="ov-hero__spec">{{overview.spec}}</text>
+          <text wx:if="{{overview.quick}}" class="ov-hero__spec">{{overview.quick}}</text>
           <text wx:if="{{overview.meta}}" class="ov-hero__meta">{{overview.meta}}</text>
-        </view>
-
-        <view wx:if="{{overview.vehicleFacts.length}}" class="ov-vehicle">
-          <view wx:for="{{overview.vehicleFacts}}" wx:key="key" class="ov-vehicle__row">
-            <text class="ov-vehicle__k">{{item.key}}</text>
-            <text class="ov-vehicle__v">{{item.value}}</text>
+          <view
+            wx:if="{{overview.vehicleFacts.length}}"
+            class="ov-hero__toggle"
+            hover-class="ov-hero__toggle--pressed"
+            hover-stay-time="80"
+            bindtap="onToggleVehicle"
+          >
+            <text class="ov-hero__toggle-text">{{vehicleExpanded ? '收起完整信息' : '查看完整信息'}}</text>
+            <image class="ov-hero__toggle-icon {{vehicleExpanded ? 'is-open' : ''}}" src="/assets/mch/chevron-down-blue.png" mode="aspectFit" />
+          </view>
+          <view wx:if="{{vehicleExpanded}}" class="ov-hero__facts">
+            <view wx:for="{{overview.vehicleFacts}}" wx:key="key" class="ov-vehicle__row">
+              <text class="ov-vehicle__k">{{item.key}}</text>
+              <text class="ov-vehicle__v">{{item.value}}</text>
+            </view>
           </view>
         </view>
 
@@ -151,7 +165,7 @@
             bindtap="onOpenDoc"
           >
             <view class="ov-doc__icon">
-              <image wx:if="{{item.tone === 'ok'}}" src="/assets/mch/check-blue.png" mode="aspectFit" />
+              <image wx:if="{{item.tone === 'ok'}}" src="/assets/mch/check-green.png" mode="aspectFit" />
               <image wx:elif="{{item.tone === 'live'}}" src="/assets/mch/doc-blue.png" mode="aspectFit" />
               <image wx:else src="/assets/mch/clock-gray.png" mode="aspectFit" />
             </view>
@@ -161,7 +175,6 @@
         </scroll-view>
 
         <view class="ov-sec">
-          <text class="ov-sec__kicker">全过程留证</text>
           <view class="ov-sec__row">
             <text class="ov-sec__title">服务时间线</text>
             <view class="ov-sec__count">
@@ -175,7 +188,7 @@
           <view wx:for="{{overview.timelineRows}}" wx:key="key" class="ov-row ov-row--{{item.state}}">
             <view class="ov-row__rail">
               <view class="ov-row__dot">
-                <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-white.png" mode="aspectFit" />
+                <image wx:if="{{item.state === 'done'}}" src="/assets/mch/check-green.png" mode="aspectFit" />
                 <text wx:else>{{item.index}}</text>
               </view>
               <view wx:if="{{index < overview.timelineRows.length - 1}}" class="ov-row__bar" />
@@ -196,6 +209,8 @@
                 >
                   <ui-button type="secondary" size="sm">邀请客户评价</ui-button>
                 </view>
+                <text wx:elif="{{item.state === 'current'}}" class="ov-row__chip">{{item.mark}}</text>
+                <text wx:elif="{{item.timeLabel}}" class="ov-row__time">{{item.timeLabel}}</text>
                 <text wx:else class="ov-row__mark">{{item.mark}}</text>
               </view>
               <text class="ov-row__detail">{{item.detail}}</text>
@@ -275,9 +290,8 @@
     <view wx:if="{{workOpen}}" class="ov-work">
       <view class="ov-work__bar" style="padding-top: {{statusBarHeight}}px;">
         <view class="ov-work__row" style="padding-right: {{capsulePad}}px;">
-          <text class="ov-back" bindtap="onCloseWork">‹</text>
+          <image class="ov-back" src="/assets/mch/chevron-left-ink.png" mode="aspectFit" bindtap="onCloseWork" />
           <view class="ov-nav__text">
-            <text class="ov-kicker">服务节点详情</text>
             <text class="ov-work__title">{{stageBoard.title}}</text>
           </view>
         </view>
@@ -306,14 +320,13 @@
               <text class="st-vehicle__plate">{{stageBoard.vehicle.plate}}</text>
               <text class="st-vehicle__line">{{stageBoard.vehicle.line}}</text>
             </view>
-            <text class="st-pill">{{stageBoard.vehicle.pill}}</text>
+            <text class="st-pill st-pill--{{stageBoard.vehicle.pillTone}}">{{stageBoard.vehicle.pill}}</text>
           </view>
 
           <block wx:if="{{stageBoard.intake}}">
             <view class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">VEHICLE CONDITION</text>
                   <text class="st-card__title">车辆入店留证</text>
                   <text class="st-card__hint">里程表、油量表、环车外观、灯光、随车物品、轮胎</text>
                 </view>
@@ -340,7 +353,9 @@
                     data-url="{{item.url}}"
                     data-index="{{index}}"
                     catchtap="onRemoveIntakePhoto"
-                  >×</view>
+                  >
+                    <image class="st-photo__del-ico" src="/assets/mch/close-white.png" mode="aspectFit" />
+                  </view>
                 </view>
                 <view
                   wx:if="{{stageBoard.state === 'current' && !readOnly && !intakeSent}}"
@@ -369,7 +384,6 @@
             <view wx:if="{{stageBoard.state === 'current' || stageBoard.intake.complaint || stageBoard.intake.cells.length}}" class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">CUSTOMER REQUEST</text>
                   <text class="st-card__title">车主诉求</text>
                 </view>
               </view>
@@ -424,10 +438,10 @@
           </block>
 
           <block wx:if="{{stageBoard.inspect}}">
-            <view class="st-hero st-hero--inspect">
-              <text class="st-kicker st-kicker--light">检测</text>
-            </view>
             <view class="st-card">
+              <view class="st-card__head">
+                <text class="st-card__title">检测</text>
+              </view>
               <text class="text-body merchant-flow-page__label">检测人</text>
               <input
                 wx:if="{{stageBoard.state === 'current' && !readOnly}}"
@@ -452,7 +466,6 @@
             <view wx:if="{{stageBoard.inspect.items.length && !isInspectionPhotoStep}}" class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">ABNORMAL ITEMS</text>
                   <text class="st-card__title">异常项目</text>
                 </view>
               </view>
@@ -490,7 +503,6 @@
             <view wx:if="{{stageEditor && activeKind === 'quote_confirm' && !isAddonQuote}}" class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">QUOTE DETAILS</text>
                   <text class="st-card__title">报价明细</text>
                   <text wx:if="{{quoteDraftHint}}" class="st-card__hint">{{quoteDraftHint}}</text>
                 </view>
@@ -541,20 +553,21 @@
                     bindinput="onQuoteLineInput"
                   />
                 </view>
-                <text
+                <image
                   wx:if="{{!readOnly}}"
                   class="st-line__remove"
+                  src="/assets/mch/close-gray.png"
+                  mode="aspectFit"
                   data-index="{{index}}"
                   catchtap="onRemoveQuoteLine"
-                >×</text>
+                />
               </view>
-              <text wx:if="{{!readOnly}}" class="st-line__add" bindtap="onAddQuoteLine">+ 新增项目</text>
+              <view wx:if="{{!readOnly}}" class="st-line__add" bindtap="onAddQuoteLine"><image class="st-line__add-ico" src="/assets/mch/plus-blue.png" mode="aspectFit" /><text>新增项目</text></view>
               <view class="st-line__sum">{{quoteTotalLabel}}</view>
             </view>
             <view wx:elif="{{stageBoard.quote.lines.length && !stageEditor}}" class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">QUOTE DETAILS</text>
                   <text class="st-card__title">报价明细</text>
                 </view>
               </view>
@@ -603,8 +616,10 @@
 
           <block wx:if="{{stageBoard.work && !isWorkPhotoStep}}">
             <view class="st-hero st-hero--work">
-              <text class="st-kicker st-kicker--light">WORK IN PROGRESS</text>
-              <text class="st-hero__title">{{stageBoard.work.headline}}</text>
+              <view class="st-hero__titlerow">
+                <text class="st-hero__title">{{stageBoard.work.headline}}</text>
+                <text class="st-hero__status">进行中</text>
+              </view>
               <text wx:if="{{stageBoard.work.sub}}" class="st-hero__sub">{{stageBoard.work.sub}}</text>
             </view>
             <view class="st-card">
@@ -632,7 +647,6 @@
             <view wx:if="{{stageBoard.work.tasks.length}}" class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">WORK ORDER</text>
                   <text class="st-card__title">工序记录</text>
                 </view>
               </view>
@@ -666,8 +680,10 @@
 
           <block wx:if="{{stageBoard.finish && !isDeliveryPhotoStep && activeKind !== 'repair_report'}}">
             <view class="st-hero st-hero--finish">
-              <text class="st-kicker st-kicker--light">READY FOR DELIVERY</text>
-              <text class="st-hero__title">{{stageBoard.finish.headline}}</text>
+              <view class="st-hero__titlerow">
+                <text class="st-hero__title">{{stageBoard.finish.headline}}</text>
+                <text class="st-hero__status">已完成</text>
+              </view>
               <text wx:if="{{stageBoard.finish.sub}}" class="st-hero__sub">{{stageBoard.finish.sub}}</text>
             </view>
             <view class="st-card">
@@ -695,7 +711,6 @@
             <view wx:if="{{stageBoard.finish.before || stageBoard.finish.after}}" class="st-card">
               <view class="st-card__head">
                 <view>
-                  <text class="st-kicker">DELIVERY REPORT</text>
                   <text class="st-card__title">交车报告</text>
                 </view>
               </view>
@@ -716,7 +731,8 @@
             </view>
             <view class="st-steps">
               <view wx:for="{{stageBoard.finish.steps}}" wx:key="no" class="st-step {{item.done ? 'is-done' : ''}} {{item.muted ? 'is-muted' : ''}}">
-                <text class="st-step__no">{{item.done ? '✓' : item.no}}</text>
+                <image wx:if="{{item.done}}" class="st-step__check" src="/assets/mch/check-white.png" mode="aspectFit" />
+                <text wx:else class="st-step__no">{{item.no}}</text>
                 <view>
                   <text class="st-step__title">{{item.title}}</text>
                   <text class="st-step__sub">{{item.sub}}</text>
@@ -798,7 +814,7 @@
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                         bindtap="onAddFindingPhotos"
                       >
-                        <text class="merchant-flow-page__work-thumb-plus">+</text>
+                        <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                       </view>
                       <text wx:if="{{!readOnly}}" class="text-caption text-secondary">拍照避开人脸</text>
                     </view>
@@ -837,6 +853,7 @@
                         images="{{finding.images}}"
                         meta="{{finding.completenessLabel}}"
                         metaDanger="{{finding.labelToneDanger}}"
+                        metaTone="{{finding.resultTone}}"
                         showRemove="{{!readOnly}}"
                         showEmptyPhoto="{{!readOnly}}"
                         showDocBadge="{{showDocBadge && !readOnly}}"
@@ -859,13 +876,15 @@
                       >
                         <text class="merchant-flow-page__finding-open-title">{{finding.summaryText}}</text>
                         <text class="text-caption merchant-flow-page__finding-collapse">收起</text>
-                        <text
+                        <image
                           wx:if="{{!readOnly}}"
                           class="merchant-flow-page__finding-remove"
+                          src="/assets/mch/close-gray.png"
+                          mode="aspectFit"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
                           catchtap="onRemoveFinding"
-                        >×</text>
+                        />
                       </view>
                       <text
                         wx:if="{{section.findingKind === 'work' && finding.quoteStateLabel}}"
@@ -896,14 +915,16 @@
                                 src="{{thumb.url}}"
                                 mode="aspectFill"
                               />
-                              <text
+                              <image
                                 wx:if="{{!readOnly}}"
                                 class="merchant-flow-page__work-thumb-remove"
+                                src="/assets/mch/close-white.png"
+                                mode="aspectFit"
                                 data-section-index="{{sectionIndex}}"
                                 data-finding-index="{{findingIndex}}"
                                 data-img-index="idx-{{imgIndex}}"
                                 catchtap="onRemoveFindingImage"
-                              >×</text>
+                              />
                             </view>
                             <view
                               wx:if="{{!readOnly && finding.images.length < 6}}"
@@ -912,7 +933,7 @@
                               data-finding-index="{{findingIndex}}"
                               catchtap="onAttachFindingPhoto"
                             >
-                              <text class="merchant-flow-page__work-thumb-plus">+</text>
+                              <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                             </view>
                           </view>
                           <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
@@ -960,14 +981,16 @@
                                 src="{{thumb.url}}"
                                 mode="aspectFill"
                               />
-                              <text
+                              <image
                                 wx:if="{{!readOnly}}"
                                 class="merchant-flow-page__work-thumb-remove"
+                                src="/assets/mch/close-white.png"
+                                mode="aspectFit"
                                 data-section-index="{{sectionIndex}}"
                                 data-finding-index="{{findingIndex}}"
                                 data-img-index="idx-{{imgIndex}}"
                                 catchtap="onRemoveFindingImage"
-                              >×</text>
+                              />
                             </view>
                             <view
                               wx:if="{{!readOnly}}"
@@ -976,7 +999,7 @@
                               data-finding-index="{{findingIndex}}"
                               catchtap="onAttachFindingPhoto"
                             >
-                              <text class="merchant-flow-page__work-thumb-plus">+</text>
+                              <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                             </view>
                           </view>
                           <view
@@ -1065,7 +1088,7 @@
                         class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                         bindtap="onAddFindingPhotos"
                       >
-                        <text class="merchant-flow-page__work-thumb-plus">+</text>
+                        <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                       </view>
                       <text wx:if="{{!readOnly}}" class="text-caption text-secondary">拍照避开人脸</text>
                     </view>
@@ -1082,18 +1105,20 @@
                         mode="aspectFill"
                         bindtap="onPreviewOdometer"
                       />
-                      <text
+                      <image
                         wx:if="{{!readOnly}}"
                         class="merchant-flow-page__work-thumb-remove"
+                        src="/assets/mch/close-white.png"
+                        mode="aspectFit"
                         catchtap="onRemoveOdometer"
-                      >×</text>
+                      />
                     </view>
                     <view
                       wx:elif="{{!readOnly}}"
                       class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                       bindtap="onAddOdometerPhoto"
                     >
-                      <text class="merchant-flow-page__work-thumb-plus">+</text>
+                      <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                     </view>
                   </view>
                   <text wx:if="{{!readOnly}}" class="text-caption text-secondary">拍照避开人脸</text>
@@ -1114,19 +1139,21 @@
                         data-url="{{shot.url}}"
                         bindtap="onPreviewIntakeWalkaround"
                       />
-                      <text
+                      <image
                         wx:if="{{!readOnly}}"
                         class="merchant-flow-page__work-thumb-remove"
+                        src="/assets/mch/close-white.png"
+                        mode="aspectFit"
                         data-index="{{imgIndex}}"
                         catchtap="onRemoveIntakeWalkaround"
-                      >×</text>
+                      />
                     </view>
                     <view
                       wx:if="{{!readOnly && section.images.length < 12}}"
                       class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
                       bindtap="onAddIntakeWalkaround"
                     >
-                      <text class="merchant-flow-page__work-thumb-plus">+</text>
+                      <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                     </view>
                   </view>
                   <text wx:if="{{!readOnly}}" class="text-caption text-secondary">拍照避开人脸</text>
@@ -1187,7 +1214,7 @@
                           data-row-id="{{item.id}}"
                           bindtap="onUploadAcceptanceImages"
                         >
-                          <text class="merchant-flow-page__delivery-add-plus">+</text>
+                          <image class="merchant-flow-page__delivery-add-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                           <text class="text-caption merchant-flow-page__delivery-add-label">外观照</text>
                         </view>
                       </view>
@@ -1200,7 +1227,7 @@
                           data-row-id="{{item.id}}"
                           bindtap="onUploadAcceptanceImages"
                         >
-                          <text class="merchant-flow-page__delivery-add-plus">+</text>
+                          <image class="merchant-flow-page__delivery-add-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                           <text class="text-caption merchant-flow-page__delivery-add-label">外观照（选填）</text>
                         </view>
                       </view>
@@ -1355,7 +1382,7 @@
                       class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
                       bindtap="onPickDeliveryIssueImages"
                     >
-                      <text class="merchant-flow-page__delivery-add-plus">+</text>
+                      <image class="merchant-flow-page__delivery-add-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                       <text class="text-caption merchant-flow-page__delivery-add-label">新问题图</text>
                     </view>
                   </view>
@@ -1458,7 +1485,7 @@
                           data-index="{{index}}"
                           catchtap="onAttachReportFindingPhoto"
                         >
-                          <text class="merchant-flow-page__work-thumb-plus">+</text>
+                          <image class="merchant-flow-page__work-thumb-plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                         </view>
                       </view>
                       <template is="aiFieldHint" data="{{hint: item.photoHint}}" />
@@ -1518,12 +1545,14 @@
                   <text wx:if="{{quoteUnstarted.total}}" class="text-caption merchant-flow-page__quote-unstarted">还有 {{quoteUnstarted.total}} 项报价未施工：{{quoteUnstarted.namesText}}，回施工节点补项</text>
                   <text wx:if="{{quoteDraftHint}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
-                    <view
+                    <image
                       wx:if="{{!readOnly}}"
                       class="merchant-flow-page__plan-row-remove"
+                      src="/assets/mch/close-gray.png"
+                      mode="aspectFit"
                       data-index="{{index}}"
                       catchtap="onRemoveQuoteLine"
-                    >×</view>
+                    />
                     <view class="merchant-flow-page__plan-row-top">
                       <view class="merchant-flow-page__plan-name">
                         <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
@@ -1585,7 +1614,7 @@
                     class="merchant-flow-page__plan-add"
                     bindtap="onAddQuoteLine"
                   >
-                    <text class="text-caption text-link">+ 新增项目</text>
+                    <view class="merchant-flow-page__plan-add-line"><image class="merchant-flow-page__plan-add-ico" src="/assets/mch/plus-blue.png" mode="aspectFit" /><text class="text-caption text-link">新增项目</text></view>
                   </view>
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
@@ -1632,19 +1661,21 @@
                         data-url="{{item}}"
                         bindtap="onPreviewAddonDiscovery"
                       />
-                      <text
+                      <image
                         wx:if="{{!readOnly}}"
                         class="merchant-flow-page__work-thumb-remove"
+                        src="/assets/mch/close-white.png"
+                        mode="aspectFit"
                         data-index="{{index}}"
                         catchtap="onRemoveAddonDiscoveryImage"
-                      >×</text>
+                      />
                     </view>
                     <view
                       wx:if="{{!readOnly && addonDiscoveryImages.length < 6}}"
                       class="merchant-flow-page__plan-evidence-add"
                       bindtap="onAddAddonDiscoveryImage"
                     >
-                      <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
+                      <image class="merchant-flow-page__plan-evidence-add-icon" src="/assets/mch/plus-gray.png" mode="aspectFit" />
                     </view>
                   </view>
                   <text wx:if="{{!readOnly}}" class="text-caption text-secondary">拍照避开人脸</text>
@@ -1670,12 +1701,14 @@
                   </view>
                   <text wx:if="{{quoteDraftHint && !isAddonQuote}}" class="text-caption text-secondary">{{quoteDraftHint}}</text>
                   <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
-                    <view
+                    <image
                       wx:if="{{!readOnly && !confirmAwaitingOwner}}"
                       class="merchant-flow-page__plan-row-remove"
+                      src="/assets/mch/close-gray.png"
+                      mode="aspectFit"
                       data-index="{{index}}"
                       catchtap="onRemoveQuoteLine"
-                    >×</view>
+                    />
                     <view class="merchant-flow-page__plan-row-top">
                       <view class="merchant-flow-page__plan-name">
                         <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
@@ -1749,7 +1782,7 @@
                     class="merchant-flow-page__plan-add"
                     bindtap="onAddQuoteLine"
                   >
-                    <text class="text-caption text-link">+ 新增项目</text>
+                    <view class="merchant-flow-page__plan-add-line"><image class="merchant-flow-page__plan-add-ico" src="/assets/mch/plus-blue.png" mode="aspectFit" /><text class="text-caption text-link">新增项目</text></view>
                   </view>
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
@@ -1880,7 +1913,7 @@
     <view wx:if="{{recordPreview}}" class="rec-preview" catchtouchmove="true">
       <view class="rec-preview__bar" style="padding-top: {{statusBarHeight}}px;">
         <view class="rec-preview__row" style="padding-right: {{capsulePad}}px;">
-          <text class="ov-back" catchtap="onCloseRecordPreview">‹</text>
+          <image class="ov-back" src="/assets/mch/chevron-left-ink.png" mode="aspectFit" catchtap="onCloseRecordPreview" />
           <view class="ov-nav__text">
             <text class="ov-work__title">预览报告</text>
           </view>
@@ -1908,7 +1941,7 @@
     <view wx:if="{{doneView}}" class="ov-work ov-work--top">
       <view class="ov-work__bar" style="padding-top: {{statusBarHeight}}px;">
         <view class="ov-work__row" style="padding-right: {{capsulePad}}px;">
-          <text class="ov-back" bindtap="onCloseDone">‹</text>
+          <image class="ov-back" src="/assets/mch/chevron-left-ink.png" mode="aspectFit" bindtap="onCloseDone" />
           <text class="ov-work__title">{{doneView.title}}</text>
         </view>
       </view>
@@ -2068,6 +2101,7 @@
                   </view>
                   <text wx:if="{{item.completionBasis}}" class="merchant-flow-page__advice-card-text">依据：{{item.completionBasis}}</text>
                   <text wx:if="{{item.evidenceGap}}" class="merchant-flow-page__advice-card-text">缺：{{item.evidenceGap}}</text>
+                  <text wx:if="{{item.fitment}}" class="merchant-flow-page__advice-card-text">适配：{{item.fitment}}</text>
                   <view wx:if="{{item.hasHow}}" class="merchant-flow-page__advice-card-field">
                     <text class="merchant-flow-page__advice-card-label">做法</text>
                     <text class="merchant-flow-page__advice-card-value">{{item.how}}</text>
@@ -2304,7 +2338,7 @@
     <view class="doc-brief__sheet">
       <view class="doc-brief__top">
         <text class="doc-brief__sheet-name">{{docBrief.title}}</text>
-        <text class="doc-brief__close" catchtap="onCloseDoc">×</text>
+        <image class="doc-brief__close" src="/assets/mch/close-gray.png" mode="aspectFit" catchtap="onCloseDoc" />
       </view>
       <scroll-view scroll-y class="doc-brief__scroll" show-scrollbar="{{false}}">
         <service-doc-sheet

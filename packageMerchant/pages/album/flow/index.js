@@ -507,6 +507,7 @@ Page({
     errorMessage: '',
     showOverview: true,
     overview: null,
+    vehicleExpanded: false,
     docBrief: null,
     briefSending: false,
     workOpen: false,
@@ -2298,6 +2299,10 @@ Page({
         wx.redirectTo({ url: '/packageMerchant/pages/album/list/index' })
       },
     })
+  },
+
+  onToggleVehicle() {
+    this.setData({ vehicleExpanded: !this.data.vehicleExpanded })
   },
 
   onBackToOverview() {
@@ -6405,6 +6410,7 @@ Page({
           evidenceLabel,
           completionBasis: String((row && row.completionBasis) || '').trim(),
           evidenceGap: String((row && row.evidenceGap) || '').trim(),
+          fitment: String((row && row.fitment) || '').trim(),
           how,
           photo,
           hasHow: Boolean(how),

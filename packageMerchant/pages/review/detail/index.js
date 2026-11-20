@@ -10,7 +10,6 @@ const { REVIEW_DIMENSIONS } = require('../../../../constants/review-dimensions')
 const { ALL_REVIEW_DIMENSIONS } = require('../../../../constants/album-review-dimensions')
 const { formatUpdatedAtDisplay } = require('../../../../utils/album-summary')
 const { stripTagOnlyReviewContent } = require('../../../../utils/review-display')
-const { renderStarsText } = require('../../../../utils/album-review-score')
 
 function buildScoreRows(scores = {}) {
   const dims = scores.repairAttitude != null ? ALL_REVIEW_DIMENSIONS : REVIEW_DIMENSIONS
@@ -21,12 +20,33 @@ function buildScoreRows(scores = {}) {
   })).filter((row) => row.value > 0)
 }
 
+/** vehicleLine 是后端拼好的「车牌 · 车型」，拆开才能给车牌单独排版 */
+function decorateReview(review) {
+  if (!review) return review
+  const parts = String(review.vehicleLine || '').split(' · ')
+  const scoreText = (value) => (Number(value) ? Number(value).toFixed(1) : '')
+  return {
+    ...review,
+    content: stripTagOnlyReviewContent(review.content || '', review.tags),
+    createdAtText: formatUpdatedAtDisplay(review.createdAt),
+    merchantReplyAtText: formatUpdatedAtDisplay(review.merchantReplyAt),
+    followUpAtText: formatUpdatedAtDisplay(review.followUpAt),
+    plate: parts[0] || '',
+    model: parts.slice(1).filter(Boolean).join(' · '),
+    repairScoreRounded: Math.round(Number(review.repairScore) || 0),
+    albumScoreRounded: Math.round(Number(review.albumScore) || 0),
+    repairScoreText: scoreText(review.repairScore),
+    albumScoreText: scoreText(review.albumScore),
+  }
+}
+
 Page({
   data: {
     status: 'loading',
     errorMessage: '',
     review: null,
     scoreRows: [],
+    starRange: [1, 2, 3, 4, 5],
     replyDraft: '',
     replyLength: 0,
     submitting: false,
@@ -69,15 +89,7 @@ Page({
       }
       this.setData({
         status: 'normal',
-        review: {
-          ...review,
-          content: stripTagOnlyReviewContent(review.content || '', review.tags),
-          createdAtText: formatUpdatedAtDisplay(review.createdAt),
-          merchantReplyAtText: formatUpdatedAtDisplay(review.merchantReplyAt),
-          followUpAtText: formatUpdatedAtDisplay(review.followUpAt),
-          repairStars: renderStarsText(review.repairScore),
-          albumStars: renderStarsText(review.albumScore),
-        },
+        review: decorateReview(review),
         scoreRows: buildScoreRows(review.scores),
         replyDraft: review.merchantReply || '',
         replyLength: (review.merchantReply || '').length,
@@ -109,7 +121,7 @@ Page({
     this.setData({ submitting: true })
     try {
       const review = await replyMerchantAlbumReview(this.reviewId, this.storeId, reply)
-      this.setData({ review, replyDraft: review.merchantReply || reply })
+      this.setData({ review: decorateReview(review), replyDraft: review.merchantReply || reply })
       wx.showToast({ title: '回复已提交', icon: 'success' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })

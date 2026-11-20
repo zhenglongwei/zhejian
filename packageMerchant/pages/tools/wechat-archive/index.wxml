@@ -53,7 +53,7 @@
         >
           <view class="wechat-archive__thumb" data-index="{{index}}" bindtap="onPickOne">
             <image wx:if="{{item.localPath || item.url}}" class="wechat-archive__img" src="{{item.localPath || item.url}}" mode="aspectFill" />
-            <text wx:else class="wechat-archive__plus">+</text>
+            <image wx:else class="wechat-archive__plus" src="/assets/mch/plus-gray.png" mode="aspectFit" />
           </view>
           <view class="wechat-archive__chip" data-index="{{index}}" bindtap="onCycleTarget">{{item.label}}</view>
           <text wx:if="{{item.say}}" class="text-caption wechat-archive__say">{{item.say}}</text>

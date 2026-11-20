@@ -1,3 +1,5 @@
+@import '../../../../../styles/mch-craft.wxss';
+
 .merchant-flow-doc-node {
   min-height: 100vh;
   background-color: var(--color-bg-page);
@@ -48,8 +50,8 @@
   padding: var(--space-md);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-muted);
-  font-size: var(--font-body-size);
-  line-height: var(--font-body-line-height);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
   color: var(--color-text-primary);
   box-sizing: border-box;
 }

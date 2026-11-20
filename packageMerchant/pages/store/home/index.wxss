@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 page {
   background: var(--color-mch-bg);
 }
@@ -13,23 +15,16 @@ page {
   padding: var(--space-xs) var(--page-padding-x);
 }
 
-.mch-kicker {
-  color: var(--color-mch-blue);
-  font-size: var(--font-caption);
-  font-weight: var(--font-weight-semibold);
-}
-
-.mch-kicker--muted {
-  color: var(--color-mch-muted);
-  font-size: var(--font-caption);
-  font-weight: var(--font-weight-medium);
-}
-
-.mch-brand,
-.mch-store__headline {
+.mch-brand {
   font-size: var(--font-mch-page);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-mch-page-lh);
+}
+
+.mch-store__headline {
+  font-size: var(--font-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-h2-lh);
 }
 
 .mch-store__loading {
@@ -82,10 +77,10 @@ page {
 .mch-store__card {
   margin: var(--space-md) var(--page-padding-x) 0;
   padding: var(--space-lg) var(--space-md);
-  border-radius: var(--radius-mch-hero);
-  color: var(--color-text-inverse);
-  background: linear-gradient(145deg, var(--color-mch-card-start), var(--color-mch-card-end));
-  box-shadow: var(--shadow-mch-hero);
+  border-radius: var(--mch-radius-hero);
+  color: var(--color-mch-ink);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-mch-card);
 }
 
 .mch-store__identity {
@@ -98,7 +93,7 @@ page {
   width: 80rpx;
   height: 80rpx;
   border-radius: var(--radius-lg);
-  background: var(--color-bg-card);
+  background: var(--color-mch-blue-soft);
   color: var(--color-mch-blue);
   display: flex;
   align-items: center;
@@ -130,9 +125,9 @@ page {
 
 .mch-store__name {
   max-width: 100%;
-  font-size: var(--font-body);
+  font-size: var(--font-h1);
   font-weight: var(--font-weight-semibold);
-  line-height: var(--font-body-lh);
+  line-height: var(--font-h1-lh);
 }
 
 .mch-store__pill {
@@ -140,17 +135,20 @@ page {
   margin-top: 2rpx;
   padding: 2rpx 12rpx;
   border-radius: var(--radius-full);
-  background: var(--color-mch-glass);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
   font-size: var(--font-caption);
   font-weight: var(--font-weight-semibold);
 }
 
 .mch-store__pill.is-ok {
-  color: var(--color-mch-on-card-green);
+  background: var(--color-mch-green-soft);
+  color: var(--color-mch-green-deep);
 }
 
 .mch-store__pill.is-warn {
-  color: var(--color-mch-on-card-amber);
+  background: var(--color-mch-amber-soft);
+  color: var(--color-mch-amber-deep);
 }
 
 .mch-store__addr {
@@ -171,27 +169,7 @@ page {
   flex: 1;
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
-  color: var(--color-mch-on-card);
-}
-
-.mch-store__edit {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 50%;
-  background: var(--color-mch-glass);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-}
-
-.mch-store__edit--pressed {
-  opacity: 0.75;
-}
-
-.mch-store__edit-ico {
-  width: 32rpx;
-  height: 32rpx;
+  color: var(--color-text-secondary);
 }
 
 .mch-store__panel {
@@ -262,9 +240,18 @@ page {
 }
 
 .mch-store__preview {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
   padding: var(--space-xs) 0 var(--space-xs) var(--space-lg);
-  color: var(--color-mch-muted);
+  color: var(--color-mch-blue);
   font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.mch-store__preview-ico {
+  width: 24rpx;
+  height: 24rpx;
 }
 
 .mch-store__preview--pressed {
@@ -304,10 +291,8 @@ page {
 }
 
 .mch-row__plus {
-  color: var(--color-mch-blue);
-  font-size: var(--font-h3);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .mch-row__body {
@@ -333,8 +318,9 @@ page {
 }
 
 .mch-row__chev {
-  color: var(--color-text-disabled);
-  font-size: var(--font-h3);
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .mch-stats {

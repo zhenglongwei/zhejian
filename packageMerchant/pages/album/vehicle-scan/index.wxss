@@ -51,10 +51,14 @@
 .vehicle-scan__close {
   width: 64rpx;
   height: 64rpx;
-  line-height: 60rpx;
-  text-align: center;
-  font-size: 48rpx;
-  color: var(--color-text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vehicle-scan__close-ico {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .vehicle-scan__close--spacer {

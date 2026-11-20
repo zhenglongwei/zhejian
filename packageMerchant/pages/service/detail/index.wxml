@@ -171,7 +171,7 @@
         >
           <text class="text-body service-detail__store-name">{{item.name}}</text>
           <text class="text-caption service-detail__store-meta">{{item.address}}</text>
-          <text class="text-caption service-detail__store-link">查看门店详情 ›</text>
+          <view class="service-detail__store-link"><text class="text-caption">查看门店详情</text><image class="service-detail__store-link-ico" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" /></view>
         </view>
       </view>
     </view>

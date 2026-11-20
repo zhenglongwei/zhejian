@@ -7,16 +7,20 @@ const {
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 const { formatUpdatedAtDisplay } = require('../../../../utils/album-summary')
-const { renderStarsText } = require('../../../../utils/album-review-score')
 
 function normalizeReviewList(raw) {
   const list = Array.isArray(raw) ? raw : raw && Array.isArray(raw.list) ? raw.list : []
-  return list.map((item) => ({
-    ...item,
-    createdAtText: formatUpdatedAtDisplay(item.createdAt) || item.createdAt || '',
-    repairStars: renderStarsText(item.repairScore),
-    albumStars: renderStarsText(item.albumScore),
-  }))
+  return list.map((item) => {
+    const parts = String(item.vehicleLine || '').split(' · ')
+    return {
+      ...item,
+      createdAtText: formatUpdatedAtDisplay(item.createdAt) || item.createdAt || '',
+      plate: parts[0] || '',
+      model: parts.slice(1).filter(Boolean).join(' · '),
+      repairScoreRounded: Math.round(Number(item.repairScore) || 0),
+      albumScoreRounded: Math.round(Number(item.albumScore) || 0),
+    }
+  })
 }
 
 Page({
@@ -29,6 +33,7 @@ Page({
     storeId: '',
     emptyTitle: '暂无评价',
     emptyDescription: '车主在相册完工后可提交服务评价',
+    starRange: [1, 2, 3, 4, 5],
     skeletonItems: [0, 1, 2],
   },
 

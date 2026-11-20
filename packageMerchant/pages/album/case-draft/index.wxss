@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 .case-draft {
   padding-bottom: var(--page-fixed-clearance);
 }
@@ -140,12 +142,16 @@
   z-index: var(--z-content);
   width: 48rpx;
   height: 48rpx;
-  line-height: 44rpx;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: var(--color-mask);
-  color: var(--color-text-inverse);
-  font-size: var(--font-body);
   border-radius: 0 var(--radius-md) 0 var(--radius-sm);
+}
+
+.case-draft__thumb-remove-ico {
+  width: 26rpx;
+  height: 26rpx;
 }
 
 .case-draft__spacer {
@@ -167,21 +173,21 @@
 }
 
 .case-draft__commit {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border-subtle, rgba(0, 0, 0, 0.06));
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-sm);
 }
 
 .case-draft__check {
   flex-shrink: 0;
-  color: var(--color-brand);
-  font-size: var(--font-size-body);
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--space-sm);
 }
 
 .case-draft__phone {
@@ -190,7 +196,7 @@
   padding: var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--color-bg-muted);
-  font-size: var(--font-size-body);
+  font-size: var(--font-body);
 }
 
 .case-draft__audit {

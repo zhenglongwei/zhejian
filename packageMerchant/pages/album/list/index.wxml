@@ -1,43 +1,99 @@
 <view class="mch-albums {{createOpen ? 'is-blurred' : ''}}" style="padding-top: {{statusBarHeight}}px;">
   <view class="mch-top" style="padding-right: {{capsulePad}}px;">
-    <text class="mch-kicker">真实记录 · 长期沉淀</text>
     <view class="mch-brand">服务相册</view>
   </view>
 
-  <view class="mch-chips">
-    <text
-      wx:for="{{statusTabs}}"
-      wx:key="key"
-      class="mch-chip {{tab === item.key ? 'is-on' : ''}}"
-      data-key="{{item.key}}"
-      bindtap="onChip"
-    >{{item.label}} {{item.count}}</text>
+  <view class="mch-searchbox {{panelOpen ? 'is-open' : ''}}">
+    <view
+      class="mch-searchbox__field"
+      hover-class="{{panelOpen ? '' : 'mch-searchbox__field--press'}}"
+      hover-stay-time="80"
+      bindtap="onOpenPanel"
+    >
+      <image class="mch-searchbox__ico" src="/assets/mch/search-gray.png" mode="aspectFit" />
+      <input
+        wx:if="{{panelOpen}}"
+        class="mch-searchbox__input"
+        placeholder-class="mch-searchbox__ph"
+        placeholder="车牌 / 车型 / 车架号 / 手机号"
+        value="{{keyword}}"
+        focus="{{true}}"
+        confirm-type="search"
+        bindinput="onSearchInput"
+        bindconfirm="onClosePanel"
+      />
+      <block wx:else>
+        <text wx:if="{{keyword}}" class="mch-searchbox__text">{{keyword}}</text>
+        <text wx:else class="mch-searchbox__text mch-searchbox__text--muted">搜索车牌 / 车型 / 手机号</text>
+        <view wx:if="{{filterTags.length}}" class="mch-searchbox__tags">
+          <view
+            wx:for="{{filterTags}}"
+            wx:key="dim"
+            class="mch-searchbox__tag"
+            data-dim="{{item.dim}}"
+            catchtap="onRemoveFilterTag"
+          >
+            <text>{{item.label}}</text>
+            <image class="mch-searchbox__tag-x" src="/assets/mch/close-gray.png" mode="aspectFit" />
+          </view>
+        </view>
+        <image wx:else class="mch-searchbox__cue" src="/assets/mch/chevron-down-gray.png" mode="aspectFit" />
+      </block>
+      <view wx:if="{{panelOpen && keyword}}" class="mch-searchbox__clear" catchtap="onSearchClear">
+        <image class="mch-searchbox__clear-ico" src="/assets/mch/close-gray.png" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view wx:if="{{panelOpen}}" class="mch-searchbox__panel">
+      <view wx:for="{{filterGroups}}" wx:key="key" class="mch-panel__row">
+        <text class="mch-panel__label">{{item.label}}</text>
+        <view class="mch-panel__opts">
+          <view
+            wx:for="{{item.options}}"
+            wx:for-item="opt"
+            wx:key="key"
+            class="mch-panel__opt {{opt.key === item.selected ? 'is-on' : ''}}"
+            data-dim="{{item.key}}"
+            data-key="{{opt.key}}"
+            bindtap="onFilterOption"
+          >
+            <text>{{opt.label}}</text>
+            <text class="mch-panel__opt-count">{{opt.count}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="mch-panel__foot">
+        <text class="mch-panel__count">{{resultText || '还没有相册'}}</text>
+        <view class="mch-panel__acts">
+          <text
+            wx:if="{{hasActiveFilters}}"
+            class="mch-panel__act"
+            hover-class="mch-panel__act--press"
+            bindtap="onResetFilters"
+          >重置筛选</text>
+          <text
+            class="mch-panel__act mch-panel__act--done"
+            hover-class="mch-panel__act--press"
+            bindtap="onClosePanel"
+          >收起</text>
+        </view>
+      </view>
+    </view>
   </view>
 
-  <view class="mch-search">
-    <ui-search-bar
-      value="{{keyword}}"
-      placeholder="搜索车牌、车型或车主手机号"
-      showSearch="{{false}}"
-      bind:input="onKeywordInput"
-      bind:confirm="onKeywordSearch"
-      bind:search="onKeywordSearch"
-      bind:clear="onKeywordClear"
-    />
-  </view>
-
-  <view class="mch-review-chips">
-    <text
-      wx:for="{{reviewTabs}}"
-      wx:key="key"
-      class="mch-review-chip {{reviewTab === item.key ? 'is-on' : ''}}"
-      data-key="{{item.key}}"
-      bindtap="onReviewChip"
-    >{{item.label}}</text>
+  <view wx:if="{{!panelOpen && resultText}}" class="mch-result">
+    <text class="mch-result__text">{{resultText}}</text>
+    <text class="mch-result__note">最近更新在前</text>
   </view>
 
   <view wx:if="{{status === 'loading'}}" class="mch-albums__state">加载中</view>
   <view wx:elif="{{status === 'error'}}" class="mch-albums__state" bindtap="onRetry">{{errorMessage || '加载失败'}}，点此重试</view>
+  <view wx:elif="{{status === 'empty' && isFilteredEmpty}}" class="mch-albums__state">
+    <text>{{emptyHint || '没有匹配的相册'}}</text>
+    <view class="mch-albums__empty-btn">
+      <ui-button type="secondary" bind:btntap="onClearSearchAndFilters">{{clearLabel || '清空'}}</ui-button>
+    </view>
+  </view>
   <view wx:elif="{{status === 'empty'}}" class="mch-albums__state">
     <text>还没有相册</text>
     <view class="mch-albums__empty-btn">
@@ -56,41 +112,48 @@
       <view
         wx:if="{{!item.repairDone && !item.deliveryPending}}"
         class="mch-card__close"
+        hover-class="mch-card__close--press"
+        hover-stay-time="80"
         data-id="{{item.albumId}}"
         catchtap="onDeleteAlbum"
-      >×</view>
+      >
+        <image class="mch-card__close-ico" src="/assets/mch/close-gray.png" mode="aspectFit" />
+      </view>
       <view class="mch-thumb mch-thumb--{{item.thumbTone}}">
-        <image class="mch-thumb__car" src="/assets/mch/car-white.png" mode="aspectFit" />
+        <image
+          wx:if="{{item.coverUrl}}"
+          class="mch-thumb__photo"
+          src="{{item.coverUrl}}"
+          mode="aspectFill"
+          lazy-load="{{true}}"
+        />
+        <image wx:else class="mch-thumb__car" src="/assets/mch/car-white.png" mode="aspectFit" />
         <text class="mch-thumb__count">{{item.imageCount}} 条留证</text>
       </view>
       <view class="mch-card__main {{!item.repairDone && !item.deliveryPending ? 'has-close' : ''}}">
         <text class="mch-card__plate">{{item.plate}}</text>
-        <text wx:if="{{item.titleLine}}" class="mch-card__title">{{item.titleLine}}</text>
+        <view wx:if="{{item.titleLine || item.publicOnSite}}" class="mch-card__title-row">
+          <text wx:if="{{item.titleLine}}" class="mch-card__title">{{item.titleLine}}</text>
+          <text wx:if="{{item.publicOnSite}}" class="mch-card__pub">已公开</text>
+        </view>
         <view class="mch-card__meta-row">
           <text wx:if="{{item.metaLine}}" class="mch-card__meta">{{item.metaLine}}</text>
           <text class="mch-pill mch-pill--{{item.pillTone}}">{{item.pill}}</text>
-          <text
-            wx:if="{{item.repairDone && item.reviewStatus === 'not_reviewed'}}"
-            class="mch-review-badge mch-review-badge--pending"
-          >待评价</text>
-          <text
-            wx:elif="{{item.repairDone && item.reviewStatus === 'reviewed'}}"
+          <view
+            wx:if="{{item.repairDone && item.reviewStatus === 'reviewed'}}"
             class="mch-review-badge mch-review-badge--reviewed"
             data-review-id="{{item.reviewId}}"
             catchtap="onOpenReview"
-          >已评价 ★{{item.reviewScore}}</text>
-          <text
+          ><image class="mch-review-badge__star" src="/assets/mch/star-warning.png" mode="aspectFit" /><text>已评价 {{item.reviewScore}}</text></view>
+          <view
             wx:elif="{{item.repairDone && item.reviewStatus === 'replied'}}"
             class="mch-review-badge mch-review-badge--replied"
             data-review-id="{{item.reviewId}}"
             catchtap="onOpenReview"
-          >已回复 ★{{item.reviewScore}}</text>
+          ><image class="mch-review-badge__star" src="/assets/mch/star-warning.png" mode="aspectFit" /><text>已回复 {{item.reviewScore}}</text></view>
         </view>
-        <view class="mch-track">
-          <view class="mch-track__bar mch-track__bar--{{item.pillTone}}" style="width: {{item.progress}}%;" />
-        </view>
-        <view wx:if="{{item.chips.length}}" class="mch-tags">
-          <text wx:for="{{item.chips}}" wx:for-item="chip" wx:key="*this" class="mch-tag">{{chip}}</text>
+        <view wx:if="{{!item.repairDone}}" class="mch-track">
+          <view class="mch-track__bar" style="width: {{item.progress}}%;" />
         </view>
         <view
           wx:if="{{item.repairDone && item.reviewStatus === 'not_reviewed'}}"
@@ -98,8 +161,8 @@
           data-id="{{item.albumId}}"
           catchtap="onInviteReview"
         >
-          <text class="mch-invite-hint">车主还未评价，邀请后可沉淀口碑</text>
-          <view class="mch-invite-btn">邀请车主评价</view>
+          <text class="mch-invite-hint">邀请车主评价，沉淀口碑</text>
+          <view class="mch-invite-btn">邀请评价</view>
         </view>
       </view>
     </view>

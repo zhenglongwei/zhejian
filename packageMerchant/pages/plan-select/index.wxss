@@ -1,3 +1,5 @@
+@import '../../../styles/mch-craft.wxss';
+
 .plan-select {
   min-height: 100vh;
   padding-bottom: var(--page-fixed-clearance);

@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 .desensitize-page__geo-block {
   display: flex;
   flex-direction: column;

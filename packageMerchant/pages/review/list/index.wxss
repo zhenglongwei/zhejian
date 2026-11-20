@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 .merchant-review-list__pad,
 .merchant-review-list__body {
   padding: var(--space-md) var(--page-padding-x) var(--space-xl);
@@ -11,7 +13,70 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
+}
+
+.merchant-review-list__time {
+  flex: none;
+  color: var(--color-mch-caption);
+  font-family: 'DIN Alternate', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-review-list__vehicle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  min-width: 0;
+}
+
+.merchant-review-list__plate {
+  color: var(--color-text-primary);
+  font-family: 'DIN Alternate', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 2rpx;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-review-list__model {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-sub);
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.merchant-review-list__rates {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.merchant-review-list__rate-label {
+  color: var(--color-text-secondary);
+}
+
+.merchant-review-list__stars + .merchant-review-list__rate-label {
+  margin-left: var(--space-sm);
+}
+
+.merchant-review-list__stars {
+  display: flex;
+  gap: var(--space-star-gap);
+}
+
+.merchant-review-list__stars image {
+  width: 20rpx;
+  height: 20rpx;
+}
+
+.merchant-review-list__meta {
+  display: block;
+  margin-top: var(--space-xs);
 }
 
 .merchant-review-list__preview {
@@ -25,9 +90,4 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
   margin-top: var(--space-sm);
-}
-
-.review-stars {
-  color: #f5a623;
-  letter-spacing: 2rpx;
 }

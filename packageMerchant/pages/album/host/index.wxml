@@ -109,6 +109,7 @@
             value="{{geoSummary}}"
             maxlength="500"
             bindinput="onGeoSummaryInput"
+            bindblur="onGeoSummaryBlur"
             placeholder="什么车、什么问题、怎么处理、结果如何"
           />
           <text wx:if="{{summaryHint}}" class="text-caption merchant-host-page__field-hint">{{summaryHint}}</text>
@@ -140,6 +141,7 @@
                 data-index="{{index}}"
                 data-field="q"
                 bindinput="onFaqFieldInput"
+                bindblur="onFaqFieldBlur"
                 maxlength="40"
                 placeholder="车主可能怎么问"
               />
@@ -149,6 +151,7 @@
                 data-index="{{index}}"
                 data-field="a"
                 bindinput="onFaqFieldInput"
+                bindblur="onFaqFieldBlur"
                 maxlength="280"
                 placeholder="本单怎么做；空着则店页不展示"
               />
@@ -157,10 +160,15 @@
           </view>
         </view>
         <view wx:elif="{{geoSummary || geoFaq.length}}" class="merchant-host-page__copy">
-          <text wx:if="{{geoSummary}}" class="text-body">{{geoSummary}}</text>
-          <view wx:for="{{geoFaq}}" wx:key="_k" class="merchant-host-page__edit-row">
-            <text class="text-caption text-secondary">{{item.q}}</text>
-            <text wx:if="{{item.a}}" class="text-body">{{item.a}}</text>
+          <text wx:if="{{geoSummary}}" class="merchant-host-page__summary">{{geoSummary}}</text>
+          <view wx:if="{{geoFaq.length}}" class="merchant-host-page__qa">
+            <view wx:for="{{geoFaq}}" wx:key="_k" class="merchant-host-page__qa-item">
+              <view class="merchant-host-page__qa-head">
+                <text class="merchant-host-page__qa-no">Q{{index + 1}}</text>
+                <text class="merchant-host-page__qa-q">{{item.q}}</text>
+              </view>
+              <text wx:if="{{item.a}}" class="merchant-host-page__qa-a">{{item.a}}</text>
+            </view>
           </view>
         </view>
 

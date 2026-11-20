@@ -1,6 +1,5 @@
 <view class="mch-ai" style="padding-top: {{statusBarHeight}}px;">
   <view class="mch-top" style="padding-right: {{capsulePad}}px;">
-    <text class="mch-kicker">基于案例与车型数据研判</text>
     <view class="mch-brand">AI 助手</view>
   </view>
 
@@ -32,7 +31,6 @@
 
     <view class="mch-ai-sec">
       <view>
-        <text class="mch-kicker">需要关注</text>
         <view class="mch-ai-sec__title">实时意见</view>
       </view>
       <text class="mch-ai-sec__count">{{cards.length}} 条</text>

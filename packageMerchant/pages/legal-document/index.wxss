@@ -1,1 +1,2 @@
 @import '../../../pages/mine/settings/document/index.wxss';
+@import '../../../styles/mch-craft.wxss';

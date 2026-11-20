@@ -1,9 +1,6 @@
 <view class="mch-store" style="padding-top: {{statusBarHeight}}px;">
   <view class="mch-top" style="padding-right: {{capsulePad}}px;">
-    <view>
-      <text class="mch-kicker">公开信息越完整，越容易被 AI 发现</text>
-      <view class="mch-brand">门店资料</view>
-    </view>
+    <view class="mch-brand">门店资料</view>
   </view>
 
   <block wx:if="{{status === 'loading'}}">
@@ -36,17 +33,14 @@
             <text class="mch-store__pill {{home.verified ? 'is-ok' : 'is-warn'}}">{{home.authLabel}}</text>
           </view>
           <view wx:if="{{home.address}}" class="mch-store__addr">
-            <image class="mch-store__pin" src="/assets/mch/pin-white.png" mode="aspectFit" />
+            <image class="mch-store__pin" src="/assets/mch/pin-blue.png" mode="aspectFit" />
             <text class="mch-store__addr-text">{{home.address}}</text>
           </view>
-        </view>
-        <view class="mch-store__edit" hover-class="mch-store__edit--pressed" bindtap="onEdit">
-          <image class="mch-store__edit-ico" src="/assets/mch/pencil-white.png" mode="aspectFit" />
         </view>
       </view>
     </view>
 
-    <view class="mch-store__panel">
+    <view wx:if="{{!home.complete}}" class="mch-store__panel">
       <view class="mch-ring" style="background: conic-gradient(var(--color-mch-blue) {{home.percent}}%, var(--color-mch-blue-soft) 0);">
         <view class="mch-ring__hole">
           <text class="mch-ring__num">{{home.percent}}</text>
@@ -54,55 +48,50 @@
         </view>
       </view>
       <view class="mch-store__copy">
-        <text class="mch-kicker mch-kicker--muted">资料完善度</text>
-        <view wx:if="{{home.complete}}" class="mch-store__headline">资料已齐</view>
-        <view wx:else class="mch-store__headline">再补充 {{home.missingCount}} 项</view>
-        <text wx:if="{{!home.complete}}" class="mch-store__hint">补资料能提高被 AI 推荐的概率</text>
+        <view class="mch-store__headline">再补充 {{home.missingCount}} 项</view>
+        <text class="mch-store__hint">补资料能提高被 AI 推荐的概率</text>
         <text wx:if="{{home.missingLine}}" class="mch-store__miss">{{home.missingLine}}</text>
       </view>
     </view>
 
     <view class="mch-store__panel mch-store__list">
       <view class="mch-store__section">
-        <view>
-          <text class="mch-kicker mch-kicker--muted">公开名片</text>
-          <view class="mch-store__headline">门店信息</view>
-        </view>
-        <view class="mch-store__preview" hover-class="mch-store__preview--pressed" bindtap="onPreview">预览公开页</view>
+        <view class="mch-store__headline">门店信息</view>
+        <view class="mch-store__preview" hover-class="mch-store__preview--pressed" bindtap="onPreview"><text>预览公开页</text><image class="mch-store__preview-ico" src="/assets/mch/chevron-right-blue.png" mode="aspectFit" /></view>
       </view>
 
       <view class="mch-row" hover-class="mch-row--pressed" bindtap="onIntro">
         <view class="mch-row__well {{home.introDone ? 'is-done' : ''}}">
           <image wx:if="{{home.introDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
-          <text wx:else class="mch-row__plus">+</text>
+          <image wx:else class="mch-row__plus" src="/assets/mch/plus-blue.png" mode="aspectFit" />
         </view>
         <view class="mch-row__body">
           <text class="mch-row__title">基础资料</text>
           <text class="mch-row__value">{{home.introValue}}</text>
         </view>
-        <text class="mch-row__chev">›</text>
+        <image class="mch-row__chev" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
       </view>
       <view class="mch-row" hover-class="mch-row--pressed" bindtap="onServices">
         <view class="mch-row__well {{home.serviceDone ? 'is-done' : ''}}">
           <image wx:if="{{home.serviceDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
-          <text wx:else class="mch-row__plus">+</text>
+          <image wx:else class="mch-row__plus" src="/assets/mch/plus-blue.png" mode="aspectFit" />
         </view>
         <view class="mch-row__body">
           <text class="mch-row__title">擅长服务</text>
           <text class="mch-row__value">{{home.serviceValue}}</text>
         </view>
-        <text class="mch-row__chev">›</text>
+        <image class="mch-row__chev" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
       </view>
       <view class="mch-row" hover-class="mch-row--pressed" bindtap="onTech">
         <view class="mch-row__well {{home.techDone ? 'is-done' : ''}}">
           <image wx:if="{{home.techDone}}" class="mch-row__ico" src="/assets/mch/check-green.png" mode="aspectFit" />
-          <text wx:else class="mch-row__plus">+</text>
+          <image wx:else class="mch-row__plus" src="/assets/mch/plus-blue.png" mode="aspectFit" />
         </view>
         <view class="mch-row__body">
           <text class="mch-row__title">资质证明</text>
           <text class="mch-row__value">{{home.techValue}}</text>
         </view>
-        <text class="mch-row__chev">›</text>
+        <image class="mch-row__chev" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
       </view>
       <view wx:if="{{canManageStaff}}" class="mch-row" hover-class="mch-row--pressed" bindtap="onStaff">
         <view class="mch-row__well">
@@ -112,7 +101,7 @@
           <text class="mch-row__title">账号管理</text>
           <text class="mch-row__value">员工账号</text>
         </view>
-        <text class="mch-row__chev">›</text>
+        <image class="mch-row__chev" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
       </view>
     </view>
 

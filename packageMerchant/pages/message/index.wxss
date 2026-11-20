@@ -1,1 +1,2 @@
 @import '../../../styles/message-list.wxss';
+@import '../../../styles/mch-craft.wxss';

@@ -56,7 +56,7 @@
     <view class="svc-create__cover-wrap">
       <view wx:if="{{form.coverUrl}}" class="svc-create__cover-slot">
         <image class="svc-create__cover-img" src="{{form.coverUrl}}" mode="aspectFill" />
-        <text class="svc-create__cover-del" catchtap="onRemoveCover">×</text>
+        <image class="svc-create__cover-del" src="/assets/mch/close-white.png" mode="aspectFit" catchtap="onRemoveCover" />
       </view>
       <view wx:else class="svc-create__cover-slot svc-create__cover-slot--add" bindtap="onPickCover">
         <text class="text-caption">点击上传</text>

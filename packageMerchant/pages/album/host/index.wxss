@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 .merchant-host-page {
   padding: var(--space-md);
   padding-bottom: calc(var(--space-xl) + 140rpx);
@@ -39,7 +41,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2, 16rpx);
+  gap: var(--space-sm);
 }
 
 .merchant-host-page__option {
@@ -54,6 +56,7 @@
 
 .merchant-host-page__option.is-on {
   border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
 }
 
 .merchant-host-page__option.is-busy {
@@ -81,15 +84,15 @@
 }
 
 .merchant-host-page__wait-text {
-  font-size: var(--font-size-body);
+  font-size: var(--font-body);
   font-weight: var(--font-weight-semibold);
   color: var(--color-warning);
   line-height: 1.4;
 }
 
 .merchant-host-page__wait-hint {
-  font-size: var(--font-size-caption);
-  color: var(--color-mch-amber);
+  font-size: var(--font-caption);
+  color: var(--color-mch-amber-deep);
   line-height: 1.4;
 }
 
@@ -167,94 +170,11 @@
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   background-color: var(--color-bg-card);
-  border: 2rpx solid var(--color-border);
-}
-
-.merchant-host-page__mask-board {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin: var(--space-sm) 0 var(--space-md);
-  padding: var(--space-md);
-  border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
-  background-color: var(--color-bg-card);
-}
-
-.merchant-host-page__mask-board.is-warn {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-light);
-}
-
-.merchant-host-page__mask-board.is-ok {
-  border-color: var(--color-success);
-  background-color: var(--color-success-light);
-}
-
-.merchant-host-page__mask-title {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  box-shadow: var(--mch-shadow-card);
 }
 
 .merchant-host-page__mask-hint {
   color: var(--color-text-secondary);
-}
-
-.merchant-host-page__mask-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-}
-
-.merchant-host-page__mask-cell {
-  position: relative;
-  height: 196rpx;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
-  border: 4rpx solid transparent;
-}
-
-.merchant-host-page__mask-cell.is-open {
-  border-color: var(--color-warning);
-}
-
-.merchant-host-page__mask-cell.is-done {
-  border-color: var(--color-success);
-}
-
-.merchant-host-page__mask-img {
-  width: 100%;
-  height: 100%;
-}
-
-.merchant-host-page__mask-tag {
-  position: absolute;
-  top: var(--space-xs);
-  left: var(--space-xs);
-  padding: 4rpx 12rpx;
-  border-radius: var(--radius-full);
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  font-weight: var(--font-weight-semibold);
-}
-
-.merchant-host-page__mask-tag.is-open {
-  color: var(--color-text-inverse);
-  background-color: var(--color-warning);
-}
-
-.merchant-host-page__mask-tag.is-done {
-  color: var(--color-text-inverse);
-  background-color: var(--color-success);
-}
-
-.merchant-host-page__actions--mask {
-  margin-top: 0;
-}
-
-.merchant-host-page__review {
-  margin-top: var(--space-sm);
 }
 
 .merchant-host-page__empty {
@@ -271,10 +191,6 @@
   margin-bottom: var(--space-md);
   border-radius: var(--radius-sm);
   background-color: var(--color-bg-muted);
-}
-
-.merchant-host-page__tips--geo {
-  margin-bottom: var(--space-lg);
 }
 
 .merchant-host-page__tip {
@@ -312,7 +228,7 @@
   padding: var(--space-sm);
   border-radius: var(--radius-sm);
   background-color: var(--color-bg-muted);
-  font-size: var(--font-size-body);
+  font-size: var(--font-body);
   box-sizing: border-box;
   width: 100%;
 }
@@ -325,7 +241,75 @@
   margin-top: var(--space-lg);
 }
 
-.merchant-host-page__highlights,
+/* 店页摘要正文（只读）：与下方问答用发丝线分段 */
+.merchant-host-page__summary {
+  display: block;
+  padding-bottom: var(--space-md);
+  border-bottom: 1rpx solid var(--color-border);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
+/* 常见问法（只读）：蓝色 Q 编号打头，问题作扫读锚点，答案缩进对齐到问题文字下方 */
+.merchant-host-page__qa {
+  display: flex;
+  flex-direction: column;
+}
+
+.merchant-host-page__qa-item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md) 0;
+}
+
+.merchant-host-page__qa-item:first-child {
+  padding-top: var(--space-xs);
+}
+
+.merchant-host-page__qa-item:last-child {
+  padding-bottom: 0;
+}
+
+/* 只在条目之间画发丝线，首条上方不留孤线 */
+.merchant-host-page__qa-item + .merchant-host-page__qa-item {
+  border-top: 1rpx solid var(--color-border);
+}
+
+.merchant-host-page__qa-head {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.merchant-host-page__qa-no {
+  flex: none;
+  width: 44rpx;
+  font-size: var(--font-caption);
+  line-height: var(--font-h3-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+.merchant-host-page__qa-q {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-h3);
+  line-height: var(--font-h3-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* 缩进 = Q 编号宽(44) + 间隙(16)，答案左缘对齐问题文字 */
+.merchant-host-page__qa-a {
+  margin-top: var(--space-xs);
+  padding-left: 60rpx;
+  font-size: var(--font-sub);
+  line-height: var(--font-sub-lh);
+  color: var(--color-text-secondary);
+}
+
 .merchant-host-page__faq {
   display: flex;
   flex-direction: column;
@@ -364,7 +348,7 @@
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   background-color: var(--color-bg-card);
-  font-size: var(--font-size-body);
+  font-size: var(--font-body);
   box-sizing: border-box;
   width: 100%;
 }

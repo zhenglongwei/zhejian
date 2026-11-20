@@ -4,9 +4,13 @@ const {
 } = require('../../../../services/merchant-service-album')
 const { inviteOwnerReview } = require('../../../../utils/merchant-review-invite')
 const {
-  MERCHANT_SERVICE_ALBUM_LIST_TABS,
-  normalizeMerchantServiceAlbumListTab,
-} = require('../../../../constants/service-album-status')
+  defaultMerchantAlbumFilters,
+  matchesMerchantAlbumFilters,
+  matchesMerchantAlbumKeyword,
+  buildMerchantAlbumFilterGroups,
+  summarizeMerchantAlbumFilters,
+  merchantAlbumFiltersFromQuery,
+} = require('../../../../utils/merchant-album-filters')
 const {
   buildOwnerShareMessageFromDataset,
 } = require('../../../../utils/service-album-share')
@@ -26,26 +30,41 @@ const { buildMerchantAlbumEntryPath } = require('../../../../utils/merchant-albu
 const { openH5Url } = require('../../../../constants/h5-links')
 const { presentAlbumCard } = require('../../../../utils/merchant-workbench-home')
 
-function matchesListTab(card, tab) {
-  if (tab === 'done') return Boolean(card.repairDone)
-  if (tab === 'confirm') return Boolean(card.quotePending) && !card.repairDone
-  if (tab === 'active') return !card.repairDone
-  return true
+function buildCountText(total, matched, hasCondition) {
+  if (!total) return ''
+  if (!hasCondition) return `共 ${total} 本相册`
+  return `匹配到 ${matched} 本 · 共 ${total} 本`
+}
+
+function buildEmptyHint(keyword, hasActiveFilters) {
+  const q = String(keyword || '').trim()
+  if (q) return `没有匹配「${q}」的相册`
+  if (hasActiveFilters) return '没有符合筛选条件的相册'
+  return ''
+}
+
+function buildClearLabel(keyword, hasActiveFilters) {
+  if (keyword && hasActiveFilters) return '清空搜索与筛选'
+  if (keyword) return '清空搜索'
+  if (hasActiveFilters) return '清空筛选'
+  return ''
 }
 
 Page({
   data: {
     status: 'loading',
     list: [],
-    statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS.map((tab) => ({ ...tab, count: 0 })),
-    tab: 'all',
-    reviewTabs: [
-      { key: 'all', label: '全部评价' },
-      { key: 'pending', label: '待评价' },
-      { key: 'reviewed', label: '已评价' },
-    ],
-    reviewTab: 'all',
+    totalCount: 0,
+    isFilteredEmpty: false,
+    filters: defaultMerchantAlbumFilters(),
+    filterGroups: [],
+    filterTags: [],
+    hasActiveFilters: false,
+    resultText: '',
+    emptyHint: '',
+    clearLabel: '',
     keyword: '',
+    panelOpen: false,
     errorMessage: '',
     createOpen: false,
     statusBarHeight: 20,
@@ -53,6 +72,7 @@ Page({
   },
 
   onLoad(options) {
+    const query = options || {}
     const sys = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
     let capsulePad = 16
     try {
@@ -63,12 +83,14 @@ Page({
     } catch (e) {
       capsulePad = 96
     }
+    this._cards = []
     this.setData({
-      tab: normalizeMerchantServiceAlbumListTab(options.tab),
-      keyword: String(options.q || options.keyword || '').trim(),
+      filters: merchantAlbumFiltersFromQuery(query),
+      keyword: String(query.q || query.keyword || '').trim(),
       statusBarHeight: sys.statusBarHeight || 20,
       capsulePad,
     })
+    this._syncApplied()
   },
 
   onShow() {
@@ -116,37 +138,11 @@ Page({
     }
 
     try {
-      const keyword = String(this.data.keyword || '').trim()
-      const raw = await fetchMerchantServiceAlbumList({
-        tab: 'all',
-        q: keyword || undefined,
-      })
-      const cards = (raw || []).map((item) => presentAlbumCard(item))
-      const counts = {
-        all: cards.length,
-        active: cards.filter((card) => !card.repairDone).length,
-        confirm: cards.filter((card) => card.quotePending && !card.repairDone).length,
-        done: cards.filter((card) => card.repairDone).length,
-      }
-      const reviewTab = this.data.reviewTab
-      const reviewFiltered = cards.filter((card) => {
-        if (reviewTab === 'pending') {
-          return card.repairDone && card.reviewStatus === 'not_reviewed'
-        }
-        if (reviewTab === 'reviewed') {
-          return card.repairDone && card.reviewStatus !== 'not_reviewed'
-        }
-        return true
-      })
-      const list = reviewFiltered.filter((card) => matchesListTab(card, this.data.tab))
-      this.setData({
-        list,
-        statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS.map((tab) => ({
-          ...tab,
-          count: counts[tab.key] || 0,
-        })),
-        status: list.length ? 'normal' : 'empty',
-      })
+      // 搜索与筛选全在端上即时算，所以每次都取全量，不再把 q 交给服务端
+      const raw = await fetchMerchantServiceAlbumList({ tab: 'all' })
+      this._cards = (raw || []).map((item) => presentAlbumCard(item))
+      this._loaded = true
+      this._syncApplied()
     } catch (e) {
       this.setData({
         status: 'error',
@@ -157,32 +153,74 @@ Page({
     }
   },
 
-  onKeywordInput(e) {
-    this.setData({ keyword: (e.detail && e.detail.value) || '' })
+  /** 关键词 ∩ 三维筛选 → 列表、各档计数、收起后挂在搜索框上的小标 */
+  _syncApplied() {
+    const cards = this._cards || []
+    const { keyword, filters } = this.data
+    const pool = cards.filter((card) => matchesMerchantAlbumKeyword(card, keyword))
+    const list = pool.filter((card) => matchesMerchantAlbumFilters(card, filters))
+    const filterTags = summarizeMerchantAlbumFilters(filters)
+    const hasActiveFilters = filterTags.length > 0
+    const hasCondition = hasActiveFilters || Boolean(String(keyword || '').trim())
+    const nextStatus = !this._loaded
+      ? this.data.status
+      : list.length
+        ? 'normal'
+        : 'empty'
+    this.setData({
+      list,
+      isFilteredEmpty: cards.length > 0 && list.length === 0,
+      filterGroups: buildMerchantAlbumFilterGroups(pool, filters),
+      filterTags,
+      hasActiveFilters,
+      resultText: buildCountText(cards.length, list.length, hasCondition),
+      emptyHint: buildEmptyHint(keyword, hasActiveFilters),
+      clearLabel: buildClearLabel(String(keyword || '').trim(), hasActiveFilters),
+      status: nextStatus,
+    })
   },
 
-  onKeywordSearch(e) {
-    const value =
-      e && e.detail && e.detail.value != null ? e.detail.value : this.data.keyword
-    this.setData({ keyword: String(value || '').trim() }, () =>
-      this.loadList({ forceLoading: true }),
+  onOpenPanel() {
+    if (this.data.panelOpen) return
+    this.setData({ panelOpen: true })
+  },
+
+  onClosePanel() {
+    if (!this.data.panelOpen) return
+    this.setData({ panelOpen: false })
+  },
+
+  onSearchInput(e) {
+    this.setData({ keyword: (e.detail && e.detail.value) || '' }, () => this._syncApplied())
+  },
+
+  onSearchClear() {
+    this.setData({ keyword: '' }, () => this._syncApplied())
+  },
+
+  onFilterOption(e) {
+    const dataset = (e.currentTarget && e.currentTarget.dataset) || {}
+    const dim = dataset.dim
+    const key = dataset.key
+    if (!dim || !key) return
+    this.setData({ filters: { ...this.data.filters, [dim]: key } }, () => this._syncApplied())
+  },
+
+  onResetFilters() {
+    this.setData({ filters: defaultMerchantAlbumFilters() }, () => this._syncApplied())
+  },
+
+  onRemoveFilterTag(e) {
+    const dim = e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.dim
+    if (!dim) return
+    this.setData({ filters: { ...this.data.filters, [dim]: 'all' } }, () => this._syncApplied())
+  },
+
+  onClearSearchAndFilters() {
+    this.setData(
+      { keyword: '', filters: defaultMerchantAlbumFilters() },
+      () => this._syncApplied(),
     )
-  },
-
-  onKeywordClear() {
-    this.setData({ keyword: '' }, () => this.loadList({ forceLoading: true }))
-  },
-
-  onChip(e) {
-    const key = normalizeMerchantServiceAlbumListTab(e.currentTarget.dataset.key)
-    if (key === this.data.tab) return
-    this.setData({ tab: key }, () => this.loadList({ forceLoading: true }))
-  },
-
-  onReviewChip(e) {
-    const key = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) || 'all'
-    if (key === this.data.reviewTab) return
-    this.setData({ reviewTab: key }, () => this.loadList({ forceLoading: true }))
   },
 
   onOpenReview(e) {

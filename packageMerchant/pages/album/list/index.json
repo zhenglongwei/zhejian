@@ -2,7 +2,6 @@
   "navigationStyle": "custom",
   "usingComponents": {
     "ui-button": "/components/button/index",
-    "ui-search-bar": "/components/search-bar/index",
     "merchant-tab-bar": "/components/merchant-tab-bar/index",
     "merchant-create-sheet": "/components/merchant-create-sheet/index"
   }

@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-album.wxss';
+@import '../../../../styles/mch-craft.wxss';
 
 .album-optimize {
   display: flex;
@@ -12,30 +13,30 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 .album-optimize__section {
   display: block;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-md);
 }
 
 .album-optimize__label {
   display: block;
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-1);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-xs);
   color: var(--color-text-secondary);
 }
 
 .album-optimize__tip + .album-optimize__tip {
-  margin-top: var(--space-2);
+  margin-top: var(--space-sm);
 }
 
 .album-optimize__actions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-bottom: var(--space-4);
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding-bottom: var(--space-lg);
 }

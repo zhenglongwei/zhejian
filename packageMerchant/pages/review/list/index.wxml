@@ -40,10 +40,35 @@
       >
         <view class="merchant-review-list__head">
           <text class="text-h3">{{item.serviceName}}</text>
-          <text class="text-caption">维修服务 <text class="review-stars">{{item.repairStars}}</text> · 过程相册 <text class="review-stars">{{item.albumStars}}</text></text>
+          <text class="merchant-review-list__time text-caption">{{item.createdAtText || item.createdAt}}</text>
         </view>
-        <text wx:if="{{item.vehicleLine}}" class="text-body">{{item.vehicleLine}}</text>
-        <text class="text-caption text-secondary">{{item.ownerHint}} · {{item.createdAtText || item.createdAt}}</text>
+        <view wx:if="{{item.plate || item.model}}" class="merchant-review-list__vehicle">
+          <text wx:if="{{item.plate}}" class="merchant-review-list__plate">{{item.plate}}</text>
+          <text wx:if="{{item.model}}" class="merchant-review-list__model">{{item.model}}</text>
+        </view>
+        <view class="merchant-review-list__rates">
+          <text class="merchant-review-list__rate-label text-caption">维修服务</text>
+          <view class="merchant-review-list__stars">
+            <image
+              wx:for="{{starRange}}"
+              wx:for-item="star"
+              wx:key="*this"
+              src="{{item.repairScoreRounded >= star ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+              mode="aspectFit"
+            />
+          </view>
+          <text class="merchant-review-list__rate-label text-caption">过程相册</text>
+          <view class="merchant-review-list__stars">
+            <image
+              wx:for="{{starRange}}"
+              wx:for-item="star"
+              wx:key="*this"
+              src="{{item.albumScoreRounded >= star ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+              mode="aspectFit"
+            />
+          </view>
+        </view>
+        <text class="merchant-review-list__meta text-caption text-secondary">{{item.ownerHint}}</text>
         <text wx:if="{{item.contentPreview}}" class="text-body merchant-review-list__preview">
           {{item.contentPreview}}
         </text>

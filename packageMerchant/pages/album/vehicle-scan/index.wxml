@@ -16,7 +16,9 @@
     <view class="vehicle-scan__mask-shade" />
 
     <view class="vehicle-scan__status" style="padding-top: {{statusBarHeight}}px;">
-      <view class="vehicle-scan__close" bindtap="onClose" aria-role="button" aria-label="关闭">×</view>
+      <view class="vehicle-scan__close" bindtap="onClose" aria-role="button" aria-label="关闭">
+        <image class="vehicle-scan__close-ico" src="/assets/mch/close-white.png" mode="aspectFit" />
+      </view>
       <text class="vehicle-scan__nav-title">{{pageTitle}}</text>
       <view class="vehicle-scan__close vehicle-scan__close--spacer" />
     </view>

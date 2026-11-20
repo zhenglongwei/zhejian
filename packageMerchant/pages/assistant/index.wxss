@@ -1,3 +1,5 @@
+@import '../../../styles/mch-craft.wxss';
+
 page {
   background: var(--color-mch-bg);
 }
@@ -11,14 +13,7 @@ page {
 }
 
 .mch-top {
-  padding: 8rpx 32rpx 4rpx;
-}
-
-.mch-kicker {
-  color: var(--color-primary);
-  font-size: var(--font-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--font-caption-lh);
+  padding: var(--space-xs) var(--page-padding-x);
 }
 
 .mch-brand {
@@ -30,28 +25,28 @@ page {
 
 .mch-ai__state,
 .mch-ai__empty {
-  padding: 48rpx 32rpx;
+  padding: var(--space-xl) var(--page-padding-x);
 }
 
 .mch-ai-hero {
   position: relative;
-  margin: 24rpx 32rpx 0;
-  padding: 36rpx 32rpx;
-  border-radius: var(--radius-mch-card);
-  color: var(--color-text-inverse);
-  background: linear-gradient(130deg, var(--color-mch-ai-start), var(--color-mch-ai-end));
+  margin: var(--space-md) var(--page-padding-x) 0;
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--mch-radius-hero);
+  color: var(--color-mch-ink);
+  background: var(--color-bg-card);
+  box-shadow: var(--mch-shadow-hero);
   overflow: hidden;
 }
 
 .mch-ai-hero__orb {
   position: absolute;
-  right: 28rpx;
-  top: 28rpx;
+  right: var(--space-md);
+  top: var(--space-md);
   width: 96rpx;
   height: 96rpx;
-  border-radius: 28rpx;
-  border: 1rpx solid var(--color-mch-glass);
-  background: var(--color-mch-glass);
+  border-radius: var(--mch-radius);
+  background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -64,14 +59,14 @@ page {
 
 .mch-ai-hero__label {
   display: block;
-  color: var(--color-mch-ai-sub);
+  color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
 }
 
 .mch-ai-hero__count {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--space-xs);
   font-size: var(--font-h1);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-h1-lh);
@@ -79,8 +74,8 @@ page {
 
 .mch-ai-hero__from {
   display: block;
-  margin-top: 12rpx;
-  color: var(--color-mch-ai-note);
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
 }
@@ -89,11 +84,10 @@ page {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin: 36rpx 32rpx 16rpx;
+  margin: var(--space-lg) var(--page-padding-x) var(--space-sm);
 }
 
 .mch-ai-sec__title {
-  margin-top: 4rpx;
   font-size: var(--font-h1);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-h1-lh);
@@ -106,25 +100,24 @@ page {
 }
 
 .mch-ai-card {
-  margin: 0 32rpx 20rpx;
+  margin: 0 var(--page-padding-x) var(--space-md);
   padding: var(--space-md);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--mch-radius);
   background: var(--color-bg-card);
-  box-shadow: var(--shadow-mch-card);
+  box-shadow: var(--mch-shadow-card);
 }
 
 .mch-ai-card__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16rpx;
+  gap: var(--space-sm);
 }
 
 .mch-ai-card__kind {
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--space-xs);
   min-width: 0;
   color: var(--color-mch-insight);
   font-size: var(--font-caption);
@@ -140,19 +133,19 @@ page {
 
 .mch-ai-card__when,
 .mch-ai-card__plate {
-  color: var(--color-mch-caption);
+  color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
 }
 
 .mch-ai-card__plate {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--space-xs);
 }
 
 .mch-ai-card__title {
   display: block;
-  margin-top: 16rpx;
+  margin-top: var(--space-sm);
   font-size: var(--font-h3);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-h3-lh);
@@ -160,7 +153,7 @@ page {
 
 .mch-ai-card__body {
   display: block;
-  margin-top: 8rpx;
+  margin-top: var(--space-xs);
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
@@ -169,11 +162,11 @@ page {
 .mch-ai-card__actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 20rpx;
+  margin-top: var(--space-md);
 }
 
 .mch-ai-card__btn {
-  padding: 12rpx 20rpx;
+  padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
   background: var(--color-primary);
   color: var(--color-text-inverse);
@@ -184,9 +177,9 @@ page {
 
 .mch-ai-note {
   display: block;
-  margin: 12rpx 48rpx 0;
+  margin: var(--space-sm) var(--space-xl) 0;
   text-align: center;
-  color: var(--color-mch-caption);
+  color: var(--color-text-secondary);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
 }

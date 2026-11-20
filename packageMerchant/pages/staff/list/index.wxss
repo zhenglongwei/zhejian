@@ -1,3 +1,5 @@
+@import '../../../../styles/mch-craft.wxss';
+
 .merchant-staff__pad {
   padding-top: var(--space-lg);
 }
@@ -34,8 +36,9 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md);
-  background: var(--color-bg-container);
+  background: var(--color-bg-card);
   border-radius: var(--radius-md);
+  box-shadow: var(--mch-shadow-card);
 }
 
 .merchant-staff__card-head {
@@ -77,7 +80,7 @@
 .merchant-staff__input {
   height: 88rpx;
   padding: 0 var(--space-md);
-  background: var(--color-bg-container);
+  background: var(--color-bg-card);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-body);
+  font-size: var(--font-body);
 }
