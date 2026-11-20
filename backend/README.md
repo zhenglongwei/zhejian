@@ -159,6 +159,8 @@ npm run leads:smoke
 
 日 job：`npm run stats:aggregate`（默认聚合上海时区「昨日」）
 
+爬虫访问入库：`npm run crawler:ingest`（读 Nginx `crawler-access.log`，默认只处理昨日与前日两天）。已排在 `stats-aggregate-cron.sh` 的日聚合之前——日聚合的 `crawler_view_count` 只数已入库的事件，顺序反了昨日爬虫就记成 0。
+
 **生产定时（北京时间每天 0:00）**：在 ECS 上为 **root 或跑 API 的同一用户** 配置 crontab（路径改成你服务器上的 `backend` 绝对路径，例如 `/www/zhejian/backend`）：
 
 ```cron

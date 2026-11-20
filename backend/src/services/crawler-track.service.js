@@ -75,8 +75,9 @@ async function resolveStoreContext({ path, query }) {
   }
 
   if (pageType === 'store') {
+    // 门店案例列表页是 /store/<id>/cases：既没有 .html 也没有 query id，漏掉它爬虫就归不到店
     const storeId =
-      (path.match(/\/store\/([a-zA-Z0-9_-]+)\.html$/) || [])[1] ||
+      (path.match(/\/store\/([a-zA-Z0-9_-]+)(?:\.html|\/cases\/?)$/i) || [])[1] ||
       query.id ||
       query.storeId ||
       ''
