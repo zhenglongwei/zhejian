@@ -106,13 +106,8 @@
 }
 
 .album-engage__rating-star {
-  font-size: var(--size-rating-star);
-  line-height: 1;
-  color: var(--color-border-strong);
-}
-
-.album-engage__rating-star.is-active {
-  color: var(--color-warning);
+  width: var(--size-rating-star);
+  height: var(--size-rating-star);
 }
 
 .album-engage__rating-num {

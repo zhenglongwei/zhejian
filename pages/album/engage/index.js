@@ -2,7 +2,6 @@ const {
   fetchAlbumReviewContext,
   submitAlbumReview,
   submitAlbumReviewFollowUp,
-  prepareReviewImagePreview,
 } = require('../../../services/album-review')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { fetchServiceAlbum } = require('../../../services/service-album')
@@ -106,7 +105,6 @@ Page({
     },
     submitting: false,
     loginSheetVisible: false,
-    needsReviewImagePreview: false,
     gateBanner: '',
     gateActions: [],
     ...albumAuthShareData(),
@@ -182,7 +180,6 @@ Page({
         followUpForm: { images: [] },
         hasParts: false,
         partVerifySummary: (partCtx && partCtx.summary && partCtx.summary.label) || '',
-        needsReviewImagePreview: Boolean(reviewCtx.needsReviewImagePreview),
         gateBanner,
         gateActions,
         actionDetail: albumDetail,
@@ -259,36 +256,6 @@ Page({
     if (!this.ensureAuth()) return
     wx.navigateTo({
       url: `/pages/album/part-verify/index?${this.buildBaseQuery()}`,
-    })
-  },
-
-  async onOpenReviewImagePreview() {
-    if (!this.ensureAuth()) return
-    try {
-      wx.showLoading({ title: '加载中', mask: true })
-      const preview = await prepareReviewImagePreview(this.data.albumId)
-      wx.hideLoading()
-      wx.navigateTo({
-        url:
-          `/pages/desensitize/preview/index?taskId=${encodeURIComponent(preview.taskId)}` +
-          `&albumId=${encodeURIComponent(this.data.albumId)}` +
-          `&albumTitle=${encodeURIComponent(this.data.albumTitle)}` +
-          '&source=review&fromPreMask=1',
-      })
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '暂时无法打开预览', icon: 'none' })
-    }
-  },
-
-  goReviewImagePreview(taskId) {
-    if (!taskId) return
-    wx.navigateTo({
-      url:
-        `/pages/desensitize/preview/index?taskId=${encodeURIComponent(taskId)}` +
-        `&albumId=${encodeURIComponent(this.data.albumId)}` +
-        `&albumTitle=${encodeURIComponent(this.data.albumTitle)}` +
-        '&source=review&fromPreMask=1',
     })
   },
 
@@ -423,29 +390,11 @@ Page({
         }
         payload = { ...payload, images }
       }
-      const review = await submitAlbumReview(this.data.albumId, payload)
-      const hasImages = Boolean(form.images && form.images.length)
-      const imagesMaskStatus = (review && review.imagesMaskStatus) || (hasImages ? 'pending' : 'none')
+      await submitAlbumReview(this.data.albumId, payload)
       wx.setNavigationBarTitle({ title: '评价已提交' })
-      const needsReviewImagePreview = Boolean(review && review.needsReviewImagePreview)
-      const reviewPreviewTaskId = (review && review.reviewPreviewTaskId) || ''
-      this.setData({
-        hasReview: true,
-        needsReviewImagePreview,
-      })
+      this.setData({ hasReview: true })
       await this.loadContext(this.data.albumTitle)
-      const toastTitle =
-        hasImages && imagesMaskStatus === 'ready'
-          ? '评价已提交，配图已脱敏'
-          : hasImages
-            ? '评价已提交，配图脱敏处理中'
-            : '评价已提交'
-      wx.showToast({ title: toastTitle, icon: 'success' })
-      if (needsReviewImagePreview && reviewPreviewTaskId) {
-        setTimeout(() => {
-          this.goReviewImagePreview(reviewPreviewTaskId)
-        }, 600)
-      }
+      wx.showToast({ title: '评价已提交', icon: 'success' })
     } catch (e) {
       wx.showToast({
         title: (e && e.message) || '提交失败，请稍后重试',

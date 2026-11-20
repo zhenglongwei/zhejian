@@ -1,257 +1,86 @@
+@import '../../styles/own-craft.wxss';
+
 .mine__pad {
   padding-top: var(--space-md);
 }
 
-.mine__hub {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding-top: var(--space-sm);
-  padding-bottom: var(--space-md);
-  background-color: var(--color-bg-album);
+/* V3 深蓝 hero：自定义导航下渐变铺到屏幕顶，padding-top 由行内状态栏高度接管 */
+.mine__hero {
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin: calc(-1 * var(--space-sm)) calc(-1 * var(--page-padding-x)) 0;
+  padding: 24rpx calc(var(--page-padding-x) + 8rpx) 132rpx;
+  background: linear-gradient(163deg, #0c3f83 0%, #12579f 58%, #0e4a90 100%);
 }
 
-.mine__folio {
-  margin: 0 calc(-1 * var(--page-padding-x));
-  padding: var(--space-lg) var(--page-padding-x);
+.mine__hero-ring {
+  position: absolute;
+  top: -100rpx;
+  right: -140rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border: 56rpx solid rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
 }
 
-.mine__main {
-  display: flex;
-  flex-direction: column;
+.mine__who {
+  position: relative;
+  display: block;
+  margin-top: 24rpx;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: var(--font-h3);
+  line-height: 1.5;
 }
 
-.mine__section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
-}
-
-.mine__section-title {
-  color: var(--color-text-primary);
-  font-size: var(--font-h2);
+.mine__name {
+  position: relative;
+  display: block;
+  margin-top: 10rpx;
+  color: var(--color-text-inverse);
+  font-size: var(--own-font-hero-name);
   font-weight: var(--font-weight-semibold);
-  line-height: var(--font-h2-lh);
+  line-height: 1.25;
 }
 
-.mine__section-links {
+.mine__odo {
+  position: relative;
   display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: var(--space-xs);
+  align-items: baseline;
+  gap: 18rpx;
+  margin-top: 40rpx;
 }
 
-.mine__section-link {
+.mine__odo-num {
+  color: var(--color-text-inverse);
+  font-family: 'DIN Alternate', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  font-size: var(--own-font-hero-figure);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.1;
+  letter-spacing: -2rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.mine__odo-unit {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--font-body);
+  line-height: 1.4;
+}
+
+/* 白卡叠压 hero 底缘 */
+.mine__lift {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 4rpx;
-  min-height: var(--font-caption-lh);
-}
-
-.mine__section-link-text {
-  line-height: var(--font-caption-lh);
-}
-
-.mine__section-divider {
-  line-height: var(--font-caption-lh);
-  opacity: 0.5;
-}
-
-.mine__link-badge {
-  color: var(--color-danger);
-  line-height: var(--font-caption-lh);
+  flex-direction: column;
+  gap: 28rpx;
+  margin-top: -94rpx;
+  padding-bottom: var(--space-md);
 }
 
 .mine__album-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.mine__consult-entry {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-  padding: var(--space-sm) 0;
-}
-
-.mine__consult-entry:active {
-  opacity: 0.72;
-}
-
-.mine__consult-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.mine__todo-headline {
-  display: block;
-  margin-bottom: var(--space-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-
-.mine__todo-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.mine__todo-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
-}
-
-.mine__todo-item:active {
-  opacity: 0.72;
-}
-
-.mine__todo-arrow {
-  margin-left: auto;
-  color: var(--color-text-tertiary);
-}
-
-.mine__incentive:active {
-  opacity: 0.72;
-}
-
-.mine__incentive-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.mine__dock {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-around;
-  gap: var(--space-sm);
-}
-
-.mine__dock-item {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs);
-  box-sizing: border-box;
-}
-
-.mine__dock-item:active {
-  opacity: 0.72;
-}
-
-.mine__dock-well {
-  width: var(--size-nav-icon-well);
-  height: var(--size-nav-icon-well);
-  border-radius: var(--radius-md);
-}
-
-.mine__dock-icon {
-  width: var(--size-nav-icon);
-  height: var(--size-nav-icon);
-}
-
-.mine__dock-label {
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
-.mine__h5-outlet {
-  padding: var(--space-sm) var(--space-md);
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.mine__h5-outlet:active {
-  opacity: 0.72;
-}
-
-.mine__empty-alt {
-  margin-top: var(--space-sm);
-  min-height: 44rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mine__first-guide {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin: 0;
-}
-
-.mine__first-guide-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-  flex: 1;
-}
-
-.mine__first-guide-dismiss {
-  flex-shrink: 0;
-  min-height: 44rpx;
-  display: flex;
-  align-items: center;
-}
-
-.mine__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-sm);
-}
-
-.mine__chip {
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-card);
-  color: var(--color-text-secondary);
-  font-size: var(--font-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--font-caption-lh);
-  border: 1rpx solid transparent;
-}
-
-.mine__chip.is-on {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.mine__kicker {
-  color: var(--color-primary);
-  font-size: var(--font-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--font-caption-lh);
-}
-
-.mine__name {
-  display: block;
-  margin-top: 4rpx;
-  font-size: var(--font-h1);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--font-h1-lh);
-  color: var(--color-text-primary);
-}
-
-.mine__hero-line {
-  padding: 28rpx 32rpx;
-  border-radius: 28rpx;
-  background: linear-gradient(160deg, var(--color-mch-card-start), var(--color-mch-card-end));
-  color: var(--color-text-inverse);
-  font-size: var(--font-h2);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--font-h2-lh);
+  gap: 28rpx;
 }
 
 .mine__phone-hint {
@@ -259,10 +88,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
   padding: 20rpx 28rpx;
-  border-radius: var(--radius-md);
+  border-radius: var(--own-radius);
   background: var(--color-bg-card);
+  box-shadow: var(--own-shadow-card);
 }
 
 .mine__phone-hint__text {
@@ -278,33 +107,54 @@
   color: var(--color-primary);
 }
 
-.mine__album-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
+.mine__links {
+  padding: 0 42rpx;
+  border-radius: 36rpx;
+  background: var(--color-bg-card);
+  box-shadow: 0 4rpx 20rpx rgba(20, 27, 45, 0.06);
 }
 
-.mine__todo-line,
 .mine__link {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28rpx 8rpx;
+  padding: 30rpx 0;
   border-bottom: 1rpx solid var(--color-border);
   color: var(--color-text-primary);
-  font-size: var(--font-body);
-  line-height: var(--font-body-lh);
+  font-size: var(--own-font-row);
+  line-height: 1.4;
 }
 
-.mine__link-arrow,
-.mine__todo-line text:last-child {
-  color: var(--color-mch-caption);
+.mine__link:last-child {
+  border-bottom: none;
 }
 
-.mine__links {
-  margin-top: 12rpx;
+.mine__link-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
 }
 
-.mine__auth-submit {
-  padding: var(--space-md) var(--page-padding-x) var(--space-lg);
+.mine__empty-card {
+  padding: var(--space-md);
+  border-radius: 36rpx;
+  background: var(--color-bg-card);
+  box-shadow: var(--own-shadow-card);
+}
+
+.mine__empty-alt {
+  min-height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mine__h5-outlet {
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.mine__h5-outlet:active {
+  opacity: 0.72;
 }

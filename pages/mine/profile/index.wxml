@@ -46,7 +46,7 @@
                 />
                 <view wx:else class="profile-form__avatar profile-form__avatar--placeholder image-placeholder" />
               </button>
-              <text class="profile-form__arrow text-caption">›</text>
+              <image class="profile-form__arrow" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
             </view>
           </view>
         </view>
@@ -71,7 +71,7 @@
             <text class="profile-form__value text-body {{user.isPhoneBound ? '' : 'profile-form__value--muted'}}">
               {{phoneDisplayText}}
             </text>
-            <text class="profile-form__arrow text-caption">›</text>
+            <image class="profile-form__arrow" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
           </view>
         </view>
 
@@ -83,7 +83,7 @@
             <text class="profile-form__value text-body {{vehicleSummary ? '' : 'profile-form__value--muted'}}">
               {{vehicleDisplayText}}
             </text>
-            <text class="profile-form__arrow text-caption">›</text>
+            <image class="profile-form__arrow" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
           </view>
         </view>
       </view>

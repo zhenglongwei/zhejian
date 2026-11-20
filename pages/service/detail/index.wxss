@@ -1,3 +1,4 @@
+@import '../../../styles/own-craft.wxss';
 @import '../../../styles/deep-link-detail.wxss';
 
 .service-detail__body {

@@ -17,7 +17,7 @@
 }
 
 .web-login__title {
-  font-size: 34rpx;
+  font-size: var(--font-h2);
   font-weight: 600;
 }
 

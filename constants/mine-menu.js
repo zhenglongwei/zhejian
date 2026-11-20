@@ -87,7 +87,16 @@ function buildMineHubDock() {
 }
 
 function buildOwnerHubLinks() {
-  return [{ ...MINE_TOOL_MENUS[0], label: '设置' }]
+  return [
+    {
+      key: 'albums',
+      label: '全部服务档案',
+      desc: '',
+      needPhone: true,
+      url: '/pages/album/list/index?tab=all',
+    },
+    { ...MINE_TOOL_MENUS[0], label: '设置' },
+  ]
 }
 
 module.exports = {

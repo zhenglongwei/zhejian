@@ -32,12 +32,14 @@
             <view wx:for="{{existingRatingRows}}" wx:key="key" class="album-engage__rating-row">
               <text class="album-engage__rating-label text-caption">{{item.label}}</text>
               <view class="album-engage__rating-stars">
-                <text
+                <image
                   wx:for="{{item.stars}}"
                   wx:for-item="star"
                   wx:key="key"
-                  class="album-engage__rating-star {{star.active ? 'is-active' : ''}}"
-                >{{star.active ? '★' : '☆'}}</text>
+                  class="album-engage__rating-star"
+                  src="{{star.active ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+                  mode="aspectFit"
+                />
               </view>
               <text class="album-engage__rating-num text-caption">{{item.scoreText}}</text>
             </view>
@@ -92,7 +94,7 @@
           </view>
         </ui-card>
 
-        <ui-card wx:if="{{hasReview && (showStoreBrowse || hasParts || needsReviewImagePreview || gateActions.length)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
+        <ui-card wx:if="{{hasReview && (showStoreBrowse || hasParts || gateActions.length)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
           <view class="album-engage__actions">
             <ui-button
               wx:for="{{gateActions}}"
@@ -102,12 +104,6 @@
               data-key="{{item.key}}"
               bind:btntap="onGateActionTap"
             >{{item.label}}</ui-button>
-            <ui-button
-              wx:if="{{needsReviewImagePreview}}"
-              type="secondary"
-              block
-              bind:btntap="onOpenReviewImagePreview"
-            >核对评价配图</ui-button>
             <ui-button
               wx:if="{{showStoreBrowse}}"
               type="secondary"

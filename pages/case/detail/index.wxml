@@ -160,7 +160,7 @@
       <view wx:if="{{ownerReviews.length}}" class="surface-album-panel case-detail__panel">
         <text class="deep-link-detail__section-title text-h3">车主服务与记录评价</text>
         <text class="text-caption text-secondary case-detail__review-hint">
-          经车主授权展示文字、评分与脱敏配图
+          经车主授权展示文字、评分与配图原图
         </text>
         <view class="case-detail__review-list">
           <view

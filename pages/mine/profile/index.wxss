@@ -82,9 +82,8 @@
 
 .profile-form__arrow {
   flex-shrink: 0;
-  color: var(--color-text-tertiary);
-  font-size: 36rpx;
-  line-height: 1;
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .profile-form__avatar-btn {

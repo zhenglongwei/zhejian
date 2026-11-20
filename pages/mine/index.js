@@ -1,14 +1,12 @@
 const { fetchMineSummary } = require('../../services/user')
-const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections, buildMineHubDock, buildOwnerHubLinks } = require('../../constants/mine-menu')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
-const { compareOwnerAlbums, visibleOwnerHubAlbums, nextOwnerHubFilter, needsOwnerConfirm } = require('../../utils/owner-album-rank')
+const { compareOwnerAlbums } = require('../../utils/owner-album-rank')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
 const {
-  MINE_ALBUM_SECTION_TITLE,
   MINE_ALBUM_EMPTY_TITLE,
   MINE_ALBUM_EMPTY_DESC,
   MINE_ALBUM_EMPTY_H5_LINK,
@@ -22,14 +20,6 @@ const { TOOL_GUEST_LOGIN_TITLE } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildCaseListH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
-function hubEmptyTitle(key) {
-  if (key === 'active') return '没有进行中的服务'
-  if (key === 'pending' || key === 'review') return '没有待评价的服务'
-  if (key === 'reviewed') return '还没有评价记录'
-  if (key === 'recent') return '最近没有更新的服务'
-  return '这里还没有服务'
-}
-
 function quietHubAlbumTags(item = {}) {
   return {
     ...item,
@@ -42,6 +32,21 @@ function enrichRecentAlbums(albums = []) {
   return (albums || []).map((item) =>
     quietHubAlbumTags(enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })),
   )
+}
+
+function buildHeroOdo(albums = []) {
+  const count = (albums || []).length
+  if (!count) return null
+  let mileage = 0
+  for (const album of albums) {
+    const raw = Number(album && album.vehicle && album.vehicle.mileage)
+    if (Number.isFinite(raw) && raw > mileage) mileage = raw
+  }
+  if (mileage > 0) {
+    const grouped = String(mileage).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return { num: grouped, unit: `km 总里程 · ${count} 次服务` }
+  }
+  return { num: String(count), unit: '次服务留档' }
 }
 
 const {
@@ -68,24 +73,15 @@ Page({
   data: {
     status: 'loading',
     errorMessage: '',
+    statusBarHeight: 20,
     isLoggedIn: false,
     user: null,
-    vehicleSummary: '',
+    welcomeWho: '',
+    heroOdo: null,
     albumHeroCards: [],
     pendingAuthBadge: '',
     hubDock: buildMineHubDock(),
     hubLinks: buildOwnerHubLinks(),
-    hubFilter: 'recent',
-    hubEmptyTitle: '这里还没有服务',
-    hubAlbums: [],
-    hubFilters: [
-      { key: 'recent', label: '最近' },
-      { key: 'active', label: '进行中' },
-      { key: 'pending', label: '待评价' },
-      { key: 'reviewed', label: '已评价' },
-      { key: 'all', label: '全部' },
-    ],
-    heroLine: '',
     needPhoneHint: false,
     todoSummary: null,
     shareIncentivePreview: buildMineEarningsPreview({ loggedIn: false }),
@@ -95,11 +91,9 @@ Page({
     loginSheetMode: 'auto',
     loginSheetBindContext: 'album',
     menuSections: buildMineMenuSections({}),
-    albumSectionTitle: MINE_ALBUM_SECTION_TITLE,
     albumEmptyTitle: MINE_ALBUM_EMPTY_TITLE,
     albumEmptyDesc: MINE_ALBUM_EMPTY_DESC,
     albumEmptyH5Link: MINE_ALBUM_EMPTY_H5_LINK,
-    guestLoginTitle: TOOL_GUEST_LOGIN_TITLE,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
     h5OutletText: MINE_H5_OUTLET_TEXT,
     ...albumAuthShareData(),
@@ -109,6 +103,8 @@ Page({
 
   onLoad() {
     syncAppSession()
+    const sys = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+    this.setData({ statusBarHeight: sys.statusBarHeight || 20 })
   },
 
   onShow() {
@@ -138,7 +134,7 @@ Page({
     }
   },
 
-  syncHubView(badges, albums = [], loggedIn = false, summary = null, vehicleSummary = '', authList = [], filterKey) {
+  syncHubView(badges, albums = [], loggedIn = false, summary = null, authList = [], heroOdo = null) {
     const authSummary = summarizeAuthorizationTodos(authList, {
       albumPendingAuth: summary && summary.albumPendingAuth,
       albumPendingOwnerReview: summary && summary.albumPendingOwnerReview,
@@ -149,36 +145,18 @@ Page({
     )
     const showGuestH5Link =
       !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
-    const hubFilter = filterKey || this.data.hubFilter || 'recent'
     this.setData({
       menuSections: buildMineMenuSections(badges),
-      albumHeroCards: visibleOwnerHubAlbums(albums, hubFilter),
-      hubAlbums: albums,
-      hubFilter,
-      hubEmptyTitle: hubEmptyTitle(hubFilter),
+      albumHeroCards: (albums || []).slice(0, 2),
       hubLinks: buildOwnerHubLinks(),
       pendingAuthBadge: '',
       todoSummary,
-      vehicleSummary,
+      heroOdo: loggedIn ? heroOdo : null,
       shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
       showShareIncentive:
         MINE_SHARE_INCENTIVE_ENABLED && loggedIn && hasAlbumBindings,
       showGuestH5Link,
     })
-  },
-
-  async loadVehicleSummary() {
-    try {
-      const auth = checkAuth({ needPhone: false })
-      if (!auth.ok) return ''
-      const vehicle = await fetchDefaultVehicle()
-      if (!vehicle || !vehicle.displayTitle) return ''
-      return vehicle.plateDisplay
-        ? `${vehicle.displayTitle} · ${vehicle.plateDisplay}`
-        : vehicle.displayTitle
-    } catch (e) {
-      return ''
-    }
   },
 
   async loadAuthList() {
@@ -207,13 +185,14 @@ Page({
   async loadPage(options = {}) {
     const loggedIn = isLoggedIn()
     if (!loggedIn) {
-      this.syncHubView({}, [], false, null, '')
+      this.syncHubView({}, [], false, null)
       this.setData({
         status: 'normal',
         isLoggedIn: false,
         user: null,
         errorMessage: '',
         needPhoneHint: false,
+        welcomeWho: TOOL_GUEST_LOGIN_TITLE,
       })
       return
     }
@@ -225,12 +204,13 @@ Page({
     try {
       const summary = await fetchMineSummary()
       if (!summary) {
-        this.syncHubView({}, [], false, null, '')
+        this.syncHubView({}, [], false, null)
         this.setData({
           status: 'normal',
           isLoggedIn: false,
           user: null,
           errorMessage: '',
+          welcomeWho: TOOL_GUEST_LOGIN_TITLE,
         })
         return
       }
@@ -239,41 +219,30 @@ Page({
       let recentRaw = []
       let albumUnread = false
       let authList = []
-      let heroLine = ''
-      let albumSectionTitle = '服务相册'
       if (auth.ok) {
         const hub = await this.loadHubAlbums()
         recentRaw = hub.recent
         albumUnread = hub.albumUnread
-        heroLine = hub.heroLine || ''
-        albumSectionTitle = hub.albumSectionTitle || '服务相册'
         authList = await this.loadAuthList()
       } else if (Array.isArray(summary.recentAlbums)) {
         recentRaw = summary.recentAlbums
       }
 
       const recentAlbums = enrichRecentAlbums(recentRaw).slice().sort(compareOwnerAlbums)
-      const pendingCount = recentAlbums.filter((item) => needsOwnerConfirm(item)).length
-      const activeCount = visibleOwnerHubAlbums(recentAlbums, 'active').length
-      heroLine = pendingCount
-        ? `有 ${pendingCount} 份待你确认`
-        : activeCount
-          ? `有 ${activeCount} 份服务进行中`
-          : '还没有进行中的服务'
-      albumSectionTitle = '服务相册'
       if (!albumUnread) {
         albumUnread = recentAlbums.some((item) => item.hasUnreadUpdate)
       }
 
-      const vehicleSummary = auth.ok ? await this.loadVehicleSummary() : ''
       const badges = this.buildBadges(summary, albumUnread)
-      this.syncHubView(badges, recentAlbums, true, summary, vehicleSummary, authList)
+      this.syncHubView(badges, recentAlbums, true, summary, authList, buildHeroOdo(recentAlbums))
+      const whoName = String(
+        (summary.user && (summary.user.nickname || summary.user.phoneDisplay)) || '你好',
+      )
       this.setData({
         status: 'normal',
         isLoggedIn: true,
         user: summary.user,
-        heroLine,
-        albumSectionTitle,
+        welcomeWho: `${whoName}，欢迎回来`,
         needPhoneHint: !auth.ok || !checkAuth({ needPhone: true }).ok,
       })
     } catch (e) {
@@ -449,25 +418,10 @@ Page({
     }
   },
 
-  onHubFilterTap(e) {
-    const key = e.currentTarget.dataset.key
-    if (!key) return
-    const next = nextOwnerHubFilter(this.data.hubFilter, key)
-    this.setData({
-      hubFilter: next,
-      albumHeroCards: visibleOwnerHubAlbums(this.data.hubAlbums || [], next),
-      hubEmptyTitle: hubEmptyTitle(next),
-    })
-  },
-
   onHubLinkTap(e) {
     const key = e.currentTarget.dataset.key
     const item = (this.data.hubLinks || []).find((row) => row.key === key)
     if (!item) return
-    if (key === 'review') {
-      this.onHubFilterTap({ currentTarget: { dataset: { key: 'review' } } })
-      return
-    }
     if (item.needPhone && !this.guardProtectedEntry(true)) return
     if (item.url) wx.navigateTo({ url: item.url })
   },

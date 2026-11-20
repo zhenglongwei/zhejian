@@ -1,4 +1,4 @@
-<ui-tool-page-shell>
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
   <view class="album-list__chips">
     <text
       wx:for="{{tabs}}"

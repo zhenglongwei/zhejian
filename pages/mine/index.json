@@ -1,5 +1,7 @@
 {
-  "navigationBarTitleText": "服务相册-汽车维修档案",
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#0c3f83",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",

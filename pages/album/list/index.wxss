@@ -1,31 +1,32 @@
+@import '../../../styles/own-craft.wxss';
+
 page {
-  background: var(--color-mch-bg);
+  background: var(--color-bg-page);
 }
 
 .album-list__chips {
   display: flex;
-  gap: 12rpx;
+  gap: 18rpx;
   padding: 8rpx 0 4rpx;
 }
 
 .album-list__chip {
-  padding: 12rpx 22rpx;
+  padding: 12rpx 28rpx;
   border-radius: var(--radius-full);
-  background: var(--color-bg-card);
-  color: var(--color-text-secondary);
-  font-size: var(--font-caption);
+  background: transparent;
+  color: #626e80;
+  font-size: var(--font-body);
   font-weight: var(--font-weight-medium);
-  line-height: var(--font-caption-lh);
+  line-height: 1.5;
+  border: 1rpx solid transparent;
+  transition: background-color var(--own-motion), border-color var(--own-motion), color var(--own-motion);
 }
 
 .album-list__chip.is-on {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.album-list__tabs {
-  padding-top: var(--space-sm);
-  padding-bottom: var(--space-xs);
+  background: #0c3f83;
+  border-color: #0c3f83;
+  color: #ffffff;
+  font-weight: var(--font-weight-semibold);
 }
 
 .album-list__download-hint {
@@ -45,43 +46,12 @@ page {
 .album-list__board .album-list__list {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
-}
-
-.album-list__catalog {
-  margin-top: var(--space-sm);
-  margin-bottom: var(--space-xl);
+  gap: 28rpx;
 }
 
 .album-list__catalog--with-bar {
   margin-bottom: calc(var(--space-xl) + 140rpx);
   padding-bottom: env(safe-area-inset-bottom);
-}
-
-.album-list__catalog-head {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-}
-
-.album-list__catalog-accent {
-  flex-shrink: 0;
-  width: 6rpx;
-  height: 32rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-album-active);
-}
-
-.album-list__catalog-title {
-  color: var(--color-text-primary);
-  letter-spacing: 5rpx;
-}
-
-.album-list__catalog-divider {
-  height: 1rpx;
-  margin: var(--space-md) 0 var(--space-sm);
-  background-color: var(--color-album-frame-line);
-  opacity: 0.85;
 }
 
 .album-list__list {
