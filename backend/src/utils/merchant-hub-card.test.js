@@ -92,13 +92,12 @@ test('已完工相册是已交车，五步都完成', () => {
   assert.ok(card.steps.every((step) => step.state === 'done'))
 })
 
-test('列表筛选：待确认和已完成分开，评价只挂在已交车', () => {
+test('列表筛选：只按是否交车分档，评价只挂在已交车', () => {
   const pending = { quotePending: true, repairDone: false }
   const active = { quotePending: false, repairDone: false }
   const done = { quotePending: false, repairDone: true }
-  assert.equal(matchMerchantAlbumTab(pending, 'confirm'), true)
-  assert.equal(matchMerchantAlbumTab(active, 'confirm'), false)
   assert.equal(matchMerchantAlbumTab(pending, 'active'), true)
+  assert.equal(matchMerchantAlbumTab(active, 'active'), true)
   assert.equal(matchMerchantAlbumTab(done, 'done'), true)
   assert.equal(matchMerchantAlbumTab(done, 'active'), false)
   assert.equal(reviewLineForAlbum(false, { overallScore: 5, content: '很好' }), '')

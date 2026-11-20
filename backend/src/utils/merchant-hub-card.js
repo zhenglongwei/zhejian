@@ -94,7 +94,6 @@ function plateOf(vehicle = {}) {
 function matchMerchantAlbumTab(card = {}, tab = 'all') {
   const key = String(tab || 'all')
   if (key === 'done') return Boolean(card.repairDone)
-  if (key === 'confirm') return Boolean(card.quotePending) && !card.repairDone
   if (key === 'active') return !card.repairDone
   return true
 }

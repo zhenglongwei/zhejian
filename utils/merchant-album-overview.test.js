@@ -53,7 +53,7 @@ test('施工中的详情用真实车牌和五张单据', () => {
   assert.equal(view.plate, '粤B·7K52M')
   assert.equal(view.pill.text, '施工中')
   assert.equal(view.vehicleName, '宝马 3系 2021款')
-  assert.equal(view.spec, '2021款 · 里程 68,420 km')
+  assert.equal(view.quick, '粤B·7K52M · 68,420 km')
   assert.match(view.meta, /137 \*\*\*\* 2021/)
   assert.deepEqual(
     view.docs.map((doc) => `${doc.title}:${doc.label}`),
@@ -454,4 +454,39 @@ test('车主确认交车后时间线末补一条客户评价，未评价时给�
     ),
   )
   assert.equal(notDelivered.timelineRows.some((row) => row.key === 'review'), false)
+})
+
+test('时间线已完成行带真实完结时刻，缺时间的留空回落状态词', () => {
+  const nodes = [
+    node({ kind: 'intake', sortOrder: 0, updatedAt: new Date(2026, 10, 18, 14, 5).toISOString(), photoCount: 2 }),
+    node({ kind: 'work', sortOrder: 1, content: { finishedAt: new Date(2026, 10, 19, 9, 30).toISOString() } }),
+    node({ id: 'repair', kind: 'repair_report', sortOrder: 2, document: { status: 'confirmed' } }),
+  ]
+  const done = buildMerchantAlbumOverview({ vehicle: { plate: '粤B7K52M' } }, nodes)
+  assert.equal(done.timelineRows[0].timeLabel, '11-18 14:05')
+  assert.equal(done.timelineRows[1].timeLabel, '11-19 09:30')
+
+  const inProgress = buildMerchantAlbumOverview({ vehicle: { plate: '粤B7K52M' } }, [
+    nodes[0],
+    node({ id: 'repair', kind: 'repair_report', sortOrder: 1, status: 'pending', document: { status: 'pending_confirm' } }),
+  ])
+  const current = inProgress.timelineRows.find((row) => row.state === 'current')
+  assert.equal(current.timeLabel, '')
+
+  const reviewed = buildMerchantAlbumOverview(
+    {
+      vehicle: { plate: '粤B7K52M' },
+      reviewBrief: {
+        reviewed: true,
+        reviewId: 'rev-1',
+        overallScore: 5,
+        replied: false,
+        reviewedAt: new Date(2026, 10, 20, 16, 2).toISOString(),
+      },
+    },
+    nodes,
+  )
+  const review = reviewed.timelineRows[reviewed.timelineRows.length - 1]
+  assert.equal(review.key, 'review')
+  assert.equal(review.timeLabel, '11-20 16:02')
 })

@@ -92,13 +92,13 @@ function normalizeServiceAlbumListTab(tab) {
 
 /**
  * 商家端列表 Tab（2026-10-11）
- * 待确认 = 报价还没确认。已完成 = 已交车。
- * 车主端筛选项同为全部 / 进行中 / 待确认 / 已完工；待确认按车主单据是否等确认，不按商家报价字段。
+ * 已完成 = 已交车。
+ * 「待确认」在 2026-11-20 撤掉：报价已发出等车主点确认是过路状态，商家端常年为 0，点进去是空列表。
+ * 列表顶部的进度/公开/评价三维筛选见 utils/merchant-album-filters。
  */
 const MERCHANT_SERVICE_ALBUM_LIST_TABS = [
   { key: 'all', label: '全部' },
   { key: 'active', label: '进行中' },
-  { key: 'confirm', label: '待确认' },
   { key: 'done', label: '已完成' },
 ]
 
@@ -106,6 +106,7 @@ const MERCHANT_SERVICE_ALBUM_LIST_TABS = [
 const MERCHANT_SERVICE_ALBUM_LIST_TAB_ALIASES = {
   ...SERVICE_ALBUM_LIST_TAB_ALIASES,
   pending_auth: 'done',
+  confirm: 'all',
 }
 
 function normalizeMerchantServiceAlbumListTab(tab) {

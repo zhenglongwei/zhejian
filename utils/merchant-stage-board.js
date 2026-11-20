@@ -492,6 +492,7 @@ function buildMerchantStageBoard(album = {}, flowNodes = [], selectedKey = 'inta
       plate: overview.plate,
       line: spec,
       pill: overview.pill && overview.pill.text ? overview.pill.text : '进行中',
+      pillTone: (overview.pill && overview.pill.tone) || 'blue',
     },
     tabs: navRows.map((row, index) => {
       const isExtraQuote = stageKeyOf(row.key) === 'quote' && row.key !== 'quote:0'

@@ -17,24 +17,12 @@ const {
 } = require('../constants/album-review')
 const { getUserServiceAlbum } = require('./service-album.service')
 const {
-  REVIEW_IMAGE_MASK_STATUS,
   parseRawReviewImages,
-  maskReviewImagesForRow,
-  ensureReviewImagesMasked,
   getPublicReviewImages,
   getPublicFollowUpImages,
 } = require('./album-review-image.service')
-const { createReviewImagePreviewTask } = require('./desensitize.service')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { resolvePublicCaseRowStatus } = require('./case-review-gate.service')
-
-const AUTHORIZED_PUBLIC_STATUSES = new Set(['pending_review', 'public_approved'])
-
-function resolveNeedsReviewImagePreview(row, publicCaseStatus) {
-  if (!row || row.imagesPreviewConfirmed) return false
-  if (!parseRawReviewImages(row.imagesJson).length) return false
-  return AUTHORIZED_PUBLIC_STATUSES.has(publicCaseStatus || '')
-}
 
 function avgKeys(scores, keys) {
   const values = keys.map((key) => Number(scores[key]) || 0).filter((v) => v > 0)
@@ -152,7 +140,6 @@ function mapReviewRow(row, extras = {}) {
     row.scoresJson && typeof row.scoresJson === 'object' ? row.scoresJson : {}
   const repairScore = row.repairScore || calcRepairScore(scores)
   const albumScore = row.albumScore || calcAlbumScore(scores)
-  const publicImages = getPublicReviewImages(row)
   const hasFollowUp = Boolean(row.followUpAt)
   return {
     id: row.id,
@@ -167,17 +154,12 @@ function mapReviewRow(row, extras = {}) {
     content: stripTagOnlyReviewContent(row.content || '', tags),
     tags,
     images,
-    imagesMaskStatus: row.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
-    publicImagesReady: publicImages.imagesApproved,
-    imagesPreviewConfirmed: Boolean(row.imagesPreviewConfirmed),
     authorizePublic: Boolean(row.authorizePublic),
     status: row.status,
     merchantReply: row.merchantReply || '',
     merchantReplyAt: row.merchantReplyAt ? toIso(row.merchantReplyAt) : '',
     followUpContent: row.followUpContent || '',
     followUpImages,
-    followUpImagesMaskStatus:
-      row.followUpImagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
     followUpAt: row.followUpAt ? toIso(row.followUpAt) : '',
     hasFollowUp,
     canFollowUp: !hasFollowUp,
@@ -285,7 +267,6 @@ async function getAlbumReviewContext(albumId, userId) {
     where: { albumId_userId: { albumId, userId } },
   })
   if (existing) {
-    existing = await ensureReviewImagesMasked(existing)
     existing = await repairTagOnlyReviewContent(existing)
   }
   const canAuthorizePublic =
@@ -301,9 +282,6 @@ async function getAlbumReviewContext(albumId, userId) {
     publicCaseStatus,
     canAuthorizePublic,
     reviewAuthorizePublic,
-    imagesMaskStatus: existing?.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
-    publicImagesReady: reviewMapped ? reviewMapped.publicImagesReady : false,
-    needsReviewImagePreview: resolveNeedsReviewImagePreview(existing, publicCaseStatus),
     review: reviewMapped,
     canFollowUp: Boolean(reviewMapped && reviewMapped.canFollowUp),
     consentText: ALBUM_REVIEW_CONSENT_TEXT,
@@ -312,8 +290,7 @@ async function getAlbumReviewContext(albumId, userId) {
 }
 
 async function submitServiceAlbumReview(albumId, userId, payload = {}) {
-  const { eligible, ineligibleReason, merchantId, storeId, publicCaseStatus } =
-    await loadAlbumMeta(albumId, userId)
+  const { eligible, ineligibleReason, merchantId, storeId } = await loadAlbumMeta(albumId, userId)
   if (!eligible) {
     const err = new Error(ineligibleReason || '平台案例审核通过后可评价本次服务')
     err.status = 409
@@ -348,11 +325,8 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
   const repairScore = calcRepairScore(scores)
   const albumScore = calcAlbumScore(scores)
   const sanitizedImages = sanitizeReviewImages(payload.images)
-  const initialMaskStatus = sanitizedImages.length
-    ? REVIEW_IMAGE_MASK_STATUS.PENDING
-    : REVIEW_IMAGE_MASK_STATUS.NONE
 
-  let row = await prisma.serviceAlbumReview.create({
+  const row = await prisma.serviceAlbumReview.create({
     data: {
       id: newId('arv'),
       albumId,
@@ -366,48 +340,13 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
       content,
       tagsJson: tags,
       imagesJson: sanitizedImages,
-      imagesMaskedJson: [],
-      imagesMaskStatus: initialMaskStatus,
       authorizePublic: true,
       consent: true,
       status: ALBUM_REVIEW_STATUS.SUBMITTED,
     },
   })
 
-  if (sanitizedImages.length) {
-    try {
-      await maskReviewImagesForRow({
-        reviewId: row.id,
-        albumId,
-        rawUrls: sanitizedImages,
-      })
-      row = await prisma.serviceAlbumReview.findUnique({ where: { id: row.id } })
-    } catch (e) {
-      console.warn('[review] mask images failed', {
-        reviewId: row.id,
-        message: e && e.message,
-      })
-    }
-  }
-
-  let reviewPreview = null
-  if (resolveNeedsReviewImagePreview(row, publicCaseStatus)) {
-    try {
-      reviewPreview = await createReviewImagePreviewTask(row.id, userId)
-    } catch (e) {
-      console.warn('[review] create preview task failed', {
-        reviewId: row.id,
-        message: e && e.message,
-      })
-    }
-  }
-
-  const mapped = mapReviewRow(row)
-  return {
-    ...mapped,
-    needsReviewImagePreview: Boolean(reviewPreview),
-    reviewPreviewTaskId: (reviewPreview && reviewPreview.taskId) || '',
-  }
+  return mapReviewRow(row)
 }
 
 async function listPublicReviewsForAlbum(albumId) {
@@ -433,8 +372,7 @@ async function listPublicReviewsForAlbum(albumId) {
     orderBy: { createdAt: 'desc' },
     take: 5,
   })
-  const prepared = await Promise.all(rows.map((row) => ensureReviewImagesMasked(row)))
-  const repaired = await Promise.all(prepared.map((row) => repairTagOnlyReviewContent(row)))
+  const repaired = await Promise.all(rows.map((row) => repairTagOnlyReviewContent(row)))
   return repaired.map(mapPublicReviewRow).filter(Boolean)
 }
 
@@ -472,37 +410,14 @@ async function submitServiceAlbumReviewFollowUp(albumId, userId, payload = {}) {
     throw err
   }
 
-  const initialMaskStatus = sanitizedImages.length
-    ? REVIEW_IMAGE_MASK_STATUS.PENDING
-    : REVIEW_IMAGE_MASK_STATUS.NONE
-
-  let row = await prisma.serviceAlbumReview.update({
+  const row = await prisma.serviceAlbumReview.update({
     where: { id: existing.id },
     data: {
       followUpContent: content,
       followUpImagesJson: sanitizedImages,
-      followUpImagesMaskedJson: [],
-      followUpImagesMaskStatus: initialMaskStatus,
       followUpAt: new Date(),
     },
   })
-
-  if (sanitizedImages.length) {
-    try {
-      await maskReviewImagesForRow({
-        reviewId: row.id,
-        albumId,
-        rawUrls: sanitizedImages,
-        target: 'followUp',
-      })
-      row = await prisma.serviceAlbumReview.findUnique({ where: { id: row.id } })
-    } catch (e) {
-      console.warn('[review] mask follow-up images failed', {
-        reviewId: row.id,
-        message: e && e.message,
-      })
-    }
-  }
 
   return mapReviewRow(row)
 }
@@ -665,6 +580,7 @@ async function getAlbumReviewBrief(albumId) {
     reviewId: review.id,
     overallScore: review.overallScore || calcOverallScore(review.scoresJson || {}),
     replied: Boolean(review.merchantReply),
+    reviewedAt: review.createdAt ? new Date(review.createdAt).toISOString() : '',
   }
 }
 

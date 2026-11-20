@@ -279,6 +279,38 @@ function stayText(createdAt, now, finished) {
   return `进店 ${shown}h`
 }
 
+/** 时间线右列的时刻：只要真实时间戳，没有就留空，页面回落到状态词 */
+function timeText(value) {
+  const ts = value ? new Date(value).getTime() : NaN
+  if (!Number.isFinite(ts) || ts <= 0) return ''
+  const d = new Date(ts)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** 完结时间散在单据、内容与节点自身字段里，取最近的一个 */
+function bucketTimeLabel(bucket) {
+  let latest = 0
+  ;((bucket && bucket.nodes) || []).forEach((node) => {
+    const doc = (node && node.document) || {}
+    const content = (node && node.content) || {}
+    const hits = [
+      node && node.updatedAt,
+      doc.deliveredAt,
+      doc.confirmedAt,
+      doc.sentAt,
+      content.receivedAt,
+      content.inspectedAt,
+      content.finishedAt,
+    ]
+    hits.forEach((value) => {
+      const ts = value ? new Date(value).getTime() : NaN
+      if (Number.isFinite(ts) && ts > latest) latest = ts
+    })
+  })
+  return latest ? timeText(latest) : ''
+}
+
 function rowDetail(bucket, nodes) {
   const head = bucket.nodes[0] || {}
   if (bucket.key === 'intake') {
@@ -338,6 +370,7 @@ function reviewRow(album, index) {
     state: reviewed ? 'done' : 'current',
     mark: reviewed ? '已评价' : '待评价',
     detail,
+    timeLabel: reviewed ? timeText(brief.reviewedAt) : '',
     nodeId: '',
     reviewId: reviewed ? String(brief.reviewId || '') : '',
     invite: !reviewed,
@@ -394,6 +427,7 @@ function presentBuckets(buckets, nodes) {
       detail: rowDetail(bucket, nodes),
       state,
       mark: state === 'current' ? '进行中' : state === 'todo' ? '待开始' : '已完成',
+      timeLabel: state === 'done' ? bucketTimeLabel(bucket) : '',
       nodeId: (bucket.nodes.find((node) => !isFlowNodeDone(node)) || bucket.nodes[0] || {}).id || '',
       // 节点已完结时无法再改内容，旧意见不再展示
       advice: state === 'current' ? advice : '',
@@ -420,12 +454,6 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
   const repair = nodes.find((node) => node.kind === 'repair_report')
   const year = String(vehicle.modelYear || vehicle.year || '').trim()
   const mileage = Number(vehicle.mileage)
-  const spec = [
-    year ? `${year}款` : '',
-    Number.isFinite(mileage) && mileage > 0 ? `里程 ${mileage.toLocaleString('zh-CN')} km` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
   const phone = String(album.userPhone || '').trim()
   const meta = [phone ? `车主 ${phoneText(album.userPhoneDisplay || phone)}` : '', stayText(album.createdAt, now, finished)]
     .filter(Boolean)
@@ -440,6 +468,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
     .filter(Boolean)
     .join(' ')
   const mileageText = Number.isFinite(mileage) && mileage > 0 ? `${mileage.toLocaleString('zh-CN')} km` : ''
+  const quick = [plateOf(vehicle), mileageText].filter(Boolean).join(' · ')
   const docs = []
   let quoteIndex = 0
   let workIndex = 0
@@ -469,17 +498,18 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
       docs.push(docTile('交车报告', node, { done: '已确认', live: '填写中' }))
     }
   })
-  // 相册详情展示完整车辆信息（手机号仍打码）
+  // 展开态完整参数：车牌/车型/里程/年款已在收起态出现，此处只补未覆盖的字段
+  const brandSeries = [vehicle.brand, vehicle.series]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' ')
   const vehicleFacts = [
-    { key: '车牌', value: plateOf(vehicle) },
     { key: '车架号', value: String(vehicle.vin || '').trim() },
-    { key: '完整车型', value: modelName || brandSeriesYear },
-    { key: '品牌车系', value: modelName === brandSeriesYear ? '' : brandSeriesYear },
+    { key: '品牌车系', value: brandSeries },
     { key: '底盘', value: String(vehicle.chassisCode || vehicle.chassis || '').trim() },
     { key: '发动机', value: String(vehicle.engineModel || '').trim() },
     { key: '排量', value: String(vehicle.displacement || '').trim() },
     { key: '变速箱', value: String(vehicle.gearbox || '').trim() },
-    { key: '接车里程', value: mileageText },
   ].filter((row) => row.value)
   return {
     plate: plateOf(vehicle),
@@ -490,7 +520,7 @@ function buildMerchantAlbumOverview(album = {}, flowNodes = [], now = new Date()
       album.serviceName ||
       '服务相册',
     vehicleFacts,
-    spec,
+    quick,
     meta,
     phone,
     records,

@@ -254,6 +254,16 @@ async function ensureHostDesensitizeTask(albumId, payload = {}) {
   })
 }
 
+/** HOST-PREVIEW · 预览缓存回显：人工稿优先，判过的交车图归属不再重跑模型 */
+async function fetchHostPreviewCache(albumId) {
+  return get(`/merchant/service-albums/${albumId}/host/preview-cache`, withStore())
+}
+
+/** HOST-PREVIEW · 摘要 / 问答人工覆盖稿保存（失焦、离页时调用） */
+async function saveHostPreviewEdit(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/host/preview-edit`, withStore(payload))
+}
+
 async function unhostMerchantAlbum(albumId) {
   return post(`/merchant/service-albums/${albumId}/unhost`, withStore())
 }
@@ -526,6 +536,8 @@ module.exports = {
   cancelPublicHostIntent,
   fetchHostPublicFace,
   ensureHostDesensitizeTask,
+  fetchHostPreviewCache,
+  saveHostPreviewEdit,
   unhostMerchantAlbum,
   unpublishHostedMerchantAlbum,
   saveHostedPublicCopy,

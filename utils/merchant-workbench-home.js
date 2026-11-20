@@ -37,20 +37,14 @@ function fallbackHub(item = {}) {
   }
 }
 
-function padCount(n) {
+function countText(n) {
   const value = Math.max(0, Number(n) || 0)
-  return value < 10 ? `0${value}` : String(value)
+  return String(value)
 }
 
 function timeOf(iso) {
   const ms = new Date(iso || '').getTime()
   return Number.isFinite(ms) ? ms : 0
-}
-
-const MARK_ICON = {
-  blue: '/assets/mch/car-blue.png',
-  amber: '/assets/mch/clock-amber.png',
-  green: '/assets/mch/check-green.png',
 }
 
 function dottedPlate(plate) {
@@ -75,9 +69,27 @@ function whenText(iso, now) {
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-function reviewScoreText(line) {
-  const matched = String(line || '').match(/^(\d+(?:\.\d+)?)\s*分/)
-  return matched ? matched[1] : ''
+function buildSearchText(item, vehicle, hub, titleLine) {
+  return [
+    item.albumId,
+    titleLine,
+    item.serviceName,
+    item.storeName,
+    item.userPhone,
+    item.userPhoneDisplay,
+    item.vehicleDisplay,
+    vehicle.brand,
+    vehicle.series,
+    vehicle.plate,
+    vehicle.plateDisplay,
+    vehicle.vin,
+    vehicle.modelYear,
+    vehicle.modelName,
+    hub.modelLine,
+  ]
+    .map((part) => String(part || '').trim().toLowerCase())
+    .filter(Boolean)
+    .join(' ')
 }
 
 function presentAlbumCard(item = {}, now = new Date()) {
@@ -90,10 +102,7 @@ function presentAlbumCard(item = {}, now = new Date()) {
   const titleLine = [car, serviceOk ? service : ''].filter(Boolean).join(' · ') || card.modelLine
   const when = whenText(card.repairDone ? card.completedAt || card.updatedAt : card.updatedAt, now)
   let metaLine = when
-  if (card.repairDone) {
-    const score = reviewScoreText(item.reviewLine)
-    metaLine = [when, score ? `车主评价 ${score} 分` : ''].filter(Boolean).join(' · ')
-  } else if (!card.quotePending) {
+  if (!card.repairDone && !card.quotePending) {
     const started = timeOf(hub.createdAt || item.createdAt)
     const hours = started ? (now.getTime() - started) / 3600000 : 0
     let duration = ''
@@ -102,16 +111,18 @@ function presentAlbumCard(item = {}, now = new Date()) {
     }
     metaLine = [when, duration].filter(Boolean).join(' · ')
   }
-  const chips = []
-  if (card.publicOnSite) chips.push('可公开')
   return {
     ...card,
     plate: dottedPlate(card.plate),
     titleLine,
+    searchText: buildSearchText(item, vehicle, hub, titleLine),
     metaLine,
-    chips,
     imageCount: Number(item.imageCount) || 0,
-    thumbTone: card.repairDone ? 'ink' : card.quotePending ? 'gray' : 'blue',
+    coverUrl:
+      typeof item.coverUrl === 'string'
+        ? item.coverUrl
+        : (item.coverUrl && item.coverUrl.url) || '',
+    thumbTone: card.repairDone || card.quotePending ? 'gray' : 'blue',
     hostedSiteUrl: item.hostedSiteUrl || '',
     hasOwner: Boolean(item.hasOwner),
     status: item.status || '',
@@ -119,6 +130,22 @@ function presentAlbumCard(item = {}, now = new Date()) {
     reviewStatus: item.reviewStatus || 'not_reviewed',
     reviewScore: Number(item.reviewScore) || 0,
   }
+}
+
+function normalizeSteps(steps) {
+  if (!Array.isArray(steps)) return []
+  let pastFrontier = false
+  return steps.map((step) => {
+    const state = step && step.state
+    if (pastFrontier) return { ...step, state: 'todo' }
+    if (state === 'current') {
+      pastFrontier = true
+      return { ...step, state: 'current' }
+    }
+    if (state === 'done') return { ...step, state: 'done' }
+    pastFrontier = true
+    return { ...step, state: 'todo' }
+  })
 }
 
 function toCard(item = {}) {
@@ -135,9 +162,8 @@ function toCard(item = {}) {
     subLine,
     pill: hub.pill || '进行中',
     pillTone: hub.pillTone || 'blue',
-    markIcon: MARK_ICON[hub.pillTone] || MARK_ICON.blue,
     progress: Number(hub.progress) || 0,
-    steps: Array.isArray(hub.steps) ? hub.steps : [],
+    steps: normalizeSteps(hub.steps),
     quotePending: Boolean(hub.quotePending),
     deliveryPending: Boolean(hub.deliveryPending),
     repairDone: Boolean(hub.repairDone),
@@ -150,7 +176,6 @@ function toCard(item = {}) {
 function buildWorkbenchHome(list, now = new Date()) {
   const cards = (list || []).filter((item) => item && item.albumId).map(toCard)
   const active = cards.filter((card) => !card.repairDone)
-  const pending = active.filter((card) => card.quotePending)
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
   const monthDone = cards.filter(
     (card) => card.repairDone && timeOf(card.completedAt || card.updatedAt) >= monthStart,
@@ -168,11 +193,8 @@ function buildWorkbenchHome(list, now = new Date()) {
   rest.filter((card) => card.repairDone).forEach(push)
   rest.forEach(push)
   return {
-    activeCountText: padCount(active.length),
-    pendingCountText: padCount(pending.length),
-    monthCountText: padCount(monthDone.length),
-    monthPublicText: monthPublic > 0 ? `已公开 ${monthPublic}` : '',
-    pendingHint: pending.length ? '报价未确认' : '',
+    monthCountText: countText(monthDone.length),
+    monthPublicCountText: countText(monthPublic),
     heroCount: active.length,
     featured,
     compact,
