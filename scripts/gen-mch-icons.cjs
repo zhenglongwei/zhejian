@@ -122,7 +122,50 @@ function canvas(size) {
     circle(x + w - r, y + h - r, r, color, width)
     void cap
   }
-  return { px, stroke, circle, fillCircle, roundRect }
+  const fillPoly = (pts, color) => {
+    const inside = (x, y) => {
+      let hit = false
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i]
+        const [xj, yj] = pts[j]
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit
+      }
+      return hit
+    }
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        let cov = 0
+        for (let sy = 0; sy < 3; sy += 1) {
+          for (let sx = 0; sx < 3; sx += 1) {
+            if (inside(x + sx / 3 + 1 / 6, y + sy / 3 + 1 / 6)) cov += 1
+          }
+        }
+        if (cov > 0) put(x, y, color, cov / 9)
+      }
+    }
+  }
+  const fillRoundRect = (x0, y0, w, h, r, color) => {
+    const x1 = x0 + w - 1
+    const y1 = y0 + h - 1
+    const inside = (x, y) => {
+      if (x < x0 || x > x1 || y < y0 || y > y1) return false
+      const dx = Math.max(x0 + r - x, 0, x - (x1 - r))
+      const dy = Math.max(y0 + r - y, 0, y - (y1 - r))
+      return dx * dx + dy * dy <= r * r
+    }
+    for (let y = Math.floor(y0) - 1; y <= y1 + 1; y += 1) {
+      for (let x = Math.floor(x0) - 1; x <= x1 + 1; x += 1) {
+        let cov = 0
+        for (let sy = 0; sy < 3; sy += 1) {
+          for (let sx = 0; sx < 3; sx += 1) {
+            if (inside(x + sx / 3 + 1 / 6, y + sy / 3 + 1 / 6)) cov += 1
+          }
+        }
+        if (cov > 0) put(x, y, color, cov / 9)
+      }
+    }
+  }
+  return { px, stroke, circle, fillCircle, roundRect, fillPoly, fillRoundRect }
 }
 
 const SIZE = 96
@@ -131,34 +174,46 @@ const C = {
   ink: [31, 35, 41, 255],
   blue: [18, 105, 242, 255],
   white: [255, 255, 255, 255],
-  amber: [182, 107, 0, 255],
   green: [20, 168, 121, 255],
+  warning: [255, 125, 0, 255],
+  faint: [209, 213, 219, 255],
 }
 
-function drawHome(color) {
+/** 工作台=仪表盘：上半圆弧 + 指针 + 轴心；filled 时加粗为选中态 */
+function drawHome(color, filled) {
   const g = canvas(SIZE)
-  const s = 6
-  g.stroke(48, 16, 16, 42, color, s)
-  g.stroke(48, 16, 80, 42, color, s)
-  g.stroke(24, 38, 24, 78, color, s)
-  g.stroke(72, 38, 72, 78, color, s)
-  g.stroke(24, 78, 38, 78, color, s)
-  g.stroke(58, 78, 72, 78, color, s)
-  g.stroke(38, 78, 38, 54, color, s)
-  g.stroke(58, 54, 58, 78, color, s)
-  g.stroke(38, 54, 58, 54, color, s)
+  const cx = 48
+  const cy = 70
+  const r = 30
+  const w = filled ? 9 : 6
+  let prev = null
+  for (let i = 0; i <= 30; i += 1) {
+    const a = Math.PI - (i * Math.PI) / 30
+    const p = [cx + r * Math.cos(a), cy - r * Math.sin(a)]
+    if (prev) g.stroke(prev[0], prev[1], p[0], p[1], color, w)
+    prev = p
+  }
+  g.stroke(cx, cy, 60, 48, color, filled ? 8 : 5)
+  g.fillCircle(cx, cy, filled ? 7 : 4.5, color)
   return g.px
 }
 
-function drawAlbum(color) {
+/** 服务相册=叠放卡片：后卡露出边 + 前卡(山形)；filled 时前卡实心反白 */
+function drawAlbum(color, filled) {
   const g = canvas(SIZE)
-  g.stroke(22, 24, 74, 24, color, 6)
-  g.stroke(22, 72, 74, 72, color, 6)
-  g.stroke(22, 24, 22, 72, color, 6)
-  g.stroke(74, 24, 74, 72, color, 6)
-  g.circle(36, 40, 6, color, 4.5)
-  g.stroke(28, 64, 44, 50, color, 5)
-  g.stroke(44, 50, 70, 64, color, 5)
+  const s = 6
+  g.stroke(26, 18, 78, 18, color, s)
+  g.stroke(78, 18, 78, 54, color, s)
+  g.stroke(26, 18, 26, 34, color, s)
+  g.stroke(68, 54, 78, 54, color, s)
+  const mtn = [[23, 61], [34, 50], [42, 57], [48, 52], [55, 60]]
+  if (filled) {
+    g.fillRoundRect(16, 34, 53, 37, 8, color)
+    for (let i = 1; i < mtn.length; i += 1) g.stroke(mtn[i - 1][0], mtn[i - 1][1], mtn[i][0], mtn[i][1], C.white, 5)
+  } else {
+    g.roundRect(16, 34, 52, 36, 8, color, 6)
+    for (let i = 1; i < mtn.length; i += 1) g.stroke(mtn[i - 1][0], mtn[i - 1][1], mtn[i][0], mtn[i][1], color, 5)
+  }
   return g.px
 }
 
@@ -183,18 +238,28 @@ function drawSpark(color) {
   return g.px
 }
 
-function drawStore(color) {
+/** 门店=遮阳篷店面：梯形篷 + 扇贝齿 + 门体 + 门；filled 时篷/体实心、门反白 */
+function drawStore(color, filled) {
   const g = canvas(SIZE)
-  g.stroke(18, 40, 78, 40, color, 6)
-  g.stroke(22, 40, 28, 22, color, 6)
-  g.stroke(74, 22, 68, 40, color, 6)
-  g.stroke(28, 22, 74, 22, color, 6)
-  g.stroke(26, 40, 26, 78, color, 6)
-  g.stroke(70, 40, 70, 78, color, 6)
-  g.stroke(26, 78, 70, 78, color, 6)
-  g.stroke(40, 78, 40, 54, color, 6)
-  g.stroke(56, 78, 56, 54, color, 6)
-  g.stroke(40, 54, 56, 54, color, 6)
+  const awn = [[18, 36], [25, 18], [71, 18], [78, 36]]
+  const ticks = [18, 39, 57, 78]
+  if (filled) {
+    g.fillPoly(awn, color)
+    g.fillRoundRect(24, 46, 49, 35, 6, color)
+    for (const tx of ticks) g.stroke(tx, 36, tx, 43, color, 6)
+    g.fillRoundRect(40, 62, 17, 19, 3, C.white)
+  } else {
+    g.stroke(18, 36, 25, 18, color, 6)
+    g.stroke(25, 18, 71, 18, color, 6)
+    g.stroke(71, 18, 78, 36, color, 6)
+    for (const tx of ticks) g.stroke(tx, 36, tx, 42, color, 5)
+    g.stroke(24, 46, 24, 80, color, 6)
+    g.stroke(24, 80, 72, 80, color, 6)
+    g.stroke(72, 46, 72, 80, color, 6)
+    g.stroke(40, 80, 40, 62, color, 5)
+    g.stroke(40, 62, 56, 62, color, 5)
+    g.stroke(56, 62, 56, 80, color, 5)
+  }
   return g.px
 }
 
@@ -232,14 +297,6 @@ function drawScan(color) {
   g.stroke(60, 74, 74, 74, color, w)
   g.stroke(74, 60, 74, 74, color, w)
   g.stroke(30, 48, 66, 48, color, 4)
-  return g.px
-}
-
-function drawPencil(color) {
-  const g = canvas(SIZE)
-  g.stroke(30, 68, 72, 26, color, 6)
-  g.stroke(20, 78, 34, 66, color, 4)
-  g.stroke(20, 78, 28, 60, color, 4)
   return g.px
 }
 
@@ -316,21 +373,97 @@ function drawPlus(color) {
   return g.px
 }
 
+function drawClose(color) {
+  const g = canvas(SIZE)
+  g.stroke(28, 28, 68, 68, color, 8)
+  g.stroke(68, 28, 28, 68, color, 8)
+  return g.px
+}
+
+function drawChevronRight(color) {
+  const g = canvas(SIZE)
+  g.stroke(38, 26, 58, 48, color, 7)
+  g.stroke(58, 48, 38, 70, color, 7)
+  return g.px
+}
+
+function drawChevronLeft(color) {
+  const g = canvas(SIZE)
+  g.stroke(58, 26, 38, 48, color, 7)
+  g.stroke(38, 48, 58, 70, color, 7)
+  return g.px
+}
+
+function drawChevronDown(color) {
+  const g = canvas(SIZE)
+  g.stroke(26, 38, 48, 58, color, 7)
+  g.stroke(48, 58, 70, 38, color, 7)
+  return g.px
+}
+
+/** 放大镜：圆环 + 45° 手柄 */
+function drawSearch(color) {
+  const g = canvas(SIZE)
+  g.circle(42, 42, 20, color, 6)
+  g.stroke(57, 57, 74, 74, color, 7)
+  return g.px
+}
+
+/** 实心五角星：像素级 3×3 超采样点在多边形内判定（stroke 画不了填充形） */
+function drawStar(color) {
+  const px = Buffer.alloc(SIZE * SIZE * 4)
+  const cx = 48
+  const cy = 49
+  const outer = 27
+  const inner = 11.5
+  const pts = []
+  for (let i = 0; i < 10; i += 1) {
+    const r = i % 2 === 0 ? outer : inner
+    const a = -Math.PI / 2 + (i * Math.PI) / 5
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
+  }
+  const inside = (x, y) => {
+    let hit = false
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i]
+      const [xj, yj] = pts[j]
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit
+    }
+    return hit
+  }
+  for (let y = 0; y < SIZE; y += 1) {
+    for (let x = 0; x < SIZE; x += 1) {
+      let cov = 0
+      for (let sy = 0; sy < 3; sy += 1) {
+        for (let sx = 0; sx < 3; sx += 1) {
+          if (inside(x + (sx + 0.5) / 3, y + (sy + 0.5) / 3)) cov += 1
+        }
+      }
+      if (!cov) continue
+      const i = (y * SIZE + x) * 4
+      px[i] = color[0]
+      px[i + 1] = color[1]
+      px[i + 2] = color[2]
+      px[i + 3] = Math.round((cov / 9) * 255)
+    }
+  }
+  return px
+}
+
 const outDir = path.join(__dirname, '..', 'assets', 'mch')
 fs.mkdirSync(outDir, { recursive: true })
 
 const files = {
-  'tab-home.png': drawHome(C.gray),
-  'tab-home-on.png': drawHome(C.blue),
-  'tab-albums.png': drawAlbum(C.gray),
-  'tab-albums-on.png': drawAlbum(C.blue),
+  'tab-home.png': drawHome(C.gray, false),
+  'tab-home-on.png': drawHome(C.blue, true),
+  'tab-albums.png': drawAlbum(C.gray, false),
+  'tab-albums-on.png': drawAlbum(C.blue, true),
   'tab-ai.png': drawSpark(C.gray),
   'tab-ai-on.png': drawSpark(C.blue),
-  'tab-store.png': drawStore(C.gray),
-  'tab-store-on.png': drawStore(C.blue),
+  'tab-store.png': drawStore(C.gray, false),
+  'tab-store-on.png': drawStore(C.blue, true),
   'car-white.png': drawCar(C.white),
   'car-blue.png': drawCar(C.blue),
-  'clock-amber.png': drawClock(C.amber),
   'check-green.png': drawCheck(C.green),
   'check-blue.png': drawCheck(C.blue),
   'check-white.png': drawCheck(C.white),
@@ -339,13 +472,25 @@ const files = {
   'camera-gray.png': drawCamera(C.gray),
   'phone-ink.png': drawPhone(C.ink),
   'plus-white.png': drawPlus(C.white),
+  'plus-blue.png': drawPlus(C.blue),
+  'plus-gray.png': drawPlus(C.gray),
   'spark-white.png': drawSpark(C.white),
-  'pencil-blue.png': drawPencil(C.blue),
-  'pencil-white.png': drawPencil(C.white),
   'scan-blue.png': drawScan(C.blue),
-  'pin-white.png': drawPin(C.white),
+  'pin-blue.png': drawPin(C.blue),
   'eye-blue.png': drawEye(C.blue),
   'person-blue.png': drawPerson(C.blue),
+  'close-gray.png': drawClose(C.gray),
+  'search-gray.png': drawSearch(C.gray),
+  'close-ink.png': drawClose(C.ink),
+  'close-white.png': drawClose(C.white),
+  'chevron-right-gray.png': drawChevronRight(C.gray),
+  'chevron-right-blue.png': drawChevronRight(C.blue),
+  'chevron-left-ink.png': drawChevronLeft(C.ink),
+  'chevron-left-white.png': drawChevronLeft(C.white),
+  'chevron-down-gray.png': drawChevronDown(C.gray),
+  'chevron-down-blue.png': drawChevronDown(C.blue),
+  'star-warning.png': drawStar(C.warning),
+  'star-faint.png': drawStar(C.faint),
 }
 
 Object.entries(files).forEach(([name, rgba]) => {
