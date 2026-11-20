@@ -263,6 +263,25 @@ function drawStore(color, filled) {
   return g.px
 }
 
+/** 数据概览入口=柱状读数：基线 + 三根递增柱（和工作台的仪表盘区分形） */
+function drawBoard(color) {
+  const g = canvas(SIZE)
+  g.stroke(18, 74, 78, 74, color, 6)
+  g.fillRoundRect(24, 54, 13, 18, 4, color)
+  g.fillRoundRect(42, 40, 13, 32, 4, color)
+  g.fillRoundRect(60, 26, 13, 46, 4, color)
+  return g.px
+}
+
+/** 指标解释提示：圆环 + i（点一下才展开说明，所以用次要灰） */
+function drawInfo(color) {
+  const g = canvas(SIZE)
+  g.circle(48, 48, 28, color, 5)
+  g.fillCircle(48, 33, 3.5, color)
+  g.stroke(48, 43, 48, 65, color, 5)
+  return g.px
+}
+
 function drawCar(color) {
   const g = canvas(SIZE)
   g.stroke(18, 52, 30, 36, color, 6)
@@ -478,6 +497,8 @@ const files = {
   'scan-blue.png': drawScan(C.blue),
   'pin-blue.png': drawPin(C.blue),
   'eye-blue.png': drawEye(C.blue),
+  'board-blue.png': drawBoard(C.blue),
+  'info-gray.png': drawInfo(C.gray),
   'person-blue.png': drawPerson(C.blue),
   'close-gray.png': drawClose(C.gray),
   'search-gray.png': drawSearch(C.gray),
@@ -490,6 +511,7 @@ const files = {
   'chevron-down-gray.png': drawChevronDown(C.gray),
   'chevron-down-blue.png': drawChevronDown(C.blue),
   'star-warning.png': drawStar(C.warning),
+  'star-blue.png': drawStar(C.blue),
   'star-faint.png': drawStar(C.faint),
 }
 

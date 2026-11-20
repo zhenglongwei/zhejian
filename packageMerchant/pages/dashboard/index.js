@@ -1,31 +1,24 @@
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
-const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
+const { fetchMerchantServiceAlbumList } = require('../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
+const { countPublicAlbums } = require('../../../utils/merchant-store-home')
+const { scoreBasicProfile } = require('../../../utils/merchant-basic-profile')
 const {
   PERIOD_TABS,
   formatCount,
-  formatPercentScore,
   sumViews,
   buildLagHint,
   formatRankRows,
+  DEFAULT_METRIC_NOTES,
 } = require('../../../utils/merchant-dashboard')
 const { getServiceItem } = require('../../../constants/service')
 
-function parseDisplayCount(value) {
-  const n = Number(String(value || '').replace(/,/g, ''))
-  return Number.isFinite(n) ? n : 0
-}
-
-function buildHeroKpis(display = {}) {
-  return [
-    { key: 'views', label: '总浏览', value: display.totalViews || '0', tone: 'primary' },
-    { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0', tone: 'warning' },
-    { key: 'score', label: '透明度', value: display.transparencyScore || '0', tone: 'success' },
-  ]
-}
+const CASE_METRICS_URL = '/packageMerchant/pages/dashboard/cases/index'
+const ALBUM_UNPUBLISHED_URL = '/packageMerchant/pages/album/list/index?public=off'
+const STORE_HOME_URL = '/packageMerchant/pages/store/home/index'
 
 function resolveServiceRankTitle(raw) {
   const text = String(raw || '').trim()
@@ -34,89 +27,76 @@ function resolveServiceRankTitle(raw) {
   return (catalog && catalog.name) || text
 }
 
-function buildExposureChips(display = {}) {
+function buildHeroKpis(stats) {
+  const summary = (stats && stats.summary) || {}
   return [
-    { key: 'h5', label: '网页案例', value: display.h5CaseViewCount || '0' },
-    { key: 'mp', label: '小程序案例', value: display.mpCaseViewCount || '0' },
-    { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0' },
-  ]
-}
-
-function buildCrawlerMetric(display = {}) {
-  return {
-    value: display.crawlerViewCount || '0',
-    label: '搜索/智能助手爬虫访问',
-    hint: '代理指标 · 非引用次数',
-  }
-}
-
-function buildAlbumRows(display = {}) {
-  const pendingAuth = parseDisplayCount(display.pendingAuth)
-  return [
-    { key: 'created', value: display.albumCreatedCount || '0', label: '新建相册', active: false },
-    { key: 'done', value: display.albumCompletedCount || '0', label: '完工相册', active: false },
     {
-      key: 'auth',
-      value: display.pendingAuth || '0',
-      label: '本待车主发布',
-      action: '去查看',
-      active: pendingAuth > 0,
-      handler: 'auth',
+      key: 'views',
+      label: '真人浏览量',
+      value: formatCount(sumViews(summary)),
+      action: '看明细',
+      sort: 'views',
+    },
+    {
+      key: 'crawler',
+      label: '爬虫访问',
+      value: formatCount(summary.crawlerViewCount),
+      action: '看明细',
+      sort: 'crawler',
+    },
+    {
+      key: 'stars',
+      label: '星标次数',
+      value: formatStarCount(stats && stats.starSummary),
+      action: '看明细',
+      sort: 'stars',
     },
   ]
 }
 
-function filterMerchantSuggestions(list = []) {
-  return (list || []).filter((item) => !/咨询线索|线索待处理|线索跟进/.test(String(item || '')))
+function buildStoreKpis(facts) {
+  return [
+    {
+      key: 'publicCase',
+      label: '公开案例',
+      value: formatCount(facts.publicCaseCount),
+      action: '去公开',
+      url: ALBUM_UNPUBLISHED_URL,
+    },
+    {
+      key: 'profile',
+      label: '资料完整度',
+      value: `${facts.profilePercent || '0'}%`,
+      action: '去完善',
+      url: STORE_HOME_URL,
+    },
+  ]
 }
 
-function emptyDisplay() {
-  return {
-    totalViews: '0',
-    caseViewCount: '0',
-    h5CaseViewCount: '0',
-    mpCaseViewCount: '0',
-    crawlerViewCount: '0',
-    phoneClickCount: '0',
-    albumCreatedCount: '0',
-    albumCompletedCount: '0',
-    transparencyScore: '0',
-    transparencyBreakdown: [],
-    pendingAuth: '0',
-  }
+function formatStarCount(starSummary) {
+  return formatCount((starSummary || {}).starCount)
 }
 
 Page({
   data: {
     status: 'loading',
     periodTabs: PERIOD_TABS,
-    period: '7d',
+    period: 'month',
     errorMessage: '',
     lagHint: '',
     rangeLabel: '',
-    display: emptyDisplay(),
-    transparencyBreakdown: [],
-    topCases: [],
     topServices: [],
-    suggestions: [],
     storeName: '',
-    heroKpis: buildHeroKpis(),
-    exposureChips: buildExposureChips(),
-    crawlerMetric: buildCrawlerMetric(),
-    metricNotes: {
-      userExposure: '公开网页案例页、小程序内浏览与电话点击来自真实用户行为。',
-      crawlerProxy:
-        '「搜索/智能助手爬虫访问」指已知机器人抓取本店公开页次数，不代表智能助手在对话中引用本店，也不代表收录或排名。',
-      probeInternal:
-        '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被智能助手引用。',
-    },
-    albumRows: buildAlbumRows(),
-    complianceText:
-      '数据来自站外公开页浏览与电话点击统计，不含平台订单；浏览类指标按日更新（次日可见）。爬虫访问为代理指标，非智能助手引用；平台答案探测不向商家展示引用次数。',
+    heroKpis: buildHeroKpis({}),
+    storeKpis: buildStoreKpis({}),
+    noteOpen: {},
+    metricNotes: DEFAULT_METRIC_NOTES,
   },
 
   onLoad() {
     this.storeId = ''
+    this.profilePercent = '0'
+    this.renderedOnce = false
   },
 
   onShow() {
@@ -124,7 +104,7 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadData().finally(() => wx.stopPullDownRefresh())
+    this.loadData({ quiet: this.renderedOnce }).finally(() => wx.stopPullDownRefresh())
   },
 
   async ensureMerchant() {
@@ -144,98 +124,66 @@ Page({
       return
     }
     this.storeId = profile.storeId || ''
+    this.profilePercent = String(scoreBasicProfile(profile).score)
     this.setData({ storeName: profile.storeName || '' })
-    this.loadData()
+    this.loadStoreFacts()
+    // 二次进页面（从明细页返回）只刷数字，不再闪骨架屏
+    this.loadData({ quiet: this.renderedOnce })
   },
 
-  buildDisplay(stats, albumStats) {
-    const summary = stats.summary || {}
-    const breakdown = stats.transparency?.breakdown || {}
-    const transparencyBreakdown = [
-      { key: 'album', label: '服务相册', score: breakdown.album || 0 },
-      { key: 'case', label: '公开案例', score: breakdown.case || 0 },
-      { key: 'serviceProfile', label: '服务资料', score: breakdown.serviceProfile || 0 },
-      { key: 'qualification', label: '资质资料', score: breakdown.qualification || 0 },
-    ]
-
-    const hasSplitFields =
-      summary.h5CaseViewCount != null || summary.mpCaseViewCount != null
-    const h5Views = hasSplitFields
-      ? summary.h5CaseViewCount || 0
-      : summary.caseViewCount || 0
-    const mpViews = hasSplitFields ? summary.mpCaseViewCount || 0 : 0
-
-    return {
-      totalViews: formatCount(sumViews(summary)),
-      caseViewCount: formatCount(summary.caseViewCount),
-      h5CaseViewCount: formatCount(h5Views),
-      mpCaseViewCount: formatCount(mpViews),
-      crawlerViewCount: formatCount(summary.crawlerViewCount),
-      phoneClickCount: formatCount(summary.phoneClickCount),
-      albumCreatedCount: formatCount(summary.albumCreatedCount),
-      albumCompletedCount: formatCount(summary.albumCompletedCount),
-      transparencyScore: formatPercentScore(stats.transparency?.score ?? summary.transparencyScore),
-      pendingAuth: formatCount(albumStats?.pendingAuth),
-      transparencyBreakdown,
-    }
+  /** 门店现状：与时间筛选无关，进页面取一次即可 */
+  async loadStoreFacts() {
+    // 公开案例数走相册列表口径（已上网），与门店页此前的算法一致
+    const albums = await fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => [])
+    this.setData({
+      storeKpis: buildStoreKpis({
+        publicCaseCount: countPublicAlbums(albums),
+        profilePercent: this.profilePercent,
+      }),
+    })
   },
 
-  async loadData() {
-    this.setData({ status: 'loading', errorMessage: '' })
+  async loadData(options = {}) {
+    // quiet：换时间档只刷数字，不把整页打回骨架屏
+    const quiet = options.quiet === true
+    if (!quiet) this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const [stats, albumStats] = await Promise.all([
-        fetchMerchantStats({ storeId: this.storeId, period: this.data.period }),
-        fetchMerchantAlbumStats(),
-      ])
-
+      const stats = await fetchMerchantStats({
+        storeId: this.storeId,
+        period: this.data.period,
+      })
       const range = stats.range || {}
       const rangeLabel =
         range.from && range.to ? `${range.from} 至 ${range.to}` : ''
-      const display = this.buildDisplay(stats, albumStats)
-      const rankings = stats.rankings || {}
-      const topCases = formatRankRows(rankings.cases, 'title')
-      const topServices = formatRankRows(rankings.services, 'name').map((row) => ({
+      const topServices = formatRankRows(stats.rankings?.services, 'name').map((row) => ({
         ...row,
         title: resolveServiceRankTitle(row.title),
       }))
-      const suggestions = filterMerchantSuggestions(stats.suggestions || [])
-      const hasMetrics =
+      const hasContent =
         sumViews(stats.summary) > 0 ||
         (stats.summary?.crawlerViewCount || 0) > 0 ||
-        (stats.summary?.phoneClickCount || 0) > 0
-      const hasInsights =
-        topCases.length > 0 || topServices.length > 0 || suggestions.length > 0
-
-      const metricNotes = stats.metricNotes || this.data.metricNotes
+        topServices.length > 0 ||
+        Boolean(stats.lastAggregatedDate)
 
       this.setData({
-        status: hasMetrics || stats.lastAggregatedDate || hasInsights ? 'normal' : 'empty',
+        status: hasContent ? 'normal' : 'empty',
         lagHint: buildLagHint(stats.dataLag, stats.lastAggregatedDate),
         rangeLabel,
-        display,
-        metricNotes,
-        transparencyBreakdown: display.transparencyBreakdown,
-        topCases,
+        metricNotes: { ...DEFAULT_METRIC_NOTES, ...(stats.metricNotes || {}) },
         topServices,
-        suggestions,
-        heroKpis: buildHeroKpis(display),
-        exposureChips: buildExposureChips(display),
-        crawlerMetric: buildCrawlerMetric(display),
-        albumRows: buildAlbumRows(display),
+        heroKpis: buildHeroKpis(stats),
       })
+      this.renderedOnce = true
     } catch (e) {
+      if (quiet) {
+        wx.showToast({ title: (e && e.message) || '刷新失败', icon: 'none' })
+        return
+      }
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
-        display: emptyDisplay(),
-        transparencyBreakdown: [],
-        topCases: [],
         topServices: [],
-        suggestions: [],
-        heroKpis: buildHeroKpis(),
-        exposureChips: buildExposureChips(),
-        crawlerMetric: buildCrawlerMetric(),
-        albumRows: buildAlbumRows(),
+        heroKpis: buildHeroKpis({}),
       })
     }
   },
@@ -243,21 +191,31 @@ Page({
   onPeriodChange(e) {
     const { key } = e.detail
     if (!key || key === this.data.period) return
-    this.setData({ period: key }, () => this.loadData())
+    this.setData({ period: key }, () => this.loadData({ quiet: true }))
   },
 
   onRetry() {
     this.loadData()
   },
 
-  onGoAlbumAuth() {
+  /** 指标说明不常驻，点 ⓘ 才把解释挤进文档流 */
+  onToggleNote(e) {
+    const key = e.currentTarget.dataset.key
+    if (!key) return
+    this.setData({ [`noteOpen.${key}`]: !this.data.noteOpen[key] })
+  },
+
+  onCaseMetricsTap(e) {
+    const { sort } = e.currentTarget.dataset
+    if (!sort) return
     wx.navigateTo({
-      url: '/packageMerchant/pages/album/list/index?tab=done',
+      url: `${CASE_METRICS_URL}?sort=${sort}&period=${this.data.period}`,
     })
   },
 
-  onMetricRowTap(e) {
-    const handler = e.currentTarget.dataset.handler
-    if (handler === 'auth') this.onGoAlbumAuth()
+  onKpiTap(e) {
+    const url = e.currentTarget.dataset.url
+    if (!url) return
+    wx.redirectTo({ url })
   },
 })

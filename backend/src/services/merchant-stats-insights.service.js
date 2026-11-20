@@ -2,6 +2,7 @@ const { prisma } = require('../lib/prisma')
 const { shanghaiDayBounds } = require('../lib/shanghai-date')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { getServiceItem } = require('../constants/service-catalog')
+const { publicCaseH5Where } = require('../utils/public-case-visibility')
 const { fetchMerchantAlbumStats } = require('./service-album.service')
 const { loadStoreCapabilitiesByIds } = require('../utils/store-capability-load')
 
@@ -9,6 +10,7 @@ const TOP_LIMIT = 5
 const H5_CASE_VIEW_EVENT = 'h5_case_view'
 const MP_CASE_VIEW_EVENT = 'case_view'
 const CASE_VIEW_EVENTS = new Set([MP_CASE_VIEW_EVENT, H5_CASE_VIEW_EVENT])
+const CRAWLER_VIEW_EVENT = 'h5_crawler_view'
 const SERVICE_VIEW_EVENTS = new Set(['h5_service_view', 'service_view'])
 
 function paramStoreId(params) {
@@ -38,15 +40,6 @@ function buildLeadRate(viewCount, leadCount) {
   return leadCount / viewCount
 }
 
-async function loadCaseTitleMap(storeIds, caseIds) {
-  if (!caseIds.length) return {}
-  const rows = await prisma.publicCase.findMany({
-    where: { storeId: { in: storeIds }, id: { in: caseIds } },
-    select: { id: true, title: true },
-  })
-  return Object.fromEntries(rows.map((r) => [r.id, r.title || r.id]))
-}
-
 async function loadServiceNameMap(merchantId, storeIds, serviceIds) {
   if (!serviceIds.length) return {}
   const rows = await prisma.merchantServicePlan.findMany({
@@ -69,15 +62,39 @@ function resolveServiceDisplayName(serviceId, nameFromPlan) {
   return (catalog && catalog.name) || planName || serviceId
 }
 
-async function fetchTopCases(storeIds, range) {
+function vehicleText(vehicleJson) {
+  const v = vehicleJson && typeof vehicleJson === 'object' ? vehicleJson : {}
+  const plate = String(v.plateDisplay || v.plate || '').trim()
+  const model = [String(v.brand || '').trim(), String(v.series || '').trim()]
+    .filter(Boolean)
+    .join(' ')
+  return [plate, model].filter(Boolean).join(' · ')
+}
+
+/**
+ * 案例明细：每个已公开案例在所选时间档内的真人浏览、爬虫抓取与星标次数。
+ * 案例集合用 publicCaseH5Where，和看板「公开案例」同一口径。
+ */
+async function fetchCaseMetrics(storeIds, range) {
   const { start, end } = shanghaiDayBounds(range.from)
   const endBound = shanghaiDayBounds(range.to).end
 
-  const [logs, leads] = await Promise.all([
+  const [cases, logs, leads] = await Promise.all([
+    prisma.publicCase.findMany({
+      where: { storeId: { in: storeIds }, ...publicCaseH5Where() },
+      select: {
+        id: true,
+        title: true,
+        serviceName: true,
+        publishedAt: true,
+        album: { select: { vehicleJson: true } },
+      },
+      orderBy: { publishedAt: 'desc' },
+    }),
     prisma.eventTrackingLog.findMany({
       where: {
         createdAt: { gte: start, lte: endBound },
-        eventName: { in: [...CASE_VIEW_EVENTS] },
+        eventName: { in: [...CASE_VIEW_EVENTS, CRAWLER_VIEW_EVENT] },
       },
       select: { eventName: true, eventParams: true },
     }),
@@ -94,11 +111,16 @@ async function fetchTopCases(storeIds, range) {
   const viewMap = {}
   const h5ViewMap = {}
   const mpViewMap = {}
+  const crawlerMap = {}
   for (const row of logs) {
     const storeId = paramStoreId(row.eventParams)
     if (!inStoreScope(storeIds, storeId)) continue
     const caseId = paramCaseId(row.eventParams)
     if (!caseId) continue
+    if (row.eventName === CRAWLER_VIEW_EVENT) {
+      crawlerMap[caseId] = (crawlerMap[caseId] || 0) + 1
+      continue
+    }
     viewMap[caseId] = (viewMap[caseId] || 0) + 1
     if (row.eventName === H5_CASE_VIEW_EVENT) {
       h5ViewMap[caseId] = (h5ViewMap[caseId] || 0) + 1
@@ -113,25 +135,59 @@ async function fetchTopCases(storeIds, range) {
     leadMap[row.caseId] = (leadMap[row.caseId] || 0) + 1
   }
 
-  const ids = [...new Set([...Object.keys(viewMap), ...Object.keys(leadMap)])]
-  const titleMap = await loadCaseTitleMap(storeIds, ids)
+  const starMap = {}
+  const caseIds = cases.map((item) => item.id)
+  if (caseIds.length) {
+    // 星标 = 读者在案例页上点亮的星星（user_favorites 的 type=case），只有次数
+    const stars = await prisma.userFavorite.findMany({
+      where: {
+        targetType: 'case',
+        targetId: { in: caseIds },
+        createdAt: { gte: start, lte: endBound },
+      },
+      select: { targetId: true },
+    })
+    for (const row of stars) {
+      starMap[row.targetId] = (starMap[row.targetId] || 0) + 1
+    }
+  }
 
-  return ids
-    .map((caseId) => {
-      const viewCount = viewMap[caseId] || 0
-      const leadCount = leadMap[caseId] || 0
+  return cases
+    .map((pc) => {
+      const viewCount = viewMap[pc.id] || 0
+      const leadCount = leadMap[pc.id] || 0
       return {
-        caseId,
-        title: titleMap[caseId] || caseId,
+        caseId: pc.id,
+        title: String(pc.title || pc.serviceName || '').trim() || pc.id,
+        serviceName: String(pc.serviceName || '').trim(),
+        vehicle: vehicleText(pc.album && pc.album.vehicleJson),
+        publishedAt: pc.publishedAt || null,
         viewCount,
-        h5ViewCount: h5ViewMap[caseId] || 0,
-        mpViewCount: mpViewMap[caseId] || 0,
+        h5ViewCount: h5ViewMap[pc.id] || 0,
+        mpViewCount: mpViewMap[pc.id] || 0,
+        crawlerViewCount: crawlerMap[pc.id] || 0,
         leadCount,
         leadRate: buildLeadRate(viewCount, leadCount),
+        starCount: starMap[pc.id] || 0,
       }
     })
-    .sort((a, b) => b.viewCount - a.viewCount || b.leadCount - a.leadCount)
-    .slice(0, TOP_LIMIT)
+    .sort(
+      (a, b) =>
+        b.viewCount - a.viewCount ||
+        b.crawlerViewCount - a.crawlerViewCount ||
+        b.leadCount - a.leadCount
+    )
+}
+
+function buildStarSummary(caseMetrics) {
+  let starCount = 0
+  let starredCaseCount = 0
+  ;(caseMetrics || []).forEach((item) => {
+    if (!item.starCount) return
+    starCount += item.starCount
+    starredCaseCount += 1
+  })
+  return { starCount, starredCaseCount, caseCount: (caseMetrics || []).length }
 }
 
 async function fetchTopServices(merchantId, storeIds, range) {
@@ -241,12 +297,13 @@ async function loadRealtimeTodos(storeIds, merchantId) {
 }
 
 async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
-  const [topCases, topServices, todos, stores] = await Promise.all([
-    fetchTopCases(storeIds, range),
+  const [caseMetrics, topServices, todos, stores] = await Promise.all([
+    fetchCaseMetrics(storeIds, range),
     fetchTopServices(merchantId, storeIds, range),
     loadRealtimeTodos(storeIds, merchantId),
     loadStoreCapabilitiesByIds(storeIds),
   ])
+  const topCases = caseMetrics.slice(0, TOP_LIMIT)
 
   let capabilityIncomplete = false
   let brandAuthExpiring = false
@@ -310,12 +367,20 @@ async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
     daysSinceLastPublicCase,
   })
 
-  return { topCases, topServices, suggestions, ...todos }
+  return {
+    caseMetrics,
+    starSummary: buildStarSummary(caseMetrics),
+    topCases,
+    topServices,
+    suggestions,
+    ...todos,
+  }
 }
 
 module.exports = {
   fetchStatsInsights,
-  fetchTopCases,
+  fetchCaseMetrics,
+  buildStarSummary,
   fetchTopServices,
   buildSuggestions,
 }

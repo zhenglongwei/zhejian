@@ -90,6 +90,7 @@
         "pages/service/detail/index",
         "pages/staff/list/index",
         "pages/dashboard/index",
+        "pages/dashboard/cases/index",
         "pages/store/edit/index",
         "pages/message/index",
         "pages/subscription/index",

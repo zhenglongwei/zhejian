@@ -1,13 +1,7 @@
 const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../../services/merchant')
-const { fetchMerchantStats } = require('../../../../services/merchant-stats')
-const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
 const { isLoggedIn, isMerchantOwner } = require('../../../../utils/auth')
 const { buildStoreH5Url, openH5Url } = require('../../../../constants/h5-links')
-const {
-  buildStoreHomeModel,
-  countPublicAlbums,
-  monthViewTotal,
-} = require('../../../../utils/merchant-store-home')
+const { buildStoreHomeModel } = require('../../../../utils/merchant-store-home')
 
 Page({
   data: {
@@ -53,19 +47,11 @@ Page({
         return
       }
       const canManageStaff = isMerchantOwner()
-      const [stats, albums] = await Promise.all([
-        fetchMerchantStats({ storeId: profile.storeId, period: 'month' }).catch(() => null),
-        fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
-      ])
-      const home = buildStoreHomeModel(profile, {
-        publicCaseCount: countPublicAlbums(albums),
-        monthViewCount: monthViewTotal((stats && stats.summary) || {}),
-      })
       this.setData({
         status: 'normal',
         canManageStaff,
         storeId: profile.storeId || '',
-        home,
+        home: buildStoreHomeModel(profile),
       })
     } catch (e) {
       this.setData({ status: 'error' })
@@ -127,6 +113,10 @@ Page({
     const url = buildStoreH5Url({ storeId: this.data.storeId })
     if (!url) return
     openH5Url(url)
+  },
+
+  onDashboard() {
+    wx.navigateTo({ url: '/packageMerchant/pages/dashboard/index' })
   },
 
   onSwitchOwner() {

@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "案例明细",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-tool-page-shell": "/components/tool-page-shell/index"
+  }
+}

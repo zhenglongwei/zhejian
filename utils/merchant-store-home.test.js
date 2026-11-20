@@ -4,7 +4,6 @@ const {
   buildStoreHomeModel,
   buildOwnerStoreDetailGaps,
   countPublicAlbums,
-  monthViewTotal,
 } = require('./merchant-store-home')
 
 test('缺项按真实资料算百分比，不写推荐概率', () => {
@@ -83,7 +82,7 @@ test('资料未齐时本店详情标出缺项，齐了不标', () => {
   assert.deepEqual(ready.photoNotes, [])
 })
 
-test('公开案例认已上网的相册，浏览量只加门店和案例', () => {
+test('公开案例只认已上网的相册', () => {
   assert.equal(
     countPublicAlbums([
       { hostedSiteUrl: 'https://geo.example/store/1' },
@@ -92,5 +91,4 @@ test('公开案例认已上网的相册，浏览量只加门店和案例', () =>
     ]),
     2,
   )
-  assert.equal(monthViewTotal({ storeViewCount: 20, caseViewCount: 6, phoneClickCount: 9 }), 26)
 })

@@ -15,7 +15,7 @@ function clip(text, max) {
   return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
-function buildStoreHomeModel(profile = {}, options = {}) {
+function buildStoreHomeModel(profile = {}) {
   const trust = profile.publisherTrust || {}
   const verified = trust.authStatus === 'verified' || profile.authStatus === 'verified'
   const basic = scoreBasicProfile(profile)
@@ -38,8 +38,6 @@ function buildStoreHomeModel(profile = {}, options = {}) {
     serviceDone: names.length > 0,
     techValue: cert.value,
     techDone: cert.done,
-    publicCaseCount: Number(options.publicCaseCount) || 0,
-    monthViewCount: Number(options.monthViewCount) || 0,
   }
 }
 
@@ -49,10 +47,6 @@ function countPublicAlbums(list = []) {
     if (item.hubCard && item.hubCard.publicOnSite) return true
     return Boolean(String(item.hostedSiteUrl || '').trim())
   }).length
-}
-
-function monthViewTotal(summary = {}) {
-  return (Number(summary.storeViewCount) || 0) + (Number(summary.caseViewCount) || 0)
 }
 
 const PHOTO_GAP_KEYS = {
@@ -84,6 +78,5 @@ module.exports = {
   buildStoreHomeModel,
   buildOwnerStoreDetailGaps,
   countPublicAlbums,
-  monthViewTotal,
   serviceNames,
 }
