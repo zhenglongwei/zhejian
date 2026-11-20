@@ -1,0 +1,18 @@
+/**
+ * 辙见 · 商家端「克制质感」表达层
+ * 页级局部令牌：圆角收一套、耳语投影、轻抬升、统一动效。
+ * 供各商家页面 @import 后复用；不改 styles/tokens.wxss 全局令牌，避免波及其它页面。
+ */
+page {
+  --mch-radius: 28rpx;
+  --mch-radius-hero: 32rpx;
+  --mch-shadow-card: 0 2rpx 12rpx rgba(20, 27, 45, 0.05);
+  --mch-shadow-hero: 0 12rpx 30rpx rgba(20, 27, 45, 0.1);
+  --mch-shadow-press: 0 10rpx 26rpx rgba(20, 27, 45, 0.12);
+  --mch-motion: 140ms ease;
+
+  /* 白卡片上把灰阶提到 WCAG AA(≥4.5:1)；全局令牌 tertiary≈3.0、secondary≈4.0 不达标，页级覆盖不动全局 */
+  --color-text-secondary: #626e80;
+  --color-mch-muted: #626e80;
+  --color-text-tertiary: #6b7280;
+}

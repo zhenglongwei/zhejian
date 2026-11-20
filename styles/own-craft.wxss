@@ -1,0 +1,24 @@
+/**
+ * 辙见 · 车主端「档案编辑感」表达层
+ * 页级局部令牌：圆角收一套、耳语投影、统一动效、车牌编号章深蓝、AA 灰阶。
+ * 供各车主页面 @import 后复用；不改 styles/tokens.wxss 全局令牌，避免波及其它页面。
+ */
+page {
+  --own-radius: 28rpx;
+  --own-radius-hero: 32rpx;
+  --own-shadow-card: 0 2rpx 12rpx rgba(20, 27, 45, 0.05);
+  --own-shadow-press: 0 10rpx 26rpx rgba(20, 27, 45, 0.12);
+  --own-motion: 140ms ease;
+
+  /* 编号章深蓝：只给车牌 chip，不铺大面积 */
+  --own-plate-bg: #0e458c;
+
+  /* 白卡片上把灰阶提到 WCAG AA(≥4.5:1)；全局 tertiary≈3.0、secondary≈4.0 不达标，页级覆盖不动全局 */
+  --color-text-secondary: #626e80;
+  --color-text-tertiary: #6b7280;
+
+  /* 车主端大字阶：全局字阶最大 40rpx，hero 名称/数字与列表行文字单独收口，页面不再写字号 */
+  --own-font-hero-name: 56rpx;
+  --own-font-hero-figure: 80rpx;
+  --own-font-row: 32rpx;
+}

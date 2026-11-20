@@ -106,7 +106,7 @@ const AUTHORIZATION_CONSENT = {
     authType: 'review_public',
     version: LEGAL_VERSION,
     text:
-      '我知晓：案例上店页后，本条评价会以编号展示（不显示微信名），含文字、评分与脱敏配图',
+      '我知晓：案例上店页后，本条评价会以编号展示（不显示微信名），含文字、评分与配图原图（不再打码）',
   },
   part_verify: {
     authType: 'part_verify',
@@ -189,11 +189,8 @@ const COMPLIANCE_COPY = {
   desensitizePreMaskReview:
     '以下为自动脱敏预览，请逐张核对原图与脱敏图；如有遗漏可使用手工打码补充（即将开放）。',
   reviewImageTip:
-    '配图默认仅你与门店可见；若随脱敏案例对外分享，将自动脱敏后展示；建议尽量避免完整车牌、人脸、证件。',
+    '配图默认仅你与门店可见；你同意公开后，配图按原图随案例展示，平台不再打码，请先自行检查车牌、人脸、证件。',
   reportImageTip: '截图将随举报一并提交，仅用于核实处理。请勿上传与举报无关的内容。',
-  /** @deprecated 使用 reviewImageTip 或 reportImageTip */
-  reviewUpload:
-    '配图默认仅你与门店可见。勾选公开展示后将自动脱敏，并在脱敏案例中展示；建议尽量避免完整车牌、人脸、证件。',
   consult:
     '你的咨询信息将发送给所选门店，便于门店与你联系。此处不提供线上最终报价，不参与线下维修服务、收款、发票、质保和售后。实际维修方案和费用需你与门店线下确认。',
   consultRecord:

@@ -15,17 +15,24 @@
 .deep-link-detail__section-title {
   display: block;
   margin-bottom: var(--space-sm);
+  padding-bottom: 12rpx;
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .deep-link-detail__section-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
+  padding-bottom: 12rpx;
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .deep-link-detail__section-head .deep-link-detail__section-title {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .deep-link-detail__more {

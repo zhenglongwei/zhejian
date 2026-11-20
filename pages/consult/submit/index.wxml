@@ -98,7 +98,7 @@
             bind:change="onImagesChange"
           />
           <view class="consult-submit__notice">
-            <ui-compliance-notice type="reviewUpload" />
+            <ui-compliance-notice type="consultImage" />
           </view>
         </view>
       </ui-card>

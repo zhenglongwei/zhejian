@@ -118,15 +118,15 @@ page {
   --color-mch-green-deep: #0b6c59;
   --color-mch-green-soft: #e7f8f1;
   --color-mch-amber: #b66b00;
+  --color-mch-amber-deep: #9a5b00;
   --color-mch-amber-soft: #fff3d9;
   --color-mch-hero-start: #0b55ca;
   --color-mch-hero-mid: #087ced;
   --color-mch-hero-end: #12a2f3;
   --color-mch-card-start: #0e458c;
   --color-mch-card-end: #165eae;
-  /* 相册列表留证块：待确认偏灰，已交车深灰。不要用门店卡的蓝。 */
+  /* 相册列表留证块：完成/待确认统一中性灰，进行中用蓝。不要用门店卡的蓝。 */
   --color-mch-thumb-gray: #6a6e74;
-  --color-mch-thumb-gray-deep: #3a3e44;
   --color-mch-thumb-badge: rgba(22, 24, 28, 0.42);
   --color-mch-glass: rgba(255, 255, 255, 0.16);
   --color-mch-on-card: #d7e6f8;
