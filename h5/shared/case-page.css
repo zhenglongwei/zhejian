@@ -617,15 +617,13 @@
   font-size: var(--font-caption, 12px);
 }
 
-.h5-faq-note {
-  margin: 0 0 var(--space-sm, 8px);
-  font-size: var(--font-caption, 12px);
-  color: var(--color-text-tertiary, #999);
-}
-
 .h5-faq-item {
   padding: var(--space-md) 0;
   border-bottom: 1px solid var(--color-border);
+}
+
+.h5-faq-item:first-child {
+  padding-top: 0;
 }
 
 .h5-faq-item:last-child {
