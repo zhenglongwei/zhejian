@@ -4,10 +4,6 @@
 const { config } = require('../config')
 const { getMerchantDetail } = require('./content.service')
 const { buildStorePageSchemaGraph } = require('../lib/schema-graph')
-const {
-  isCrawlerUserAgent,
-  isCrawlerRequest,
-} = require('./h5-case-prerender.service')
 const { renderSiteBeianHtml } = require('../lib/site-beian')
 const {
   escapeHtml,
@@ -143,8 +139,6 @@ async function renderStoreBotHtml(storeId) {
 }
 
 module.exports = {
-  isCrawlerUserAgent,
-  isCrawlerRequest,
   renderStoreBotHtml,
   buildStoreBotBodyHtml,
 }

@@ -15,19 +15,6 @@ const { buildCaseFactsSchema } = require('../lib/case-facts-jsonld')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { renderSiteBeianHtml } = require('../lib/site-beian')
 
-const BOT_UA_RE =
-  /(gptbot|chatgpt-user|claudebot|claude-web|googlebot|bingbot|bytespider|perplexitybot|amazonbot)/i
-
-function isCrawlerUserAgent(userAgent) {
-  return BOT_UA_RE.test(String(userAgent || ''))
-}
-
-function isCrawlerRequest(req) {
-  if (isCrawlerUserAgent(req.headers['user-agent'])) return true
-  if (String(req.headers['x-crawler-bot'] || '').trim()) return true
-  return false
-}
-
 function buildHowToSchema(data, nodes) {
   const steps = (nodes || [])
     .filter((node) => node && (node.title || node.note))
@@ -309,8 +296,6 @@ async function renderCaseBotHtml(caseIdOrSlug) {
 }
 
 module.exports = {
-  isCrawlerUserAgent,
-  isCrawlerRequest,
   buildBotBodyHtml,
   buildCrawlText,
   renderCaseBotHtml,

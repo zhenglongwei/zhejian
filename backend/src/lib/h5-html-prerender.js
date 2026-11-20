@@ -2,6 +2,7 @@
  * 公开页服务端 HTML 拼装：全量请求可见 title / description / FAQ / JSON-LD。
  */
 const { config } = require('../config')
+const { CRAWLER_UA_PATTERNS } = require('../constants/crawler-bots')
 
 function escapeHtml(text) {
   return String(text || '')
@@ -21,6 +22,22 @@ function absoluteUrl(pathname, baseUrl) {
 function resolveRobotsContent(pageRobots) {
   if (config.isStagingPublicSite) return 'noindex,nofollow'
   return String(pageRobots || 'index,follow').trim() || 'index,follow'
+}
+
+/** 与 Nginx `nginx-http-crawler-map.conf` 同一份 UA 名单（CRAWLER_UA_PATTERNS） */
+function isCrawlerUserAgent(userAgent) {
+  const ua = String(userAgent || '')
+  if (!ua) return false
+  return CRAWLER_UA_PATTERNS.some((item) => item.pattern.test(ua))
+}
+
+function omitScriptsForCrawler(html, userAgent) {
+  if (!isCrawlerUserAgent(userAgent)) return String(html || '')
+  // 爬虫不执行 JS，只做文本抽取：脚本源码里的 `'/store/' + id + '.html'` 会被当成链接抓走，产出一堆 404 假 URL。
+  // 名单与 Nginx 爬虫计数同源，所以被摘掉脚本的 UA 也正是被计数的 UA。JSON-LD 是爬虫正文，必须保留。
+  return String(html || '').replace(/<script\b([^>]*)>[\s\S]*?<\/script>/gi, (match, attrs) =>
+    /application\/ld\+json/i.test(attrs) ? match : ''
+  )
 }
 
 function upsertMeta(html, attrName, key, content) {
@@ -103,6 +120,8 @@ module.exports = {
   escapeHtml,
   absoluteUrl,
   resolveRobotsContent,
+  isCrawlerUserAgent,
+  omitScriptsForCrawler,
   injectPrerenderHtml,
   renderFaqSection,
   readH5Template,
