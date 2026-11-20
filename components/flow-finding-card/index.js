@@ -20,6 +20,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    metaTone: {
+      type: String,
+      value: '',
+    },
     showRemove: {
       type: Boolean,
       value: false,

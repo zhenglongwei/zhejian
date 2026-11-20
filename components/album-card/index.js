@@ -72,15 +72,36 @@ Component({
     quickWithdraw: { show: false, label: '撤回', disabled: false },
     quickShare: { show: false },
     quickReview: { show: false, label: '去评价' },
+    jobTitle: '',
+    boardPlate: '',
+    boardDate: '',
   },
 
   observers: {
     'item, showQuickActions, audience': function () {
       this.syncQuickActions()
     },
+    item: function () {
+      this.syncBoardFace()
+    },
   },
 
   methods: {
+    syncBoardFace() {
+      const { item } = this.properties
+      const raw = item || {}
+      const named = String(raw.serviceName || '').trim()
+      const generic = !named || named === '服务留档'
+      const jobTitle = generic
+        ? String(raw.chiefComplaint || raw.summaryLine || '').trim() || '服务留档'
+        : named
+      const date = String(raw.updatedAtText || '').trim()
+      const plateRaw = String(raw.listTitle || '').trim().replace(/[\s·]/g, '').toUpperCase()
+      const boardPlate = /^[一-龥][A-Z][A-Z0-9]{5,6}$/.test(plateRaw)
+        ? `${plateRaw.slice(0, 2)}·${plateRaw.slice(2)}`
+        : String(raw.listTitle || '').trim()
+      this.setData({ jobTitle, boardPlate, boardDate: date ? date.slice(0, 5) : '' })
+    },
     syncQuickActions() {
       const { isRepairCompleted } = require('../../utils/service-album-display')
       const { item, showQuickActions, audience } = this.properties

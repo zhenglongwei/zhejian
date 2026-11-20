@@ -14,11 +14,13 @@
       bindinput="onInput"
       bindconfirm="onConfirm"
     />
-    <text
+    <image
       wx:if="{{value}}"
-      class="search-bar__clear text-caption"
+      class="search-bar__clear"
+      src="/assets/mch/close-gray.png"
+      mode="aspectFit"
       catchtap="onClear"
-    >×</text>
+    />
   </view>
   <text
     wx:if="{{showSearch && !readonly}}"

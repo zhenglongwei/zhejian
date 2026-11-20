@@ -1,4 +1,4 @@
-<view class="album-card__shell {{layout === 'board' ? 'album-card__shell--board' : ''}} {{embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised'}} {{selectable ? 'album-card__shell--selectable' : ''}} {{selected ? 'is-selected' : ''}} {{selectable && selectDisabled ? 'is-disabled' : ''}}">
+<view class="album-card__shell {{layout === 'board' ? 'album-card__shell--board' : ''}} {{layout === 'ledger' ? 'album-card__shell--ledger' : (embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised')}} {{selectable ? 'album-card__shell--selectable' : ''}} {{selected ? 'is-selected' : ''}} {{selectable && selectDisabled ? 'is-disabled' : ''}}">
   <view
     wx:if="{{layout === 'board' && audience === 'user'}}"
     class="album-card__board"
@@ -14,30 +14,56 @@
     >
       <view class="album-card__select-dot" />
     </view>
-    <view class="album-card__board-thumb album-card__board-thumb--{{item.progressTone || 'default'}}">
-      <image
-        wx:if="{{item.coverUrl}}"
-        class="album-card__board-cover"
-        src="{{item.coverUrl}}"
-        mode="aspectFill"
-        lazy-load="{{true}}"
-      />
-      <image wx:else class="album-card__board-car" src="/assets/mch/car-white.png" mode="aspectFit" />
-      <view wx:if="{{item.hasUnreadUpdate}}" class="album-card__board-dot" />
-    </view>
-    <view class="album-card__board-main">
-      <view class="album-card__board-head">
-        <text class="album-card__board-plate">{{item.listTitle}}</text>
+    <view class="album-card__board-body">
+      <view class="album-card__board-top">
+        <text class="album-card__board-chip">{{boardPlate}}</text>
+        <text
+          wx:if="{{item.progressLine}}"
+          class="album-card__board-pill album-card__board-pill--{{item.progressTone || 'default'}}"
+        >{{item.progressLine}}</text>
+      </view>
+      <view class="album-card__board-jobrow">
+        <text class="album-card__board-job">{{jobTitle}}</text>
         <view
           wx:if="{{showQuickActions && quickReview.show}}"
-          class="album-card__share-btn album-card__share-btn--head"
+          class="album-card__board-act"
           catchtap="onOwnerReviewTap"
         >{{quickReview.label}}</view>
       </view>
-      <text wx:if="{{item.serviceName && item.serviceName !== '—'}}" class="album-card__board-title">{{item.serviceName}}</text>
-      <view class="album-card__board-meta">
-        <text class="album-card__board-sub">{{item.storeName}}{{item.vehicleModelLine ? ' · ' + item.vehicleModelLine : ''}}</text>
-        <text wx:if="{{item.progressLine}}" class="album-card__board-pill album-card__board-pill--{{item.progressTone || 'default'}}">{{item.progressLine}}</text>
+      <text class="album-card__board-sub">{{item.vehicleModelLine ? item.vehicleModelLine + ' · ' : ''}}{{item.storeName}}{{boardDate ? ' · ' + boardDate : ''}}</text>
+    </view>
+  </view>
+  <view
+    wx:elif="{{layout === 'ledger' && audience === 'user'}}"
+    class="album-card__ledger {{item.isSectionLast ? 'is-last' : ''}}"
+    data-id="{{item.albumId}}"
+    bindtap="onTap"
+  >
+    <view
+      wx:if="{{selectable}}"
+      class="album-card__select {{selected ? 'is-on' : ''}} {{selectDisabled ? 'is-disabled' : ''}}"
+      aria-role="radio"
+      aria-checked="{{selected}}"
+      aria-label="选择下载"
+    >
+      <view class="album-card__select-dot" />
+    </view>
+    <view class="album-card__ledger-body">
+      <view class="album-card__ledger-r1">
+        <text class="album-card__ledger-plate">{{boardPlate}}</text>
+        <text
+          wx:if="{{item.progressLine}}"
+          class="album-card__ledger-st album-card__ledger-st--{{item.progressTone || 'default'}}"
+        >{{item.progressLine}}</text>
+      </view>
+      <text class="album-card__ledger-job">{{jobTitle}}</text>
+      <view class="album-card__ledger-r3">
+        <text class="album-card__ledger-sub">{{item.vehicleModelLine ? item.vehicleModelLine + ' · ' : ''}}{{item.storeName}}{{boardDate ? ' · ' + boardDate : ''}}</text>
+        <view
+          wx:if="{{showQuickActions && quickReview.show}}"
+          class="album-card__ledger-act"
+          catchtap="onOwnerReviewTap"
+        >{{quickReview.label}}</view>
       </view>
     </view>
   </view>

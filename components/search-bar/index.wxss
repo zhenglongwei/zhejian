@@ -38,8 +38,10 @@
 }
 
 .search-bar__clear {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
   padding: 0 var(--space-xs);
-  color: var(--color-text-tertiary);
 }
 
 .search-bar__cancel,

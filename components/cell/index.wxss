@@ -105,5 +105,7 @@
 }
 
 .cell-row__arrow {
-  color: var(--color-text-tertiary);
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
 }

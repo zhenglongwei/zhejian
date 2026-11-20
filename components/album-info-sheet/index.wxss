@@ -61,9 +61,8 @@
 }
 
 .album-info-sheet__close-icon {
-  font-size: 40rpx;
-  line-height: 1;
-  color: var(--color-text-secondary);
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .album-info-sheet__body {

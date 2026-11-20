@@ -23,12 +23,16 @@
   right: 0;
   width: 40rpx;
   height: 40rpx;
-  line-height: 36rpx;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: var(--color-mask);
-  color: var(--color-text-inverse);
-  font-size: var(--font-caption);
   border-bottom-left-radius: var(--radius-sm);
+}
+
+.image-uploader__remove-ico {
+  width: 24rpx;
+  height: 24rpx;
 }
 
 .image-uploader__add {

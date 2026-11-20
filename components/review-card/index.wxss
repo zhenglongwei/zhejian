@@ -52,13 +52,8 @@
 }
 
 .review-card__star {
-  font-size: var(--size-rating-star);
-  line-height: 1;
-  color: var(--color-border-strong);
-}
-
-.review-card__star.is-active {
-  color: var(--color-warning);
+  width: 48rpx;
+  height: 48rpx;
 }
 
 .review-card__score {

@@ -3,13 +3,15 @@
     <text class="flow-finding-card__title">{{title}}</text>
     <text
       wx:if="{{meta}}"
-      class="text-caption {{metaDanger ? 'text-danger' : 'text-secondary'}}"
+      class="flow-finding-card__meta {{metaDanger ? 'flow-finding-card__meta--danger' : metaTone ? 'flow-finding-card__meta--' + metaTone : ''}}"
     >{{meta}}</text>
-    <text
+    <image
       wx:if="{{showRemove}}"
       class="flow-finding-card__remove"
+      src="/assets/mch/close-gray.png"
+      mode="aspectFit"
       catchtap="onRemove"
-    >×</text>
+    />
   </view>
   <view wx:if="{{images.length}}" class="flow-finding-card__photos">
     <view

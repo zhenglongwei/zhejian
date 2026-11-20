@@ -13,9 +13,9 @@
   <view wx:if="{{showCompliance}}" class="reward-summary-block__compliance">
     <ui-compliance-notice type="reward" />
   </view>
-  <text
+  <view
     wx:if="{{showRulesLink}}"
     class="reward-summary-block__rules text-link text-caption"
     bindtap="onOpenRules"
-  >查看评价奖励规则 ›</text>
+  ><text>查看评价奖励规则</text><image class="reward-summary-block__rules-arrow" src="/assets/mch/chevron-right-blue.png" mode="aspectFit" /></view>
 </view>

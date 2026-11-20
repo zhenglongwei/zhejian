@@ -7,7 +7,9 @@
         <text class="mch-create__title">新建服务相册</text>
         <text class="mch-create__sub">录入基础信息，后续过程由系统持续记录</text>
       </view>
-      <view class="mch-create__close" bindtap="onClose">×</view>
+      <view class="mch-create__close" bindtap="onClose">
+        <image class="mch-create__close-ico" src="/assets/mch/close-gray.png" mode="aspectFit" />
+      </view>
     </view>
 
     <scroll-view class="mch-create__body" scroll-y>

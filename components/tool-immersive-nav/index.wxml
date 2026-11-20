@@ -16,7 +16,11 @@
           aria-role="button"
           aria-label="返回"
         >
-          <text class="tool-immersive-nav__back-icon">‹</text>
+          <image
+            class="tool-immersive-nav__back-icon"
+            src="{{tone === 'light' ? '/assets/mch/chevron-left-white.png' : '/assets/mch/chevron-left-ink.png'}}"
+            mode="aspectFit"
+          />
         </view>
         <view class="tool-immersive-nav__left-extra">
           <slot name="leftExtra" />

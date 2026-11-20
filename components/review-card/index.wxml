@@ -9,11 +9,13 @@
     </view>
     <view class="review-card__score-row">
       <view class="review-card__stars">
-        <text
+        <image
           wx:for="{{starRange}}"
           wx:key="*this"
-          class="review-card__star {{scoreRounded >= item ? 'is-active' : ''}}"
-        >★</text>
+          class="review-card__star"
+          src="{{scoreRounded >= item ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+          mode="aspectFit"
+        />
       </view>
       <text class="review-card__score text-caption">{{overallScore}}</text>
     </view>

@@ -65,5 +65,5 @@
     </block>
   </view>
 
-  <text wx:if="{{isLoggedIn && variant === 'hub'}}" class="mine-user-header__chevron text-caption">›</text>
+  <image wx:if="{{isLoggedIn && variant === 'hub'}}" class="mine-user-header__chevron" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
 </view>

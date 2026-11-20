@@ -1,13 +1,31 @@
 <view class="host-archive-preview" wx:if="{{chapters.length}}">
+  <!-- 本单概览：门店/项目一眼可读的焦点条，先结论后过程 -->
+  <view wx:if="{{summary}}" class="host-archive-preview__overview">
+    <text class="host-archive-preview__overview-label">本单概览</text>
+    <view class="host-archive-preview__stats">
+      <view
+        wx:for="{{summary.stats}}"
+        wx:for-item="st"
+        wx:key="label"
+        class="host-archive-preview__stat"
+      >
+        <text class="host-archive-preview__stat-value is-{{st.tone}}">{{st.value}}</text>
+        <text class="host-archive-preview__stat-label">{{st.label}}</text>
+      </view>
+    </view>
+  </view>
+
   <view
     wx:for="{{chapters}}"
     wx:for-item="ch"
     wx:key="id"
     class="host-archive-preview__step {{index === chapters.length - 1 ? 'is-last' : ''}}"
   >
-    <view class="host-archive-preview__dot" />
     <view class="host-archive-preview__body">
-      <text class="host-archive-preview__title">{{ch.title}}</text>
+      <view class="host-archive-preview__head">
+        <text class="host-archive-preview__index">{{index + 1 < 10 ? '0' : ''}}{{index + 1}}</text>
+        <text class="host-archive-preview__title">{{ch.title}}</text>
+      </view>
       <text wx:if="{{ch.narrative}}" class="host-archive-preview__narrative">{{ch.narrative}}</text>
 
       <block wx:if="{{ch.chiefComplaint}}">
@@ -134,11 +152,6 @@
           <text wx:if="{{acc.note}}" class="host-archive-preview__row-note">{{acc.note}}</text>
         </view>
       </block>
-
-      <text
-        wx:if="{{ch.warrantyPeriod || ch.warrantyNotes}}"
-        class="host-archive-preview__footer"
-      >质保：{{ch.warrantyPeriod}}{{ch.warrantyPeriod && ch.warrantyNotes ? ' · ' : ''}}{{ch.warrantyNotes}}</text>
     </view>
   </view>
 </view>

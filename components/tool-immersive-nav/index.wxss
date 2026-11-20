@@ -27,12 +27,8 @@
   border-bottom-color: transparent;
 }
 
-.tool-immersive-nav--tone-light .tool-immersive-nav__title,
-.tool-immersive-nav--tone-light .tool-immersive-nav__back-icon {
-  color: var(--color-text-inverse);
-}
-
 .tool-immersive-nav--tone-light .tool-immersive-nav__title {
+  color: var(--color-text-inverse);
   text-shadow: var(--shadow-album-nav-text);
 }
 
@@ -92,10 +88,8 @@
 }
 
 .tool-immersive-nav__back-icon {
-  font-size: 48rpx;
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
-  color: var(--color-text-primary);
+  width: 44rpx;
+  height: 44rpx;
 }
 
 .tool-immersive-nav__title {

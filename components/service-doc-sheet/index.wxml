@@ -248,7 +248,7 @@
         bindtap="onDocLink"
       >
         <text class="service-doc-sheet__doclink-name">{{item.title}}</text>
-        <text class="service-doc-sheet__doclink-arrow">›</text>
+        <image class="service-doc-sheet__doclink-arrow" src="/assets/mch/chevron-right-gray.png" mode="aspectFit" />
       </view>
     </view>
   </block>

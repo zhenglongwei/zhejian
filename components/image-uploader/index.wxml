@@ -38,7 +38,9 @@
           class="image-uploader__remove"
           data-index="{{imgIndex}}"
           catchtap="onRemove"
-        >×</view>
+        >
+          <image class="image-uploader__remove-ico" src="/assets/mch/close-white.png" mode="aspectFit" />
+        </view>
       </view>
 
       <view class="image-uploader__meta" wx:if="{{enableCaption}}">

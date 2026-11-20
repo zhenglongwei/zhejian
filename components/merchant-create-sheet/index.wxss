@@ -54,7 +54,7 @@
 .mch-create__title {
   display: block;
   margin-top: 8rpx;
-  font-size: 40rpx;
+  font-size: var(--font-h1);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.3;
@@ -63,7 +63,7 @@
 .mch-create__sub {
   display: block;
   margin-top: 8rpx;
-  font-size: 24rpx;
+  font-size: var(--font-caption);
   color: var(--color-text-secondary);
   line-height: 1.4;
 }
@@ -73,13 +73,15 @@
   height: 64rpx;
   border-radius: 50%;
   background: var(--color-bg-muted);
-  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
-  line-height: 1;
   flex: none;
+}
+
+.mch-create__close-ico {
+  width: 28rpx;
+  height: 28rpx;
 }
 
 .mch-create__body {
@@ -108,7 +110,7 @@
 .mch-create__label {
   display: block;
   margin-bottom: 12rpx;
-  font-size: 24rpx;
+  font-size: var(--font-caption);
   color: var(--color-text-secondary);
 }
 
@@ -132,7 +134,7 @@
   flex: 1;
   min-width: 0;
   height: 88rpx;
-  font-size: 28rpx;
+  font-size: var(--font-body);
   color: var(--color-text-primary);
 }
 
@@ -147,7 +149,7 @@
 .mch-create__unit {
   flex: none;
   margin-left: 8rpx;
-  font-size: 24rpx;
+  font-size: var(--font-caption);
   color: var(--color-text-tertiary);
 }
 
@@ -161,7 +163,7 @@
   align-items: center;
   justify-content: center;
   gap: 6rpx;
-  font-size: 24rpx;
+  font-size: var(--font-caption);
   font-weight: var(--font-weight-medium);
   flex: none;
   box-sizing: border-box;
@@ -176,7 +178,7 @@
   display: block;
   margin-top: 8rpx;
   font-size: var(--font-caption);
-  color: var(--color-mch-amber);
+  color: var(--color-mch-amber-deep);
 }
 
 .mch-create__decoded {
@@ -223,6 +225,6 @@
   width: 100%;
   height: 96rpx;
   border-radius: 24rpx;
-  font-size: 30rpx;
+  font-size: var(--font-h3);
   font-weight: var(--font-weight-semibold);
 }

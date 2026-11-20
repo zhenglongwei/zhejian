@@ -10,7 +10,7 @@
         aria-role="button"
         aria-label="关闭"
       >
-        <text class="album-info-sheet__close-icon">×</text>
+        <image class="album-info-sheet__close-icon" src="/assets/mch/close-gray.png" mode="aspectFit" />
       </view>
     </view>
 

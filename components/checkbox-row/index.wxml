@@ -1,7 +1,7 @@
 <view class="checkbox-row" bindtap="onToggle">
   <view class="checkbox-row__check">
     <view class="checkbox-row__box {{checked ? 'checkbox-row__box--on' : ''}} {{disabled ? 'checkbox-row__box--disabled' : ''}}">
-      <text wx:if="{{checked}}" class="checkbox-row__mark">✓</text>
+      <image wx:if="{{checked}}" class="checkbox-row__mark" src="/assets/mch/check-white.png" mode="aspectFit" />
     </view>
   </view>
   <view class="checkbox-row__label">

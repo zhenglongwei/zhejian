@@ -8,7 +8,7 @@
           bindtap="onOpenStores"
         >
           <text class="merchant-store-header__title text-h3">{{storeName}}</text>
-          <text class="merchant-store-header__caret text-caption">▾</text>
+          <image class="merchant-store-header__caret" src="/assets/mch/chevron-down-gray.png" mode="aspectFit" />
         </view>
         <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
       </view>

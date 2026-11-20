@@ -20,13 +20,36 @@
   color: var(--color-text-primary);
 }
 
+.flow-finding-card__meta {
+  flex: none;
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-full);
+  font-size: var(--font-mch-kicker);
+  line-height: var(--font-mch-kicker-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-muted);
+}
+
+.flow-finding-card__meta--ok {
+  color: var(--color-mch-green-deep);
+  background: var(--color-mch-green-soft);
+}
+
+.flow-finding-card__meta--watch {
+  color: var(--color-mch-amber-deep);
+  background: var(--color-mch-amber-soft);
+}
+
+.flow-finding-card__meta--action,
+.flow-finding-card__meta--danger {
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+}
+
 .flow-finding-card__remove {
-  width: 48rpx;
-  height: 48rpx;
-  line-height: 48rpx;
-  text-align: center;
-  font-size: 36rpx;
-  color: var(--color-text-tertiary);
+  width: 44rpx;
+  height: 44rpx;
   flex-shrink: 0;
 }
 

@@ -9,15 +9,17 @@
       <text wx:if="{{item.hint}}" class="rating-dimensions__hint text-caption">{{item.hint}}</text>
     </view>
     <view class="rating-dimensions__stars">
-      <text
+      <image
         wx:for="{{starRange}}"
         wx:for-item="star"
         wx:key="*this"
-        class="rating-dimensions__star {{values[item.key] >= star ? 'is-active' : ''}}"
+        class="rating-dimensions__star"
+        src="{{values[item.key] >= star ? '/assets/mch/star-warning.png' : '/assets/mch/star-faint.png'}}"
+        mode="aspectFit"
         data-key="{{item.key}}"
         data-value="{{star}}"
         bindtap="onStarTap"
-      >★</text>
+      />
     </view>
   </view>
   <view wx:if="{{hasCollapsed}}" class="rating-dimensions__toggle" bindtap="onToggleExpand">

@@ -33,9 +33,8 @@
 }
 
 .checkbox-row__mark {
-  color: var(--color-text-inverse);
-  font-size: var(--font-caption);
-  line-height: 1;
+  width: 22rpx;
+  height: 22rpx;
 }
 
 .checkbox-row__label {

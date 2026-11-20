@@ -1,28 +1,81 @@
 .host-archive-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
   margin: 0;
-  padding: 0 0 0 32rpx;
-  border-left: 2rpx solid var(--color-border);
+  padding: 0;
 }
 
+/* 本单概览：整页焦点区，蓝色细条 + 大数字；外层已是纸白卡，这里不再叠卡 */
+.host-archive-preview__overview {
+  position: relative;
+  padding-left: var(--space-md);
+}
+
+.host-archive-preview__overview::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6rpx;
+  bottom: 6rpx;
+  width: 6rpx;
+  border-radius: 3rpx;
+  background-color: var(--color-primary);
+}
+
+.host-archive-preview__overview-label {
+  display: block;
+  font-size: var(--font-mch-kicker);
+  line-height: var(--font-mch-kicker-lh);
+  color: var(--color-text-tertiary);
+}
+
+.host-archive-preview__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md) var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.host-archive-preview__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  min-width: 0;
+}
+
+.host-archive-preview__stat-value {
+  font-size: var(--font-h2);
+  line-height: var(--font-h2-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.host-archive-preview__stat-value.is-primary {
+  color: var(--color-primary);
+}
+
+.host-archive-preview__stat-value.is-success {
+  color: var(--color-mch-green);
+}
+
+/* 质保这类长文本降一档，避免撑破数字格 */
+.host-archive-preview__stat-value.is-plain {
+  font-size: var(--font-h3);
+  line-height: var(--font-h3-lh);
+  color: var(--color-text-primary);
+}
+
+.host-archive-preview__stat-label {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
+/* 章节：序号 + 标题 + 发丝下划线，靠间距成段，不再用时间线圆点 */
 .host-archive-preview__step {
   position: relative;
-  padding: 0 0 var(--space-xl) 36rpx;
-}
-
-.host-archive-preview__step.is-last {
-  padding-bottom: 0;
-}
-
-.host-archive-preview__dot {
-  position: absolute;
-  left: -9rpx;
-  top: 20rpx;
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-primary);
-  border: 4rpx solid var(--color-bg-card);
-  box-sizing: border-box;
 }
 
 .host-archive-preview__body {
@@ -32,11 +85,26 @@
   min-width: 0;
 }
 
+.host-archive-preview__head {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.host-archive-preview__index {
+  flex-shrink: 0;
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* 一级：节点标题 */
 .host-archive-preview__title {
-  display: block;
-  padding-bottom: var(--space-xs);
-  border-bottom: 1rpx solid var(--color-border);
   font-size: var(--font-h2);
   line-height: var(--font-h2-lh);
   font-weight: var(--font-weight-semibold);
@@ -57,9 +125,9 @@
 /* 二级：章节内的分组标题（本次检测 / 报价项目 / 施工项目 / 交车验收 / 进店主诉） */
 .host-archive-preview__k {
   display: block;
-  margin-top: var(--space-sm);
+  margin-top: var(--space-md);
   padding-left: var(--space-sm);
-  border-left: 6rpx solid var(--color-border-strong);
+  border-left: 2rpx solid var(--color-border);
   font-size: var(--font-h3);
   line-height: var(--font-h3-lh);
   font-weight: var(--font-weight-semibold);
@@ -81,18 +149,16 @@
   word-break: break-word;
 }
 
-/* 统一行容器：检测项 / 报价项 / 施工项 / 验收项 共用同一个浅灰底 */
+/* 统一行容器：检测项 / 报价项 / 施工项 / 验收项，去灰底圆角，靠留白分行；仅报价/新发现保留细色条 */
 .host-archive-preview__row,
 .host-archive-preview__finding {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-xs);
-  margin-top: var(--space-sm);
-  padding: var(--space-sm);
-  border-radius: var(--radius-md);
+  margin-top: var(--space-md);
+  padding-left: var(--space-sm);
   border-left: 4rpx solid transparent;
-  background-color: var(--color-bg-muted);
 }
 
 /* 只用一条窄色条区分类型，不做整块彩色：报价蓝、新发现橙 */
@@ -121,14 +187,14 @@
   color: var(--color-text-primary);
 }
 
-/* 报价金额：明码标价，与项目名同一行右侧 */
+/* 报价金额：明码标价，同一行右侧，蓝色数字作焦点 */
 .host-archive-preview__row-amount {
   flex-shrink: 0;
   margin-left: var(--space-sm);
-  font-size: var(--font-body);
-  line-height: var(--font-body-lh);
+  font-size: var(--font-h3);
+  line-height: var(--font-h3-lh);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  color: var(--color-primary);
 }
 
 /* 正文：项目说明 */
@@ -141,52 +207,40 @@
   word-break: break-word;
 }
 
-/* 章节尾部信息（质保等）：正文，和项目区隔开 */
-.host-archive-preview__footer {
-  display: block;
-  margin-top: var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1rpx solid var(--color-border);
-  font-size: var(--font-body);
-  line-height: var(--font-body-lh);
-  color: var(--color-text-secondary);
-  word-break: break-word;
-}
-
-/* 结果标签（检测/验收） */
+/* 结果标签（检测/验收）：全站统一的浅底 pill，深前景 */
 .host-archive-preview__result {
   flex-shrink: 0;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-secondary);
-  padding: 2rpx 14rpx;
+  padding: 4rpx 14rpx;
   border-radius: var(--radius-full);
-  border: 1rpx solid var(--color-border);
+  font-size: var(--font-mch-kicker);
+  line-height: var(--font-mch-kicker-lh);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-muted);
 }
 
 .host-archive-preview__result.is-ok {
-  color: var(--color-success, #2e7d32);
-  border-color: currentColor;
+  color: var(--color-mch-green-deep);
+  background-color: var(--color-mch-green-soft);
 }
 
 .host-archive-preview__result.is-action {
-  color: var(--color-warning, #c25705);
-  border-color: currentColor;
+  color: var(--color-mch-amber-deep);
+  background-color: var(--color-mch-amber-soft);
 }
 
-/* 图片：统一每行3张等尺寸小图，超出逢3换行 */
+/* 图片：克制的小图带，每行3张，降低单张高度让它退到文字之后 */
 .host-archive-preview__img-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10rpx;
+  gap: 8rpx;
 }
 
 .host-archive-preview__grid-img {
   width: 100%;
-  height: 200rpx;
+  height: 150rpx;
   border-radius: var(--radius-sm);
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
+  background-color: var(--color-bg-muted);
 }
 
 /* items 容器（报价/施工章节） */

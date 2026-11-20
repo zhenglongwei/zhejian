@@ -37,6 +37,13 @@
 }
 
 .reward-summary-block__rules {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
   margin-top: var(--space-sm);
+}
+
+.reward-summary-block__rules-arrow {
+  width: 24rpx;
+  height: 24rpx;
 }

@@ -58,6 +58,13 @@
   box-shadow: var(--shadow-album-list-thumb);
 }
 
+.album-card__shell--ledger {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .album-card__inner {
   display: flex;
   flex-direction: row;
@@ -207,7 +214,7 @@
   height: var(--font-body-lh);
   padding: 0;
   margin: 0;
-  font-size: var(--font-caption);
+  font-size: var(--font-sub);
   line-height: var(--font-body-lh);
   text-align: right;
   box-sizing: border-box;
@@ -422,123 +429,189 @@
   gap: 20rpx;
   box-sizing: border-box;
   width: 100%;
-  padding: 24rpx;
+  padding: 38rpx 42rpx;
   background: var(--color-bg-card);
-  border-radius: 28rpx;
-  box-shadow: var(--shadow-mch-card);
+  border-radius: 36rpx;
+  box-shadow: 0 16rpx 40rpx rgba(20, 27, 45, 0.1), 0 2rpx 8rpx rgba(20, 27, 45, 0.04);
 }
 
-.album-card__board-thumb {
-  position: relative;
+.album-card__board-body {
   display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-album-list-thumb);
-  height: var(--size-album-list-thumb);
-  overflow: hidden;
-  border-radius: 28rpx;
-  background: linear-gradient(160deg, var(--color-primary), var(--color-mch-hero-end));
-}
-
-.album-card__board-thumb--done {
-  background: var(--color-mch-thumb-gray);
-}
-
-.album-card__board-cover {
-  width: 100%;
-  height: 100%;
-}
-
-.album-card__board-dot {
-  position: absolute;
-  top: 12rpx;
-  right: 12rpx;
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: var(--radius-full);
-  background: var(--color-danger);
-  box-shadow: 0 0 0 4rpx var(--color-bg-card);
-}
-
-.album-card__board-car {
-  width: 72rpx;
-  height: 72rpx;
-}
-
-.album-card__board-main {
   flex: 1;
+  flex-direction: column;
   min-width: 0;
 }
 
-.album-card__board-head {
+.album-card__board-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12rpx;
 }
 
-.album-card__board-plate {
+.album-card__board-chip {
+  padding: 8rpx 24rpx;
+  border-radius: 14rpx;
+  background: #eaf2ff;
+  color: #074bb8;
+  font-family: 'DIN Alternate', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+  letter-spacing: 3rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.album-card__board-jobrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 24rpx;
+}
+
+.album-card__board-job {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--font-h3);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--font-h3-lh);
   color: var(--color-text-primary);
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.album-card__board-title,
 .album-card__board-sub {
   display: block;
   overflow: hidden;
+  margin-top: 10rpx;
+  color: #626e80;
+  font-size: var(--font-body);
+  line-height: 1.4;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.album-card__board-title {
-  margin-top: 6rpx;
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
-  color: var(--color-text-primary);
+.album-card__board-act {
+  flex: none;
+  color: #1269f2;
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
 }
 
-.album-card__board-meta {
+.album-card__ledger {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-  margin-top: 8rpx;
+  align-items: flex-start;
+  gap: 16rpx;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 28rpx 34rpx;
+  border-bottom: 1rpx solid #eef1f6;
 }
 
-.album-card__board-sub {
+.album-card__ledger.is-last {
+  border-bottom: none;
+}
+
+.album-card__ledger-body {
   flex: 1;
   min-width: 0;
-  color: var(--color-mch-caption);
-  font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
+}
+
+.album-card__ledger-r1 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.album-card__ledger-plate {
+  overflow: hidden;
+  color: #1f2329;
+  font-family: 'DIN Alternate', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  font-size: var(--font-album-plate);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 2rpx;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.album-card__ledger-st {
+  flex: none;
+  font-size: var(--font-sub);
+  line-height: 1.4;
+  color: #1269f2;
+}
+
+.album-card__ledger-st--pending {
+  color: #9a5b00;
+}
+
+.album-card__ledger-st--done {
+  color: #0b6c59;
+}
+
+.album-card__ledger-job {
+  display: block;
+  overflow: hidden;
+  margin-top: 9rpx;
+  color: #3d4a5c;
+  font-size: var(--font-h3);
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.album-card__ledger-r3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 7rpx;
+}
+
+.album-card__ledger-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #9aa3b0;
+  font-size: var(--font-sub);
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.album-card__ledger-act {
+  flex: none;
+  color: #1269f2;
+  font-size: var(--font-sub);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
 }
 
 .album-card__board-pill {
   flex: none;
-  padding: 4rpx 12rpx;
+  padding: 6rpx 22rpx;
   border-radius: var(--radius-full);
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-size: var(--font-status);
-  line-height: var(--font-status-lh);
+  background: #eaf2ff;
+  color: #1269f2;
+  font-size: var(--font-sub);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
 }
 
 .album-card__board-pill--pending {
-  background: var(--color-warning-light);
-  color: var(--color-warning);
+  background: var(--color-mch-amber-soft);
+  color: var(--color-mch-amber-deep);
 }
 
 .album-card__board-pill--done {
-  background: var(--color-success-light);
-  color: var(--color-success);
+  background: var(--color-mch-green-soft);
+  color: var(--color-mch-green-deep);
 }
 
 .album-card__progress-line {
