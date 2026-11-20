@@ -38,3 +38,7 @@ backend/prisma/*.db
 docs/13_市场物料/
 docs/09_SEO_GEO_AI内容基础设施/articles/
 docs/09_SEO_GEO_AI内容基础设施/assets/
+
+# Qoder Canvas 视觉样板（本地预览，不入库）
+*.canvas.tsx
+*.canvas.data.json

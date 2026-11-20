@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>服务时间线变体 · album/flow</title>
+<style>
+  :root {
+    --blue: #1269f2;
+    --navy: #0c3f83;
+    --green-deep: #0b6c59;
+    --green-soft: #e7f8f1;
+    --amber-deep: #9a5b00;
+    --amber-soft: #fff3d9;
+    --ink: #1f2329;
+    --sub: #626e80;
+    --faint: #9aa3b0;
+    --hairline: #eef1f6;
+    --page: #f5f7fb;
+    --mono: 'DIN Alternate', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #e9edf3;
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: var(--ink);
+    padding: 28px 20px 60px;
+  }
+  h1 { font-size: 18px; margin-bottom: 6px; }
+  .note { font-size: 12px; color: var(--sub); margin-bottom: 22px; }
+  .board { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+  .col { width: 320px; }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 700;
+    color: var(--navy); margin: 0 0 8px 2px;
+  }
+  .tag small { color: var(--sub); font-weight: 400; margin-left: 6px; }
+  .phone {
+    width: 320px; background: var(--page); border-radius: 22px;
+    padding: 14px 12px 18px; box-shadow: 0 10px 30px rgba(20,27,45,.12);
+  }
+  .sechead { display: flex; align-items: baseline; justify-content: space-between; padding: 2px 4px 10px; }
+  .sechead b { font-size: 16px; letter-spacing: .2px; }
+  .sechead span { font-size: 11px; color: var(--faint); }
+
+  /* ---------- T1 安静账本 ---------- */
+  .t1-sheet { background: #fff; border-radius: 14px; box-shadow: 0 1px 6px rgba(20,27,45,.05); overflow: hidden; }
+  .t1-row { display: flex; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); position: relative; }
+  .t1-row:last-child { border-bottom: none; }
+  .t1-rail { display: flex; flex-direction: column; align-items: center; width: 16px; padding-top: 2px; }
+  .t1-dot { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; }
+  .t1-dot.done { background: var(--green-soft); }
+  .t1-dot.done svg { width: 10px; height: 10px; stroke: var(--green-deep); }
+  .t1-dot.cur { background: var(--blue); color: #fff; font-size: 10px; font-weight: 700; font-family: var(--mono); }
+  .t1-line { flex: 1; width: 1px; background: #dfe5ee; margin-top: 4px; }
+  .t1-main { flex: 1; min-width: 0; }
+  .t1-r1 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .t1-title { font-size: 13.5px; font-weight: 500; }
+  .t1-time { font-size: 11px; color: var(--faint); font-family: var(--mono); flex: none; }
+  .t1-sub { font-size: 11.5px; color: var(--sub); margin-top: 3px; }
+  .t1-cur .t1-title { font-weight: 700; }
+  .t1-cur .t1-time { color: var(--blue); }
+
+  /* ---------- T2 焦点在当前 ---------- */
+  .t2-row { display: flex; gap: 10px; padding: 11px 12px; align-items: flex-start; }
+  .t2-dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 700; font-family: var(--mono); }
+  .t2-dot.done { background: var(--green-soft); color: var(--green-deep); }
+  .t2-dot.done svg { width: 12px; height: 12px; stroke: var(--green-deep); }
+  .t2-dot.cur { background: var(--blue); color: #fff; box-shadow: 0 0 0 4px rgba(18,105,242,.14); }
+  .t2-dot.todo { background: #eef1f6; color: var(--faint); }
+  .t2-main { flex: 1; min-width: 0; }
+  .t2-r1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .t2-title { font-size: 13.5px; color: var(--faint); font-weight: 500; }
+  .t2-row.done .t2-title { color: var(--sub); }
+  .t2-row.cur .t2-title { color: var(--ink); font-weight: 700; font-size: 14.5px; }
+  .t2-chip { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; font-weight: 600; flex: none; }
+  .t2-chip.ok { color: var(--green-deep); background: var(--green-soft); }
+  .t2-chip.cur { color: var(--blue); background: #eaf2ff; }
+  .t2-sub { font-size: 11.5px; color: #b6bec9; margin-top: 2px; }
+  .t2-row.done .t2-sub { color: var(--faint); }
+  .t2-row.cur .t2-sub { color: var(--sub); }
+  .t2-curwrap { background: #fff; border: 1px solid #dcebff; border-radius: 12px; box-shadow: 0 6px 18px rgba(18,105,242,.08); margin: 2px 0; }
+
+  /* ---------- T3 一行摘要 ---------- */
+  .t3-bar { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 13px 14px; box-shadow: 0 1px 6px rgba(20,27,45,.05); }
+  .t3-dots { display: flex; align-items: center; }
+  .t3-d { width: 12px; height: 12px; border-radius: 50%; background: var(--green-soft); display: flex; align-items: center; justify-content: center; flex: none; }
+  .t3-d svg { width: 8px; height: 8px; stroke: var(--green-deep); }
+  .t3-sep { width: 10px; height: 1px; background: #dfe5ee; }
+  .t3-txt { flex: 1; min-width: 0; }
+  .t3-txt b { display: block; font-size: 13px; font-weight: 600; }
+  .t3-txt span { font-size: 11px; color: var(--sub); }
+  .t3-chev { color: var(--faint); font-size: 14px; }
+  .t3-open { margin-top: 8px; }
+  .t3-open .t1-time { color: var(--faint); }
+</style>
+</head>
+<body>
+  <h1>album/flow · 服务时间线区域变体</h1>
+  <div class="note">画布 320px，落地换算 rpx = px × 2.34。数据与现页一致：接车建档 / 全面检测 / 首次报价 / 维修施工 / 完工交车 / 客户评价。T1 右列时间取节点完成时间，缺失时回退为「已完成」。</div>
+
+  <div class="board">
+    <!-- T1 -->
+    <div class="col">
+      <div class="tag">T1 安静账本 <small>推荐 · 去重复 + 时间上右列</small></div>
+      <div class="phone">
+        <div class="sechead"><b>服务时间线</b><span>11 份记录</span></div>
+        <div class="t1-sheet">
+          <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t1-line"></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">接车建档</span><span class="t1-time">11-16 09:20</span></div><div class="t1-sub">已留证 2 张</div></div></div>
+          <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t1-line"></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">全面检测</span><span class="t1-time">11-16 10:05</span></div><div class="t1-sub">完成 5 项检查，发现 3 项异常</div></div></div>
+          <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t1-line"></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">首次报价</span><span class="t1-time">11-16 11:32</span></div><div class="t1-sub">¥400 · 已确认</div></div></div>
+          <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t1-line"></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">维修施工</span><span class="t1-time">11-17 15:40</span></div><div class="t1-sub">底盘悬挂更换 · 1 张现场照片</div></div></div>
+          <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t1-line"></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">完工交车</span><span class="t1-time">11-18 00:58</span></div><div class="t1-sub">交车报告与车主确认</div></div></div>
+          <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">客户评价</span><span class="t1-time">11-18 09:12</span></div><div class="t1-sub">综合 5 星</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- T2 -->
+    <div class="col">
+      <div class="tag">T2 焦点在当前 <small>进行中相册更醒目，完成态退底</small></div>
+      <div class="phone">
+        <div class="sechead"><b>服务时间线</b><span>4 份记录</span></div>
+        <div class="t2-row done"><div class="t2-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t2-main"><div class="t2-r1"><span class="t2-title">接车建档</span><span class="t2-chip ok">已完成</span></div><div class="t2-sub">已留证 2 张</div></div></div>
+        <div class="t2-row done"><div class="t2-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t2-main"><div class="t2-r1"><span class="t2-title">全面检测</span><span class="t2-chip ok">已完成</span></div><div class="t2-sub">完成 5 项检查，发现 3 项异常</div></div></div>
+        <div class="t2-curwrap"><div class="t2-row cur"><div class="t2-dot cur">3</div><div class="t2-main"><div class="t2-r1"><span class="t2-title">首次报价</span><span class="t2-chip cur">待确认</span></div><div class="t2-sub">¥400 · 等待车主确认</div></div></div></div>
+        <div class="t2-row"><div class="t2-dot todo">4</div><div class="t2-main"><div class="t2-r1"><span class="t2-title">维修施工</span></div><div class="t2-sub">待开始</div></div></div>
+        <div class="t2-row"><div class="t2-dot todo">5</div><div class="t2-main"><div class="t2-r1"><span class="t2-title">完工交车</span></div><div class="t2-sub">待开始</div></div></div>
+      </div>
+    </div>
+
+    <!-- T3 -->
+    <div class="col">
+      <div class="tag">T3 一行摘要 <small>最减：默认收起，只留最近两步</small></div>
+      <div class="phone">
+        <div class="sechead"><b>服务时间线</b></div>
+        <div class="t3-bar">
+          <div class="t3-dots">
+            <div class="t3-d"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t3-sep"></div>
+            <div class="t3-d"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t3-sep"></div>
+            <div class="t3-d"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t3-sep"></div>
+            <div class="t3-d"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t3-sep"></div>
+            <div class="t3-d"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></div>
+          </div>
+          <div class="t3-txt"><b>全部完成</b><span>11 份记录 · 历时 2 天</span></div>
+          <span class="t3-chev">›</span>
+        </div>
+        <div class="t3-open">
+          <div class="t1-sheet">
+            <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div><div class="t1-line"></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">完工交车</span><span class="t1-time">11-18 00:58</span></div><div class="t1-sub">交车报告与车主确认</div></div></div>
+            <div class="t1-row"><div class="t1-rail"><div class="t1-dot done"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.2"><path d="M4 12.5l5 5L20 6.5"/></svg></div></div><div class="t1-main"><div class="t1-r1"><span class="t1-title">客户评价</span><span class="t1-time">11-18 09:12</span></div><div class="t1-sub">综合 5 星</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
