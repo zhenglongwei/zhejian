@@ -6,6 +6,8 @@ const {
   parseInspectionAdvice,
   inspectStepsFromRaw,
   contextOf,
+  workInstruction,
+  inspectionInstruction,
 } = require('./step-advice.service')
 
 test('施工对不上时优先用模型写的实质意见', () => {
@@ -691,7 +693,7 @@ test('施工项五种状态：工单/新增 × 证据充分/不足，报价项�
       { id: 'ql2', name: '底盘检查', amount: '0' },
     ],
   })
-  assert.equal(got.schema, 8)
+  assert.equal(got.schema, 9)
   const scratch = got.workItems.find((row) => row.name === '划痕修复')
   assert.equal(scratch.origin, 'quote')
   assert.equal(scratch.quoteLineId, 'ql1')
@@ -710,6 +712,42 @@ test('施工项五种状态：工单/新增 × 证据充分/不足，报价项�
   assert.equal(got.quoteOnlyItems[0].kind, 'unstarted')
   assert.equal(got.quoteOnlyItems[0].amount, '0')
   assert.equal(got.photoPlan[0].title, '划痕修复')
+})
+
+test('适配核对只挂到能对上预设名的工单项，且不改完成判定', () => {
+  const slots = [{ slot: 1, url: 'https://a/1.jpg', findingId: 'a', partName: '刹车片更换' }]
+  const got = parseWorkAdvice({
+    证据: [{ 项目: '刹车片更换', 判定: '已完成', 依据: '图1 新件已装到位' }],
+    适配核对: [
+      { 项目: '刹车片更换', 图片: ['图1'], 读到: 'WVA 25304', 判断: '疑似不符', 提醒: '标签适用车型与登记车系不符，装车前核对配件号' },
+      { 项目: '不存在的项目', 读到: 'ABC123', 判断: '疑似不符', 提醒: '没有预设名就不出' },
+    ],
+  }, [
+    { id: 'a', name: '刹车片更换', note: '已换新', photos: 1 },
+    { id: 'b', name: '刹车盘检查', note: '', photos: 0 },
+  ], slots)
+  const pad = got.workItems.find((row) => row.name === '刹车片更换')
+  assert.equal(pad.evidence, 'done')
+  assert.match(pad.fitment, /^疑似不符｜标签适用车型/)
+  assert.match(pad.fitment, /读到 WVA 25304/)
+  assert.equal(got.workItems.find((row) => row.name === '刹车盘检查').fitment, '')
+})
+
+test('需核对只带读到的型号，被「已核对一致」压住时不出声', () => {
+  const got = parseWorkAdvice({
+    适配核对: [
+      { 项目: '电瓶更换', 读到: 'S95 70Ah', 判断: '需核对' },
+      { 项目: '雨刮更换', 读到: 'AER9049', 判断: '已核对一致' },
+      { 项目: '轮胎更换', 判断: '需核对' },
+    ],
+  }, [
+    { id: 'a', name: '电瓶更换', note: '已换', photos: 1 },
+    { id: 'b', name: '雨刮更换', note: '已换', photos: 1 },
+    { id: 'c', name: '轮胎更换', note: '已换', photos: 2 },
+  ], [])
+  assert.equal(got.workItems[0].fitment, '需核对｜S95 70Ah')
+  assert.equal(got.workItems[1].fitment, '')
+  assert.equal(got.workItems[2].fitment, '')
 })
 
 test('逐图归类先工单、再报价、最后新增', () => {
@@ -843,6 +881,132 @@ test('AI 上下文从节点 content 读主诉、检测项和图', () => {
   assert.equal(got.inspectItems[0].name, '下摆臂')
   assert.equal(got.inspectPhotoSlots.length, 1)
   assert.match(got.inspectPhotoSlots[0].url, /inspect\.jpg/)
+})
+
+test('施工上下文带相册登记的车型，车牌与 VIN 不进上下文', () => {
+  const got = contextOf({
+    vehicleJson: {
+      brand: '宝马',
+      series: '3系',
+      modelYear: '2021',
+      modelName: '宝马3系 325Li',
+      displacement: '2.0T',
+      gearbox: '8AT',
+      mileage: 68420,
+      plate: '粤B7K52M',
+      vin: 'WBA8E91050J979246',
+    },
+    contentPackageJson: {
+      flowNodes: [
+        { kind: 'intake', sortOrder: 1, content: { chiefComplaint: '过坎异响' } },
+      ],
+    },
+  })
+  assert.equal(got.vehicle.brand, '宝马')
+  assert.equal(got.vehicle.year, '2021')
+  assert.equal(got.vehicle.modelName, '宝马3系 325Li')
+  assert.equal(got.vehicle.gearbox, '8AT')
+  assert.equal(got.vehicle.mileage, '68420km')
+  const sent = JSON.stringify(got.vehicle)
+  assert.equal(sent.includes('粤B7K52M'), false)
+  assert.equal(sent.includes('WBA8E91050'), false)
+})
+
+test('施工提示词带车型做适配核对，且不把车牌与 VIN 送模', () => {
+  const ctx = contextOf({
+    vehicleJson: {
+      brand: '宝马',
+      series: '3系',
+      modelYear: '2021',
+      gearbox: '8AT',
+      plate: '粤B7K52M',
+      vin: 'WBA8E91050J979246',
+    },
+    contentPackageJson: {
+      flowNodes: [
+        {
+          kind: 'work',
+          id: 'work_1',
+          sortOrder: 5,
+          content: {
+            findings: [
+              {
+                id: 'a',
+                partName: '变速箱油更换',
+                caption: '已换油',
+                images: [{ url: 'https://cdn.example/gear.jpg' }],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  }, {}, { nodeId: 'work_1' })
+  const text = workInstruction(ctx, ctx.workPhotoSlots)
+  assert.match(text, /"车辆":\{"品牌":"宝马","车系":"3系","年款":"2021"/)
+  assert.match(text, /"变速箱":"8AT"/)
+  assert.match(text, /7\. 适配核对/)
+  assert.match(text, /"适配核对":\[\{/)
+  assert.match(text, /9\. 「车辆」还用来收窄其它各步/)
+  assert.match(text, /收窄只做删除/)
+  assert.match(text, /按下面七步思考/)
+  assert.equal(text.includes('粤B7K52M'), false)
+  assert.equal(text.includes('WBA8E91050'), false)
+})
+
+function inspectAlbum(withPhoto) {
+  return {
+    vehicleJson: {
+      brand: '宝马',
+      series: '3系',
+      modelYear: '2021',
+      gearbox: '8AT',
+      plate: '粤B7K52M',
+      vin: 'WBA8E91050J979246',
+    },
+    contentPackageJson: {
+      flowNodes: [
+        { kind: 'intake', sortOrder: 1, content: { chiefComplaint: '换挡顿挫' } },
+        {
+          kind: 'inspection',
+          sortOrder: 2,
+          content: {
+            findings: [
+              {
+                id: 'f1',
+                partName: '变速箱',
+                advice: '油底壳渗油',
+                images: withPhoto ? [{ url: 'https://cdn.example/gear.jpg' }] : [],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  }
+}
+
+test('检测提示词带车型，只用来排除不相干的原因与检查项', () => {
+  const text = inspectionInstruction(contextOf(inspectAlbum(true)))
+  assert.match(text, /"车辆":\{"品牌":"宝马","车系":"3系","年款":"2021"/)
+  assert.match(text, /"变速箱":"8AT"/)
+  assert.match(text, /「车辆」只用来排除与这台车不相干的可能和检查项/)
+  assert.match(text, /参考材料只给第1步用/)
+  assert.equal(text.includes('粤B7K52M'), false)
+  assert.equal(text.includes('WBA8E91050'), false)
+})
+
+test('没有检测图时检测提示词同样带车型', () => {
+  const text = inspectionInstruction(contextOf(inspectAlbum(false)))
+  assert.match(text, /"变速箱":"8AT"/)
+  assert.match(text, /「车辆」只用来排除与这台车不相干的可能和检查项/)
+})
+
+test('相册没登记车系时不出车型，避免模型按车型瞎猜', () => {
+  const album = inspectAlbum(true)
+  delete album.vehicleJson
+  const text = inspectionInstruction(contextOf(album))
+  assert.match(text, /"车辆":null/)
 })
 
 test('AI 上下文从节点 content 读报价行（确认后 payload 只剩信封）', () => {

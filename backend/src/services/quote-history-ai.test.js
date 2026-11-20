@@ -114,3 +114,22 @@ test('以往补充报价变化会使后续补充报价 AI 指纹失效', () => {
 
   assert.notEqual(after, before)
 })
+
+test('报价 AI 指纹随登记车辆变化，车牌与 VIN 变化不影响', () => {
+  const nodes = makeAlbum().contentPackageJson.flowNodes
+  const first = nodes.find((row) => row.id === 'q0')
+  const addon = nodes.find((row) => row.id === 'q2')
+  const withCar = { vehicleJson: { brand: '宝马', series: '3系', gearbox: '8AT', plate: '粤B7K52M' } }
+  const changedCar = { vehicleJson: { brand: '宝马', series: '3系', gearbox: 'CVT', plate: '粤B7K52M' } }
+  const changedPlate = { vehicleJson: { brand: '宝马', series: '3系', gearbox: '8AT', plate: '粤A12345' } }
+
+  for (const target of [first, addon]) {
+    const base = buildAssistFingerprint({ ...makeAlbum(nodes), ...withCar }, target)
+    assert.notEqual(buildAssistFingerprint({ ...makeAlbum(nodes), ...changedCar }, target), base, target.id)
+    assert.equal(
+      buildAssistFingerprint({ ...makeAlbum(nodes), ...changedPlate }, target),
+      base,
+      `车牌不该进 AI 上下文：${target.id}`,
+    )
+  }
+})

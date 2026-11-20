@@ -6,6 +6,7 @@ const crypto = require('crypto')
 const { prisma } = require('../lib/prisma')
 const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
 const { resolveShared } = require('../utils/resolve-shared')
+const { vehicleAnchor } = require('../utils/vehicle-anchor')
 const { MECHANIC_VOICE_RULES } = require('../utils/mechanic-copy-voice')
 const {
   parseQuoteAssistPayload,
@@ -114,7 +115,8 @@ function buildAssistFingerprint(album, targetNode) {
       .createHash('sha1')
       .update(
         JSON.stringify({
-          v: 'addon-assist-v3',
+          v: 'addon-assist-v4',
+          vh: vehicleAnchor(album.vehicleJson),
           id: text(target.id),
           d: { note: discovery.note, images: discovery.images },
           w: collectWorkFindings(nodes),
@@ -137,7 +139,8 @@ function buildAssistFingerprint(album, targetNode) {
     .createHash('sha1')
     .update(
       JSON.stringify({
-        v: 'quote-assist-v2',
+        v: 'quote-assist-v3',
+        vh: vehicleAnchor(album.vehicleJson),
         c: text(intakeDraft.chiefComplaint || reportContent.chiefComplaint),
         intake: text((intake && intake.intakeAdvice && intake.intakeAdvice.updatedAt) || ''),
         p: intakePhotos.map((img) => text(img && (img.url || img))),
@@ -229,6 +232,7 @@ async function runGenerateLlm(facts, category) {
     '- If quote.lines is EMPTY: suggestedLines MUST be the proposed quote rows (one row = one concrete billable service, name + market bands + reason). Do NOT leave suggestedLines empty and dump everything into omissions — an empty suggestedLines makes the whole suggestion invalid.',
     '- findingsSource tells you where findings came from: "report" = confirmed inspection results; "inspection_items"/"inspect_order" = the report is not generated yet, so these are inspection-backed items still to be quoted. Never invent confirmed defects when findingsSource is not "report"; phrase reason as 需拆检确认/检测已列入.',
     '- inspectionAdvice.imageNotes are per-photo findings from the inspection step; use them for reason text but never mention 图1/画面/图中.',
+    '- facts.vehicle is the car registered on this album (brand/series/year/model/displacement/engine/gearbox/mileage). Use it only to keep the quote consistent with the car actually in the shop: skip items irrelevant to its powertrain, and when a line spec or fluid conflicts with it (e.g. 登记变速箱 8AT，油品却按 CVT 报), say 需核对 in reason. Never derive defects or prices from the vehicle alone; unknown bands stay empty.',
     '- Every suggestedLines row: name, short note, kind=parts|labor, reason (报价原因), optional boolean.',
     '- kind=parts (parts OR materials: oil, paint, filters, bushings, etc.): oem/brand/economy ranges like "约800-1500"; leave dealer/indie empty.',
     '- kind=labor (teardown, diagnosis, labor-hour, alignment — no part brand): dealer (4S) and indie (修理厂) ranges; leave oem/brand/economy empty.',
@@ -323,6 +327,7 @@ async function runAddonGenerateLlm(facts, category) {
     '- kind=parts: oem/brand/economy bands like "约800-1500", leave dealer/indie empty.',
     '- kind=labor: dealer and indie bands, leave oem/brand/economy empty.',
     '- reason must not mention 图1/画面/图中.',
+    '- facts.vehicle is the car registered on this album (brand/series/year/model/displacement/engine/gearbox/mileage). Use it only to keep rows consistent with that car: skip anything irrelevant to its powertrain, and flag 需核对 in reason when a spec or fluid conflicts with it. Never derive defects or prices from the vehicle alone.',
     '- If addonLines already has rows: suggestedLines should align one row per existing line (same name). Put remaining qualifying rows into omissions.',
     '- If addonLines is empty: put all qualifying rows into suggestedLines.',
     '- If discoveryNote is empty and discoveryImageCount is 0 and no qualifying work finding exists: return verdict "inspect" and tell the clerk to add a description or photos. Never invent rows.',
@@ -457,6 +462,7 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
         },
         body: {
           chiefComplaint,
+          vehicle: vehicleAnchor(album.vehicleJson),
           discoveryNote: discovery.note,
           discoveryImageCount: discovery.images.length,
           workFindings: workFindings.slice(0, 40),
@@ -487,6 +493,7 @@ async function runQuoteAssistJob(albumId, merchantId, options = {}) {
         },
         body: {
           chiefComplaint,
+          vehicle: vehicleAnchor(album.vehicleJson),
           inspectionAdvice: {
             faultAnalysis: text(inspectionAdvice.faultAnalysis),
             inspectOrder: (Array.isArray(inspectionAdvice.inspectOrder) ? inspectionAdvice.inspectOrder : [])

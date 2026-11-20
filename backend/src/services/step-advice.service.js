@@ -10,6 +10,7 @@ const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nod
 const { parseReviewModelJson } = require('../utils/node-ai-review-rules')
 const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
 const { resolveShared } = require('../utils/resolve-shared')
+const { vehicleAnchor, vehiclePromptRow } = require('../utils/vehicle-anchor')
 const {
   contentOfFlowNode,
   buildQuoteLedger,
@@ -433,6 +434,29 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
     (Array.isArray(slots) ? slots : [])
       .filter((row) => text(row && row.findingId) === text(findingId))
       .map((row) => ({ slot: row.slot, url: row.url }))
+  // 适配核对：车型 + 图里读到的配件文字，只出给店员看的核对提醒，不改完成判定
+  const fitRank = { 需核对: 1, 已核对一致: 2, 疑似不符: 3 }
+  const fitRaw = new Map()
+  adviceRows(parsed, '适配核对', 'fitments').forEach((row) => {
+    const rawName = text(row && (row['项目'] || row.partName || row.name))
+    const name = resolvePresetItemName(rawName, workNames) || resolvePresetItemName(rawName, quoteNames)
+    const verdict = text(row && (row['判断'] || row.verdict))
+    if (!name || !fitRank[verdict]) return
+    const prev = fitRaw.get(name)
+    if (prev && fitRank[prev.verdict] >= fitRank[verdict]) return
+    const read = text(row && (row['读到'] || row.read)).slice(0, 80)
+    const remind = text(row && (row['提醒'] || row.remind || row.body)).slice(0, 120)
+    // 疑似不符要有话可说，需核对要有读到的型号可抄；缺了就不出这条
+    if (verdict === '疑似不符' ? !remind : !read) return
+    fitRaw.set(name, { verdict, read, remind })
+  })
+  // 「已核对一致」只用于让路，本身不占提醒位
+  const fitByName = new Map(
+    Array.from(fitRaw.entries())
+      .filter((entry) => entry[1].verdict !== '已核对一致')
+      .sort((a, b) => fitRank[b[1].verdict] - fitRank[a[1].verdict])
+      .slice(0, 4),
+  )
   // 施工项：每项带报价归属、证据、可应用建议
   const workItemsOut = (Array.isArray(items) ? items : [])
     .map((row) => {
@@ -443,6 +467,7 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
       const quoteLine = quoteName ? quoteLines.find((item) => text(item && item.name) === quoteName) : null
       const hit = fillByName.get(name) || (quoteName ? fillByName.get(quoteName) : null) || null
       const ev = evidenceByName.get(name) || null
+      const fit = fitByName.get(name) || (quoteName ? fitByName.get(quoteName) : null) || null
       const body = !written && hit ? text(hit.body) : ''
       const polish = written && hit ? text(hit.polish) : ''
       const supplement = written && hit ? text(hit.supplement) : ''
@@ -457,6 +482,11 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
         evidence: ev ? ev.evidence : 'unknown',
         completionBasis: ev ? ev.basis : '',
         evidenceGap: ev ? ev.gap : '',
+        fitment: fit
+          ? fit.verdict === '疑似不符'
+            ? `疑似不符｜${fit.remind}${fit.read ? `（读到 ${fit.read}）` : ''}`
+            : `需核对｜${fit.read}`
+          : '',
         advice: {
           body: body.slice(0, 200),
           polish: polish.slice(0, 200),
@@ -564,7 +594,7 @@ function parseWorkAdvice(raw, items, slots, options = {}) {
   }
   return {
     scope: 'process',
-    schema: 8,
+    schema: 9,
     sequence,
     gaps,
     items: written,
@@ -1289,6 +1319,9 @@ function contextOf(album, extraNotes = {}, options = {}) {
   const deliveryFreshSlots = deliverySlots
     .filter((row) => !noteForUrl(row.url, imageNotesMap))
     .map((row, index) => ({ ...row, slot: index + 1 }))
+  // 适配核对的车型锚点：以相册登记的车辆为准（VIN 解析会带排量/发动机/变速箱），单据内容只补空。
+  // 车牌、VIN、车架号不进提示词——它们是打码对象。
+  const vehicleInfo = vehicleAnchor(album.vehicleJson, factPack.vehicle || {})
   const acceptanceImageSlots = (row) =>
     (Array.isArray(row && row.images) ? row.images : [])
       .map((img) => {
@@ -1299,6 +1332,8 @@ function contextOf(album, extraNotes = {}, options = {}) {
       .filter((slot) => slot != null)
   return {
     complaint: text(contentOfFlowNode(intake).chiefComplaint),
+    // 车型锚点：施工适配核对与检测故障分析共用；相册没认出来时为 null
+    vehicle: vehicleInfo,
     intakeBrief: intakeBrief(intake),
     intakeAdviceSummary: intakeBrief(intake),
     intakePhotoUrls: intakeSplit.fresh,
@@ -1341,6 +1376,8 @@ function contextOf(album, extraNotes = {}, options = {}) {
     quoteSummary,
     workItems: workItemRows,
     workPhotoSlots: workFreshSlots,
+    // 点刷新时把本节点施工图重新送去识图（适配核对要读的是标签文字，旧摘要里没有）
+    workPhotoSlotsAll: workSlots,
     workNoted,
     workAdviceSummary: text(workAdvice.updatedAt)
       ? {
@@ -1390,8 +1427,9 @@ function contextOf(album, extraNotes = {}, options = {}) {
 function fingerprintFor(kind, ctx) {
   const picked = kind === 'work'
     ? {
-        // v9：施工即验收，逐项按一般验收标准判完成度；说明建议含润色（完整替换句）
-        v: 'work_v9',
+        // v10：带车型做适配核对；施工图改用全部槽位，避免观察摘要落库后 fresh 变空被误标 stale
+        v: 'work_v10',
+        vehicle: ctx.vehicle || null,
         quoteLines: (ctx.quoteItemRows || []).map((row) => ({
           id: row.id,
           name: row.name,
@@ -1412,7 +1450,7 @@ function fingerprintFor(kind, ctx) {
           reason: row.reason,
         })),
         workItems: ctx.workItems,
-        workPhotos: (ctx.workPhotoSlots || []).map((row) => ({
+        workPhotos: (ctx.workPhotoSlotsAll || ctx.workPhotoSlots || []).map((row) => ({
           slot: row.slot,
           url: row.url,
           partName: row.partName,
@@ -1421,7 +1459,9 @@ function fingerprintFor(kind, ctx) {
     : kind === 'inspect'
       ? {
           // v6：指纹用「全部检测图」去参后的路径，避免观察摘要落库后 fresh 变空被误标 stale
-          v6: 'inspect_v3',
+          // inspect_v4：参考材料带车型，登记车辆变化后旧意见要重出
+          v6: 'inspect_v4',
+          vehicle: ctx.vehicle || null,
           complaint: ctx.complaint,
           inspectItems: ctx.inspectItems,
           intakeBrief: ctx.intakeBrief,
@@ -1624,8 +1664,8 @@ async function runLlm(instruction, urls, label, options = {}) {
   return textOut
 }
 
-function workInstruction(ctx) {
-  const slots = ctx.workPhotoSlots || []
+function workInstruction(ctx, photoSlots) {
+  const slots = Array.isArray(photoSlots) ? photoSlots : ctx.workPhotoSlots || []
   const accountedRows = Array.isArray(ctx.unbuiltQuoteItems) ? ctx.unbuiltQuoteItems : []
   const accountedOf = (row) =>
     accountedRows.find(
@@ -1661,6 +1701,8 @@ function workInstruction(ctx) {
       inspectNoted: ctx.inspectNoted,
       workNoted: ctx.workNoted,
     },
+    // 车型是适配核对的唯一锚点；相册没登记车系就不出适配意见
+    车辆: vehiclePromptRow(ctx.vehicle),
     报价项: quoteItems,
     // 本节点对应的报价单（原施工＝首次报价；补充施工＝它自己的补充报价）
     报价汇总: ctx.quoteSummary || null,
@@ -1684,6 +1726,8 @@ function workInstruction(ctx) {
     '5. 报价项里「交代」非空的，是商家已确认未施工（系统录入错误 / 客户要求不做）：不得再列进缺项、未施工、漏记提醒，也不要建议补做。报价有、工单无、又没交代的，必须提醒「报价有、施工无」。',
     '6. 禁止出现「交车时补拍」「交车再确认」这类把责任推给下一步的说法；缺图只能在本步补。',
     '7. 报价项只来自本节点对应的那张报价单：原施工看首次报价，补充施工只看它自己的补充报价，别的报价单的项目不属于本节点，不要当成漏项；返工施工没有新报价单，只核对工单项目。',
+    '8. 适配核对只认两样东西：参考材料里的「车辆」，和附图里真实读到的配件文字（包装标签、件体钢印、型号、OE 号、规格、适用车型）。「车辆」为空、或图上读不出任何配件文字，适配核对就返回空数组；不要凭项目名或品牌猜型号。',
+    '9. 「车辆」还用来收窄其它各步：与这台车的排量、发动机、变速箱形式对不上的工序、油品和拍照建议一律不写（登记变速箱是 8AT，「做法」里就不要出现 CVT 的换油流程）。收窄只做删除，不要为了凑车型新增没有依据的说法。',
     '',
     '判断是否施工完成，按一般维修验收标准，不只看照片够不够：',
     '- 更换件（胶套、刹车片、电瓶、轮胎等）：旧件已拆下、新件装配到位、紧固/扭矩已复紧、试车或功能检查无异常。',
@@ -1692,8 +1736,9 @@ function workInstruction(ctx) {
     '- 检查/清洁类：检查结论明确、处理动作已执行、结果可复核。',
     '- 改装/加装类：安装牢固、线路/管路规范、功能可用、不影响原车功能。',
     '判定只有两档：「已完成」或「待确认」。说明或图片能支持上述要点、无明显缺失就是「已完成」；说明缺关键动作/结果，或图片无法证明完成，就是「待确认」，并在「缺少」写明缺什么。',
+    '适配存疑不改这一档判定：判定只看工序与留证，型号疑点单独写进第 7 步，不要把「待确认」当成型号提醒。',
     '',
-    '按下面六步思考，结果都写进这一个 JSON：',
+    '按下面七步思考，结果都写进这一个 JSON：',
     '',
     '1. 完成判定：逐工单项判断是否已施工完成，写「项目」「判定」「依据」「缺少」。',
     '   判定只填「已完成」或「待确认」。依据引用已写说明或具体图片（例：图2 可见新胶套已压装、螺栓已复紧）。检查类项目看说明里的结论是否明确，不要求施工图。',
@@ -1704,12 +1749,13 @@ function workInstruction(ctx) {
     '   - 说明已写：给「修改建议」，输出完整替换句，保留原意，补上关键工序、用料参数和结果，不凭空加事实。',
     '5. 返工提醒：从照片看得出返工迹象（旧件未拆、装配不到位、漏装、油污未清等）时，写「项目」「依据」，依据必须指向具体图和画面；只提醒，不擅自把状态改成返工。',
     '6. 新增项：工单和报价都没有的图才列，写「项目」「图片」「描述」；识别不出项目就留空。',
+    '7. 适配核对：只对更换件类项目做（拆旧装新的，钣喷/清洗/检查类不写）。把第 2 步逐图归类里真实读到的配件文字原样抄进「读到」，不要改写、不要补全没看清的字符；「判断」按三档填：「已核对一致」= 标签车型或型号与「车辆」对得上；「疑似不符」= 标签写明的适用车型/车系，或规格要求的排量/发动机/变速箱与「车辆」对不上（例：车系是宝马3系，标签只写大众高尔夫可用；例：登记变速箱是 6AT，变速箱油标签写 CVT）；「需核对」= 读到了型号或 OE 号但判不了是否适用这台车。只有「疑似不符」才在「提醒」写一句给店员核对的话，「已核对一致」和判不了的不要硬凑提醒。没有读到任何配件文字的项目整条不写，适配核对没有内容就返回空数组。',
     '',
     '只写画面和单据里实际有的内容，不编。',
     '',
     `参考材料：${JSON.stringify(material)}`,
     require('./model-mask-instruction').MODEL_MASKS_INSTRUCTION,
-    '只返回 JSON：{"证据":[{"项目":"下摆臂胶套更换","判定":"已完成","依据":"图2 可见新胶套已压装，螺栓已复紧","缺少":""},{"项目":"变速箱油更换","判定":"待确认","依据":"说明只写了已换油","缺少":"放油口旧油颜色和加注量没有说明或图片"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，旧件已拆下，新件压装到位，螺栓按标准扭矩复紧，路试无异常。","修改建议":""},{"项目":"变速箱油更换","建议描述":"","修改建议":"已更换变速箱油，放出旧油颜色发黑，加注新油至标准液位，检查放油口无渗漏，试车换挡正常。"}],"返工提醒":[{"项目":"下摆臂胶套更换","依据":"图1 可见旧胶套仍装在车上，未见拆装痕迹"}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
+    '只返回 JSON：{"证据":[{"项目":"下摆臂胶套更换","判定":"已完成","依据":"图2 可见新胶套已压装，螺栓已复紧","缺少":""},{"项目":"变速箱油更换","判定":"待确认","依据":"说明只写了已换油","缺少":"放油口旧油颜色和加注量没有说明或图片"}],"逐图归类":[{"图":"图1","内容":"这张图里实际有的内容","归属":"工单项目名或报价项名，都没有写新增"}],"拆分建议":[{"项目":"制动盘检查","图片":["图2"],"描述":"这张是制动盘磨损情况。"}],"填写建议":[{"项目":"下摆臂胶套更换","建议描述":"更换了开裂的下摆臂胶套，旧件已拆下，新件压装到位，螺栓按标准扭矩复紧，路试无异常。","修改建议":""},{"项目":"变速箱油更换","建议描述":"","修改建议":"已更换变速箱油，放出旧油颜色发黑，加注新油至标准液位，检查放油口无渗漏，试车换挡正常。"}],"返工提醒":[{"项目":"下摆臂胶套更换","依据":"图1 可见旧胶套仍装在车上，未见拆装痕迹"}],"新增项":[{"项目":"","图片":["图3"],"描述":"拍到了减震器漏油。"}],"适配核对":[{"项目":"刹车片更换","图片":["图3"],"读到":"包装标签：WVA 25304，适用车型 高尔夫/速腾","判断":"疑似不符","提醒":"标签适用车型与登记的宝马3系不符，装车前核对配件号"}],"masks":[{"imageSlot":1,"regions":[{"kind":"face","left":0,"top":0,"width":0,"height":0}]}]}',
   ].join('\n')
 }
 
@@ -1753,7 +1799,11 @@ function inspectionInstruction(ctx, options = {}) {
     : '- 本次没有检测图'
   const material = {
     客户诉求: payload.complaint || '',
+    车辆: vehiclePromptRow(ctx.vehicle),
   }
+  // 车型只用来收窄，不用来加戏：排除不相干的可能，不凭车型编造本单依据
+  const vehicleRule =
+    '「车辆」只用来排除与这台车不相干的可能和检查项（例如登记的变速箱是 8AT，就不要写 CVT 特有的故障）；不要凭车型新增没有依据的原因。'
   if (!byFinding.size) {
     return [
       '你是修理厂的检测顾问，帮店员整理检测这一步的意见。',
@@ -1761,6 +1811,7 @@ function inspectionInstruction(ctx, options = {}) {
       '',
       '1. 故障分析只根据接车时的客户诉求。',
       '从专业汽修的角度，把这个症状所有可能的原因列出来，按可能性从高到低排。',
+      vehicleRule,
       '每种可能占一段，用1、2、3、4分行。写入「故障分析」。',
       '',
       '2. 「建议补充检测」写出接下来要查的项目，一段一项。没有照片，就不要从这份清单里删项。',
@@ -1780,6 +1831,7 @@ function inspectionInstruction(ctx, options = {}) {
     '',
     '1. 故障分析只根据接车时的客户诉求，不要看这次上传的检测照片。',
     '从专业汽修的角度，把这个症状所有可能的原因列出来，按可能性从高到低排。',
+    vehicleRule,
     '每种可能占一段，用1、2、3、4分行。写入「故障分析」。',
     '',
     '2. 再单独看照片。按图1、图2的顺序，每张图独立看，前面的图不影响后面的图。',
@@ -1919,13 +1971,17 @@ async function runJob(albumId, kind, options = {}) {
     const { field, nodeKind } = nodeField(kind)
     const nodeId = text(options && options.nodeId)
     const patchOpts = { nodeId: kind === 'work' ? nodeId : '' }
-    // 检测：默认只送还没有观察摘要的图。点刷新才把本步检测图再送进去。
+    // 检测/施工：默认只送还没有观察摘要的图。点刷新才把本步的图再送进去。
     const inspectFresh = ctx.inspectPhotoUrls || []
     const inspectAll = ctx.inspectPhotoUrlsAll || inspectFresh
     const reVisionInspect = kind === 'inspect' && force
+    const reVisionWork = kind === 'work' && force
+    const workSlots = reVisionWork
+      ? ctx.workPhotoSlotsAll || ctx.workPhotoSlots || []
+      : ctx.workPhotoSlots || []
     const urls =
       kind === 'work'
-        ? (ctx.workPhotoSlots || []).map((row) => row.url)
+        ? workSlots.map((row) => row.url)
         : kind === 'inspect'
           ? (reVisionInspect ? inspectAll : inspectFresh)
           : ctx.deliveryPhotoUrls || []
@@ -1933,7 +1989,7 @@ async function runJob(albumId, kind, options = {}) {
       kind === 'inspect'
         ? buildSlotByUrl(ctx.inspectPhotoSlots)
         : kind === 'work'
-          ? buildSlotByUrl(ctx.workPhotoSlots)
+          ? buildSlotByUrl(workSlots)
           : kind === 'delivery'
             ? buildSlotByUrl(ctx.deliveryPhotoSlots)
             : null
@@ -1948,7 +2004,7 @@ async function runJob(albumId, kind, options = {}) {
     const inspectOpts = { force: reVisionInspect, visionUrls: urls }
     let raw = await runLlm(
       kind === 'work'
-        ? workInstruction(ctx)
+        ? workInstruction(ctx, workSlots)
         : kind === 'inspect'
           ? inspectionInstruction(ctx, inspectOpts)
           : deliveryInstruction(ctx),
@@ -1957,7 +2013,7 @@ async function runJob(albumId, kind, options = {}) {
       llmOpts,
     )
     let parsed = kind === 'work'
-      ? parseWorkAdvice(raw, ctx.workItems, ctx.workPhotoSlots, {
+      ? parseWorkAdvice(raw, ctx.workItems, workSlots, {
           quoteLines: ctx.quoteItemRows,
           unbuiltQuoteItems: ctx.unbuiltQuoteItems,
         })
@@ -2155,8 +2211,8 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
     updatedAt: text(advice.updatedAt),
   }
   if (kind === 'work') {
-    // 旧结果（schema<8）视为过时，引导刷新
-    const workOutdated = Number(advice.schema || 1) < 8
+    // 旧结果（schema<9）没有适配核对，视为过时，引导刷新
+    const workOutdated = Number(advice.schema || 1) < 9
     return {
       ...base,
       stale: stale || (workOutdated && (status === 'ready' || hasBody)),
@@ -2202,6 +2258,8 @@ function sanitizeStepAdviceForView(advice, kind, options = {}) {
 module.exports = {
   queueWorkAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'work', options),
   queueInspectionAdviceIfNeeded: (album, options) => queueIfNeeded(album, 'inspect', options),
+  workInstruction,
+  inspectionInstruction,
   fingerprintFor,
   contextOf,
   sanitizeStepAdviceForView,
