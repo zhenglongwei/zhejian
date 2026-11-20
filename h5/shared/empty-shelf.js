@@ -9,7 +9,7 @@
 
   function renderOwnerEmpty(options) {
     options = options || {}
-    var heading = options.heading || '让真实被看见'
+    var heading = options.heading || '用真实重构信任'
     var titleTag = options.titleTag === 'h2' ? 'h2' : 'h1'
     var titleClass = titleTag === 'h2' ? 'h5-section-title' : 'h5-title'
     var lead =

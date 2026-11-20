@@ -66,7 +66,7 @@
   }
 
   function setPageMeta() {
-    var title = '让真实被看见 · 辙见公开案例站'
+    var title = '用真实重构信任 · 辙见公开案例站'
     var desc = '这里展示用户选择公开的案例。现阶段以修理厂商家为主。'
     document.title = title
     ensureMeta('name', 'description', desc)
@@ -311,14 +311,14 @@
 
     var hero = hasCases
       ? '<header class="h5-header h5-home-hero">' +
-        '<h1 class="h5-title">让真实被看见</h1>' +
+        '<h1 class="h5-title">用真实重构信任</h1>' +
         '<p class="h5-summary">' +
         escapeHtml(identity) +
         '</p>' +
         '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p>' +
         '</header>'
       : '<header class="h5-header h5-home-hero">' +
-        '<h1 class="h5-title">让真实被看见</h1>' +
+        '<h1 class="h5-title">用真实重构信任</h1>' +
         '<p class="h5-summary">这里展示用户选择公开的案例。现阶段以修理厂商家为主。</p>' +
         '</header>'
 
@@ -350,7 +350,7 @@
     app.innerHTML =
       '<div class="h5-page">' +
       '<header class="h5-header">' +
-      '<h1 class="h5-title">让真实被看见</h1>' +
+      '<h1 class="h5-title">用真实重构信任</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(message) +
       '</p>' +

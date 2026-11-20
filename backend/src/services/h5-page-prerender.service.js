@@ -60,11 +60,11 @@ function buildWebPageGraph({ canonicalPath, title, description, faq }) {
 
 async function renderHomeHtml() {
   const data = await getHomePayload()
-  const title = '让真实被看见 · 辙见公开案例站'
+  const title = '用真实重构信任 · 辙见公开案例站'
   const description = '这里展示用户选择公开的案例。现阶段以修理厂商家为主。'
   const canonical = absoluteUrl('/')
   const bodyHtml = [
-    `<h1>让真实被看见</h1>`,
+    `<h1>用真实重构信任</h1>`,
     `<section data-bot="ai-summary"><h2>站点说明</h2><p>${escapeHtml(description)}</p></section>`,
     data.serviceEntries && data.serviceEntries.length
       ? `<section><h2>服务项目</h2>${listLinks(
