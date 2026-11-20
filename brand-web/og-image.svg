@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0f5ff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#wash)"/>
+  <g fill="none" stroke="#dfe8f7" stroke-width="14" stroke-linecap="round">
+    <path d="M760 190c90-90 180-90 270 0s180 90 270 0"/>
+    <path d="M760 330c90-90 180-90 270 0s180 90 270 0"/>
+  </g>
+  <rect x="80" y="72" width="52" height="52" rx="12" fill="#0f5fff"/>
+  <g fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round">
+    <path d="M92 92c5-5 10-5 14 0s10 5 14 0"/>
+    <path d="M92 108c5-5 10-5 14 0s10 5 14 0"/>
+  </g>
+  <text x="148" y="108" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="27" font-weight="600" fill="#1a2332">盈简科技</text>
+  <text x="80" y="292" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="86" font-weight="700" fill="#1a2332">用真实重构信任</text>
+  <text x="82" y="368" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="30" fill="#5a6a7e">网上营销信息远多于真实信息，AI 的答案因此偏离真实。</text>
+  <text x="82" y="418" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="30" fill="#5a6a7e">我们把真实业务整理成可核对的案例，不用营销口号润色。</text>
+  <text x="82" y="530" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="24" font-weight="600" fill="#0f5fff">simplewin.cn · 汽修方向的产品是辙见</text>
+</svg>
